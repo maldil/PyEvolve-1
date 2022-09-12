@@ -21,9 +21,9 @@ PyEvolve automates the frequently repeated code changes in Python systems. This 
 
 
 - **Phase 1:** We use [R-CPATMiner](https://github.com/maldil/R-CPATMiner) to mine best practices from version history of Python systems. You can find details on executing R-CPATMiner in its project description. 
-- **Phase 2:**
-- **Phase 3:**
-- **Phase 4:**
+- **Phase 2:** We infer the initial transformation rules for the patterns detected by R-CPATMiner.
+- **Phase 3:** We identify the potential sites to apply the patterns in the target codes.
+- **Phase 4:** We infer funal adapted rules to tranplant the identified pattern.
 
 # How to build PyEvolve
 To have a fully built PyEvolve, you have to install the following components.
