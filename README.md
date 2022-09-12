@@ -74,6 +74,6 @@ String adaptedCode = adaptor.adaptFunction(imports, guards, lpatternModule, rpat
 
 
 # Research
-
+We will add citation information as soon as possible.
 # License
 All software provided in this repository is subject to the [Apache License Version 2.0](LICENSE).
