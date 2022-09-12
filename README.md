@@ -63,9 +63,9 @@ We will now describe the APIs that can be used for above modification.
 ### 1. With pattern and target function as input
 ```java
 MainAdaptor adaptor = new MainAdaptor();
-Module codeModule = getPythonModule("/pathToFunction.py"); // pathToFunction is the String value of the file path
-Module lpatternModule = getPythonModuleForTemplate("/pathToLPattern.py");// pathToLPattern is the String value of the file path which has LHS of the pattern
-Module rpatternModule = getPythonModuleForTemplate("/pathToRPattern.py"); // pathToRFunction is the String value of the file path which has RHS of the pattern
+Module codeModule = getPythonModule("/pathToFunction.py"); // pathToFunction is the String value of the file path which contains the above target code.
+Module lpatternModule = getPythonModuleForTemplate("/pathToLPattern.py");// pathToLPattern is the string value of the file path which has the LHS of the pattern.
+Module rpatternModule = getPythonModuleForTemplate("/pathToRPattern.py"); // pathToRFunction is the string value of the file path which has the RHS of the pattern.
 List<stmt> imports = lpatternModule.getInternalBody().stream().filter(x -> x instanceof Import
                 || x instanceof ImportFrom).collect(Collectors.toList());
 Guards guards = new Guards("/pathToLPattern.py",lpatternModule);
