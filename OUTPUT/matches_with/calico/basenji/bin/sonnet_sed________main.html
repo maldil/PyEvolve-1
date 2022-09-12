@@ -1,0 +1,259 @@
+<link rel="stylesheet" href="../../..//default.css">
+<script src="../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/calico/basenji/blob/master/bin/sonnet_sed.py#L52">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/basenji/blob/master/bin/sonnet_sed.py#L52">GitMyHubLink</a>
+
+&#47&#47!/usr/bin/env python
+&#47&#47 Copyright 2017 Calico LLC
+&#47&#47
+&#47&#47 Licensed under the Apache License, Version 2.0 (the "License");
+&#47&#47 you may not use this file except in compliance with the License.
+&#47&#47 You may obtain a copy of the License at
+&#47&#47
+&#47&#47     https://www.apache.org/licenses/LICENSE-2.0
+&#47&#47
+&#47&#47 Unless required by applicable law or agreed to in writing, software
+&#47&#47 distributed under the License is distributed on an "AS IS" BASIS,
+&#47&#47 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+&#47&#47 See the License for the specific language governing permissions and
+&#47&#47 limitations under the License.
+&#47&#47 =========================================================================
+from __future__ import print_function
+
+from optparse import OptionParser
+import json
+import pickle
+import os
+import pdb
+from queue import Queue
+import sys
+from threading import Thread
+import time
+
+import h5py
+import numpy as np
+import pandas as pd
+import pysam
+import tensorflow as tf
+if tf.__version__[0] == &quot1&quot:
+  tf.compat.v1.enable_eager_execution()
+
+from basenji import dna_io
+from basenji import seqnn
+from basenji import stream
+from basenji import vcf as bvcf
+from basenji_sed import initialize_output_h5, make_1hot_alt, read_tss_bed, write_snp
+
+&quot&quot&quot
+sonnet_sed.py
+
+Compute SNP Expression Difference (SED) scores for SNPs in a VCF file,
+relative to gene TSS in a BED file.
+&quot&quot&quot
+
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+&#47&#47 main
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+def main():
+  <a id="change">usage = &quotusage: %prog [options] &lt;model&gt; &lt;vcf_file&gt; &lt;tss_bed_file&gt;&quot</a>
+  <a id="change">parser = OptionParser(usage)</a>
+  parser.add_option(&quot-b&quot, dest=&quotbatch_size&quot,
+      default=4, type=&quotint&quot,
+      help=&quotBatch size [Default: %default]&quot)
+  parser.add_option(&quot-c&quot, dest=&quotslice_center&quot,
+      default=None, type=&quotint&quot,
+      help=&quotSlice center positions [Default: %default]&quot)
+  parser.add_option(&quot-f&quot, dest=&quotgenome_fasta&quot,
+      default=&quot%s/data/hg38.fa&quot % os.environ[&quotBASENJIDIR&quot],
+      help=&quotGenome FASTA for sequences [Default: %default]&quot)
+  parser.add_option(&quot-n&quot, dest=&quotnorm_file&quot,
+      default=None,
+      help=&quotNormalize SED scores&quot)
+  parser.add_option(&quot-o&quot,dest=&quotout_dir&quot,
+      default=&quotsed&quot,
+      help=&quotOutput directory for tables and plots [Default: %default]&quot)
+  parser.add_option(&quot-p&quot, dest=&quotprocesses&quot,
+      default=None, type=&quotint&quot,
+      help=&quotNumber of processes, passed by multi script&quot)
+  parser.add_option(&quot--pseudo&quot, dest=&quotlog_pseudo&quot,
+      default=1, type=&quotfloat&quot,
+      help=&quotLog2 pseudocount [Default: %default]&quot)
+  parser.add_option(&quot--rc&quot, dest=&quotrc&quot,
+      default=False, action=&quotstore_true&quot,
+      help=&quotAverage forward and reverse complement predictions [Default: %default]&quot)
+  parser.add_option(&quot--shifts&quot, dest=&quotshifts&quot,
+      default=&quot0&quot, type=&quotstr&quot,
+      help=&quotEnsemble prediction shifts [Default: %default]&quot)
+  parser.add_option(&quot--species&quot, dest=&quotspecies&quot,
+      default=&quothuman&quot)
+  parser.add_option(&quot--stats&quot, dest=&quotsed_stats&quot,
+      default=&quotSED&quot,
+      help=&quotComma-separated list of stats to save. [Default: %default]&quot)
+  parser.add_option(&quot-t&quot, dest=&quottargets_file&quot,
+      default=None, type=&quotstr&quot,
+      help=&quotFile specifying target indexes and labels in table format&quot)
+  <a id="change">(options, args) = parser.parse_args()</a>
+
+  if len(args) == 3:
+    &#47&#47 single worker
+    <a id="change">model_file = args[0]</a>
+    <a id="change">vcf_file = args[1]</a>
+    <a id="change">tss_bed_file = args[2]</a>
+
+  elif len(args) == 4:
+    &#47&#47 multi separate
+    <a id="change">options_pkl_file = args[0]</a>
+    <a id="change">model_file = args[1]</a>
+    <a id="change">vcf_file = args[2]</a>
+    <a id="change">tss_bed_file = args[3]</a>
+
+    &#47&#47 save out dir
+    <a id="change">out_dir = options.out_dir</a>
+
+    &#47&#47 load options
+    <a id="change">options_pkl = open(options_pkl_file, &quotrb&quot)</a>
+    <a id="change">options = pickle.load(options_pkl)</a>
+    <a id="change">options_pkl</a><a id="change">.close()</a>
+
+    &#47&#47 update output directory
+    <a id="change">options.out_dir = out_dir</a>
+
+  elif len(args) == 5:
+    &#47&#47 multi worker
+    <a id="change">options_pkl_file = args[0]</a>
+    <a id="change">model_file = args[1]</a>
+    <a id="change">vcf_file = args[2]</a>
+    <a id="change">tss_bed_file = args[3]</a>
+    <a id="change">worker_index = int(args[4])</a>
+
+    &#47&#47 load options
+    <a id="change">options_pkl = open(options_pkl_file, &quotrb&quot)</a>
+    <a id="change">options = pickle.load(options_pkl)</a>
+    <a id="change">options_pkl</a><a id="change">.close()</a>
+
+    &#47&#47 update output directory
+    <a id="change">options.out_dir = &quot%s/job%d&quot % (options.out_dir, worker_index)</a>
+
+  else:
+    parser.error(&quotMust provide model, VCF, and gene TSS files&quot)
+
+  if not os.path.isdir(options.out_dir):
+    os.mkdir(options.out_dir)
+
+  <a id="change">options.shifts = [int(shift) for shift in options.shifts.split(&quot,&quot)]</a>
+  <a id="change">options.sed_stats = options.sed_stats.split(&quot,&quot)</a>
+
+  if options.targets_file is None:
+    <a id="change">target_slice = None</a>
+  else:
+    <a id="change">targets_df = pd.read_csv(options.targets_file, sep=&quot\t&quot, index_col=0)</a>
+    <a id="change">target_ids = targets_df.identifier</a>
+    <a id="change">target_labels = targets_df.description</a>
+    <a id="change">target_slice = targets_df.index</a>
+
+  &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+  &#47&#47 setup model
+
+  <a id="change">seqnn_model = tf.saved_model.load(model_file).model</a>
+
+  &#47&#47 query num model targets 
+  <a id="change">seq_length = seqnn_model.predict_on_batch.input_signature[0].shape[1]</a>
+  <a id="change">null_1hot = np.zeros((1,seq_length,4))</a>
+  <a id="change">null_preds = seqnn_model.predict_on_batch(null_1hot)</a>
+  <a id="change">null_preds = null_preds[options.species].numpy()</a>
+  <a id="change">_, targets_length, num_targets = null_preds.shape</a>
+
+  if options.targets_file is None:
+    <a id="change">target_ids = [&quott%d&quot % ti for ti in range(num_targets)]</a>
+    <a id="change">target_labels = [&quot&quot]*len(target_ids)</a>
+
+  &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+  &#47&#47 read SNPs / genes
+
+  &#47&#47 read SNPs from VCF
+  <a id="change">snps = bvcf.vcf_snps(vcf_file)</a>
+  <a id="change">num_snps = len(snps)</a>
+
+  &#47&#47 read TSS from BED
+  <a id="change">tss_seqs = read_tss_bed(tss_bed_file, seq_length)</a>
+
+  &#47&#47 filter for worker TSS
+  if options.processes is not None:
+    <a id="change">worker_bounds = np.linspace(0, len(tss_seqs), options.processes+1, dtype=&quotint&quot)</a>
+    <a id="change">wstart = worker_bounds[worker_index]</a>
+    <a id="change">wend = worker_bounds[worker_index+1]</a>
+    <a id="change">tss_seqs = tss_seqs[wstart:wend]</a>
+
+  &#47&#47 map TSS index to SNP indexes
+  <a id="change">tss_snps = bvcf.intersect_seqs_snps(vcf_file, tss_seqs)</a>
+
+  &#47&#47 open genome FASTA
+  <a id="change">fasta_open = pysam.Fastafile(options.genome_fasta)</a>
+
+  def seq_gen():
+    for si, tss_seq in enumerate(tss_seqs):
+      ref_1hot = tss_seq.make_1hot(fasta_open)
+      yield ref_1hot
+
+      for vi in tss_snps[si]:
+        alt_1hot = make_1hot_alt(ref_1hot, tss_seq.start, snps[vi])
+        yield alt_1hot
+
+
+  &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+  &#47&#47 setup output
+
+  <a id="change">sed_out = initialize_output_h5(options.out_dir, options.sed_stats, tss_seqs, tss_snps,
+                                 snps, target_ids, target_labels, targets_length)</a>
+
+
+  &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+  &#47&#47 predict SNP scores, write output
+
+  &#47&#47 initialize predictions stream
+  <a id="change">preds_stream = stream.PredStreamSonnet(seqnn_model, seq_gen(),
+    rc=options.rc, shifts=options.shifts, species=options.species, 
+    slice_center=options.slice_center, batch_size=options.batch_size)</a>
+
+  &#47&#47 predictions index
+  <a id="change">pi = 0</a>
+
+  &#47&#47 TSS/SNP index
+  <a id="change">xi = 0</a>
+
+  for si, tss_seq in enumerate(tss_seqs):
+    &#47&#47 get reference predictions
+    <a id="change">ref_preds = preds_stream[pi]</a>
+    pi += 1
+
+    &#47&#47 for each variant
+    for vi in tss_snps[si]:
+
+      &#47&#47 get alternative predictions
+      <a id="change">alt_preds = preds_stream[pi]</a>
+      pi += 1
+
+      write_snp(ref_preds, alt_preds, sed_out, xi,
+                options.sed_stats, options.log_pseudo)
+      xi += 1
+
+  &#47&#47 close genome
+  fasta_open.close()
+
+  &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+  &#47&#47 compute SAD distributions across variants
+
+  &#47&#47 write_pct(sed_out, options.sed_stats)
+  sed_out.close()
+
+
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+&#47&#47 __main__
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+if __name__ == &quot__main__&quot:
+  main()
+</code></pre>

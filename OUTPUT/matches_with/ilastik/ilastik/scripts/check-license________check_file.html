@@ -1,0 +1,100 @@
+<link rel="stylesheet" href="../../..//default.css">
+<script src="../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/ilastik/ilastik/blob/main/scripts/check-license.py#L51">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/ilastik/blob/main/scripts/check-license.py#L51">GitMyHubLink</a>
+
+from __future__ import print_function
+
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+&#47&#47   ilastik: interactive learning and segmentation toolkit
+&#47&#47
+&#47&#47       Copyright (C) 2011-2014, the ilastik developers
+&#47&#47                                &lt;team@ilastik.org&gt;
+&#47&#47
+&#47&#47 This program is free software; you can redistribute it and/or
+&#47&#47 modify it under the terms of the GNU General Public License
+&#47&#47 as published by the Free Software Foundation; either version 2
+&#47&#47 of the License, or (at your option) any later version.
+&#47&#47
+&#47&#47 In addition, as a special exception, the copyright holders of
+&#47&#47 ilastik give you permission to combine ilastik with applets,
+&#47&#47 workflows and plugins which are not covered under the GNU
+&#47&#47 General Public License.
+&#47&#47
+&#47&#47 See the LICENSE file for details. License information is also available
+&#47&#47 on the ilastik web site at:
+&#47&#47 		   http://ilastik.org/license.html
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+&#47&#47!/usr/bin/env/python
+
+import os
+import glob
+
+gplv2orlater = &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+&#47&#47   ilastik: interactive learning and segmentation toolkit
+&#47&#47
+&#47&#47       Copyright (C) 2011-2014, the ilastik developers
+&#47&#47                                &lt;team@ilastik.org&gt;
+&#47&#47
+&#47&#47 This program is free software; you can redistribute it and/or
+&#47&#47 modify it under the terms of the GNU General Public License
+&#47&#47 as published by the Free Software Foundation; either version 2
+&#47&#47 of the License, or (at your option) any later version.
+&#47&#47
+&#47&#47 In addition, as a special exception, the copyright holders of
+&#47&#47 ilastik give you permission to combine ilastik with applets,
+&#47&#47 workflows and plugins which are not covered under the GNU
+&#47&#47 General Public License.
+&#47&#47
+&#47&#47 See the LICENSE file for details. License information is also available
+&#47&#47 on the ilastik web site at:
+&#47&#47		   http://ilastik.org/license.html
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+
+
+
+def check_file(<a id="change">fname</a>):
+    if fname in ["../docs/conf.py"]:
+        return
+
+    &#47&#47 print "checking %s" % fname
+    assert os.path.exists(fname)
+    <a id="change">f = open(fname, "r")</a>
+    <a id="change">lines = f.readlines()</a>
+    <a id="change">f</a><a id="change">.close()</a>
+
+    <a id="change">firstline = None</a>
+
+    if len(lines) and lines[0].startswith("&#47&#47!"):
+        print("shebang in %s" % fname)
+        <a id="change">firstline = lines[0]</a>
+        <a id="change">c = "".join(lines[1:])</a>
+    elif len(lines) and "coding" in lines[0]:
+        print("coding in %s" % fname)
+        <a id="change">firstline = lines[0]</a>
+        <a id="change">c = "".join(lines[1:])</a>
+    else:
+        <a id="change">c = "".join(lines)</a>
+
+    if not c.startswith(gplv2orlater):
+        <a id="change">f = open(fname, "w")</a>
+        if firstline is not None:
+            f.write(firstline)
+            f.write("\n")
+        f.write(gplv2orlater)
+        f.write(c)
+        <a id="change">f</a><a id="change">.close()</a>
+
+
+def check_directory(arg, dirname, name):
+    for fname in sorted(glob.glob("%s/*.py" % dirname)):
+        check_file(fname)
+
+
+if __name__ == "__main__":
+    os.path.walk("../", check_directory, "")
+</code></pre>

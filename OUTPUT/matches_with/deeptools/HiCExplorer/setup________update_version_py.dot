@@ -1,0 +1,172 @@
+digraph G {
+1 [label="(53311992)bytes(stdout)" shape=ellipse style=dashed]
+2 [label="(53311989)return" shape=box style=dashed]
+3 [label="(53312002)str(VERSION_PY)" shape=ellipse style=dashed]
+4 [label="(53311966)String(lit(--tags))" shape=ellipse style=dashed]
+5 [label="(53311988)String(lit(unable to run git, leaving hicexplorer/_version.py alone))" shape=ellipse style=dashed]
+6 [label="(53311990)empty" shape=box style=dashed]
+7 [label="(53311969)=" shape=box style=dashed color=blue fontcolor=blue]
+8 [label="(53311996)open" shape=box style=dashed color=red fontcolor=red]
+9 [label="(53311958)return" shape=box style=dashed]
+10 [label="(53311952)String(lit(.git))" shape=ellipse style=dashed]
+11 [label="(53312001)write" shape=box style=dashed]
+12 [label="(53311983)number(0)" shape=ellipse style=dashed]
+13 [label="(53311956)print" shape=box style=dashed]
+14 [label="(53311977)communicate" shape=box style=dashed]
+15 [label="(53312006)close" shape=box style=dashed color=red fontcolor=red]
+16 [label="(53311961)subprocess.Popen[bytes](p)" shape=ellipse style=dashed]
+17 [label="(53311965)String(lit(describe))" shape=ellipse style=dashed]
+18 [label="(53311955)empty" shape=box style=dashed]
+19 [label="(53311981)subprocess.Popen[bytes](p)" shape=ellipse style=dashed]
+20 [label="(53311979)number(0)" shape=ellipse style=dashed]
+21 [label="(53311972)print" shape=box style=dashed]
+22 [label="(53311976)subprocess.Popen[bytes](p)" shape=ellipse style=dashed]
+23 [label="(53311960)TryExcept" shape=diamond style=dashed]
+24 [label="(53311964)String(lit(git))" shape=ellipse style=dashed]
+25 [label="(53311973)String(lit(unable to run git, leaving hicexplorer/_version.py alone))" shape=ellipse style=dashed]
+26 [label="(53311978)subprocess.Popen[bytes].communicate()[.](Subscript)" shape=ellipse style=dashed]
+27 [label="(53311975)bytes(stdout)" shape=ellipse style=dashed]
+28 [label="(53311993)strip" shape=box style=dashed]
+29 [label="(53311997)String(lit(hicexplorer/_version.py))" shape=ellipse style=dashed color=red fontcolor=red]
+30 [label="(53311962)subprocess(subprocess)" shape=ellipse style=dashed]
+31 [label="(53311982)subprocess.Popen[bytes].returncode(returncode)" shape=ellipse style=dashed]
+32 [label="(53312000)TextIO(f)" shape=ellipse style=dashed]
+33 [label="(53311957)String(lit(This does not appear to be a Git repository.))" shape=ellipse style=dashed]
+34 [label="(53312008)String(lit(set hicexplorer/_version.py to '%s'))" shape=ellipse style=dashed]
+35 [label="(53311970)AST" shape=diamond style=dashed]
+36 [label="(53312003)bytes(ver)" shape=ellipse style=dashed]
+37 [label="(53311999)=" shape=box style=dashed color=red fontcolor=red]
+38 [label="(53311971)empty" shape=box style=dashed]
+39 [label="(53311954)If" shape=diamond style=dashed]
+40 [label="(53311986)empty" shape=box style=dashed]
+41 [label="(53311980)=" shape=box style=dashed color=red fontcolor=red]
+42 [label="(53311963)Popen" shape=box style=dashed]
+43 [label="(53312011)END" style=dashed]
+44 [label="(53311953)Not" shape=box style=dashed]
+45 [label="(53311967)String(lit(--always))" shape=ellipse style=dashed]
+46 [label="(53311968)[list]" shape=box style=dashed]
+47 [label="(53311949)os(os)" shape=ellipse style=dashed]
+48 [label="(53312009)bytes(ver)" shape=ellipse style=dashed]
+49 [label="(53311987)print" shape=box style=dashed]
+50 [label="(53311984)NotEq" shape=box style=dashed]
+51 [label="(53311985)If" shape=diamond style=dashed]
+52 [label="(53311994)=" shape=box style=dashed color=black fontcolor=black]
+53 [label="(53311998)String(lit(w))" shape=ellipse style=dashed color=red fontcolor=red]
+54 [label="(53312005)TextIO(f)" shape=ellipse style=dashed color=red fontcolor=red]
+55 [label="(53311948)START" style=dashed]
+56 [label="(53312007)print" shape=box style=dashed]
+57 [label="(53312004)Mod" shape=box style=dashed]
+58 [label="(53311951)isdir" shape=box style=dashed]
+59 [label="(53311974)return" shape=box style=dashed]
+60 [label="(53312010)Mod" shape=box style=dashed]
+61 [label="(53311959)empty" shape=box style=dashed]
+62 [label="(53311995)TextIO(f)" shape=ellipse style=dashed color=red fontcolor=red]
+63 [label="(53311950)os.path(path)" shape=ellipse style=dashed]
+64 [label="(53311991)bytes(ver)" shape=ellipse style=dashed]
+27 -> 1 [label="ref" style=dotted];
+51 -> 2 [label="T"];
+49 -> 2 [label="dep" style=dotted];
+51 -> 6 [label="F"];
+23 -> 7 [label="T"];
+42 -> 7 [label="dep" style=dotted];
+42 -> 7 [label="para" style=dotted];
+51 -> 8 [label="F"];
+29 -> 8 [label="para" style=dotted];
+53 -> 8 [label="para" style=dotted];
+52 -> 8 [label="dep" style=dotted];
+39 -> 9 [label="T"];
+13 -> 9 [label="dep" style=dotted];
+51 -> 11 [label="F"];
+32 -> 11 [label="recv" style=dotted];
+57 -> 11 [label="dep" style=dotted];
+57 -> 11 [label="para" style=dotted];
+37 -> 11 [label="dep" style=dotted];
+39 -> 13 [label="T"];
+33 -> 13 [label="para" style=dotted];
+18 -> 13 [label="dep" style=dotted];
+39 -> 14 [label="F"];
+22 -> 14 [label="recv" style=dotted];
+7 -> 14 [label="dep" style=dotted];
+51 -> 15 [label="F"];
+54 -> 15 [label="recv" style=dotted];
+11 -> 15 [label="dep" style=dotted];
+7 -> 16 [label="def" style=dotted];
+39 -> 18 [label="T"];
+35 -> 21 [label="" style=solid];
+25 -> 21 [label="para" style=dotted];
+38 -> 21 [label="dep" style=dotted];
+39 -> 23 [label="F"];
+61 -> 23 [label="dep" style=dotted];
+14 -> 26 [label="qual" style=dotted];
+20 -> 26 [label="para" style=dotted];
+41 -> 27 [label="def" style=dotted];
+51 -> 28 [label="F"];
+1 -> 28 [label="recv" style=dotted];
+6 -> 28 [label="dep" style=dotted];
+19 -> 31 [label="qual" style=dotted];
+62 -> 32 [label="ref" style=dotted];
+23 -> 35 [label="F"];
+64 -> 36 [label="ref" style=dotted];
+51 -> 37 [label="F"];
+8 -> 37 [label="dep" style=dotted];
+8 -> 37 [label="para" style=dotted];
+35 -> 38 [label="" style=solid];
+55 -> 39 [label="" style=solid];
+44 -> 39 [label="dep" style=dotted];
+44 -> 39 [label="cond" style=dotted];
+51 -> 40 [label="T"];
+39 -> 41 [label="F"];
+26 -> 41 [label="para" style=dotted];
+23 -> 42 [label="T"];
+30 -> 42 [label="recv" style=dotted];
+46 -> 42 [label="dep" style=dotted];
+46 -> 42 [label="para" style=dotted];
+2 -> 43 [label="dep" style=dotted];
+59 -> 43 [label="dep" style=dotted];
+9 -> 43 [label="dep" style=dotted];
+56 -> 43 [label="dep" style=dotted];
+55 -> 44 [label="" style=solid];
+58 -> 44 [label="dep" style=dotted];
+58 -> 44 [label="para" style=dotted];
+23 -> 46 [label="T"];
+24 -> 46 [label="para" style=dotted];
+17 -> 46 [label="para" style=dotted];
+4 -> 46 [label="para" style=dotted];
+45 -> 46 [label="para" style=dotted];
+64 -> 48 [label="ref" style=dotted];
+51 -> 49 [label="T"];
+5 -> 49 [label="para" style=dotted];
+40 -> 49 [label="dep" style=dotted];
+39 -> 50 [label="F"];
+31 -> 50 [label="para" style=dotted];
+12 -> 50 [label="para" style=dotted];
+41 -> 50 [label="dep" style=dotted];
+39 -> 51 [label="F"];
+50 -> 51 [label="dep" style=dotted];
+50 -> 51 [label="cond" style=dotted];
+51 -> 52 [label="F"];
+28 -> 52 [label="dep" style=dotted];
+28 -> 52 [label="para" style=dotted];
+62 -> 54 [label="ref" style=dotted];
+51 -> 56 [label="F"];
+60 -> 56 [label="dep" style=dotted];
+60 -> 56 [label="para" style=dotted];
+15 -> 56 [label="dep" style=dotted];
+51 -> 57 [label="F"];
+3 -> 57 [label="para" style=dotted];
+36 -> 57 [label="para" style=dotted];
+37 -> 57 [label="dep" style=dotted];
+55 -> 58 [label="" style=solid];
+63 -> 58 [label="recv" style=dotted];
+10 -> 58 [label="para" style=dotted];
+35 -> 59 [label="" style=solid];
+21 -> 59 [label="dep" style=dotted];
+51 -> 60 [label="F"];
+34 -> 60 [label="para" style=dotted];
+48 -> 60 [label="para" style=dotted];
+15 -> 60 [label="dep" style=dotted];
+39 -> 61 [label="F"];
+37 -> 62 [label="def" style=dotted];
+47 -> 63 [label="qual" style=dotted];
+52 -> 64 [label="def" style=dotted];
+}

@@ -1,0 +1,1493 @@
+<link rel="stylesheet" href="../../..//default.css">
+<script src="../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/merenlab/anvio/blob/master/anvio/bottleroutes.py#L1272">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/anvio/blob/master/anvio/bottleroutes.py#L1272">GitMyHubLink</a>
+
+&#47&#47 -*- coding: utf-8
+&#47&#47 pylint: disable=line-too-long
+
+    Common routes for bottle web server.
+
+    Functions defined here are used from wihtin programs such as
+    anvi-interactive, or anvi-refine.
+
+
+import os
+import re
+import io
+import sys
+import math
+import copy
+import time
+import json
+import base64
+import random
+import getpass
+import argparse
+import datetime
+import importlib
+
+from hashlib import md5
+from ete3 import Tree
+from bottle import Bottle
+from bottle import BaseRequest
+from bottle import redirect, static_file
+
+&#47&#47 multiprocess is a fork of multiprocessing that uses the dill serializer instead of pickle
+&#47&#47 using the multiprocessing module directly results in a pickling error in Python 3.10 which
+&#47&#47 goes like this:
+&#47&#47
+&#47&#47   &gt;&gt;&gt; AttributeError: Can&quott pickle local object &quotSOMEFUNCTION.&lt;locals&gt;.&lt;lambda&gt;&quot multiprocessing
+&#47&#47
+import multiprocess as multiprocessing
+
+import anvio
+import anvio.dbops as dbops
+import anvio.utils as utils
+import anvio.drivers as drivers
+import anvio.terminal as terminal
+import anvio.constants as constants
+import anvio.summarizer as summarizer
+import anvio.filesnpaths as filesnpaths
+import anvio.taxonomyops.scg as scgtaxonomyops
+import anvio.auxiliarydataops as auxiliarydataops
+
+from anvio.serverAPI import AnviServerAPI
+from anvio.errors import RefineError, ConfigError
+from anvio.tables.miscdata import TableForLayerOrders
+from anvio.tables.collections import TablesForCollections
+
+
+__author__ = "Developers of anvi&quoto (see AUTHORS.txt)"
+__copyright__ = "Copyleft 2015-2018, the Meren Lab (http://merenlab.org/)"
+__credits__ = ["A. Murat Eren"]
+__license__ = "GPL 3.0"
+__version__ = anvio.__version__
+__maintainer__ = "Ozcan Esen"
+__email__ = "ozcanesen@gmail.com"
+
+
+run = terminal.Run()
+progress = terminal.Progress()
+
+&#47&#47 increase maximum size of form data to 100 MB
+BaseRequest.MEMFILE_MAX = 1024 * 1024 * 100
+
+
+class BottleApplication(Bottle):
+    def __init__(self, interactive, mock_request=None, mock_response=None):
+        super(BottleApplication, self).__init__()
+        self.interactive = interactive
+
+        &#47&#47 WSGI for bottle to use
+        self._wsgi_for_bottle = "paste"
+
+        A = lambda x: self.args.__dict__[x] if x in self.args.__dict__ else None
+
+        if self.interactive:
+            self.args = self.interactive.args
+            self.read_only = A(&quotread_only&quot)
+            self.browser_path = A(&quotbrowser_path&quot)
+            self.export_svg = A(&quotexport_svg&quot)
+            self.server_only = A(&quotserver_only&quot)
+            self.user_server_shutdown = A(&quotuser_server_shutdown&quot)
+            self.password_protected = A(&quotpassword_protected&quot)
+            self.password = &quot&quot
+            self.authentication_secret = &quot&quot
+            if self.password_protected:
+                print(&quot&quot)
+                self.password = getpass.getpass(&quotEnter password to secure interactive interface: &quot).encode(&quotutf-8&quot)
+                salt = &quotusing_md5_in_2018_&quot.encode(&quotutf-8&quot)
+
+                self.authentication_secret = md5(salt + self.password).hexdigest()
+
+        self.session_id = random.randint(0,9999999999)
+        self.static_dir = os.path.join(os.path.dirname(utils.__file__), &quotdata/interactive&quot)
+
+        self.register_hooks()
+        self.register_routes()
+
+        &#47&#47 this part is required to inject request and responses from anvi server
+        if mock_request or mock_response:
+            global request
+            global response
+            request = mock_request
+            response = mock_response
+        else:
+            from bottle import response, request
+
+        &#47&#47 if there is a contigs database, and scg taxonomy was run on it get an instance
+        &#47&#47 of the SCG Taxonomy class early on:
+        if A(&quotcontigs_db&quot) and dbops.ContigsDatabase(A(&quotcontigs_db&quot)).meta[&quotscg_taxonomy_was_run&quot]:
+            self.scg_taxonomy = scgtaxonomyops.SCGTaxonomyEstimatorSingle(argparse.Namespace(contigs_db=self.interactive.contigs_db_path))
+        else:
+            self.scg_taxonomy = None
+
+
+    def set_password(self, password):
+        self.password_protected = True
+        self.password = password.encode(&quotutf-8&quot)
+        salt = &quotusing_md5_in_2018_&quot.encode(&quotutf-8&quot)
+
+        self.authentication_secret = md5(salt + self.password).hexdigest()
+
+
+    def register_hooks(self):
+        self.add_hook(&quotbefore_request&quot, self.before_request)
+
+
+    def before_request(self):
+        &#47&#47 /app/ contains static files and not password protected.
+        if self.password_protected and not request.path.startswith(&quot/app/&quot):
+            if not self.authentication_secret == request.get_cookie(&quotauthentication_secret&quot):
+                redirect(&quot/app/login.html&quot)
+
+        response.set_header(&quotContent-Type&quot, &quotapplication/json&quot)
+        response.set_header(&quotPragma&quot, &quotno-cache&quot)
+        response.set_header(&quotCache-Control&quot, &quotno-cache, no-store, max-age=0, must-revalidate&quot)
+        response.set_header(&quotExpires&quot, &quotThu, 01 Dec 1994 16:00:00 GMT&quot)
+
+
+    def register_routes(self):
+        self.route(&quot/&quot,                                        callback=self.redirect_to_app)
+        self.route(&quot/app/:filename&#47&#47.*&#47&#47&quot,                       callback=self.send_static)
+        self.route(&quot/app/shutdown&quot,                            callback=self.server_shutdown)
+        self.route(&quot/data/news&quot,                               callback=self.get_news)
+        self.route(&quot/data/&lt;name&gt;&quot,                             callback=self.send_data)
+        self.route(&quot/data/view/&lt;view_id&gt;&quot,                     callback=self.get_view_data)
+        self.route(&quot/tree/&lt;items_order_id&gt;&quot,                   callback=self.get_items_order)
+        self.route(&quot/state/all&quot,                               callback=self.state_all)
+        self.route(&quot/state/get/&lt;state_name&gt;&quot,                  callback=self.get_state)
+        self.route(&quot/state/save/&lt;state_name&gt;&quot,                 callback=self.save_state, method=&quotPOST&quot)
+        self.route(&quot/data/charts/&lt;order_name&gt;/&lt;item_name&gt;&quot,    callback=self.charts, method=&quotPOST&quot)
+        self.route(&quot/data/completeness&quot,                       callback=self.completeness, method=&quotPOST&quot)
+        self.route(&quot/data/collections&quot,                        callback=self.get_collections)
+        self.route(&quot/data/collection/&lt;collection_name&gt;&quot,       callback=self.get_collection_dict)
+        self.route(&quot/store_collection&quot,                        callback=self.store_collections_dict, method=&quotPOST&quot)
+        self.route(&quot/store_description&quot,                       callback=self.store_description, method=&quotPOST&quot)
+        self.route(&quot/upload_project&quot,                          callback=self.upload_project, method=&quotPOST&quot)
+        self.route(&quot/data/contig/&lt;split_name&gt;&quot,                callback=self.get_sequence_for_split)
+        self.route(&quot/summarize/&lt;collection_name&gt;&quot,             callback=self.gen_summary)
+        self.route(&quot/summary/&lt;collection_name&gt;/:filename&#47&#47.*&#47&#47&quot, callback=self.send_summary_static)
+        self.route(&quot/data/gene/&lt;gene_callers_id&gt;&quot,             callback=self.get_sequence_for_gene_call)
+        self.route(&quot/data/hmm/&lt;bin_name&gt;/&lt;gene_name&gt;&quot,         callback=self.get_hmm_hit_from_bin)
+        self.route(&quot/data/get_AA_sequences_for_gene_cluster/&lt;gene_cluster_name&gt;&quot,  callback=self.get_AA_sequences_for_gene_cluster)
+        self.route(&quot/data/pan_gene_popup/&lt;gene_callers_id&gt;/&lt;genome_name&gt;&quot,         callback=self.get_gene_popup_for_pan)
+        self.route(&quot/data/geneclusters/&lt;order_name&gt;/&lt;gene_cluster_name&gt;&quot,          callback=self.inspect_gene_cluster)
+        self.route(&quot/data/charts_for_single_gene/&lt;order_name&gt;/&lt;item_name&gt;&quot,        callback=self.charts_for_single_gene, method=&quotPOST&quot)
+        self.route(&quot/data/store_refined_bins&quot,                 callback=self.store_refined_bins, method=&quotPOST&quot)
+        self.route(&quot/data/phylogeny/aligners&quot,                 callback=self.get_available_aligners)
+        self.route(&quot/data/phylogeny/programs&quot,                 callback=self.get_available_phylogeny_programs)
+        self.route(&quot/data/phylogeny/generate_tree&quot,            callback=self.generate_tree, method=&quotPOST&quot)
+        self.route(&quot/data/search_functions&quot,                   callback=self.search_functions, method=&quotPOST&quot)
+        self.route(&quot/data/get_contigs_stats&quot,                  callback=self.get_contigs_stats)
+        self.route(&quot/data/get_initial_data&quot,                   callback=self.get_initial_data)
+        self.route(&quot/data/get_column_info&quot,                    callback=self.get_column_info, method=&quotPOST&quot)
+        self.route(&quot/data/get_structure/&lt;gene_callers_id:int&gt;&quot,callback=self.get_structure)
+        self.route(&quot/data/get_variability&quot,                    callback=self.get_variability, method=&quotPOST&quot)
+        self.route(&quot/data/store_variability&quot,                  callback=self.store_variability, method=&quotPOST&quot)
+        self.route(&quot/data/store_structure_as_pdb&quot,             callback=self.store_structure_as_pdb, method=&quotPOST&quot)
+        self.route(&quot/data/get_gene_function_info/&lt;gene_callers_id:int&gt;&quot,             callback=self.get_gene_function_info)
+        self.route(&quot/data/get_model_info/&lt;gene_callers_id:int&gt;&quot,             callback=self.get_model_info)
+        self.route(&quot/data/filter_gene_clusters&quot,               callback=self.filter_gene_clusters, method=&quotPOST&quot)
+        self.route(&quot/data/reroot_tree&quot,                        callback=self.reroot_tree, method=&quotPOST&quot)
+        self.route(&quot/data/save_tree&quot,                          callback=self.save_tree, method=&quotPOST&quot)
+        self.route(&quot/data/check_homogeneity_info&quot,             callback=self.check_homogeneity_info, method=&quotPOST&quot)
+        self.route(&quot/data/search_items&quot,                       callback=self.search_items_by_name, method=&quotPOST&quot)
+        self.route(&quot/data/get_taxonomy&quot,                       callback=self.get_taxonomy, method=&quotPOST&quot)
+        self.route(&quot/data/get_functions_for_gene_clusters&quot,    callback=self.get_functions_for_gene_clusters, method=&quotPOST&quot)
+        self.route(&quot/data/get_gene_info/&lt;gene_callers_id&gt;&quot,    callback=self.get_gene_info)
+        self.route(&quot/data/get_metabolism&quot,                     callback=self.get_metabolism)
+
+
+    def run_application(self, ip, port):
+        &#47&#47 check for the wsgi module bottle will use.
+        if not importlib.util.find_spec(self._wsgi_for_bottle):
+            raise ConfigError("Anvi&quoto uses `%(wsgi)s` as a web server gateway interface, and you don&quott seem to have it. Which "
+                              "means bad news. But the good news is that you can actually install it very easily. If you are "
+                              "in a conda environment, try &quotconda install %(wsgi)s&quot. If you are in a Python environment "
+                              "try &quotpip install %(wsgi)s&quot. If you are not sure, start with conda, if it doesn&quott work, try pip." \
+                                    % {&quotwsgi&quot: self._wsgi_for_bottle})
+
+        try:
+            &#47&#47 allow output to terminal when debugging
+            if anvio.DEBUG:
+                server_process = multiprocessing.Process(target=self.run, kwargs={&quothost&quot: ip, &quotport&quot: port, &quotquiet&quot: False, &quotserver&quot: self._wsgi_for_bottle})
+                server_process.start()
+            else:
+                with terminal.SuppressAllOutput():
+                    server_process = multiprocessing.Process(target=self.run, kwargs={&quothost&quot: ip, &quotport&quot: port, &quotquiet&quot: True, &quotserver&quot: self._wsgi_for_bottle})
+                    server_process.start()
+
+            url = "http://%s:%d" % (ip, port)
+
+            if self.export_svg:
+                try:
+                    utils.run_selenium_and_export_svg("/".join([url, "app/index.html"]),
+                                                      self.args.export_svg,
+                                                      browser_path=self.browser_path,
+                                                      run=run)
+                except Exception as e:
+                    print(e)
+                finally:
+                    server_process.terminate()
+                    sys.exit(0)
+
+            if not self.server_only:
+                &#47&#47 Sometimes browser opens before web server actually starts so we see
+                &#47&#47 message like "Website can not be reached" and user needs to refresh
+                &#47&#47 I have added sleep below to delay web browser little bit.
+                time.sleep(1.5)
+
+                utils.open_url_in_browser(url=url, browser_path=self.browser_path, run=run)
+
+                run.info_single("The server is up and running 🎉", mc=&quotgreen&quot, nl_before = 1)
+
+                run.warning("If you are using OSX and if the server terminates prematurely before you can see anything in your browser, "
+                            "try running the same command by putting &quotsudo &quot at the beginning of it (you will be prompted to enter your "
+                            "password if sudo requires super user credentials on your system). If your browser does not show up, try "
+                            "manually entering the URL shown below into the address bar of your favorite browser. *cough* CHROME *cough*.")
+
+            run.info(&quotServer address&quot, url, mc="green", nl_before=1, nl_after=1)
+
+            run.info_single("When you are ready, press CTRL+C once to terminate the server and go back to the command line.", nl_after=1)
+
+            server_process.join()
+        except KeyboardInterrupt:
+            run.info_single("The server is being terminated...", mc="red", nl_before=1)
+            server_process.terminate()
+            sys.exit(0)
+
+
+    def redirect_to_app(self):
+        homepage = &quotindex.html&quot
+        if self.interactive.mode == &quotcontigs&quot:
+            homepage = &quotcontigs.html&quot
+        elif self.interactive.mode == &quotstructure&quot:
+            homepage = &quotstructure.html&quot
+        elif self.interactive.mode == &quotmetabolism&quot:
+            homepage = &quotmetabolism.html&quot
+        elif self.interactive.mode == &quotinspect&quot:
+            redirect(&quot/app/charts.html?id=%s&show_snvs=true&rand=%s&quot % (self.interactive.inspect_split_name, self.random_hash(8)))
+
+        redirect(&quot/app/%s?rand=%s&quot % (homepage, self.random_hash(8)))
+
+
+    def send_static(self, filename):
+        ret = static_file(filename, root=self.static_dir)
+        ret.set_header(&quotPragma&quot, &quotno-cache&quot)
+        ret.set_header(&quotCache-Control&quot, &quotno-cache, no-store, max-age=0, must-revalidate&quot)
+        ret.set_header(&quotExpires&quot, &quotThu, 01 Dec 1994 16:00:00 GMT&quot)
+
+        &#47&#47 cache killer, it adds random query string to .js, .css source urls.
+        if filename.endswith(&quot.html&quot):
+            pattern = re.compile(b".*(&lt;script|&lt;link).*(href|src)\=[\&quot\"]((?!http\:\/\/).+?)\".*", re.MULTILINE)
+
+            buff = io.BytesIO()
+            index = 0
+            for result in re.finditer(pattern, ret.body.read()):
+                pos = result.end(3)
+                suffix = b&quot?rand=&quot + self.random_hash(32).encode()
+
+                &#47&#47 read chunk from original file and write to buffer,
+                &#47&#47 then store pos to index, next iteration we are going
+                &#47&#47 to read from that position
+                ret.body.seek(index)
+                buff.write(ret.body.read(pos - index))
+                buff.write(suffix)
+                index = pos
+
+            &#47&#47 write rest of the file
+            ret.body.seek(index)
+            buff.write(ret.body.read())
+            ret.body = buff
+            ret.body.seek(0)
+            ret.headers[&quotContent-Length&quot] = buff.getbuffer().nbytes
+
+        return ret
+
+
+    def server_shutdown(self, **kwd):
+        if self.user_server_shutdown:
+            run.info_single(&quotUser Requested shutdown via web.&quot, nl_after=1)
+            &#47&#47 Could do sys.exit(0) instead, but raising KeyboardInterrupt will force consistent shutdown process
+            raise KeyboardInterrupt
+        return json.dumps({&quoterror&quot: "The server cannot be shutdown by a web user.", &quotstatus_code&quot: 0})
+
+
+    def get_news(self):
+        if self.interactive.anvio_news:
+            return json.dumps(self.interactive.anvio_news)
+        else:
+            return json.dumps([{&quotdate&quot: &quot&quot,
+                                &quottitle&quot: &quotNo news for you :(&quot,
+                                &quotcontent&quot: "Anvi&quoto couldn&quott bring any news for you. You can bring yourself to the news by clicking [here](%s)." % constants.anvio_news_url}])
+
+
+    def random_hash(self, size=8):
+        r = random.getrandbits(size * 4)
+        return &quot{1:0{0}x}&quot.format(size, r)
+
+
+    def send_data(self, name):
+        if name == "init":
+            bin_prefix = "Bin_"
+            if self.interactive.mode == &quotrefine&quot:
+                bin_prefix = list(self.interactive.bin_names_of_interest)[0] + "_" if len(self.interactive.bin_names_of_interest) == 1 else "Refined_",
+
+            default_view = self.interactive.default_view
+            default_order = self.interactive.p_meta[&quotdefault_item_order&quot]
+            autodraw = False
+            state_dict = None
+
+            if self.interactive.state_autoload:
+                state_dict = json.loads(self.interactive.states_table.states[self.interactive.state_autoload][&quotcontent&quot])
+
+                if &quotcurrent-view&quot in state_dict and state_dict[&quotcurrent-view&quot] in self.interactive.views:
+                    default_view = state_dict[&quotcurrent-view&quot]
+
+                if &quotorder-by&quot in state_dict and state_dict[&quotorder-by&quot] in self.interactive.p_meta[&quotitem_orders&quot]:
+                    default_order = state_dict[&quotorder-by&quot]
+
+                autodraw = True
+
+            collection_dict = None
+            if self.interactive.mode != &quotcollection&quot and self.interactive.mode != &quotrefine&quot and self.interactive.collection_autoload:
+                collection_dict = json.loads(self.get_collection_dict(self.interactive.collection_autoload))
+                autodraw = True
+
+            item_lengths = {}
+            if self.interactive.mode == &quotfull&quot or self.interactive.mode == &quotrefine&quot:
+                item_lengths = dict([tuple((c, self.interactive.splits_basic_info[c][&quotlength&quot]),) for c in self.interactive.splits_basic_info])
+            elif self.interactive.mode == &quotpan&quot:
+                for gene_cluster in self.interactive.gene_clusters:
+                    item_lengths[gene_cluster] = 0
+                    for genome in self.interactive.gene_clusters[gene_cluster]:
+                        item_lengths[gene_cluster] += len(self.interactive.gene_clusters[gene_cluster][genome])
+
+            functions_sources = []
+            if self.interactive.mode == &quotfull&quot or self.interactive.mode == &quotgene&quot or self.interactive.mode == &quotrefine&quot:
+                functions_sources = list(self.interactive.gene_function_call_sources)
+            elif self.interactive.mode == &quotpan&quot:
+                functions_sources = list(self.interactive.gene_clusters_function_sources)
+
+            inspection_available = self.interactive.auxiliary_profile_data_available
+
+            return json.dumps( { "version":                            anvio.anvio_version,
+                                 "title":                              self.interactive.title,
+                                 "description":                        self.interactive.p_meta[&quotdescription&quot],
+                                 "item_orders":                        (default_order, self.interactive.p_meta[&quotitem_orders&quot][default_order], list(self.interactive.p_meta[&quotitem_orders&quot].keys())),
+                                 "views":                              (default_view, self.interactive.views[default_view], list(self.interactive.views.keys())),
+                                 "item_lengths":                       item_lengths,
+                                 "mode":                               self.interactive.mode,
+                                 "server_mode":                        False,
+                                 "read_only":                          self.read_only,
+                                 "bin_prefix":                         bin_prefix,
+                                 "session_id":                         self.session_id,
+                                 "layers_order":                       self.interactive.layers_order_data_dict,
+                                 "layers_information":                 self.interactive.layers_additional_data_dict,
+                                 "layers_information_default_order":   self.interactive.layers_additional_data_keys,
+                                 "check_background_process":           True,
+                                 "autodraw":                           autodraw,
+                                 "inspection_available":               inspection_available,
+                                 "sequences_available":                True if (self.interactive.split_sequences or self.interactive.mode == &quotgene&quot) else False,
+                                 "functions_initialized":              self.interactive.gene_function_calls_initiated,
+                                 "functions_sources":                  functions_sources,
+                                 "state":                              (self.interactive.state_autoload, state_dict),
+                                 "collection":                         collection_dict,
+                                 "samples":                            self.interactive.p_meta[&quotsamples&quot] if self.interactive.mode in [&quotfull&quot, &quotrefine&quot] else [],
+                                 "load_full_state":                    self.interactive.load_full_state })
+
+        elif name == "session_id":
+            return json.dumps(self.session_id)
+
+
+    def get_view_data(self, view_id):
+        return json.dumps(self.interactive.views[view_id])
+
+
+    def get_items_order(self, items_order_id):
+        if items_order_id in self.interactive.p_meta[&quotitem_orders&quot]:
+            items_order = self.interactive.p_meta[&quotitem_orders&quot][items_order_id]
+
+            if items_order[&quottype&quot] == &quotnewick&quot:
+                run.info_single("The newick order &quot%s&quot has been requested" % (items_order_id))
+            elif items_order[&quottype&quot] == &quotbasic&quot:
+                run.info_single("The basic order &quot%s&quot has been requested" % (items_order_id))
+            else:
+                return json.dumps({&quoterror&quot: "The interface requested something anvi&quoto doesn&quott know about. Item orders\
+                                             can only be in the form of &quotnewick&quot or &quotbasic&quot. But the interface requested\
+                                             a &quot%s&quot. We are all confused here :/" % items_order_id})
+
+            return json.dumps(items_order)
+
+        return json.dumps("")
+
+
+    def save_tree(self):
+        try:
+            order_full_name = request.forms.get(&quotname&quot)
+            order_data = request.forms.get(&quotdata&quot)
+            tree_type = request.forms.get(&quottree_type&quot)
+            additional = request.forms.get(&quotadditional&quot)
+
+            if tree_type == &quotsamples&quot:
+                order_name = order_full_name
+                distance = &quotNA&quot
+                linkage = &quotNA&quot
+
+                if order_name in self.interactive.layers_order_data_dict:
+                    raise ConfigError("Tree name &quot%s&quot already exists, overwriting currently not supported." % order_name)
+
+                self.interactive.layers_order_data_dict[order_name] = {&quotnewick&quot: order_data, &quotbasic&quot: &quot&quot}
+                TableForLayerOrders(self.interactive.args).add({order_name: {&quotdata_type&quot: &quotnewick&quot, &quotdata_value&quot: order_data}})
+            else:
+                self.interactive.p_meta[&quotitem_orders&quot][order_full_name] = {&quottype&quot: &quotnewick&quot, &quotdata&quot: order_data, &quotadditional&quot: additional}
+
+                order_name, distance, linkage = order_full_name.split(&quot:&quot)
+                anvio_db_path = self.interactive.pan_db_path or self.interactive.profile_db_path
+
+                dbops.add_items_order_to_db(anvio_db_path, order_name, order_data, order_data_type_newick=True, distance=distance, linkage=linkage, additional_data=additional, dont_overwrite=True)
+
+            return json.dumps({&quotstatus&quot: 0, &quotmessage&quot: &quotNew order "%s (D: %s; L: %s)" successfully saved to the database.&quot % (order_name, distance, linkage)})
+
+        except ConfigError as e:
+            message = str(e.clear_text()) if hasattr(e, &quotclear_text&quot) else str(e)
+            return json.dumps({&quotstatus&quot: 1, &quotmessage&quot: message})
+
+
+    def state_all(self):
+        return json.dumps(self.interactive.states_table.states)
+
+
+    def save_state(self, state_name):
+        if self.read_only:
+            return json.dumps({&quotstatus_code&quot: &quot0&quot})
+
+        content = request.forms.get(&quotcontent&quot)
+        last_modified = datetime.datetime.now().strftime("%d.%m.%Y %H:%M:%S")
+
+        self.interactive.states_table.store_state(state_name, content, last_modified)
+
+        return json.dumps({&quotstatus_code&quot: &quot1&quot})
+
+
+    def get_state(self, state_name):
+        if state_name in self.interactive.states_table.states:
+            state = self.interactive.states_table.states[state_name]
+            state_dict = json.loads(state[&quotcontent&quot])
+
+            if self.interactive.mode == &quotstructure&quot:
+                return json.dumps({&quotcontent&quot: state[&quotcontent&quot]})
+            else:
+
+                default_view = self.interactive.default_view
+                default_order = self.interactive.p_meta[&quotdefault_item_order&quot]
+
+                if &quotcurrent-view&quot in state_dict and state_dict[&quotcurrent-view&quot] in self.interactive.views: &#47&#47 extra checks to accomodate minified states without current-view/order-by data
+                    default_view = state_dict[&quotcurrent-view&quot]
+
+                if &quotorder-by&quot in state_dict and state_dict[&quotorder-by&quot] in self.interactive.p_meta[&quotitem_orders&quot]:
+                    default_order = state_dict[&quotorder-by&quot]
+
+                return json.dumps((state_dict, self.interactive.p_meta[&quotitem_orders&quot][default_order], self.interactive.views[default_view]))
+
+        return json.dumps("")
+
+
+    def charts(self, order_name, item_name):
+        title = None
+        state = {}
+
+        if self.interactive.mode == &quotgene&quot:
+            split_name = self.interactive.gene_callers_id_to_split_name_dict[int(item_name)]
+            title = "Gene &quot%d&quot in split &quot%s&quot" % (int(item_name), split_name)
+        else:
+            split_name = item_name
+            title = split_name
+
+        if self.interactive.mode == &quotinspect&quot:
+            order_name = &quotalphabetical&quot
+
+        data = {&quotlayers&quot: [],
+                 &quottitle&quot: title,
+                 &quotindex&quot: None,
+                 &quottotal&quot: None,
+                 &quotcoverage&quot: [],
+                 &quotvariability&quot: [],
+                 &quotindels&quot: [],
+                 &quotcompeting_nucleotides&quot: [],
+                 &quotprevious_contig_name&quot: None,
+                 &quotnext_contig_name&quot: None,
+                 &quotgenes&quot: [],
+                 &quotoutlier_SNVs_shown&quot: not self.args.hide_outlier_SNVs,
+                 &quotstate&quot: {}}
+
+        if split_name not in self.interactive.split_names:
+            return data
+
+        if not self.interactive.auxiliary_profile_data_available:
+            return data
+
+        data[&quotindex&quot], data[&quottotal&quot], data[&quotprevious_contig_name&quot], data[&quotnext_contig_name&quot] = self.get_index_total_previous_and_next_items(order_name, item_name)
+
+        if self.interactive.mode == &quotinspect&quot:
+            if self.interactive.state_autoload:
+                state = json.loads(self.interactive.states_table.states[self.interactive.state_autoload][&quotcontent&quot])
+                layers = [layer for layer in sorted(self.interactive.p_meta[&quotsamples&quot]) if (layer not in state[&quotlayers&quot] or float(state[&quotlayers&quot][layer][&quotheight&quot]) &gt; 0)]
+            else:
+                layers = [layer for layer in sorted(self.interactive.p_meta[&quotsamples&quot])]
+
+                &#47&#47 anvi-inspect is called so there is no state stored in localstorage written by main anvio plot
+                &#47&#47 and there is no default state in the database, we are going to generate a mock state.
+                &#47&#47 only the keys we need is enough.
+                state[&quotlayer-order&quot] = layers
+                state[&quotlayers&quot] = {}
+                for layer in layers:
+                    state[&quotlayers&quot][layer] = {&quotheight&quot: 1, &quotcolor&quot: &quot&#47&#4700000&quot}
+
+        else:
+            state = json.loads(request.forms.get(&quotstate&quot))
+            layers = [layer for layer in sorted(self.interactive.p_meta[&quotsamples&quot]) if (layer not in state[&quotlayers&quot] or float(state[&quotlayers&quot][layer][&quotheight&quot]) &gt; 0)]
+
+        data[&quotstate&quot] = state
+
+        db_variant = str(self.interactive.contigs_db_variant)
+        try:
+            auxiliary_coverages_db = auxiliarydataops.AuxiliaryDataForSplitCoverages(self.interactive.auxiliary_data_path,
+                                                                                     self.interactive.p_meta[&quotcontigs_db_hash&quot],
+                                                                                     db_variant=db_variant)
+            coverages = auxiliary_coverages_db.get(split_name)
+            auxiliary_coverages_db.close()
+
+            data[&quotcoverage&quot] = [coverages[layer].tolist() for layer in layers]
+        except:
+            data[&quotcoverage&quot] = [[0] * self.interactive.splits_basic_info[split_name][&quotlength&quot]]
+
+        data[&quotsequence&quot] = self.interactive.split_sequences[split_name][&quotsequence&quot]
+
+        &#47&#47&#47&#47 get the variability information dict for split:
+        split_variability_info_dict = self.interactive.get_variability_information_for_split(split_name, skip_outlier_SNVs=self.args.hide_outlier_SNVs)
+
+        &#47&#47&#47&#47 get the indels information dict for split:
+        split_indels_info_dict = self.interactive.get_indels_information_for_split(split_name)
+
+        &#47&#47 building layer data
+        for layer in layers:
+            data[&quotlayers&quot].append(layer)
+            data[&quotcompeting_nucleotides&quot].append(split_variability_info_dict[layer][&quotcompeting_nucleotides&quot])
+            data[&quotvariability&quot].append(split_variability_info_dict[layer][&quotvariability&quot])
+            data[&quotindels&quot].append(split_indels_info_dict[layer][&quotindels&quot])
+
+        levels_occupied = {1: []}
+        gene_entries_in_split = self.interactive.split_name_to_genes_in_splits_entry_ids[split_name]
+
+        &#47&#47 we get all the amino acid sequences for genes in this split here to avoid
+        &#47&#47 multiple database calls for each gene later. this dictionary will be used
+        &#47&#47 below as we go through each gene call.
+        gene_aa_sequences_dict = self.interactive.get_gene_amino_acid_sequence([self.interactive.genes_in_splits[e][&quotgene_callers_id&quot] for e in gene_entries_in_split])
+
+        for entry_id in gene_entries_in_split:
+            gene_callers_id =  self.interactive.genes_in_splits[entry_id][&quotgene_callers_id&quot]
+
+            &#47&#47 this is a CRAZY case where a gene caller id is found in a split, but
+            &#47&#47 it is not occurring in the genes table. ABSOLUTELY CRAZY, BUT FLORIAN
+            &#47&#47 MANAGED TO DO IT, SO THERE WE GO.
+            if gene_callers_id not in self.interactive.genes_in_contigs_dict:
+                progress.reset()
+                run.info_single(f"Gene caller id {gene_callers_id} is missing from the contigs db. But the "
+                                f"split {split_name} thinks it has it :/ Anvi&quoto ignores this. Anvi&quoto is too old "
+                                f"for stuff like this.")
+                continue
+
+            p =  self.interactive.genes_in_splits[entry_id]
+            &#47&#47 p looks like this at this point:
+            &#47&#47
+            &#47&#47 {&quotpercentage_in_split&quot: 100,
+            &#47&#47  &quotstart_in_split&quot     : 16049,
+            &#47&#47  &quotstop_in_split&quot      : 16633}
+            &#47&#47  &quotprot&quot               : u&quotprot2_03215&quot,
+            &#47&#47  &quotsplit&quot              : u&quotD23-1contig18_split_00036&quot}
+            &#47&#47
+            &#47&#47 we will add a bit more attributes:
+            p[&quotsource&quot] =  self.interactive.genes_in_contigs_dict[gene_callers_id][&quotsource&quot]
+            p[&quotdirection&quot] =  self.interactive.genes_in_contigs_dict[gene_callers_id][&quotdirection&quot]
+            p[&quotstart_in_contig&quot] =  self.interactive.genes_in_contigs_dict[gene_callers_id][&quotstart&quot]
+            p[&quotstop_in_contig&quot] =  self.interactive.genes_in_contigs_dict[gene_callers_id][&quotstop&quot]
+            p[&quotcall_type&quot] =  self.interactive.genes_in_contigs_dict[gene_callers_id][&quotcall_type&quot]
+            p[&quotcomplete_gene_call&quot] = &quotNo&quot if  self.interactive.genes_in_contigs_dict[gene_callers_id][&quotpartial&quot] else &quotYes&quot
+            p[&quotlength&quot] = p[&quotstop_in_contig&quot] - p[&quotstart_in_contig&quot]
+            p[&quotfunctions&quot] =  self.interactive.gene_function_calls_dict[gene_callers_id] if gene_callers_id in  self.interactive.gene_function_calls_dict else None
+
+            &#47&#47 get amino acid sequence for the gene call:
+            p[&quotaa_sequence&quot] = gene_aa_sequences_dict[gene_callers_id]
+
+            for level in levels_occupied:
+                level_ok = True
+                for gene_tuple in levels_occupied[level]:
+                    if (p[&quotstart_in_split&quot] &gt;= gene_tuple[0] - 100 and p[&quotstart_in_split&quot] &lt;= gene_tuple[1] + 100) or\
+                                (p[&quotstop_in_split&quot] &gt;= gene_tuple[0] - 100 and p[&quotstop_in_split&quot] &lt;= gene_tuple[1] + 100) or \
+                                (p[&quotstart_in_split&quot] &lt;= gene_tuple[0] - 100 and p[&quotstop_in_split&quot] &gt;= gene_tuple[1] + 100):
+                        level_ok = False
+                        break
+                if level_ok:
+                    levels_occupied[level].append((p[&quotstart_in_split&quot], p[&quotstop_in_split&quot]), )
+                    p[&quotlevel&quot] = level
+                    break
+            if not level_ok:
+                levels_occupied[level + 1] = [(p[&quotstart_in_split&quot], p[&quotstop_in_split&quot]), ]
+                p[&quotlevel&quot] = level + 1
+
+            data[&quotgenes&quot].append(p)
+
+        return json.dumps(data)
+
+
+    def get_gene_info(self, gene_callers_id):
+        &#47&#47 TO DO: there are three functions returns gene info dict for different purposes
+        &#47&#47 this needs to be organized.
+
+        gene_callers_id = int(gene_callers_id)
+        split_name = self.interactive.gene_callers_id_to_split_name_dict[gene_callers_id]
+
+        &#47&#47 we need eentry id
+        entry_id = None
+        for candidate_entry_id in self.interactive.split_name_to_genes_in_splits_entry_ids[split_name]:
+            if int(gene_callers_id) == int(self.interactive.genes_in_splits[candidate_entry_id][&quotgene_callers_id&quot]):
+                entry_id = candidate_entry_id
+
+        if not entry_id:
+            raise ConfigError("Can not find this gene_callers_id in any splits.")
+
+        p =  self.interactive.genes_in_splits[entry_id]
+        &#47&#47 p looks like this at this point:
+        &#47&#47
+        &#47&#47 {&quotpercentage_in_split&quot: 100,
+        &#47&#47  &quotstart_in_split&quot     : 16049,
+        &#47&#47  &quotstop_in_split&quot      : 16633}
+        &#47&#47  &quotprot&quot               : u&quotprot2_03215&quot,
+        &#47&#47  &quotsplit&quot              : u&quotD23-1contig18_split_00036&quot}
+        &#47&#47
+        &#47&#47 we will add a bit more attributes:
+        p[&quotsource&quot] =  self.interactive.genes_in_contigs_dict[gene_callers_id][&quotsource&quot]
+        p[&quotdirection&quot] =  self.interactive.genes_in_contigs_dict[gene_callers_id][&quotdirection&quot]
+        p[&quotstart_in_contig&quot] =  self.interactive.genes_in_contigs_dict[gene_callers_id][&quotstart&quot]
+        p[&quotstop_in_contig&quot] =  self.interactive.genes_in_contigs_dict[gene_callers_id][&quotstop&quot]
+        p[&quotcall_type&quot] =  self.interactive.genes_in_contigs_dict[gene_callers_id][&quotcall_type&quot]
+        p[&quotcomplete_gene_call&quot] = &quotNo&quot if  self.interactive.genes_in_contigs_dict[gene_callers_id][&quotpartial&quot] else &quotYes&quot
+        p[&quotlength&quot] = p[&quotstop_in_contig&quot] - p[&quotstart_in_contig&quot]
+        p[&quotfunctions&quot] =  self.interactive.gene_function_calls_dict[gene_callers_id] if gene_callers_id in  self.interactive.gene_function_calls_dict else None
+
+        &#47&#47 get amino acid sequence for the gene call:
+        p[&quotaa_sequence&quot] = self.interactive.get_gene_amino_acid_sequence([gene_callers_id])
+
+        return json.dumps(p)
+
+
+    def search_items_by_name(self):
+        items_per_page = 30
+
+        query = request.forms.get(&quotsearch-query&quot)
+        page = int(request.forms.get(&quotpage&quot) or 0)
+
+        if query and len(query) &gt; 0:
+            query = query.lower()
+            results = []
+            for name in self.interactive.displayed_item_names_ordered:
+                if query in name.lower():
+                    results.append(name)
+        else:
+            results = self.interactive.displayed_item_names_ordered
+
+        page_start = max(0, page * items_per_page)
+        page_end = min(len(results), (page + 1) * items_per_page)
+
+        total_page = math.ceil(len(results) / items_per_page)
+
+        results = results[page_start:page_end]
+
+        return json.dumps({
+            &quotsearch-query&quot: query,
+            &quotresults&quot: results,
+            &quotpage&quot: page,
+            &quottotal_page&quot: total_page
+            })
+
+
+    def charts_for_single_gene(self, order_name, item_name):
+        gene_callers_id = int(item_name)
+        split_name = self.interactive.gene_callers_id_to_split_name_dict[gene_callers_id]
+        gene_info = [e for e in self.interactive.genes_in_splits.values() if e[&quotgene_callers_id&quot] == gene_callers_id][0]
+
+        focus_region_start, focus_region_end = max(0, gene_info[&quotstart_in_split&quot] - 100), min(self.interactive.split_lengths_info[split_name], gene_info[&quotstop_in_split&quot] + 100)
+
+        state = json.loads(request.forms.get(&quotstate&quot))
+        data = {&quotlayers&quot: [],
+                 &quottitle&quot: "Gene &quot%d&quot in split &quot%s&quot" % (gene_callers_id, split_name),
+                 &quotindex&quot: None,
+                 &quottotal&quot: None,
+                 &quotcoverage&quot: [],
+                 &quotvariability&quot: [],
+                 &quotindels&quot: [],
+                 &quotcompeting_nucleotides&quot: [],
+                 &quotprevious_contig_name&quot: None,
+                 &quotnext_contig_name&quot: None,
+                 &quotgenes&quot: [],
+                 &quotoutlier_SNVs_shown&quot: not self.args.hide_outlier_SNVs,
+                 &quotstate&quot: state}
+
+        data[&quotindex&quot], data[&quottotal&quot], data[&quotprevious_contig_name&quot], data[&quotnext_contig_name&quot] = self.get_index_total_previous_and_next_items(order_name, str(gene_callers_id))
+
+        layers = [layer for layer in sorted(self.interactive.p_meta[&quotsamples&quot]) if (layer not in state[&quotlayers&quot] or float(state[&quotlayers&quot][layer][&quotheight&quot]) &gt; 0)]
+
+        db_variant = str(self.interactive.contigs_db_variant)
+        auxiliary_coverages_db = auxiliarydataops.AuxiliaryDataForSplitCoverages(self.interactive.auxiliary_data_path,
+                                                                                 self.interactive.p_meta[&quotcontigs_db_hash&quot],
+                                                                                 db_variant=db_variant)
+        coverages = auxiliary_coverages_db.get(split_name)
+        auxiliary_coverages_db.close()
+
+        data[&quotcoverage&quot] = []
+        for layer in layers:
+            coverage_list = coverages[layer].tolist()
+            data[&quotcoverage&quot].append(coverage_list[focus_region_start:focus_region_end])
+
+        data[&quotsequence&quot] = self.interactive.split_sequences[split_name][&quotsequence&quot][focus_region_start:focus_region_end]
+
+        &#47&#47&#47&#47 get the variability information dict for split:
+        progress.new(&quotVariability&quot)
+        progress.update(&quotCollecting info for "%s"&quot % split_name)
+        split_variability_info_dict = self.interactive.get_variability_information_for_split(split_name, skip_outlier_SNVs=self.args.hide_outlier_SNVs)
+
+        for layer in layers:
+            progress.update(&quotFormatting variability data: "%s"&quot % layer)
+            data[&quotlayers&quot].append(layer)
+
+            &#47&#47 filter and substract offset variability, and competing nucleotide information.
+            variability_dict_original = copy.deepcopy(split_variability_info_dict[layer][&quotvariability&quot])
+            variability_dict = {}
+            for nucleotide_pos_in_codon in variability_dict_original:
+                variability_dict[nucleotide_pos_in_codon] = {}
+                for pos in variability_dict_original[nucleotide_pos_in_codon]:
+                    if pos &lt; focus_region_start or pos &gt; focus_region_end:
+                        continue
+
+                    variability_dict[nucleotide_pos_in_codon][pos - focus_region_start] = variability_dict_original[nucleotide_pos_in_codon][pos]
+
+            competing_nucleotides_dict_original = copy.deepcopy(split_variability_info_dict[layer][&quotcompeting_nucleotides&quot])
+            competing_nucleotides_dict = {}
+            for pos in competing_nucleotides_dict_original:
+                if pos &lt; focus_region_start or pos &gt; focus_region_end:
+                    continue
+
+                entry = competing_nucleotides_dict_original[pos]
+                entry[&quotpos_in_split&quot] = pos
+                entry[&quotpos&quot] = pos - focus_region_start
+
+                competing_nucleotides_dict[entry[&quotpos&quot]] = entry
+
+            data[&quotcompeting_nucleotides&quot].append(competing_nucleotides_dict)
+            data[&quotvariability&quot].append(variability_dict)
+
+        progress.end()
+
+        &#47&#47&#47&#47 get the indels information dict for split:
+        progress.new(&quotIndels&quot)
+        progress.update(&quotCollecting info for "%s"&quot % split_name)
+        split_indels_info_dict = self.interactive.get_indels_information_for_split(split_name)
+
+        for layer in layers:
+            progress.update(&quotFormatting indels data: "%s"&quot % layer)
+
+            indels_dict_original = copy.deepcopy(split_indels_info_dict[layer][&quotindels&quot])
+            indels_dict = {}
+            for indel_entry_id in indels_dict_original:
+                pos = indels_dict_original[indel_entry_id][&quotpos&quot]
+                if pos &lt; focus_region_start or pos &gt; focus_region_end:
+                    continue
+                else:
+                    indels_dict[indel_entry_id] = indels_dict_original[indel_entry_id]
+                    indels_dict[indel_entry_id][&quotpos&quot] = indels_dict[indel_entry_id][&quotpos&quot] - focus_region_start
+
+            data[&quotindels&quot].append(indels_dict)
+
+        levels_occupied = {1: []}
+        gene_entries_in_split = self.interactive.split_name_to_genes_in_splits_entry_ids[split_name]
+
+        &#47&#47 we get all the amino acid sequences for genes in this split here to avoid
+        &#47&#47 multiple database calls for each gene later. this dictionary will be used
+        &#47&#47 below as we go through each gene call.
+        gene_aa_sequences_dict = self.interactive.get_gene_amino_acid_sequence([self.interactive.genes_in_splits[e][&quotgene_callers_id&quot] for e in gene_entries_in_split])
+
+        for entry_id in gene_entries_in_split:
+            gene_callers_id = self.interactive.genes_in_splits[entry_id][&quotgene_callers_id&quot]
+            p =  self.interactive.genes_in_splits[entry_id]
+            &#47&#47 p looks like this at this point:
+            &#47&#47
+            &#47&#47 {&quotpercentage_in_split&quot: 100,
+            &#47&#47  &quotstart_in_split&quot     : 16049,
+            &#47&#47  &quotstop_in_split&quot      : 16633}
+            &#47&#47  &quotprot&quot               : u&quotprot2_03215&quot,
+            &#47&#47  &quotsplit&quot              : u&quotD23-1contig18_split_00036&quot}
+            &#47&#47
+
+            if p[&quotstart_in_split&quot] &lt;= focus_region_start and p[&quotstop_in_split&quot] &lt;= focus_region_start:
+                continue
+            if p[&quotstart_in_split&quot] &gt;= focus_region_end and p[&quotstop_in_split&quot] &gt;= focus_region_end:
+                continue
+
+            &#47&#47 because Python. when we don&quott do this, the organization of genes in the interface split pages
+            &#47&#47 gets all screwed up in gene view due the permanence of the changes in the dictionary.
+            p = copy.deepcopy(p)
+
+            &#47&#47 add offset
+            p[&quotstart_in_split&quot] -= focus_region_start
+            p[&quotstop_in_split&quot] -= focus_region_start
+
+            &#47&#47 we will add a bit more attributes:
+            p[&quotsource&quot] =  self.interactive.genes_in_contigs_dict[gene_callers_id][&quotsource&quot]
+            p[&quotdirection&quot] =  self.interactive.genes_in_contigs_dict[gene_callers_id][&quotdirection&quot]
+            p[&quotstart_in_contig&quot] =  self.interactive.genes_in_contigs_dict[gene_callers_id][&quotstart&quot]
+            p[&quotstop_in_contig&quot] =  self.interactive.genes_in_contigs_dict[gene_callers_id][&quotstop&quot]
+            p[&quotcomplete_gene_call&quot] = &quotNo&quot if  self.interactive.genes_in_contigs_dict[gene_callers_id][&quotpartial&quot] else &quotYes&quot
+            p[&quotlength&quot] = p[&quotstop_in_contig&quot] - p[&quotstart_in_contig&quot]
+            p[&quotfunctions&quot] =  self.interactive.gene_function_calls_dict[gene_callers_id] if gene_callers_id in  self.interactive.gene_function_calls_dict else None
+
+            &#47&#47 add amino acid sequence for the gene call:
+            p[&quotaa_sequence&quot] = gene_aa_sequences_dict[gene_callers_id]
+
+            for level in levels_occupied:
+                level_ok = True
+                for gene_tuple in levels_occupied[level]:
+                    if (p[&quotstart_in_split&quot] &gt;= gene_tuple[0] - 100 and p[&quotstart_in_split&quot] &lt;= gene_tuple[1] + 100) or\
+                                (p[&quotstop_in_split&quot] &gt;= gene_tuple[0] - 100 and p[&quotstop_in_split&quot] &lt;= gene_tuple[1] + 100) or \
+                                (p[&quotstart_in_split&quot] &lt;= gene_tuple[0] - 100 and p[&quotstop_in_split&quot] &gt;= gene_tuple[1] + 100):
+                        level_ok = False
+                        break
+                if level_ok:
+                    levels_occupied[level].append((p[&quotstart_in_split&quot], p[&quotstop_in_split&quot]), )
+                    p[&quotlevel&quot] = level
+                    break
+            if not level_ok:
+                levels_occupied[level + 1] = [(p[&quotstart_in_split&quot], p[&quotstop_in_split&quot]), ]
+                p[&quotlevel&quot] = level + 1
+
+            data[&quotgenes&quot].append(p)
+
+        progress.end()
+
+        return json.dumps(data)
+
+
+    def get_index_total_previous_and_next_items(self, order_name, item_name):
+        previous_item_name = None
+        next_item_name = None
+        index = None
+        total = None
+
+        &#47&#47 FIXME: improve performance here
+        items_order_entry = self.interactive.p_meta[&quotitem_orders&quot][order_name]
+        items_order = None
+        if items_order_entry[&quottype&quot] == &quotnewick&quot:
+            names_with_only_digits_ok = self.interactive.mode == &quotgene&quot
+            items_order = utils.get_names_order_from_newick_tree(items_order_entry[&quotdata&quot], names_with_only_digits_ok=names_with_only_digits_ok)
+        else:
+            items_order = items_order_entry[&quotdata&quot]
+
+        index_of_item = items_order.index(item_name)
+        if index_of_item:
+            previous_item_name = items_order[index_of_item - 1]
+        if (index_of_item + 1) &lt; len(items_order):
+            next_item_name = items_order[index_of_item + 1]
+
+        index = index_of_item + 1
+        total = len(items_order)
+
+        return index, total, previous_item_name, next_item_name
+
+
+    def completeness(self):
+        completeness_sources = {}
+        completeness_data = {}
+        if not self.interactive.completeness:
+            return json.dumps(completeness_sources)
+
+        split_names = json.loads(request.forms.get(&quotsplit_names&quot))
+        bin_name = json.loads(request.forms.get(&quotbin_name&quot))
+
+        run.info_single(&quotCompleteness info has been requested for %d splits in %s&quot % (len(split_names), bin_name))
+
+        p_completion, p_redundancy, scg_domain, domain_probabilities, info_text, results_dict = self.interactive.completeness.get_info_for_splits(set(split_names))
+
+        &#47&#47 convert results_dict (where domains are the highest order items) into a dict that is compatible with the
+        &#47&#47 previous format of the dict (where hmm scg source names are the higher order items).
+        for domain in results_dict:
+            for source in results_dict[domain]:
+                completeness_sources[source] = results_dict[domain][source]
+
+        completeness_data[&quotpercent_completion&quot] = p_completion
+        completeness_data[&quotpercent_redundancy&quot] = p_redundancy
+        completeness_data[&quotdomain&quot] = scg_domain
+        completeness_data[&quotinfo_text&quot] = info_text
+        completeness_data[&quotdomain_probabilities&quot] = domain_probabilities
+
+        &#47&#47 FIXME: We need to look into what we are sending and sort out what needs to be shown:
+        return json.dumps({&quotstats&quot: completeness_sources, &quotaverages&quot: completeness_data, &quotrefs&quot: self.interactive.completeness.http_refs})
+
+
+    def get_collections(self):
+        csd = self.interactive.collections.collections_dict
+        run.info_single(&quotCollection sources has been requested (info dict with %d item(s) has been returned).&quot % len(csd), cut_after=None)
+        return json.dumps(csd)
+
+
+    def get_collection_dict(self, collection_name):
+        run.info_single(&quotData for collection "%s" has been requested.&quot % collection_name)
+
+        collection_dict = self.interactive.collections.get_collection_dict(collection_name)
+        bins_info_dict = self.interactive.collections.get_bins_info_dict(collection_name)
+
+        colors_dict = {}
+        for bin_name in bins_info_dict:
+            colors_dict[bin_name] = bins_info_dict[bin_name][&quothtml_color&quot]
+
+        return json.dumps({&quotdata&quot: collection_dict, &quotcolors&quot: colors_dict})
+
+
+    def store_collections_dict(self):
+        if self.read_only:
+            return json.dumps("Sorry! This is a read-only instance.")
+
+        source = request.forms.get(&quotsource&quot)
+        data = json.loads(request.forms.get(&quotdata&quot))
+        colors = json.loads(request.forms.get(&quotcolors&quot))
+
+        if not len(source):
+            run.info_single(&quotLousy attempt from the user to store their collection under an empty source identifier name :/&quot)
+            return json.dumps("Error: Collection name cannot be empty.")
+
+        num_splits = sum(len(l) for l in list(data.values()))
+        if not num_splits:
+            run.info_single(&quotThe user to store 0 splits as a collection :/&quot)
+            return json.dumps("Error: There are no selections to store (you haven&quott selected anything).")
+
+        if source in self.interactive.collections.collections_dict:
+            e = self.interactive.collections.collections_dict[source]
+            if e[&quotread_only&quot]:
+                run.info_single(&quotLousy attempt from the user to store their collection under "%s" :/&quot % source)
+                return json.dumps("Well, &quot%s&quot is a read-only collection, so you need to come up with a different name... Sorry!" % source)
+
+        run.info_single(&quotA request to store %d bins that describe %d splits under the collection id "%s" &quot
+                        &quothas been made.&quot % (len(data), num_splits, source), cut_after=None)
+
+        bins_info_dict = {}
+        for bin_name in data:
+            bins_info_dict[bin_name] = {&quothtml_color&quot: colors[bin_name], &quotsource&quot: "anvi-interactive"}
+
+        &#47&#47 the db here is either a profile db, or a pan db, but it can&quott be both:
+        if self.interactive.mode == &quotgene&quot:
+            db_path = self.interactive.genes_db_path
+        else:
+            db_path = self.interactive.pan_db_path or self.interactive.profile_db_path
+
+        collections = TablesForCollections(db_path)
+
+        try:
+            collections.append(source, data, bins_info_dict)
+        except ConfigError as e:
+            return json.dumps(e.clear_text())
+
+        &#47&#47 a new collection is stored in the database, but the interactive object
+        &#47&#47 does not know about that and needs updatin&quot
+        self.interactive.collections.populate_collections_dict(db_path)
+
+        msg = "New collection &quot%s&quot with %d bin%s been stored." % (source, len(data), &quots have&quot if len(data) &gt; 1 else &quot has&quot)
+        run.info_single(msg)
+        return json.dumps(msg)
+
+
+    def store_description(self):
+        if self.read_only:
+            return
+
+        description = request.forms.get(&quotdescription&quot)
+
+        db_path = self.interactive.pan_db_path or self.interactive.profile_db_path
+        dbops.update_description_in_db(db_path, description)
+        self.interactive.p_meta[&quotdescription&quot] = description
+        return json.dumps("")
+
+
+    def get_sequence_for_split(self, split_name):
+        try:
+            sequence = self.interactive.split_sequences[split_name][&quotsequence&quot]
+            header = split_name
+        except Exception as e:
+            return json.dumps({&quoterror&quot: "Something went wrong when I tried to access that split sequence: &quot%s&quot :/" % e})
+
+        return json.dumps({&quotsequence&quot: sequence, &quotheader&quot: header})
+
+
+    def gen_summary(self, collection_name):
+        if self.read_only:
+            return json.dumps({&quoterror&quot: "Sorry! This is a read-only instance."})
+
+        if self.interactive.mode == &quotmanual&quot:
+            return json.dumps({&quoterror&quot: "Creating summaries is only possible with proper anvi&quoto runs at the moment :/"})
+
+        run.info_single(&quotA summary of collection "%s" has been requested.&quot % collection_name)
+
+        &#47&#47 get a dummy args instance, and fill it down below
+        summarizer_args = summarizer.ArgsTemplateForSummarizerClass()
+
+        &#47&#47 common params. we will set pan/profile specific params a bit later:
+        summarizer_args.collection_name = collection_name
+        summarizer_args.taxonomic_level = self.interactive.taxonomic_level
+
+        if self.interactive.mode == &quotpan&quot:
+            summarizer_args.pan_db = self.interactive.pan_db_path
+            summarizer_args.genomes_storage = self.interactive.genomes_storage_path
+            summarizer_args.output_dir = os.path.join(os.path.dirname(summarizer_args.pan_db), &quotSUMMARY_%s&quot % collection_name)
+        elif self.interactive.mode == &quotfull&quot:
+            summarizer_args.profile_db = self.interactive.profile_db_path
+            summarizer_args.contigs_db = self.interactive.contigs_db_path
+            summarizer_args.output_dir = os.path.join(os.path.dirname(summarizer_args.profile_db), &quotSUMMARY_%s&quot % collection_name)
+        else:
+            return json.dumps({&quoterror&quot: &quotWe do not know anything about this mode: "%s"&quot % self.interactive.mode})
+
+        &#47&#47 call the summary:
+        try:
+            summary = summarizer.PanSummarizer(summarizer_args, r=run, p=progress) if self.interactive.mode == &quotpan&quot else summarizer.ProfileSummarizer(summarizer_args, r=run, p=progress)
+            summary.process()
+        except Exception as e:
+            return json.dumps({&quoterror&quot: &quotSomething failed in the "%s" summary mode. This is what we know: %s&quot % (self.interactive.mode, e)})
+
+        run.info_single(&quotHTML output for summary is ready: %s&quot % summary.index_html)
+
+        path = "summary/%s/index.html" % (collection_name)
+        return json.dumps({&quotpath&quot: path})
+
+
+    def send_summary_static(self, collection_name, filename):
+        if self.interactive.mode == &quotpan&quot:
+            ret = static_file(filename, root=os.path.join(os.path.dirname(self.interactive.pan_db_path), &quotSUMMARY_%s&quot % collection_name))
+            ret.set_header(&quotPragma&quot, &quotno-cache&quot)
+            ret.set_header(&quotCache-Control&quot, &quotno-cache, no-store, max-age=0, must-revalidate&quot)
+            ret.set_header(&quotExpires&quot, &quotThu, 01 Dec 1994 16:00:00 GMT&quot)
+            return ret
+        elif self.interactive.mode == &quotfull&quot:
+            ret = static_file(filename, root=os.path.join(os.path.dirname(self.interactive.profile_db_path), &quotSUMMARY_%s&quot % collection_name))
+            ret.set_header(&quotPragma&quot, &quotno-cache&quot)
+            ret.set_header(&quotCache-Control&quot, &quotno-cache, no-store, max-age=0, must-revalidate&quot)
+            ret.set_header(&quotExpires&quot, &quotThu, 01 Dec 1994 16:00:00 GMT&quot)
+            return ret
+        else:
+            return json.dumps({&quoterror&quot: &quotThe server has no idea how to handle the mode "%s" :/&quot % self.interactive.mode})
+
+
+    def get_sequence_for_gene_call(self, gene_callers_id):
+        try:
+            gene_callers_id = int(gene_callers_id)
+        except:
+            return json.dumps({&quoterror&quot: "Gene caller id does not seem to be &quotintegerable&quot. Not good :/"})
+
+        try:
+            gene_calls_tuple = self.interactive.get_sequences_for_gene_callers_ids([gene_callers_id], include_aa_sequences=True)
+        except Exception as e:
+            return json.dumps({&quoterror&quot: "Something went wrong when I tried to access to that gene: &quot%s&quot :/" % e})
+
+        entry = gene_calls_tuple[1][gene_callers_id]
+
+        sequence = entry[&quotsequence&quot]
+        aa_sequence = entry[&quotaa_sequence&quot]
+
+        header = &quot%d|&quot % (gene_callers_id) + &quot|&quot.join([&quot%s:%s&quot % (k, str(entry[k])) for k in [&quotcontig&quot, &quotstart&quot, &quotstop&quot, &quotdirection&quot, &quotrev_compd&quot, &quotlength&quot]])
+
+        return json.dumps({&quotsequence&quot: sequence, &quotaa_sequence&quot: aa_sequence, &quotheader&quot: header})
+
+
+    def get_gene_popup_for_pan(self, gene_callers_id, genome_name):
+        if not self.interactive.genomes_storage_is_available:
+            return json.dumps({&quoterror&quot: &quotGenome storage does not seem to be available :/ So that button will not work..&quot})
+
+        gene_callers_id = int(gene_callers_id)
+
+        if genome_name not in self.interactive.genomes_storage.gene_info:
+            return json.dumps({&quoterror&quot: "Your request contains a genome name anvi&quoto genomes storage does not know about. What are you doing?"})
+
+        if gene_callers_id not in self.interactive.genomes_storage.gene_info[genome_name]:
+            return json.dumps({&quoterror&quot: "Your gene caller id does not work for anvi&quoto :("})
+
+        return json.dumps({&quotstatus&quot: 0, &quotgene_info&quot: self.interactive.genomes_storage.gene_info[genome_name][gene_callers_id]})
+
+
+    def get_hmm_hit_from_bin(self, bin_name, gene_name):
+        if self.interactive.mode != &quotcollection&quot:
+            return json.dumps({&quoterror&quot: "HMM hits from bins can only be requested in &quotcollection&quot mode. You are doing something wrong..."})
+
+        if not self.interactive.collection:
+            return json.dumps({&quoterror&quot: "You are in &quotcollection&quot mode, but your collection is empty. You are killing me."})
+
+        if self.interactive.hmm_access is None:
+            return json.dumps({&quoterror&quot: "HMMs for single-copy core genes were not run for this contigs database. "})
+
+        hmm_sequences_dict = self.interactive.hmm_access.get_sequences_dict_for_hmm_hits_in_splits({bin_name: set(self.interactive.collection[bin_name])})
+        gene_sequences = utils.get_filtered_dict(hmm_sequences_dict, &quotgene_name&quot, set([gene_name]))
+
+        if not gene_sequences:
+            return json.dumps({&quoterror&quot: "Sorry. It seems %s does not have a hit for %s." % (bin_name, gene_name)})
+
+        unique_id_for_longest_hit = sorted([(gene_sequences[gene_id][&quotlength&quot], gene_id) for gene_id in gene_sequences], reverse=True)[0][1]
+
+        header, sequence = self.interactive.hmm_access.get_FASTA_header_and_sequence_for_gene_unique_id(gene_sequences, unique_id_for_longest_hit)
+
+        return json.dumps({&quotsequence&quot: sequence, &quotheader&quot: header})
+
+
+    def get_AA_sequences_for_gene_cluster(self, gene_cluster_name):
+        data = {}
+
+        if gene_cluster_name not in self.interactive.gene_clusters:
+            return data
+
+        if not self.interactive.genomes_storage_is_available:
+            return data
+
+        &#47&#47 add the list of gene caller ids associated with this pootein cluster into `data`:
+        for genome_name in self.interactive.gene_clusters[gene_cluster_name]:
+            for gene_callers_id in self.interactive.gene_clusters[gene_cluster_name][genome_name]:
+                data[&quot%s_%s&quot % (genome_name, str(gene_callers_id))] = self.interactive.genomes_storage.get_gene_sequence(genome_name, gene_callers_id)
+
+        return json.dumps(data)
+
+
+    def inspect_gene_cluster(self, order_name, gene_cluster_name):
+        data = {&quotgene_cluster_name&quot: gene_cluster_name,
+                &quotgenomes&quot: [],
+                &quotindex&quot: None,
+                &quotgene_caller_ids&quot: [],
+                &quotgene_caller_ids_in_genomes&quot: {},
+                &quotaa_sequences_in_gene_cluster&quot: {},
+                &quotprevious_gene_cluster_name&quot: None,
+                &quotnext_gene_cluster_name&quot: None,
+                &quotindex&quot: None,
+                &quottotal&quot: None
+                }
+
+        if gene_cluster_name not in self.interactive.gene_clusters:
+            return data
+
+        if not self.interactive.genomes_storage_is_available:
+            return data
+
+        AA_sequences = self.interactive.get_sequences_for_gene_clusters(gene_cluster_names=set([gene_cluster_name]))
+
+        &#47&#47 add the list of gene caller ids associated with this gene cluster into `data`:
+        for genome_name in self.interactive.gene_clusters[gene_cluster_name]:
+            data[&quotaa_sequences_in_gene_cluster&quot][genome_name] = {}
+            for gene_callers_id in self.interactive.gene_clusters[gene_cluster_name][genome_name]:
+                data[&quotgene_caller_ids&quot].append((gene_callers_id, genome_name), )
+                data[&quotaa_sequences_in_gene_cluster&quot][genome_name][gene_callers_id] = AA_sequences[gene_cluster_name][genome_name][gene_callers_id]
+
+        &#47&#47 the dict that explains the distribution of genes in genomes:
+        data[&quotgene_caller_ids_in_genomes&quot] = self.interactive.gene_clusters[gene_cluster_name]
+
+        &#47&#47 add the list of genomes into data:
+        data[&quotgenomes&quot] = sorted(data[&quotgene_caller_ids_in_genomes&quot].keys())
+
+        &#47&#47 get some contextual stuff
+        data[&quotindex&quot], data[&quottotal&quot], data[&quotprevious_gene_cluster_name&quot], data[&quotnext_gene_cluster_name&quot] = self.get_index_total_previous_and_next_items(order_name, gene_cluster_name)
+
+        return json.dumps(data)
+
+
+    def search_functions(self):
+        try:
+            requested_sources = request.forms.getall(&quotsources[]&quot)
+
+            if not len(requested_sources):
+                requested_sources = None
+
+            items, full_report = self.interactive.search_for_functions(request.forms.get(&quotterms&quot), requested_sources)
+
+            items_unique = set([])
+            for search_term in items:
+                items_unique = items_unique.union(set(items[search_term]))
+
+            return json.dumps({&quotstatus&quot: 0, &quotresults&quot: full_report, &quotitem_count&quot: len(items_unique)})
+        except Exception as e:
+            message = str(e.clear_text()) if hasattr(e, &quotclear_text&quot) else str(e)
+            return json.dumps({&quotstatus&quot: 1, &quotmessage&quot: message})
+
+
+    def store_refined_bins(self):
+        data = json.loads(request.forms.get(&quotdata&quot))
+        colors = json.loads(request.forms.get(&quotcolors&quot))
+
+        bins_info_dict = {}
+        for bin_name in data:
+            bins_info_dict[bin_name] = {&quothtml_color&quot: colors[bin_name], &quotsource&quot: "anvi-refine"}
+
+        try:
+            self.interactive.store_refined_bins(data, bins_info_dict)
+        except RefineError as e:
+            return json.dumps({&quotstatus&quot: -1, &quotmessage&quot: e.clear_text()})
+
+        message = &quotDone! Collection %s is updated in the database. You can close your browser window (or continue updating).&quot % (self.interactive.collection_name)
+        return json.dumps({&quotstatus&quot: 0, &quotmessage&quot: message})
+
+
+    def get_available_phylogeny_programs(self):
+        return json.dumps(list(drivers.driver_modules[&quotphylogeny&quot].keys()))
+
+
+    def get_available_aligners(self):
+        return json.dumps(list(drivers.Aligners().aligners.keys()))
+
+
+    def generate_tree(self):
+        gene_cluster_names = set(request.forms.getall(&quotgene_clusters[]&quot))
+        gene_clusters = self.interactive.filter_gene_clusters_dict(argparse.Namespace(gene_clusters_names_of_interest=gene_cluster_names))
+        name = request.forms.get(&quotname&quot)
+        program = request.forms.get(&quotprogram&quot)
+        aligner = request.forms.get(&quotaligner&quot)
+        store_tree = request.forms.get(&quotstore_tree&quot)
+
+        temp_fasta_file = filesnpaths.get_temp_file_path()
+        temp_tree_file = filesnpaths.get_temp_file_path()
+        tree_text = None
+
+        try:
+            self.interactive.write_sequences_in_gene_clusters_for_phylogenomics(gene_clusters_dict=gene_clusters, output_file_path=temp_fasta_file, align_with=aligner)
+            drivers.driver_modules[&quotphylogeny&quot][program]().run_command(temp_fasta_file, temp_tree_file)
+            tree_text = open(temp_tree_file,&quotrb&quot).read().decode()
+
+            if store_tree:
+                TableForLayerOrders(self.interactive.args).add({name: {&quotdata_type&quot: &quotnewick&quot, &quotdata_value&quot: tree_text}})
+
+                &#47&#47 TO DO: instead of injecting new newick tree, we can use TableForLayerOrders.get()
+                self.interactive.layers_order_data_dict[name] = {&quotnewick&quot: tree_text, &quotbasic&quot: None}
+        except Exception as e:
+            message = str(e.clear_text()) if &quotclear_text&quot in dir(e) else str(e)
+            return json.dumps({&quotstatus&quot: 1, &quotmessage&quot: message})
+
+        return json.dumps({&quotstatus&quot: 0, &quottree&quot: tree_text})
+
+
+    def upload_project(self):
+        try:
+            args = argparse.Namespace()
+            args.user = request.forms.get(&quotusername&quot)
+            args.password = request.forms.get(&quotpassword&quot)
+            args.api_url = anvio.D[&quotapi-url&quot][1][&quotdefault&quot]
+            args.project_name = request.forms.get(&quotproject_name&quot)
+            args.delete_if_exists = True if request.forms.get(&quotdelete_if_exists&quot) == "true" else False
+
+            view_name = request.forms.get(&quotview&quot)
+            if view_name in self.interactive.views:
+                view_path = filesnpaths.get_temp_file_path()
+                utils.store_array_as_TAB_delimited_file(self.interactive.views[view_name][1:], view_path, self.interactive.views[view_name][0])
+                args.view_data = view_path
+
+            item_order_name = request.forms.get(&quotordering&quot)
+            if item_order_name in self.interactive.p_meta[&quotitem_orders&quot]:
+                ordering_path = filesnpaths.get_temp_file_path()
+                items_order = self.interactive.p_meta[&quotitem_orders&quot][item_order_name]
+
+                <a id="change">f = open(ordering_path, &quotw&quot)</a>
+                if items_order[&quottype&quot] == &quotnewick&quot:
+                    f.write(items_order[&quotdata&quot])
+                    args.tree = ordering_path
+                elif items_order[&quottype&quot] == &quotbasic&quot:
+                    f.write("\n".join(items_order[&quotdata&quot]))
+                    args.items_order = ordering_path
+                <a id="change">f</a><a id="change">.close()</a>
+
+            state_name = request.forms.get(&quotstate&quot)
+            if state_name in self.interactive.states_table.states:
+                state_path = filesnpaths.get_temp_file_path()
+                <a id="change">f = open(state_path, &quotw&quot)</a>
+                f.write(self.interactive.states_table.states[state_name][&quotcontent&quot])
+                <a id="change">f</a><a id="change">.close()</a>
+
+                args.state = state_path
+
+            if request.forms.get(&quotinclude_description&quot) == "true":
+                description_path = filesnpaths.get_temp_file_path()
+                <a id="change">f = open(description_path, &quotw&quot)</a>
+                f.write(self.interactive.p_meta[&quotdescription&quot])
+                <a id="change">f</a><a id="change">.close()</a>
+
+                args.description = description_path
+
+            &#47&#47 FIX ME: this broke
+            &#47&#47 if request.forms.get(&quotinclude_samples&quot) == "true":
+            &#47&#47     &#47&#47 FIXME: this will break
+            &#47&#47     if len(self.interactive.layers_order_data_dict):
+            &#47&#47         layers_order_data_path = filesnpaths.get_temp_file_path()
+            &#47&#47         print(layers_order_data_path)
+            &#47&#47         utils.store_dict_as_TAB_delimited_file(self.interactive.layers_order_data_dict, layers_order_data_path, headers=[&quotattributes&quot, &quotbasic&quot, &quotnewick&quot])
+            &#47&#47         args.layers_order_data_path = layers_order_data_path
+
+            &#47&#47     if len(self.interactive.layers_additional_data_dict):
+            &#47&#47         layers_additional_data_path = filesnpaths.get_temp_file_path()
+            &#47&#47         print(layers_additional_data_path)
+            &#47&#47         utils.store_dict_as_TAB_delimited_file(self.interactive.layers_additional_data_dict, layers_additional_data_path)
+            &#47&#47         args.layers_additional_data_file = layers_additional_data_path
+
+            collection_name = request.forms.get(&quotcollection&quot)
+            if collection_name in self.interactive.collections.collections_dict:
+                collection_path_prefix = filesnpaths.get_temp_file_path()
+                self.interactive.collections.export_collection(collection_name, output_file_prefix=collection_path_prefix)
+
+                args.bins = collection_path_prefix + &quot.txt&quot
+                args.bins_info = collection_path_prefix + &quot-info.txt&quot
+
+            server = AnviServerAPI(args)
+            server.login()
+            server.push()
+            return json.dumps({&quotstatus&quot: 0})
+        except Exception as e:
+            message = str(e.clear_text()) if hasattr(e, &quotclear_text&quot) else str(e)
+            return json.dumps({&quotstatus&quot: 1, &quotmessage&quot: message})
+
+
+    def get_contigs_stats(self):
+        return json.dumps({&quotstats&quot: self.interactive.contigs_stats,
+                           &quottables&quot: self.interactive.tables,
+                           &quothuman_readable_keys&quot: self.interactive.human_readable_keys})
+
+
+    def get_initial_data(self):
+        return json.dumps(self.interactive.get_initial_data())
+
+
+    def get_column_info(self):
+        gene_callers_id = int(request.forms.get(&quotgene_callers_id&quot))
+        engine = request.forms.get(&quotengine&quot)
+
+        return json.dumps(self.interactive.get_column_info(gene_callers_id, engine))
+
+
+    def get_metabolism(self):
+        return json.dumps(self.interactive.get_metabolism_data())
+
+
+    def get_structure(self, gene_callers_id):
+        return json.dumps(self.interactive.get_structure(gene_callers_id))
+
+
+    def get_variability(self):
+        options = json.loads(request.forms.get(&quotoptions&quot))
+        return self.interactive.get_variability(options)
+
+
+    def store_variability(self):
+        options = json.loads(request.forms.get(&quotoptions&quot))
+        return self.interactive.store_variability(options)
+
+
+    def store_structure_as_pdb(self):
+        options = json.loads(request.forms.get(&quotoptions&quot))
+        return self.interactive.store_structure_as_pdb(options)
+
+
+    def get_gene_function_info(self, gene_callers_id):
+        return json.dumps(self.interactive.get_gene_function_info(gene_callers_id))
+
+
+    def get_model_info(self, gene_callers_id):
+        return json.dumps(self.interactive.get_model_info(gene_callers_id))
+
+
+    def filter_gene_clusters(self):
+        try:
+            parameters = {}
+            for key in request.forms:
+                parameters[key] = float(request.forms.get(key))
+
+            gene_clusters_dict, _ = self.interactive.filter_gene_clusters_from_gene_clusters_dict(copy.deepcopy(self.interactive.gene_clusters), **parameters)
+            return json.dumps({&quotstatus&quot: 0, &quotgene_clusters_list&quot: list(gene_clusters_dict.keys())})
+        except Exception as e:
+            message = str(e.clear_text()) if hasattr(e, &quotclear_text&quot) else str(e)
+            return json.dumps({&quotstatus&quot: 1, &quotmessage&quot: message})
+
+
+    def check_homogeneity_info(self):
+        try:
+            return json.dumps({&quotstatus&quot: 0,
+                               &quotfunctional_homogeneity_info_is_available&quot: self.interactive.functional_homogeneity_info_is_available,
+                               &quotgeometric_homogeneity_info_is_available&quot: self.interactive.geometric_homogeneity_info_is_available,
+                               &quotcombined_homogeneity_info_is_available&quot: self.interactive.combined_homogeneity_info_is_available})
+        except:
+            return json.dumps({&quotstatus&quot: 1})
+
+
+    def reroot_tree(self):
+        newick = request.forms.get(&quotnewick&quot)
+        tree = Tree(newick, format=1)
+
+        left_most = tree.search_nodes(name=request.forms.get(&quotleft_most&quot))[0]
+        right_most = tree.search_nodes(name=request.forms.get(&quotright_most&quot))[0]
+
+        new_root = tree.get_common_ancestor(left_most, right_most)
+        tree.set_outgroup(new_root)
+
+        &#47&#47 Ete3 tree.write function replaces some charachters that we support in the interface.
+        &#47&#47 As a workaround we are going to encode node names with base32, after serialization
+        &#47&#47 we are going to decode them back.
+        for node in tree.traverse(&quotpreorder&quot):
+            node.name = &quotbase32&quot + base64.b32encode(node.name.encode(&quotutf-8&quot)).decode(&quotutf-8&quot)
+
+        new_newick = tree.write(format=1)
+
+        &#47&#47 ete also converts base32 padding charachter "=" to "_" so we need to replace it.
+        new_newick = re.sub(r"base32(\w*)", lambda m: base64.b32decode(m.group(1).replace(&quot_&quot,&quot=&quot)).decode(&quotutf-8&quot), new_newick)
+
+        return json.dumps({&quotnewick&quot: new_newick})
+
+
+    def get_taxonomy(self):
+        collection = json.loads(request.forms.get(&quotcollection&quot))
+
+        if not self.scg_taxonomy:
+            message = "You first need to run `anvi-run-scg-taxonomy` on your contigs database for this to work :("
+            run.warning(message)
+            return json.dumps({&quotstatus&quot: 1, &quotmessage&quot: message})
+
+        output = {}
+        try:
+            for bin_name in collection:
+                output[bin_name] = self.scg_taxonomy.estimate_for_list_of_splits(collection[bin_name], bin_name=bin_name)
+
+            run.info_single(&quotTaxonomy estimation has been requested for bin(s) "%s".&quot % (", ".join(collection.keys())))
+        except Exception as e:
+            message = str(e.clear_text()) if hasattr(e, &quotclear_text&quot) else str(e)
+            return json.dumps({&quotstatus&quot: 1, &quotmessage&quot: message})
+
+        return json.dumps(output)
+
+
+    def get_functions_for_gene_clusters(self):
+        if not len(self.interactive.gene_clusters_function_sources):
+            message = "Gene cluster functions seem to have not been initialized, so that button has nothing to show you :/ Please carry on."
+            run.warning(message)
+            return json.dumps({&quotstatus&quot: 1, &quotmessage&quot: message})
+
+        gene_cluster_names = json.loads(request.forms.get(&quotgene_clusters&quot))
+
+        d = {}
+        for gene_cluster_name in gene_cluster_names:
+            if gene_cluster_name not in self.interactive.gene_clusters_functions_summary_dict:
+                message = (f"At least one of the gene clusters in your list (e.g., {gene_cluster_name}) is missing in "
+                           f"the functions summary dict :/")
+                return json.dumps({&quotstatus&quot: 1, &quotmessage&quot: message})
+                
+            d[gene_cluster_name] = self.interactive.gene_clusters_functions_summary_dict[gene_cluster_name]
+
+        return json.dumps({&quotfunctions&quot: d, &quotsources&quot: list(self.interactive.gene_clusters_function_sources)})
+</code></pre>

@@ -1,0 +1,123 @@
+<link rel="stylesheet" href="../../..//default.css">
+<script src="../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/calico/basenji/blob/master/bin/basenji_fetch_vcf.py#L27">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/basenji/blob/master/bin/basenji_fetch_vcf.py#L27">GitMyHubLink</a>
+
+&#47&#47!/usr/bin/env python
+from optparse import OptionParser
+import glob
+import os
+import pdb
+import subprocess
+import sys
+import time
+
+import numpy as np
+import pandas as pd
+import h5py
+
+from basenji.emerald import EmeraldVCF
+from basenji.sad5 import ChrSAD5
+
+&quot&quot&quot
+basenji_fetch_vcf.py
+
+Fetch and synthesize scores, and LD-associated scores, for variants
+in the given VCF file.
+&quot&quot&quot
+
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+&#47&#47 main
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+def main():
+    <a id="change">usage = &quotusage: %prog [options] &lt;sad_h5_path&gt; &lt;vcf_file&gt;&quot</a>
+    <a id="change">parser = OptionParser(usage)</a>
+    &#47&#47 parser.add_option(&quot-c&quot, dest=&quotchrom_h5&quot,
+    &#47&#47         default=False, action=&quotstore_true&quot,
+    &#47&#47         help=&quotHDF5 files split by chromosome [Default: %default]&quot)
+    parser.add_option(&quot-f&quot, dest=&quotfull_tables&quot,
+            default=False, action=&quotstore_true&quot,
+            help=&quotPrint full tables describing all linked variants [Default: %default]&quot)
+    parser.add_option(&quot--ld&quot, dest=&quotld_t&quot,
+            default=0.5, type=&quotfloat&quot,
+            help=&quotLD threshold to consider variant [Default: %default]&quot)
+    parser.add_option(&quot-p&quot, dest=&quotpopulation&quot,
+            default=&quotEUR&quot, help=&quotPopulation code&quot)
+    parser.add_option(&quot-o&quot, dest=&quotout_dir&quot,
+            default=&quotfetch_vcf&quot)
+    <a id="change">(options,args) = parser.parse_args()</a>
+
+    if len(args) != 2:
+        parser.error(&quotMust provide SAD HDF5 path and VCF file&quot)
+    else:
+        <a id="change">sad_h5_path = args[0]</a>
+        <a id="change">vcf_file = args[1]</a>
+
+    if not os.path.isdir(options.out_dir):
+        os.mkdir(options.out_dir)
+
+    &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+    &#47&#47 precursors
+
+    print(&quotPreparing data...&quot, end=&quot&quot, flush=True)
+    <a id="change">sad5 = ChrSAD5(sad_h5_path, options.population)</a>
+    print(&quotDONE.&quot, flush=True)
+
+
+    &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+    &#47&#47 parse VCF
+
+    <a id="change">ldscores_out = open(&quot%s/ldscores.txt&quot % options.out_dir, &quotw&quot)</a>
+    if options.full_tables:
+        <a id="change">full_dir = &quot%s/full&quot % options.out_dir</a>
+        if not os.path.isdir(full_dir):
+            os.mkdir(full_dir)
+
+    for line in open(vcf_file):
+        if not line.startswith(&quot&#47&#47&quot):
+            <a id="change">t0 = time.time()</a>
+            <a id="change">a = line.split()</a>
+            <a id="change">chrm = a[0]</a>
+            <a id="change">pos = int(a[1])</a>
+            <a id="change">rsid = a[2]</a>
+
+            &#47&#47 retrieve scores for variants in LD
+            <a id="change">snp_ldscores, snp_ld_df, snps_scores = sad5.retrieve_snp(rsid, chrm, pos,
+                                                                     ld_t=options.ld_t)</a>
+
+            if len(snp_ldscores) &gt; 0:
+                &#47&#47 print LD scores
+                for ti in range(sad5.num_targets):
+                    cols = (rsid, snp_ldscores[ti], sad5.target_ids[ti], sad5.target_labels[ti])
+                    print(&quot%-16s  %7.3f  %20s  %s&quot % cols, file=ldscores_out)
+
+                if options.full_tables:
+                    &#47&#47 print all LD variant scores
+                    <a id="change">full_ld_out = open(&quot%s/%s.txt&quot % (full_dir, rsid), &quotw&quot)</a>
+                    for si in range(snp_ld_df.shape[0]):
+                        <a id="change">snp_ld_series = snp_ld_df.iloc[si]</a>
+                        <a id="change">snp_scores = snps_scores[si]</a>
+                        for ti in range(sad5.num_targets):
+                            <a id="change">snp_score_ti = snp_scores[ti]</a>
+                            <a id="change">snp_ldscore_ti = snp_ld_series.r * snp_score_ti</a>
+                            cols = (snp_ld_series.snp, snp_ldscore_ti, snp_score_ti, snp_ld_series.r,
+                                    sad5.target_ids[ti], sad5.target_labels[ti])
+                            print(&quot%-16s  %7.3f  %7.3f  %6.1f  %20s  %s&quot % cols, file=full_ld_out)
+                    <a id="change">full_ld_out</a><a id="change">.close()</a>
+
+            print(rsid, &quot%.1fs&quot%(time.time()-t0))
+
+    <a id="change">ldscores_out</a><a id="change">.close()</a>
+
+
+
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+&#47&#47 __main__
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+if __name__ == &quot__main__&quot:
+    main()
+</code></pre>

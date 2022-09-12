@@ -1,0 +1,120 @@
+<link rel="stylesheet" href="../../..//default.css">
+<script src="../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/crista/exercises-in-programming-style/blob/master/02-go-forth/tf-02.py#L47">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/exercises-in-programming-style/blob/master/02-go-forth/tf-02.py#L47">GitMyHubLink</a>
+
+&#47&#47!/usr/bin/env python
+import sys, re, operator, string
+
+&#47&#47
+&#47&#47 The all-important data stack
+&#47&#47
+stack = []
+
+&#47&#47
+&#47&#47 The heap. Maps names to data (i.e. variables)
+&#47&#47
+heap = {}
+
+&#47&#47
+&#47&#47 The new "words" (procedures) of our program
+&#47&#47
+def read_file():
+    
+    Takes a path to a file on the stack and places the entire
+    contents of the file back on the stack.
+    
+    f = open(stack.pop())
+    &#47&#47 Push the result onto the stack
+    stack.append([f.read()])
+    f.close()
+
+def filter_chars():
+    
+    Takes data on the stack and places back a copy with all 
+    nonalphanumeric chars replaced by white space. 
+    
+    &#47&#47 This is not in style. RE is too high-level, but using it
+    &#47&#47 for doing this fast and short. Push the pattern onto stack
+    stack.append(re.compile(&quot[\W_]+&quot))
+    &#47&#47 Push the result onto the stack
+    stack.append([stack.pop().sub(&quot &quot, stack.pop()[0]).lower()])
+
+def scan():
+    
+    Takes a string on the stack and scans for words, placing
+    the list of words back on the stack
+    
+    &#47&#47 Again, split() is too high-level for this style, but using
+    &#47&#47 it for doing this fast and short. Left as exercise.
+    stack.extend(stack.pop()[0].split())
+
+def remove_stop_words():
+     
+    Takes a list of words on the stack and removes stop words.
+    
+    <a id="change">f = open(&quot../stop_words.txt&quot)</a>
+    stack.append(f.read().split(&quot,&quot))
+    <a id="change">f</a><a id="change">.close()</a>
+    &#47&#47 add single-letter words
+    stack[-1].extend(list(string.ascii_lowercase))
+    <a id="change">heap[&quotstop_words&quot] = stack.pop()</a>
+    &#47&#47 Again, this is too high-level for this style, but using it
+    &#47&#47 for doing this fast and short. Left as exercise.
+    <a id="change">heap[&quotwords&quot] = []</a>
+    while len(stack) &gt; 0:
+        if stack[-1] in heap[&quotstop_words&quot]:
+            stack.pop() &#47&#47 pop it and drop it
+        else:
+            heap[&quotwords&quot].append(stack.pop()) &#47&#47 pop it, store it
+    stack.extend(heap[&quotwords&quot]) &#47&#47 Load the words onto the stack
+    del heap[&quotstop_words&quot]; del heap[&quotwords&quot] &#47&#47 Not needed 
+    
+def frequencies():
+    
+    Takes a list of words and returns a dictionary associating
+    words with frequencies of occurrence.
+    
+    heap[&quotword_freqs&quot] = {}
+    &#47&#47 A little flavour of the real Forth style here...
+    while len(stack) &gt; 0:
+        &#47&#47 ... but the following line is not in style, because the 
+        &#47&#47 naive implementation would be too slow
+        if stack[-1] in heap[&quotword_freqs&quot]:
+            &#47&#47 Increment the frequency, postfix style: f 1 +
+            stack.append(heap[&quotword_freqs&quot][stack[-1]]) &#47&#47 push f
+            stack.append(1) &#47&#47 push 1
+            stack.append(stack.pop() + stack.pop()) &#47&#47 add
+        else:
+            stack.append(1) &#47&#47 Push 1 in stack[2]
+        &#47&#47 Load the updated freq back onto the heap
+        heap[&quotword_freqs&quot][stack.pop()] = stack.pop()  
+
+    &#47&#47 Push the result onto the stack
+    stack.append(heap[&quotword_freqs&quot])
+    del heap[&quotword_freqs&quot] &#47&#47 We don&quott need this variable anymore
+
+def sort():
+    &#47&#47 Not in style, left as exercise
+    stack.extend(sorted(stack.pop().items(), key=operator.itemgetter(1)))
+
+&#47&#47 The main function
+&#47&#47
+stack.append(sys.argv[1])
+read_file(); filter_chars(); scan(); remove_stop_words()
+frequencies(); sort()
+
+stack.append(0)
+&#47&#47 Check stack length against 1, because after we process
+&#47&#47 the last word there will be one item left
+while stack[-1] &lt; 25 and len(stack) &gt; 1:
+    heap[&quoti&quot] = stack.pop()
+    (w, f) = stack.pop(); print(w, &quot-&quot, f)
+    stack.append(heap[&quoti&quot]); stack.append(1)
+    stack.append(stack.pop() + stack.pop())
+
+</code></pre>

@@ -1,0 +1,64 @@
+digraph G {
+1 [label="(46470747)=" shape=box style=dashed]
+2 [label="(46470750)bool(is_gzipped)" shape=ellipse style=dashed]
+3 [label="(46470738)BinaryIO(file_handle)" shape=ellipse style=dashed color=blue fontcolor=blue]
+4 [label="(46470745)read" shape=box style=dashed]
+5 [label="(46470740)Any(file_name)" shape=ellipse style=dashed]
+6 [label="(46470736)=" shape=box style=dashed]
+7 [label="(46470741)String(lit(rb))" shape=ellipse style=dashed color=blue fontcolor=blue]
+8 [label="(46470744)BinaryIO(file_handle)" shape=ellipse style=dashed]
+9 [label="(46470751)bytes(magic_number)" shape=ellipse style=dashed]
+10 [label="(46470753)Eq" shape=box style=dashed]
+11 [label="(46470757)END" style=dashed]
+12 [label="(46470755)bool(is_gzipped)" shape=ellipse style=dashed]
+13 [label="(46470733)START" style=dashed]
+14 [label="(46470734)Any(file_name)" shape=ellipse style=dashed]
+15 [label="(46470742)=" shape=box style=dashed color=blue fontcolor=blue]
+16 [label="(46470748)BinaryIO(file_handle)" shape=ellipse style=dashed color=blue fontcolor=blue]
+17 [label="(46470746)number(2)" shape=ellipse style=dashed]
+18 [label="(46470735)(null)" shape=ellipse style=dashed]
+19 [label="(46470739)open" shape=box style=dashed color=blue fontcolor=blue]
+20 [label="(46470749)close" shape=box style=dashed color=blue fontcolor=blue]
+21 [label="(46470756)return" shape=box style=dashed]
+22 [label="(46470743)bytes(magic_number)" shape=ellipse style=dashed]
+23 [label="(46470754)=" shape=box style=dashed]
+24 [label="(46470752)Bytes()" shape=ellipse style=dashed]
+13 -> 1 [label="" style=solid];
+4 -> 1 [label="dep" style=dotted];
+4 -> 1 [label="para" style=dotted];
+23 -> 2 [label="def" style=dotted];
+15 -> 3 [label="def" style=dotted];
+13 -> 4 [label="" style=solid];
+8 -> 4 [label="recv" style=dotted];
+17 -> 4 [label="para" style=dotted];
+15 -> 4 [label="dep" style=dotted];
+13 -> 6 [label="" style=solid];
+18 -> 6 [label="para" style=dotted];
+3 -> 8 [label="ref" style=dotted];
+22 -> 9 [label="ref" style=dotted];
+13 -> 10 [label="" style=solid];
+9 -> 10 [label="para" style=dotted];
+24 -> 10 [label="para" style=dotted];
+20 -> 10 [label="dep" style=dotted];
+21 -> 11 [label="dep" style=dotted];
+2 -> 12 [label="ref" style=dotted];
+6 -> 14 [label="def" style=dotted];
+13 -> 15 [label="" style=solid];
+19 -> 15 [label="dep" style=dotted];
+19 -> 15 [label="para" style=dotted];
+3 -> 16 [label="ref" style=dotted];
+13 -> 19 [label="" style=solid];
+5 -> 19 [label="para" style=dotted];
+7 -> 19 [label="para" style=dotted];
+6 -> 19 [label="dep" style=dotted];
+13 -> 20 [label="" style=solid];
+16 -> 20 [label="recv" style=dotted];
+1 -> 20 [label="dep" style=dotted];
+13 -> 21 [label="" style=solid];
+12 -> 21 [label="para" style=dotted];
+23 -> 21 [label="dep" style=dotted];
+1 -> 22 [label="def" style=dotted];
+13 -> 23 [label="" style=solid];
+10 -> 23 [label="dep" style=dotted];
+10 -> 23 [label="para" style=dotted];
+}

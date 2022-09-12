@@ -1,0 +1,298 @@
+<link rel="stylesheet" href="../../../..//default.css">
+<script src="../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/PyMVPA/PyMVPA/blob/master/mvpa2/tests/test_iohelpers.py#L137">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/PyMVPA/blob/master/mvpa2/tests/test_iohelpers.py#L137">GitMyHubLink</a>
+
+&#47&#47 emacs: -*- mode: python; py-indent-offset: 4; indent-tabs-mode: nil -*-
+&#47&#47 vi: set ft=python sts=4 ts=4 sw=4 et:
+&#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47
+&#47&#47
+&#47&#47   See COPYING file distributed along with the PyMVPA package for the
+&#47&#47   copyright and license terms.
+&#47&#47
+&#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47
+Unit tests for PyMVPA IO helpers
+
+import re
+import os
+from os.path import join as pathjoin
+import unittest
+from tempfile import mkstemp
+import numpy as np
+
+from mvpa2.testing.tools import ok_, assert_equal, with_tempfile
+
+from mvpa2 import pymvpa_dataroot
+from mvpa2.datasets.eventrelated import find_events
+from mvpa2.misc.io import *
+from mvpa2.misc.fsl import *
+from mvpa2.misc.bv import BrainVoyagerRTC
+
+
+class IOHelperTests(unittest.TestCase):
+
+    def test_column_data_from_file(self):
+        ex1 = eins zwei drei
+        0 1 2
+        3 4 5
+        
+        fd, fpath = mkstemp(&quotmvpa&quot, &quottest&quot); os.close(fd)
+
+        with open(fpath, &quotw&quot) as file:
+            file.write(ex1)
+
+        &#47&#47 intentionally rely on defaults
+        d = ColumnData(fpath, header=True)
+
+        &#47&#47 check header (sort because order in dict is unpredictable)
+        self.assertTrue(sorted(d.keys()) == [&quotdrei&quot, &quoteins&quot, &quotzwei&quot])
+
+        self.assertTrue(d[&quoteins&quot] == [0, 3])
+        self.assertTrue(d[&quotzwei&quot] == [1, 4])
+        self.assertTrue(d[&quotdrei&quot] == [2, 5])
+
+        &#47&#47 make a copy
+        d2 = ColumnData(d)
+
+        &#47&#47 check if identical
+        self.assertTrue(sorted(d2.keys()) == [&quotdrei&quot, &quoteins&quot, &quotzwei&quot])
+        self.assertTrue(d2[&quoteins&quot] == [0, 3])
+        self.assertTrue(d2[&quotzwei&quot] == [1, 4])
+        self.assertTrue(d2[&quotdrei&quot] == [2, 5])
+
+        &#47&#47 now merge back
+        d += d2
+
+        &#47&#47 same columns?
+        self.assertTrue(sorted(d.keys()) == [&quotdrei&quot, &quoteins&quot, &quotzwei&quot])
+
+        &#47&#47 but more data
+        self.assertEqual(d[&quoteins&quot], [0, 3, 0, 3])
+        self.assertEqual(d[&quotzwei&quot], [1, 4, 1, 4])
+        self.assertEqual(d[&quotdrei&quot], [2, 5, 2, 5])
+
+        &#47&#47 test file write
+        &#47&#47 TODO: check if correct
+        header_order = [&quotdrei&quot, &quotzwei&quot, &quoteins&quot]
+        d.tofile(fpath, header_order=header_order)
+
+        &#47&#47 test sample selection
+        dsel = d.select_samples([0, 2])
+        self.assertEqual(dsel[&quoteins&quot], [0, 0])
+        self.assertEqual(dsel[&quotzwei&quot], [1, 1])
+        self.assertEqual(dsel[&quotdrei&quot], [2, 2])
+
+        &#47&#47 test if order is read from file when available
+        d3 = ColumnData(fpath)
+        self.assertEqual(d3._header_order, header_order)
+
+        &#47&#47 add another column -- should be appended as the last column
+        &#47&#47 while storing
+        d3[&quotfour&quot] = [0.1] * len(d3[&quoteins&quot])
+        d3.tofile(fpath)
+
+        d4 = ColumnData(fpath)
+        self.assertEqual(d4._header_order, header_order + [&quotfour&quot])
+
+        &#47&#47 cleanup and ignore stupidity
+        try:
+            os.remove(fpath)
+        except WindowsError:
+            pass
+
+
+    def test_samples_attributes(self):
+        sa = SampleAttributes(pathjoin(pymvpa_dataroot,
+                                           &quotattributes_literal.txt&quot),
+                              literallabels=True)
+
+        ok_(sa.nrows == 1452, msg=&quotThere should be 1452 samples&quot)
+
+        &#47&#47 convert to event list, with some custom attr
+        ev = find_events(**sa)
+        ok_(len(ev) == 17 * (max(sa.chunks) + 1),
+            msg=&quotNot all events got detected.&quot)
+
+        ok_(ev[0][&quottargets&quot] == ev[-1][&quottargets&quot] == &quotrest&quot,
+            msg=&quotFirst and last event are rest condition.&quot)
+
+        ok_(ev[-1][&quotonset&quot] + ev[-1][&quotduration&quot] == sa.nrows,
+            msg=&quotSomething is wrong with the timiing of the events&quot)
+
+
+    @with_tempfile(&quotmvpa&quot, &quotsampleattr&quot)
+    def test_samples_attributes_autodtype(self, fn):
+        payload = &quot&quot&quota b c
+1 1.1 a
+2 2.2 b
+3 3.3 c
+4 4.4 d&quot&quot&quot
+
+        with open(fn, &quotw&quot) as f:
+            f.write(payload)
+
+        attr = SampleAttributes(fn, header=True)
+
+        assert_equal(set(attr.keys()), set([&quota&quot, &quotb&quot, &quotc&quot]))
+        assert_equal(attr[&quota&quot], [1, 2, 3, 4])
+        assert_equal(attr[&quotb&quot], [1.1, 2.2, 3.3, 4.4])
+        assert_equal(attr[&quotc&quot], [&quota&quot, &quotb&quot, &quotc&quot, &quotd&quot])
+
+
+    def test_fsl_ev(self):
+        ex1 = 0.0 2.0 1
+        13.89 2 1
+        16 2.0 0.5
+        
+        fd, fpath = mkstemp(&quotmvpa&quot, &quottest&quot); os.close(fd)
+        <a id="change">file = open(fpath, &quotw&quot)</a>
+        file.write(ex1)
+        <a id="change">file</a><a id="change">.close()</a>
+
+        &#47&#47 intentionally rely on defaults
+        d = FslEV3(fpath)
+
+        &#47&#47 check header (sort because order in dict is unpredictable)
+        self.assertTrue(sorted(d.keys()) == \
+            [&quotdurations&quot, &quotintensities&quot, &quotonsets&quot])
+
+        self.assertTrue(d[&quotonsets&quot] == [0.0, 13.89, 16.0])
+        self.assertTrue(d[&quotdurations&quot] == [2.0, 2.0, 2.0])
+        self.assertTrue(d[&quotintensities&quot] == [1.0, 1.0, 0.5])
+
+        self.assertTrue(d.nevs == 3)
+        self.assertTrue(d.get_ev(1) == (13.89, 2.0, 1.0))
+        &#47&#47 cleanup and ignore stupidity
+        try:
+            os.remove(fpath)
+        except WindowsError:
+            pass
+
+        d = FslEV3(pathjoin(pymvpa_dataroot, &quotfslev3.txt&quot))
+        ev = d.to_events()
+        self.assertTrue(len(ev) == 3)
+        self.assertTrue([e[&quotduration&quot] for e in ev] == [9] * 3)
+        self.assertTrue([e[&quotonset&quot] for e in ev] == [6, 21, 35])
+        self.assertTrue([e[&quotfeatures&quot] for e in ev] == [[1], [1], [1]])
+
+        ev = d.to_events(label=&quotface&quot, chunk=0, crap=True)
+        ev[0][&quotlabel&quot] = &quothouse&quot
+        self.assertTrue(len(ev) == 3)
+        self.assertTrue([e[&quotduration&quot] for e in ev] == [9] * 3)
+        self.assertTrue([e[&quotonset&quot] for e in ev] == [6, 21, 35])
+        self.assertTrue([e[&quotfeatures&quot] for e in ev] == [[1], [1], [1]])
+        self.assertTrue([e[&quotlabel&quot] for e in ev] == [&quothouse&quot, &quotface&quot, &quotface&quot])
+        self.assertTrue([e[&quotchunk&quot] for e in ev] == [0] * 3)
+        self.assertTrue([e[&quotcrap&quot] for e in ev] == [True] * 3)
+
+
+    def test_fsl_ev2(self):
+        attr = SampleAttributes(pathjoin(pymvpa_dataroot, &quotsmpl_attr.txt&quot))
+
+        &#47&#47 check header (sort because order in dict is unpredictable)
+        self.assertTrue(sorted(attr.keys()) == \
+            [&quotchunks&quot, &quottargets&quot])
+
+        self.assertTrue(attr.nsamples == 3)
+
+    def test_bv_rtc(self):
+        Simple testing of reading RTC files from BrainVoyager
+
+        attr = BrainVoyagerRTC(pathjoin(pymvpa_dataroot, &quotbv&quot, &quotsmpl_model.rtc&quot))
+        self.assertEqual(attr.ncolumns, 4, "We must have 4 colums")
+        self.assertEqual(attr.nrows, 147, "We must have 147 rows")
+
+        self.assertEqual(attr._header_order,
+                [&quotl_60 B&quot, &quotr_60 B&quot, &quotl_80 B&quot, &quotr_80 B&quot],
+                "We must got column names correctly")
+        self.assertTrue(len(attr.r_60_B) == attr.nrows,
+                "We must have got access to column by property")
+        self.assertTrue(attr.toarray() is not None,
+                "We must have got access to column by property")
+
+    def testdesign2labels(self):
+        Simple testing of helper Design2Labels
+
+        attr = BrainVoyagerRTC(pathjoin(pymvpa_dataroot, &quotbv&quot, &quotsmpl_model.rtc&quot))
+        labels0 = design2labels(attr, baseline_label=&quotsilence&quot)
+        labels = design2labels(attr, baseline_label=&quotsilence&quot,
+                                func=lambda x:x &gt; 0.5)
+        Nsilence = lambda x:len(np.where(np.array(x) == &quotsilence&quot)[0])
+
+        nsilence0 = Nsilence(labels0)
+        nsilence = Nsilence(labels)
+        self.assertTrue(nsilence0 &lt; nsilence,
+                        "We must have more silence if thr is higher")
+        self.assertEqual(len(labels), attr.nrows,
+                        "We must have the same number of labels as rows")
+        self.assertRaises(ValueError, design2labels, attr,
+                        baseline_label=&quotsilence&quot, func=lambda x:x &gt; -1.0)
+
+
+    def testlabels2chunks(self):
+        attr = BrainVoyagerRTC(pathjoin(pymvpa_dataroot, &quotbv&quot, &quotsmpl_model.rtc&quot))
+        labels = design2labels(attr, baseline_label=&quotsilence&quot)
+        self.assertRaises(ValueError, labels2chunks, labels, &quotbugga&quot)
+        chunks = labels2chunks(labels)
+        self.assertEqual(len(labels), len(chunks))
+        &#47&#47 we must got them in sorted order
+        chunks_sorted = np.sort(chunks)
+        self.assertTrue((chunks == chunks_sorted).all())
+        &#47&#47 for this specific one we must have just 4 chunks
+        self.assertTrue((np.unique(chunks) == range(4)).all())
+
+
+    def test_sensor_locations(self):
+        sl = XAVRSensorLocations(pathjoin(pymvpa_dataroot, &quotxavr1010.dat&quot))
+
+        for var in [&quotnames&quot, &quotpos_x&quot, &quotpos_y&quot, &quotpos_z&quot]:
+            self.assertTrue(len(eval(&quotsl.&quot + var)) == 31)
+
+
+    def test_fsl_glm_design(self):
+        glm = FslGLMDesign(pathjoin(pymvpa_dataroot, &quotglm.mat&quot))
+
+        self.assertTrue(glm.mat.shape == (850, 6))
+        self.assertTrue(len(glm.ppheights) == 6)
+
+    def test_read_fsl_design(self):
+        fname = pathjoin(pymvpa_dataroot,
+                             &quotsample_design.fsf&quot)
+        &#47&#47 use our function
+        design = read_fsl_design(fname)
+        &#47&#47 and just load manually to see either we match fine
+        with open(fname) as f:
+            read_lines = f.readlines()
+
+        set_lines = [x for x in read_lines
+                     if x.startswith(&quotset &quot)]
+        assert_equal(len(set_lines), len(design))
+
+        &#47&#47 figure out which one is missing
+        TODO: would require the same special treatment for _files fields
+        re_set = re.compile("set ([^)]*\)).*")
+        for line in set_lines:
+            key = re_set.search(line).groups()[0]
+            if not key in design:
+                raise AssertionError(
+                    "Key %s was not found in read FSL design" % key)
+        key_list = [&quot &quot.join(l.split(None,2)[1:2]) for l in set_lines]
+        for k in set(key_list):
+            if len([key for key in key_list if key == k]) == 2:
+                raise AssertionError(
+                    "Got the non-unique beast %s" % k)
+                    
+
+def suite():  &#47&#47 pragma: no cover
+    return unittest.makeSuite(IOHelperTests)
+
+
+if __name__ == &quot__main__&quot:  &#47&#47 pragma: no cover
+    import runner
+    runner.run()
+
+</code></pre>

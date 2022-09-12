@@ -1,0 +1,78 @@
+<link rel="stylesheet" href="../../../..//default.css">
+<script src="../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/merenlab/anvio/blob/master/anvio/drivers/fasttree.py#L34">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/anvio/blob/master/anvio/drivers/fasttree.py#L34">GitMyHubLink</a>
+
+&#47&#47 coding: utf-8
+Interface to FastTree.
+
+from subprocess import Popen, PIPE
+
+import anvio
+import anvio.utils as utils
+import anvio.terminal as terminal
+import anvio.filesnpaths as filesnpaths
+
+
+__author__ = "Developers of anvi&quoto (see AUTHORS.txt)"
+__copyright__ = "Copyleft 2015-2018, the Meren Lab (http://merenlab.org/)"
+__credits__ = []
+__license__ = "GPL 3.0"
+__version__ = anvio.__version__
+__maintainer__ = "Özcan Esen"
+__email__ = "ozcanesen@gmail.com"
+
+
+run = terminal.Run()
+progress = terminal.Progress()
+pp = terminal.pretty_print
+
+
+class FastTree:
+    def __init__(self, run=run):
+        self.run = run
+        self.progress = progress
+        self.command = [&quotFastTree&quot]
+
+        utils.is_program_exists(&quotFastTree&quot)
+
+    def run_command(self, input_file_path, output_file_path):
+        <a id="change">input_file = open(input_file_path, &quotrb&quot)</a>
+
+        fasttree = Popen(self.command, stdout=PIPE, stdin=PIPE, stderr=PIPE)
+        output = fasttree.communicate(input=input_file.read())
+        <a id="change">input_file</a><a id="change">.close()</a>
+
+        output_stdout = output[0].decode().rstrip()
+        output_stderr = output[1].decode().splitlines()
+
+        run.info("Version", output_stderr[0])
+        warning = ""
+        for line in output_stderr[1:]:
+            if len(warning) &gt; 0 or line.startswith("WARNING! "):
+                warning += line + "\n"
+                if line == "":
+                    run.warning(warning)
+                    warning = ""
+            elif line.startswith("      "):
+                pass
+            elif &quotseconds&quot in line:
+                pass
+            else:
+                line = line.split(":")
+                if len(line) == 2:
+                    run.info(line[0], line[1].strip())
+                else:
+                    run.info("Info", ":".join(line))
+
+        if filesnpaths.is_proper_newick(output_stdout):
+            <a id="change">output_file = open(output_file_path, &quotw&quot)</a>
+            output_file.write(output_stdout + &quot\n&quot)
+            <a id="change">output_file</a><a id="change">.close()</a>
+
+            run.info(&quotFastTree output newick file&quot, output_file_path, mc=&quotgreen&quot, nl_before=1, nl_after=1)
+</code></pre>

@@ -1,0 +1,122 @@
+<link rel="stylesheet" href="../../..//default.css">
+<script src="../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/rwth-i6/returnn-experiments/blob/master/2020-TTS-LJSpeech/decoder.py#L27">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/returnn-experiments/blob/master/2020-TTS-LJSpeech/decoder.py#L27">GitMyHubLink</a>
+
+import argparse
+from num2words import num2words
+import numpy
+import os
+import subprocess
+import sys
+import torch
+import yaml
+import wave
+
+sys.path.append("returnn")
+sys.path.append("ParallelWaveGAN")
+
+from parallel_wavegan import models as pwg_models
+from parallel_wavegan.layers import PQMF
+from returnn import rnn
+from returnn.datasets.generating import StaticDataset, Vocabulary
+
+
+def number_convert(word):
+    try:
+        f = float(word)
+        return num2words(f)
+    except:
+        return word
+
+def main():
+
+    parser = argparse.ArgumentParser(description="TTS decoder running RETURNN TTS and an MB-MelGAN vocoder")
+    <a id="change">parser</a>.add_argument("--returnn_config", type=str, help="RETURNN config file (.config)")
+    <a id="change">parser</a>.add_argument("--vocab_file", type=str, help="RETURNN vocab file (.pkl)")
+    <a id="change">parser</a>.add_argument("--pronunciation_lexicon", type=str, help="CMU style pronuncation lexicon")
+    <a id="change">parser</a>.add_argument("--pwg_config", type=str, help="ParallelWaveGAN config (.yaml)")
+    <a id="change">parser</a>.add_argument("--pwg_checkpoint", type=str, help="ParallelWaveGAN checkpoint (.pkl)")
+
+    args = <a id="change">parser</a>.parse_args()
+
+    &#47&#47 Initialize RETURNN
+    rnn.init(args.returnn_config)
+    rnn.engine.use_search_flag = True &#47&#47 enable search mode
+    rnn.engine.init_network_from_config(rnn.config)
+
+    returnn_vocab = Vocabulary(vocab_file=args.vocab_file, unknown_label=None)
+    returnn_output_dict = {&quotoutput&quot: rnn.engine.network.get_default_output_layer().output.placeholder}
+
+    &#47&#47 Initialize PWG
+    pwg_config = yaml.load(open(args.pwg_config), Loader=yaml.Loader)
+    pyt_device = torch.device("cpu")
+    generator = pwg_models.MelGANGenerator(**pwg_config[&quotgenerator_params&quot])
+    <a id="change">generator</a>.load_state_dict(
+        torch.load(args.pwg_checkpoint, map_location="cpu")["model"]["generator"])
+    <a id="change">generator</a>.remove_weight_norm()
+    pwg_model = <a id="change">generator</a>.eval().to(pyt_device)
+    pwg_pad_fn = torch.nn.ReplicationPad1d(
+        pwg_config["generator_params"].get("aux_context_window", 0))
+    pwg_pqmf = PQMF(pwg_config["generator_params"]["out_channels"]).to(pyt_device)
+
+    &#47&#47 load a CMU dict style pronunciation table
+    pronunciation_dictionary = {}
+    with open(args.pronunciation_lexicon, "rt") as lexicon:
+        for lexicon_entry in <a id="change">lexicon</a>.readlines():
+            word, phonemes = <a id="change">lexicon_entry</a>.strip().split(" ", maxsplit=1)
+            pronunciation_dictionary[word] = phonemes.split(" ")
+    
+    &#47&#47 Tokenizer perl command
+    tokenizer = ["perl", "./scripts/tokenizer/tokenizer.perl", "-l", "en", "-no-escape"]
+    
+    audios = []
+
+    for line in sys.stdin.readlines():
+        line = <a id="change">line</a>.strip().lower()
+        &#47&#47 run perl tokenizer as external script
+        p = subprocess.Popen(tokenizer, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+        line = <a id="change">p</a>.communicate(input=line.encode("UTF-8"))[0].decode("UTF-8").strip()
+        <a id="change">p</a>.terminate()
+        print(line)
+
+        &#47&#47 apply num2wordsn and pronunciation dict
+        words = list(map(number_convert, <a id="change">line</a>.split(" ")))
+        print(words)
+        phoneme_sequence = " _ ".join([" ".join(pronunciation_dictionary[w]) for w in words if w in <a id="change">pronunciation_dictionary</a>.keys()])
+        phoneme_sequence += " _ ~"
+
+        try:
+            classes = numpy.asarray(<a id="change">returnn_vocab</a>.get_seq(phoneme_sequence), dtype="int32")
+            feed_dict = {&quotclasses&quot: classes}
+            dataset = StaticDataset([feed_dict], output_dim={&quotclasses&quot: (77, 1)})
+            result = rnn.engine.run_single(dataset, 0, returnn_output_dict)
+        except Exception as e:
+            print(e)
+            raise e
+
+        feature_data = numpy.squeeze(result[&quotoutput&quot]).T
+        print(feature_data.shape)
+        
+        with torch.no_grad():
+            input_features = pwg_pad_fn(torch.from_numpy(feature_data).unsqueeze(0)).to(pyt_device)
+            audio_waveform = <a id="change">pwg_pqmf</a>.synthesis(pwg_model(input_features)).view(-1).cpu().numpy()
+
+        <a id="change">audios</a>.append(numpy.asarray(audio_waveform*(2**15-1), dtype="int16").tobytes())
+
+    for i, audio in enumerate(audios):
+        <a id="change">wave_writer</a><a id="change"> = wave.open("out_%i.wav" % i, "wb")</a>
+        <a id="change">wave_writer</a>.setnchannels(1)  
+        <a id="change">wave_writer</a>.setframerate(16000)
+        <a id="change">wave_writer</a>.setsampwidth(2)
+        <a id="change">wave_writer</a>.writeframes(audio)
+        <a id="change">wave_writer</a><a id="change">.close()</a>
+
+
+if __name__ == "__main__":
+    main()
+</code></pre>

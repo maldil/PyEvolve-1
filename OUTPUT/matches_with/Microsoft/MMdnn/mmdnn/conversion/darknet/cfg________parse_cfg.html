@@ -1,0 +1,259 @@
+<link rel="stylesheet" href="../../../../..//default.css">
+<script src="../../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/Microsoft/MMdnn/blob/master/mmdnn/conversion/darknet/cfg.py#L4">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/MMdnn/blob/master/mmdnn/conversion/darknet/cfg.py#L4">GitMyHubLink</a>
+
+import torch
+from collections import OrderedDict
+
+def parse_cfg(cfgfile):
+    def erase_comment(line):
+        line = line.split(&quot&#47&#47&quot)[0]
+        return line
+    blocks = []
+    <a id="change">fp = open(cfgfile, &quotr&quot)</a>
+    block =  None
+    line = fp.readline()
+    while line != &quot&quot:
+        line = line.rstrip()
+        if line == &quot&quot or line[0] == &quot&#47&#47&quot:
+            line = fp.readline()
+            continue        
+        elif line[0] == &quot[&quot:
+            if block:
+                blocks.append(block)
+            block = OrderedDict()
+            block[&quottype&quot] = line.lstrip(&quot[&quot).rstrip(&quot]&quot)
+            &#47&#47 set default value
+            if block[&quottype&quot] == &quotconvolutional&quot:
+                block[&quotbatch_normalize&quot] = 0
+        else:
+            line = erase_comment(line)
+            key,value = line.split(&quot=&quot)
+            key = key.strip()
+            if key == &quottype&quot:
+                key = &quot_type&quot
+            value = value.strip()
+            block[key] = value
+        line = fp.readline()
+
+    if block:
+        blocks.append(block)
+    <a id="change">fp</a><a id="change">.close()</a>
+    return blocks
+
+def print_cfg(blocks):
+    for block in blocks:
+        print(&quot[%s]&quot % (block[&quottype&quot]))
+        for key,value in block.items():
+            if key != &quottype&quot:
+                print(&quot%s=%s&quot % (key, value))
+        print(&quot&quot)
+def save_cfg(blocks, cfgfile):
+    with open(cfgfile, &quotw&quot) as fp:
+        for block in blocks:
+            fp.write(&quot[%s]\n&quot % (block[&quottype&quot]))
+            for key,value in block.items():
+                if key != &quottype&quot:
+                    fp.write(&quot%s=%s\n&quot % (key, value))
+            fp.write(&quot\n&quot)
+
+def print_cfg_nicely(blocks):
+    print(&quotlayer     filters    size              input                output&quot);
+    prev_width = 416
+    prev_height = 416
+    prev_filters = 3
+    out_filters =[]
+    out_widths =[]
+    out_heights =[]
+    ind = -2
+    for block in blocks:
+        ind = ind + 1
+        if block[&quottype&quot] == &quotnet&quot:
+            prev_width = int(block[&quotwidth&quot])
+            prev_height = int(block[&quotheight&quot])
+            continue
+        elif block[&quottype&quot] == &quotconvolutional&quot:
+            filters = int(block[&quotfilters&quot])
+            kernel_size = int(block[&quotsize&quot])
+            stride = int(block[&quotstride&quot])
+            is_pad = int(block[&quotpad&quot])
+            pad = (kernel_size-1)/2 if is_pad else 0
+            width = (prev_width + 2*pad - kernel_size)/stride + 1
+            height = (prev_height + 2*pad - kernel_size)/stride + 1
+            print(&quot%5d %-6s %4d  %d x %d / %d   %3d x %3d x%4d   -&gt;   %3d x %3d x%4d&quot % (ind, &quotconv&quot, filters, kernel_size, kernel_size, stride, prev_width, prev_height, prev_filters, width, height, filters))
+            prev_width = width
+            prev_height = height
+            prev_filters = filters
+            out_widths.append(prev_width)
+            out_heights.append(prev_height)
+            out_filters.append(prev_filters)
+        elif block[&quottype&quot] == &quotmaxpool&quot:
+            pool_size = int(block[&quotsize&quot])
+            stride = int(block[&quotstride&quot])
+            width = prev_width/stride
+            height = prev_height/stride
+            print(&quot%5d %-6s       %d x %d / %d   %3d x %3d x%4d   -&gt;   %3d x %3d x%4d&quot % (ind, &quotmax&quot, pool_size, pool_size, stride, prev_width, prev_height, prev_filters, width, height, filters))
+            prev_width = width
+            prev_height = height
+            prev_filters = filters
+            out_widths.append(prev_width)
+            out_heights.append(prev_height)
+            out_filters.append(prev_filters)
+        elif block[&quottype&quot] == &quotavgpool&quot:
+            width = 1
+            height = 1
+            print(&quot%5d %-6s                   %3d x %3d x%4d   -&gt;      %3d&quot % (ind, &quotavg&quot, prev_width, prev_height, prev_filters,  prev_filters))
+            prev_width = 1
+            prev_height = 1
+            out_widths.append(prev_width)
+            out_heights.append(prev_height)
+            out_filters.append(prev_filters)
+        elif block[&quottype&quot] == &quotsoftmax&quot:
+            print(&quot%5d %-6s                                    -&gt;      %3d&quot % (ind, &quotsoftmax&quot, prev_filters))
+            out_widths.append(prev_width)
+            out_heights.append(prev_height)
+            out_filters.append(prev_filters)
+        elif block[&quottype&quot] == &quotcost&quot:
+            print(&quot%5d %-6s                                     -&gt;      %3d&quot % (ind, &quotcost&quot, prev_filters))
+            out_widths.append(prev_width)
+            out_heights.append(prev_height)
+            out_filters.append(prev_filters)
+        elif block[&quottype&quot] == &quotreorg&quot:
+            stride = int(block[&quotstride&quot])
+            filters = stride * stride * prev_filters
+            width = prev_width/stride
+            height = prev_height/stride
+            print(&quot%5d %-6s             / %d   %3d x %3d x%4d   -&gt;   %3d x %3d x%4d&quot % (ind, &quotreorg&quot, stride, prev_width, prev_height, prev_filters, width, height, filters))
+            prev_width = width
+            prev_height = height
+            prev_filters = filters
+            out_widths.append(prev_width)
+            out_heights.append(prev_height)
+            out_filters.append(prev_filters)
+        elif block[&quottype&quot] == &quotroute&quot:
+            layers = block[&quotlayers&quot].split(&quot,&quot)
+            layers = [int(i) if int(i) &gt; 0 else int(i)+ind for i in layers]
+            if len(layers) == 1:
+                print(&quot%5d %-6s %d&quot % (ind, &quotroute&quot, layers[0]))
+                prev_width = out_widths[layers[0]]
+                prev_height = out_heights[layers[0]]
+                prev_filters = out_filters[layers[0]]
+            elif len(layers) == 2:
+                print(&quot%5d %-6s %d %d&quot % (ind, &quotroute&quot, layers[0], layers[1]))
+                prev_width = out_widths[layers[0]]
+                prev_height = out_heights[layers[0]]
+                assert(prev_width == out_widths[layers[1]])
+                assert(prev_height == out_heights[layers[1]])
+                prev_filters = out_filters[layers[0]] + out_filters[layers[1]]
+            out_widths.append(prev_width)
+            out_heights.append(prev_height)
+            out_filters.append(prev_filters)
+        elif block[&quottype&quot] == &quotregion&quot:
+            print(&quot%5d %-6s&quot % (ind, &quotdetection&quot))
+            out_widths.append(prev_width)
+            out_heights.append(prev_height)
+            out_filters.append(prev_filters)
+        elif block[&quottype&quot] == &quotshortcut&quot:
+            from_id = int(block[&quotfrom&quot])
+            from_id = from_id if from_id &gt; 0 else from_id+ind
+            print(&quot%5d %-6s %d&quot % (ind, &quotshortcut&quot, from_id))
+            prev_width = out_widths[from_id]
+            prev_height = out_heights[from_id]
+            prev_filters = out_filters[from_id]
+            out_widths.append(prev_width)
+            out_heights.append(prev_height)
+            out_filters.append(prev_filters)
+        elif block[&quottype&quot] == &quotsoftmax&quot:
+            print(&quot%5d %-6s&quot % (ind, &quotsoftmax&quot))
+            out_widths.append(prev_width)
+            out_heights.append(prev_height)
+            out_filters.append(prev_filters)
+        elif block[&quottype&quot] == &quotconnected&quot:
+            filters = int(block[&quotoutput&quot])
+            print(&quot%5d %-6s                            %d  -&gt;      %3d&quot % (ind, &quotconnected&quot, prev_filters,  filters))
+            prev_filters = filters
+            out_widths.append(1)
+            out_heights.append(1)
+            out_filters.append(prev_filters)
+        else:
+            print(&quotunknown type %s&quot % (block[&quottype&quot]))
+
+def load_conv(buf, start, conv_model):
+    num_w = conv_model.weight.numel()
+    num_b = conv_model.bias.numel()
+    conv_model.bias.data.copy_(torch.from_numpy(buf[start:start+num_b]));   start = start + num_b
+    conv_model.weight.data.copy_(torch.from_numpy(buf[start:start+num_w])); start = start + num_w
+    return start
+
+def save_conv(fp, conv_model):
+    if conv_model.bias.is_cuda:
+        convert2cpu(conv_model.bias.data).numpy().tofile(fp)
+        convert2cpu(conv_model.weight.data).numpy().tofile(fp)
+    else:
+        conv_model.bias.data.numpy().tofile(fp)
+        conv_model.weight.data.numpy().tofile(fp)
+
+def load_conv_bn(buf, start, conv_model, bn_model):
+    num_w = conv_model.weight.numel()
+    num_b = bn_model.bias.numel()
+    bn_model.bias.data.copy_(torch.from_numpy(buf[start:start+num_b]));     start = start + num_b
+    bn_model.weight.data.copy_(torch.from_numpy(buf[start:start+num_b]));   start = start + num_b
+    bn_model.running_mean.copy_(torch.from_numpy(buf[start:start+num_b]));  start = start + num_b
+    bn_model.running_var.copy_(torch.from_numpy(buf[start:start+num_b]));   start = start + num_b
+    conv_model.weight.data.copy_(torch.from_numpy(buf[start:start+num_w])); start = start + num_w 
+    return start
+
+def save_conv_bn(fp, conv_model, bn_model):
+    if bn_model.bias.is_cuda:
+        convert2cpu(bn_model.bias.data).numpy().tofile(fp)
+        convert2cpu(bn_model.weight.data).numpy().tofile(fp)
+        convert2cpu(bn_model.running_mean).numpy().tofile(fp)
+        convert2cpu(bn_model.running_var).numpy().tofile(fp)
+        convert2cpu(conv_model.weight.data).numpy().tofile(fp)
+    else:
+        bn_model.bias.data.numpy().tofile(fp)
+        bn_model.weight.data.numpy().tofile(fp)
+        bn_model.running_mean.numpy().tofile(fp)
+        bn_model.running_var.numpy().tofile(fp)
+        conv_model.weight.data.numpy().tofile(fp)
+
+def save_conv_shrink_bn(fp, conv_model, bn_model, eps=1e-5):
+    if bn_model.bias.is_cuda:
+        bias = bn_model.bias.data - bn_model.running_mean * bn_model.weight.data / torch.sqrt(bn_model.running_var + eps)
+        convert2cpu(bias).numpy().tofile(fp)
+        s = conv_model.weight.data.size()
+        weight = conv_model.weight.data * (bn_model.weight.data / torch.sqrt(bn_model.running_var + eps)).view(-1,1,1,1).repeat(1, s[1], s[2], s[3])
+        convert2cpu(weight).numpy().tofile(fp)
+    else:
+        bias = bn_model.bias.data - bn_model.running_mean * bn_model.weight.data / torch.sqrt(bn_model.running_var + eps)
+        bias.numpy().tofile(fp)
+        s = conv_model.weight.data.size()
+        weight = conv_model.weight.data * (bn_model.weight.data / torch.sqrt(bn_model.running_var + eps)).view(-1,1,1,1).repeat(1, s[1], s[2], s[3])
+        weight.numpy().tofile(fp)
+
+def load_fc(buf, start, fc_model):
+    num_w = fc_model.weight.numel()
+    num_b = fc_model.bias.numel()
+    fc_model.bias.data.copy_(torch.from_numpy(buf[start:start+num_b]));     start = start + num_b
+    fc_model.weight.data.copy_(torch.from_numpy(buf[start:start+num_w]));   start = start + num_w 
+    return start
+
+def save_fc(fp, fc_model):
+    fc_model.bias.data.numpy().tofile(fp)
+    fc_model.weight.data.numpy().tofile(fp)
+
+
+if __name__ == &quot__main__&quot:
+    import sys
+    if len(sys.argv) != 2:
+        print(&quotUsage: python cfg.py model.cfg&quot)
+        exit()
+
+    blocks = parse_cfg(sys.argv[1])
+    print_cfg_nicely(blocks)
+</code></pre>

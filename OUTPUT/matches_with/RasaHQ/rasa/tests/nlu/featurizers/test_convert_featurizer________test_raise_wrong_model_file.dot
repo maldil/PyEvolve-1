@@ -1,0 +1,117 @@
+digraph G {
+1 [label="(58418274)=" shape=box style=dashed]
+2 [label="(58418243)START" style=dashed]
+3 [label="(58418278)raises" shape=box style=dashed]
+4 [label="(58418245)(null)" shape=ellipse style=dashed]
+5 [label="(58418283)Any(_)" shape=ellipse style=dashed]
+6 [label="(58418254)os.path(path)" shape=ellipse style=dashed]
+7 [label="(58418279)rasa.exceptions.RasaException(RasaException)" shape=ellipse style=dashed]
+8 [label="(58418282)empty" shape=box style=dashed]
+9 [label="(58418249)(null)" shape=ellipse style=dashed]
+10 [label="(58418257)String(lit(saved_model.pb))" shape=ellipse style=dashed]
+11 [label="(58418280)AS" shape=box style=dashed]
+12 [label="(58418288)assert" shape=box style=dashed]
+13 [label="(58418261)str(temp_file)" shape=ellipse style=dashed]
+14 [label="(58418273){new}" shape=box style=dashed]
+15 [label="(58418284)create_or_load_convert_featurizer" shape=box style=dashed]
+16 [label="(58418272)str(temp_file)" shape=ellipse style=dashed]
+17 [label="(58418255)join" shape=box style=dashed]
+18 [label="(58418287)empty" shape=box style=dashed]
+19 [label="(58418256)pathlib.Path(tmp_path)" shape=ellipse style=dashed]
+20 [label="(58418244)Callable[[Dict[str, Any]], Any](create_or_load_convert_featurizer)" shape=ellipse style=dashed]
+21 [label="(58418263)=" shape=box style=dashed color=blue fontcolor=blue]
+22 [label="(58418246)=" shape=box style=dashed]
+23 [label="(58418266)Dict[str, str](component_config)" shape=ellipse style=dashed]
+24 [label="(58418271)String(lit(model_url))" shape=ellipse style=dashed]
+25 [label="(58418265)close" shape=box style=dashed color=blue fontcolor=blue]
+26 [label="(58418250)=" shape=box style=dashed]
+27 [label="(58418277)pytest(pytest)" shape=ellipse style=dashed]
+28 [label="(58418275)With" shape=diamond style=dashed]
+29 [label="(58418276)Any(excinfo)" shape=ellipse style=dashed]
+30 [label="(58418285)Dict[str, str](component_config)" shape=ellipse style=dashed]
+31 [label="(58418260)open" shape=box style=dashed color=blue fontcolor=blue]
+32 [label="(58418269)String(lit(alias))" shape=ellipse style=dashed]
+33 [label="(58418268)rasa.nlu.constants.FEATURIZER_CLASS_ALIAS(FEATURIZER_CLASS_ALIAS)" shape=ellipse style=dashed]
+34 [label="(58418289)END" style=dashed]
+35 [label="(58418253)os(os)" shape=ellipse style=dashed]
+36 [label="(58418248)pathlib.Path(tmp_path)" shape=ellipse style=dashed]
+37 [label="(58418258)=" shape=box style=dashed]
+38 [label="(58418281)Any(excinfo)" shape=ellipse style=dashed]
+39 [label="(58418262)String(lit(wb))" shape=ellipse style=dashed color=blue fontcolor=blue]
+40 [label="(58418259)BinaryIO(f)" shape=ellipse style=dashed color=blue fontcolor=blue]
+41 [label="(58418267)key:str,value:str(key:Name,value:Str)" shape=ellipse style=dashed]
+42 [label="(58418270)key:null,value:null(key:Str,value:Name)" shape=ellipse style=dashed]
+43 [label="(58418264)BinaryIO(f)" shape=ellipse style=dashed color=blue fontcolor=blue]
+44 [label="(58418286)=" shape=box style=dashed]
+45 [label="(58418252)str(temp_file)" shape=ellipse style=dashed]
+2 -> 1 [label="" style=solid];
+14 -> 1 [label="dep" style=dotted];
+14 -> 1 [label="para" style=dotted];
+2 -> 3 [label="" style=solid];
+27 -> 3 [label="recv" style=dotted];
+7 -> 3 [label="para" style=dotted];
+1 -> 3 [label="dep" style=dotted];
+44 -> 5 [label="def" style=dotted];
+35 -> 6 [label="qual" style=dotted];
+28 -> 8 [label="T"];
+2 -> 11 [label="" style=solid];
+3 -> 11 [label="dep" style=dotted];
+3 -> 11 [label="para" style=dotted];
+2 -> 12 [label="" style=solid];
+18 -> 12 [label="dep" style=dotted];
+44 -> 12 [label="dep" style=dotted];
+45 -> 13 [label="ref" style=dotted];
+2 -> 14 [label="" style=solid];
+41 -> 14 [label="para" style=dotted];
+42 -> 14 [label="para" style=dotted];
+25 -> 14 [label="dep" style=dotted];
+28 -> 15 [label="T"];
+30 -> 15 [label="para" style=dotted];
+8 -> 15 [label="dep" style=dotted];
+45 -> 16 [label="ref" style=dotted];
+2 -> 17 [label="" style=solid];
+6 -> 17 [label="recv" style=dotted];
+19 -> 17 [label="para" style=dotted];
+10 -> 17 [label="para" style=dotted];
+26 -> 17 [label="dep" style=dotted];
+28 -> 18 [label="F"];
+22 -> 20 [label="def" style=dotted];
+2 -> 21 [label="" style=solid];
+31 -> 21 [label="dep" style=dotted];
+31 -> 21 [label="para" style=dotted];
+2 -> 22 [label="" style=solid];
+4 -> 22 [label="para" style=dotted];
+1 -> 23 [label="def" style=dotted];
+2 -> 25 [label="" style=solid];
+43 -> 25 [label="recv" style=dotted];
+21 -> 25 [label="dep" style=dotted];
+2 -> 26 [label="" style=solid];
+9 -> 26 [label="para" style=dotted];
+22 -> 26 [label="dep" style=dotted];
+2 -> 28 [label="" style=solid];
+11 -> 28 [label="dep" style=dotted];
+38 -> 28 [label="para" style=dotted];
+11 -> 29 [label="def" style=dotted];
+23 -> 30 [label="ref" style=dotted];
+2 -> 31 [label="" style=solid];
+13 -> 31 [label="para" style=dotted];
+39 -> 31 [label="para" style=dotted];
+37 -> 31 [label="dep" style=dotted];
+12 -> 34 [label="dep" style=dotted];
+26 -> 36 [label="def" style=dotted];
+20 -> 36 [label="re_def" style=dotted color=red];
+2 -> 37 [label="" style=solid];
+17 -> 37 [label="dep" style=dotted];
+17 -> 37 [label="para" style=dotted];
+29 -> 38 [label="ref" style=dotted];
+21 -> 40 [label="def" style=dotted];
+33 -> 41 [label="para" style=dotted];
+32 -> 41 [label="para" style=dotted];
+24 -> 42 [label="para" style=dotted];
+16 -> 42 [label="para" style=dotted];
+40 -> 43 [label="ref" style=dotted];
+28 -> 44 [label="T"];
+15 -> 44 [label="dep" style=dotted];
+15 -> 44 [label="para" style=dotted];
+37 -> 45 [label="def" style=dotted];
+}

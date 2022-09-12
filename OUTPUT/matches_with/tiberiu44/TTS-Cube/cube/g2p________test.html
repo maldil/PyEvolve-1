@@ -1,0 +1,139 @@
+<link rel="stylesheet" href="../../..//default.css">
+<script src="../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/tiberiu44/TTS-Cube/blob/master/cube/g2p.py#L45">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/TTS-Cube/blob/master/cube/g2p.py#L45">GitMyHubLink</a>
+
+&#47&#47
+&#47&#47 Author: Tiberiu Boros
+&#47&#47
+&#47&#47 Licensed under the Apache License, Version 2.0 (the "License");
+&#47&#47 you may not use this file except in compliance with the License.
+&#47&#47 You may obtain a copy of the License at
+&#47&#47
+&#47&#47 http://www.apache.org/licenses/LICENSE-2.0
+&#47&#47
+&#47&#47 Unless required by applicable law or agreed to in writing, software
+&#47&#47 distributed under the License is distributed on an "AS IS" BASIS,
+&#47&#47 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+&#47&#47 See the License for the specific language governing permissions and
+&#47&#47 limitations under the License.
+&#47&#47
+
+import optparse
+import sys
+
+import dynet_config
+
+
+def train(params):
+    from io_modules.encodings import Encodings
+    from io_modules.dataset import LTSDataset
+
+    sys.stdout.write(&quotLoading datasets...\n&quot)
+    trainset = LTSDataset(params.train_file)
+    devset = LTSDataset(params.dev_file)
+    sys.stdout.write(&quotTrainset has &quot + str(len(trainset.entries)) + &quot entries\n&quot)
+    sys.stdout.write(&quotDevset has &quot + str(len(devset.entries)) + &quot entries\n&quot)
+    encodings = Encodings()
+    encodings.update_encodings(trainset)
+    sys.stdout.write(&quotFound &quot + str(len(encodings.char2int)) + &quot characters\n&quot)
+    sys.stdout.write(&quotFound &quot + str(len(encodings.phoneme2int)) + &quot phonemes\n&quot)
+
+    from trainers.g2p import G2PTrainer
+    from models.g2p import G2P
+
+    model = G2P(encodings)
+    trainer = G2PTrainer()
+    trainer.start_training(model, encodings, trainset, devset, params.model_base, params.batch_size, params.patience)
+
+
+def test(<a id="change">params</a>):
+    from io_modules.encodings import Encodings
+    from io_modules.dataset import LTSDataset
+
+    <a id="change">encodings = Encodings()</a>
+    encodings.load(params.model + &quot.encodings&quot)
+    <a id="change">testset = LTSDataset(params.input)</a>
+    from models.g2p import G2P
+    <a id="change">model = G2P(encodings)</a>
+    model.load(params.model + &quot-bestAcc.network&quot)
+    <a id="change">f = open(params.output, &quotw&quot)</a>
+    <a id="change">correct = 0</a>
+    <a id="change">last_proc = 0</a>
+    <a id="change">index = 0</a>
+    for entry in testset.entries:
+        index += 1
+        <a id="change">curr_proc = int(index * 100 / len(testset.entries))</a>
+        if curr_proc % 5 == 0:
+            while last_proc &lt; curr_proc:
+                last_proc += 5
+                sys.stdout.write(str(last_proc) + &quot &quot)
+                sys.stdout.flush()
+        <a id="change">p_transcription = model.transcribe(entry.word)</a>
+        <a id="change">ok = False</a>
+        if p_transcription == entry.transcription:
+            correct += 1
+            <a id="change">ok = True</a>
+        f.write(entry.word + &quot\t&quot)
+        for phon in entry.transcription:
+            f.write(phon + &quot &quot)
+        f.write(&quot\t&quot)
+        for phon in p_transcription:
+            f.write(phon + &quot &quot)
+        if not ok:
+            f.write(&quot***&quot)
+        f.write(&quot\n&quot)
+    <a id="change">f</a><a id="change">.close()</a>
+    sys.stdout.write(&quotdone\n&quot)
+    sys.stdout.write(&quotWord level accuracy is &quot + str(float(correct) / len(testset.entries)) + &quot\n&quot)
+
+
+if __name__ == &quot__main__&quot:
+    parser = optparse.OptionParser()
+    parser.add_option(&quot--train&quot, action=&quotstore_true&quot, dest=&quottrain&quot, help=&quotTrain a new model&quot)
+    parser.add_option(&quot--test&quot, action=&quotstore_true&quot, dest=&quottest&quot, help=&quotTest the pretrained model&quot)
+    parser.add_option(&quot--input-file&quot, action=&quotstore&quot, dest=&quotinput&quot, help=&quotInput File&quot)
+    parser.add_option(&quot--output-file&quot, action=&quotstore&quot, dest=&quotoutput&quot, help=&quotOutput file&quot)
+    parser.add_option(&quot--model&quot, action=&quotstore&quot, dest=&quotmodel&quot, help=&quotPretrained model file&quot)
+
+    parser.add_option("--batch-size", action=&quotstore&quot, dest=&quotbatch_size&quot, default=&quot100&quot, type=&quotint&quot,
+                      help=&quotnumber of samples in a single batch (default=100)&quot)
+    parser.add_option("--set-mem", action=&quotstore&quot, dest=&quotmemory&quot, default=&quot2048&quot, type=&quotint&quot,
+                      help=&quotpreallocate memory for batch training (default 2048)&quot)
+    parser.add_option("--autobatch", action=&quotstore_true&quot, dest=&quotautobatch&quot,
+                      help=&quotturn on/off dynet autobatching&quot)
+    parser.add_option("--use-gpu", action=&quotstore_true&quot, dest=&quotgpu&quot,
+                      help=&quotturn on/off GPU support&quot)
+    parser.add_option(&quot--train-file&quot, action=&quotstore&quot, dest=&quottrain_file&quot,
+                      help=&quotPath to training file&quot)
+    parser.add_option(&quot--dev-file&quot, action=&quotstore&quot, dest=&quotdev_file&quot,
+                      help=&quotPath to development file&quot)
+    parser.add_option(&quot--store&quot, action=&quotstore&quot, dest=&quotmodel_base&quot,
+                      help=&quotLocation where to store the model&quot)
+    parser.add_option("--patience", action=&quotstore&quot, dest=&quotpatience&quot, default=&quot20&quot, type=&quotint&quot,
+                      help=&quotEarly stopping condition&quot)
+
+    (params, _) = parser.parse_args(sys.argv)
+
+    memory = int(params.memory)
+    if params.autobatch:
+        autobatch = True
+    else:
+        autobatch = False
+    dynet_config.set(mem=memory, random_seed=9, autobatch=autobatch)
+    if params.gpu:
+        dynet_config.set_gpu()
+
+    import dynet as dy
+
+    if params.train:
+        train(params)
+    elif params.test:
+        test(params)
+    else:
+        print ("Invalid parameters. Use &quot--help&quot for help")
+</code></pre>

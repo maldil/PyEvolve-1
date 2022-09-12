@@ -1,0 +1,712 @@
+<link rel="stylesheet" href="../../../../..//default.css">
+<script src="../../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/idaholab/raven/blob/devel/ravenframework/CodeInterfaceClasses/Rattlesnake/YakMultigroupLibraryParser.py#L662">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/raven/blob/devel/ravenframework/CodeInterfaceClasses/Rattlesnake/YakMultigroupLibraryParser.py#L662">GitMyHubLink</a>
+
+&#47&#47 Copyright 2017 Battelle Energy Alliance, LLC
+&#47&#47
+&#47&#47 Licensed under the Apache License, Version 2.0 (the "License");
+&#47&#47 you may not use this file except in compliance with the License.
+&#47&#47 You may obtain a copy of the License at
+&#47&#47
+&#47&#47 http://www.apache.org/licenses/LICENSE-2.0
+&#47&#47
+&#47&#47 Unless required by applicable law or agreed to in writing, software
+&#47&#47 distributed under the License is distributed on an "AS IS" BASIS,
+&#47&#47 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+&#47&#47 See the License for the specific language governing permissions and
+&#47&#47 limitations under the License.
+from __future__ import division, print_function, unicode_literals, absolute_import
+
+import xml.etree.ElementTree as ET
+import xml.dom.minidom as pxml
+import os
+import sys
+import copy
+import numpy as np
+
+class YakMultigroupLibraryParser():
+  
+    Class used to parse Yak multigroup cross section libraries, read the user provided alias files,
+    perturb the libraries with variables defined in alias files and values from Raven Sampler.
+    Cross sections will be reblanced based on provided information.
+    In addition, this interface can be used to perturb Fission, Capture, TotalScattering, Nu, Kappa
+    for given isotopes inside the libraries. In addition, the user can also perturb Transport if it
+    exists in the XS library. In this case, we will treat Transport as independent variable.
+    In the future, we may need to add the capability to perturb the Tablewise and Librarywise data.
+  
+  &#47&#47Functions Used for Reading Yak Multigroup Cross Section Library (Also including some functions for checking and recalculations)
+  def __init__(self,inputFiles):
+    
+      Constructor, parse the input files
+      @ In, inputFiles, list(str), string list of input files that might need parsing.
+      @ Out, None.
+    
+    self.inputFiles     = inputFiles
+    self.libs           = {} &#47&#47dictionaries for libraries of tabulated xs values
+    self.xmlsDict       = {} &#47&#47connects libraries name and tree objects: {libraryName:objectTree}
+    self.filesDict      = {} &#47&#47connects files and libraries name: {file:librariesName}
+    self.filesMap       = {} &#47&#47connects names of files  and libraries name: {fileName:librariesName}
+    self.matLibMaps     = {} &#47&#47connects material id and libraries name: {matID:librariesName}
+    self.matTreeMaps    = {} &#47&#47connects material id and xml objects: {matID:objectTree}
+    self.defaultNu      = 2.43 &#47&#47number of neutrons per fission
+    self.defaultKappa   = 195*1.6*10**(-13) &#47&#47Energy release per fission
+    self.aliases        = {} &#47&#47alias to XML node dict
+    self.validReactions = [&quotTotal&quot,&quotFission&quot,&quotRemoval&quot,&quotTransport&quot,&quotScattering&quot,&quotnuFission&quot,&quotkappaFission&quot,
+                           &quotFissionSpectrum&quot,&quotDNFraction&quot,&quotDNSpectrum&quot,&quotNeutronVelocity&quot,&quotDNPlambda&quot,&quotAbsorption&quot,
+                           &quotCapture&quot,&quotNalpha&quot,&quotNGamma&quot,&quotFlux&quot,&quotN2Alpha&quot,&quotN2N&quot,&quotN3N&quot,&quotN4N&quot,&quotNNProton&quot,&quotNProton&quot,
+                           &quotNDeuteron&quot,&quotNTriton&quot] &#47&#47These are all valid reactions for Yak XS format
+    self.perturbableReactions = [&quotFission&quot,&quotCapture&quot,&quotTotalScattering&quot,&quotNu&quot,&quotKappa&quot,&quotTransport&quot] &#47&#47These are all valid perturbable reactions for RAVEN
+    self.level0Element  = &quotMultigroup_Cross_Section_Libraries&quot &#47&#47root element tag is always the same for Yak XS format
+    self.level1Element  = &quotMultigroup_Cross_Section_Library&quot   &#47&#47level 1 element tag is always Multigroup_Cross_Section_Library
+    self.level2Element  = [&quotTabulation&quot,&quotAllReactions&quot,&quotTablewiseReactions&quot,&quotLibrarywiseReactions&quot] &#47&#47These are some of the level 2 element tag with string vector xmlnode.text, without xml subnodes
+    self.toBeReadXML    = [] &#47&#47list of XML nodes that need to be read.
+    self.libsKeys       = {} &#47&#47dict to store library keys: {mglib_ID:{gridIndex:{IsotopeName:[reactions]}}}
+
+    &#47&#47read in cross-section files, unperturbed files
+    for xmlFile in inputFiles:
+      if not os.path.exists(xmlFile.getPath()):
+        raise IOError(&quotThe following Yak multigroup cross section library file: &quot + xmlFile + &quot is not found&quot)
+      tree = ET.parse(xmlFile.getAbsFile())
+      root = tree.getroot()
+      if root.tag == self.level0Element:
+        rootName = root.attrib[&quotName&quot].strip()
+        self.xmlsDict[rootName] = tree
+        self.filesDict[xmlFile] = rootName
+        self.filesMap[xmlFile.getFilename()] = rootName
+        self.libs[rootName] = {}
+        self.libsKeys[rootName] = {}
+        mgDict = self.libs[rootName]
+        mgDictKeys =  self.libsKeys[rootName]
+        self.nGroup = int(root.attrib[&quotNGroup&quot]) &#47&#47total number of neutron energy groups
+        for mgLib in root:
+          mgLibID = mgLib.attrib[&quotID&quot].strip()
+          self.matLibMaps[mgLibID] = rootName
+          self.matTreeMaps[mgLibID] = mgLib
+          mgDict[mgLibID] = {}
+          mgDictKeys[mgLibID] = {}
+          self._readYakXSInternal(mgLib,mgDict[mgLibID],mgDictKeys[mgLibID])
+          self._readAdditionalYakXS(mgLib,mgDict[mgLibID])
+          self._checkYakXS(mgDict[mgLibID],mgDictKeys[mgLibID])
+      else:
+        msg = &quotIn YakMultigroupLibraryParser, root element of XS file is always &quot + self.level0Element + &quot;\n&quot
+        msg = msg + &quotwhile the given XS file has different root element: &quot + root.tag + "!"
+        raise IOError(msg)
+
+  def initialize(self,aliasFiles):
+    
+      Parse the input alias files
+      @ In, aliasFiles, list, list of input alias files
+      @ Out, None
+    
+    self.aliases = {}
+    self.aliasesNGroup = {}
+    self.aliasesType = {}
+    for xmlFile in aliasFiles:
+      if not os.path.exists(xmlFile.getPath()):
+        raise IOError(&quotThe following Yak cross section alias file: &quot + xmlFile + &quot is not found!&quot)
+      aliasTree = ET.parse(xmlFile.getAbsFile())
+      root = aliasTree.getroot()
+      if root.tag != self.level0Element:
+        raise IOError(&quotInvalid root tag: &quot + root.tag +&quot is provided.&quot + &quot The valid root tag should be: &quot + self.level0Element)
+      rootName = root.attrib[&quotName&quot].strip()
+      if rootName in self.aliases.keys():
+        raise IOError(&quotDuplicated libraries name: &quot + rootName + &quot is found in provided alias files!&quot)
+      self.aliases[rootName] ={}
+      self.aliasesNGroup[rootName] = int(root.attrib[&quotNGroup&quot])
+      aliasNGroup = int(root.attrib[&quotNGroup&quot])
+      self.aliasesType[rootName] = root.attrib[&quotType&quot].strip()
+      subAlias = self.aliases[rootName]
+      for child in root:
+        if child.tag != self.level1Element:
+          raise IOError(&quotInvalid subnode tag: &quot + child.tag +&quot is provided.&quot + &quot The valid subnode tag should be: &quot + self.level1Element)
+        libID = child.attrib[&quotID&quot].strip()
+        subAlias[libID] = {}
+        &#47&#47read the cross section alias for each library (or material)
+        self._readXSAlias(child,subAlias[libID],aliasNGroup)
+
+  def _readXSAlias(self,xmlNode,aliasXS,aliasXSGroup):
+    
+      Read the cross section alias for each library
+      @ In, xmlNode, xml.etree.ElementTree.Element, xml element contains the alias information
+      @ In, aliasXS, dict, dictionary used to store the cross section aliases
+      @ In, aliasXSGroup, the energy group defined in provided alias file
+      @ Out, None
+    
+    for child in xmlNode:
+      if child.tag in self.perturbableReactions:
+        grid = self._stringSpacesToTuple(child.attrib[&quotgridIndex&quot])
+        if grid not in aliasXS.keys():
+          aliasXS[grid] = {}
+        mat = child.attrib[&quotmat&quot].strip()
+        if mat not in aliasXS[grid].keys():
+          aliasXS[grid][mat] = {}
+        mt = child.tag
+        if mt not in aliasXS[grid][mat].keys():
+          aliasXS[grid][mat][mt] = [None]*aliasXSGroup
+        groupIndex = child.get(&quotgIndex&quot)
+        if groupIndex == None:
+          varsList = list(var.strip() for var in child.text.strip().split(&quot,&quot))
+          if len(varsList) != aliasXSGroup:
+            msg = str(aliasXSGroup) + &quot variables should be provided for &quot + child.tag + &quot of material &quot + child.attrib[&quotmat&quot]
+            msg = msg + &quot in grid &quot + child.attrib[&quotgridIndex&quot] + &quot! &quot
+            msg = msg + "Only " + len(varsList) + " variables is provided!"
+            raise IOError(msg)
+          aliasXS[grid][mat][mt] = varsList
+        else:
+          pertList = list(var.strip() for var in child.text.strip().split(&quot,&quot))
+          groups = self._stringSpacesToListInt(groupIndex)
+          if len(groups) != len(pertList):
+            raise IOError(&quotThe group indices is not consistent with the perturbed variables list&quot)
+          for i,g in enumerate(groups):
+            aliasXS[grid][mat][mt][g-1] = pertList[i]
+      else:
+        raise IOError(&quotThe reaction &quot + child.tag + &quot can not be perturbed!&quot)
+
+  def _stringSpacesToTuple(self,text):
+    
+      Turns a space-separated text into a tuple
+      @ In, text, string, string
+      @ Out, members, list(int), list of members
+    
+    members = tuple(int(c.strip()) for c in text.strip().split())
+    return members
+
+  def _stringSpacesToListInt(self,text):
+    
+      Turns a space-separated text into a list of int
+      @ In, text, string, string
+      @ Out, members, list(int), list of members
+    
+    members = list(int(c.strip()) for c in text.strip().split())
+    return members
+
+  def _stringSpacesToListFloat(self,text):
+    
+      Turns a space-separated text into a list of float
+      @ In, text, string, string
+      @ Out, members, list(float), list of members
+    
+    members = list(float(c.strip()) for c in text.strip().split())
+    return members
+
+  def _stringSpacesToNumpyArray(self,text):
+    
+      Turns a space-separated text into a list of float
+      @ In, text, string, string
+      @ Out, members, numpy.array, list of members
+    
+    members = np.asarray(list(float(c.strip()) for c in text.strip().split()))
+    return members
+
+  def _stringSpacesToListString(self,text):
+    
+      Turns a space-separated text into a list of constituent members
+      @ In, text, string, string
+      @ Out, members, list(string), list of members
+    
+    members = list(c.strip() for c in text.strip().split())
+    return members
+
+  def _readYakXSInternal(self,library,pDict,keyDict):
+    
+      Load the Yak multigroup library
+      @ In, library, xml.etree.ElementTree.Element, xml element for cross section library defined in yak cross section files
+      @ In, pDict, dict, dictionary to store the multigroup library
+      @ In, keyDict, dict, dictionary to store the multigroup library node names, use to trace the cross section types for given isotope at given gridIndex
+      @ Out, None
+    
+    &#47&#47read data for this library
+    for subNode in library:
+      &#47&#47 read tabulates
+      self._readNextLevel(subNode,pDict,keyDict)
+
+  def _parentAction(self,parentNode,libDict,keyDict):
+    
+      Default action for parent nodes with children
+      @ In, parentNode, xml.etree.ElementTree.Element, xml element
+      @ In, libDict, dict, dictionary used to store the cross sections
+      @ In, keyDict, dict, dictionary to store xml node names
+      @ Out, None
+    
+    for child in parentNode:
+      self._readNextLevel(child,libDict,keyDict)
+
+  def _readNextLevel(self,xmlNode,pDict,keyDict):
+    
+      Uses xmlNode tag to determine next reading algorithm to perform.
+      @ In, xmlNode, xml.etree.ElementTree.Element, xml element
+      @ In, pDict, dict, dictionary used to store the cross sections
+      @ In, keyDict, dict, dictionary to store the xml node names
+      @ Out, None
+    
+    &#47&#47 case: child.tag
+    if xmlNode.tag in self.level2Element:
+      pDict[xmlNode.tag] = self._stringSpacesToListString(xmlNode.text)
+    elif xmlNode.tag == &quotReferenceGridIndex&quot:
+      pDict[xmlNode.tag] = self._stringSpacesToListInt(xmlNode.text)
+    elif xmlNode.tag == &quotTable&quot:
+      dictKey = self._stringSpacesToTuple(xmlNode.attrib[&quotgridIndex&quot])
+      pDict[dictKey] = {}
+      keyDict[dictKey] = {}
+      self._parentAction(xmlNode,pDict[dictKey],keyDict[dictKey])
+    elif xmlNode.tag == &quotTablewise&quot:
+      pDict[xmlNode.tag] = {}
+      self._readTablewise(xmlNode,pDict[xmlNode.tag])
+    elif xmlNode.tag == &quotIsotope&quot:
+      &#47&#47check if the subnode includes the XS
+      pDict[xmlNode.attrib[&quotName&quot].strip()] = {}
+      keyDict[xmlNode.attrib[&quotName&quot].strip()] = []
+      hasSubNode = False
+      for child in xmlNode:
+        if child != None:
+          hasSubNode = True
+          break
+      if hasSubNode:
+        self._readIsotopeXS(xmlNode,pDict[xmlNode.attrib[&quotName&quot].strip()],keyDict[xmlNode.attrib[&quotName&quot].strip()])
+    &#47&#47store the xmlNode tags that have not been parsed
+    else:
+      self.toBeReadXML.append(xmlNode.tag)
+
+  def _readIsotopeXS(self,node,pDict,keyList):
+    
+      Reads in isotope cross section entries
+      @ In, node, xml.etree.ElementTree.Element, xml element
+      @ In, pDict, dict, dictionary used to store the cross section data for given isotope
+      @ In, keyList, list, list of cross section reaction types
+      @ Out, None
+    
+    &#47&#47the xs structure is same as Tablewise xs data
+    self._readTablewise(node,pDict,keyList)
+
+  def _readLibrarywise(self,node,pDict):
+    
+      Reads in Librarywise entries
+      @ In, node, xml.etree.ElementTree.Element, xml element
+      @ In, pDict, dict, dictionary used to store the librarywise cross section data
+      @ Out, None
+    
+    &#47&#47the xs structure is same as Tablewise xs data
+    self._readTablewise(node,pDict)
+
+  def _readTablewise(self,node,pDict,keyList=None):
+    
+      Reads in Tablewise entries
+      @ In, node, xml.etree.ElementTree.Element, xml element
+      @ In, pDict, dict, dictionary used to store the cross section data for given tablewise entry
+      @ In, keyList, list, list of cross section reaction types
+      @ Out, None
+    
+    orderScattering = int(node.attrib[&quotL&quot])
+    for child in node:
+      &#47&#47The following can be used to check if type of the cross sections is valid or not
+      &#47&#47if child.tag not in self.validReactions:
+      &#47&#47  raise IOError("The following reaction type " + child.tag + " is not valid!")
+      if keyList != None:
+        keyList.append(child.tag)
+      &#47&#47read all xs for all reaction types except Scattering
+      if child.tag != &quotScattering&quot:
+        pDict[child.tag]= self._stringSpacesToNumpyArray(child.text)
+      &#47&#47read xs sections for Scattering
+      else:
+        &#47&#47read scattering
+        self._readScatteringXS(child,pDict,orderScattering)
+
+  def _readScatteringXS(self,node,pDict,orderScattering):
+    
+      Reads the Scattering block for Yak multigroup cross section library
+      @ In, node, xml.etree.ElementTree.Element, xml element
+      @ In, pDict, dict, dictionary used to store the scattering cross sections
+      @ In, orderScattering, int, order of spherical harmonics expansioin for scattering
+      @ Out, None
+   
+    has_profile = False
+    pDict[&quotScatteringOrder&quot] = orderScattering
+    if int(node.get(&quotprofile&quot)) == 1:
+      has_profile = True
+    if has_profile:
+      for child in node:
+        if child.tag == &quotProfile&quot:
+          profileValue = self._stringSpacesToListInt(child.text)
+          pDict[&quotScatterStart&quot] = profileValue[0::2]
+          pDict[&quotScatterEnd&quot] = profileValue[1::2]
+        elif child.tag == &quotValue&quot:
+          scatteringValue = self._stringSpacesToNumpyArray(child.text) &#47&#47store in 1-D array
+      pDict[&quotScattering&quot] = np.zeros((self.nGroup*(orderScattering+1),self.nGroup))
+      ip = 0
+      for l in range(orderScattering+1):
+        for g in range(self.nGroup):
+          for gr in range(pDict[&quotScatterStart&quot][g+l*self.nGroup]-1,pDict[&quotScatterEnd&quot][g+l*self.nGroup]):
+            pDict[&quotScattering&quot][g+l*self.nGroup][gr] = scatteringValue[ip]
+            ip += 1
+    else:
+      scatteringValue = self._stringSpacesToNumpyArray(child.text) &#47&#47store in 1-D array
+      pDict[child.tag] = scatteringValue.reshape((self.nGroup*(orderScattering+1),self.nGroup))
+    &#47&#47calculate Total Scattering
+    totScattering = np.zeros(self.nGroup)
+    for g in range(self.nGroup):
+      totScattering[g] = np.sum(pDict[&quotScattering&quot][0:self.nGroup,g])
+    pDict[&quotTotalScattering&quot] = totScattering
+
+  def _readAdditionalYakXS(self,xmlNode,pDict):
+    
+      Read addition cross sections that have not been read via method self._readYakXSInternal,
+      such as Tabulation Grid, Librarywise.
+      @ In, xmlNode, xml.etree.ElementTree.Element, xml element
+      @ In, pDict, dict, dictionary used to stores the cross section data
+      @ Out, None
+    
+    for child in xmlNode:
+      &#47&#47read the tabulation grid
+      if child.tag in pDict[&quotTabulation&quot]:
+        pDict[child.tag] = self._stringSpacesToNumpyArray(child.text)
+        self.toBeReadXML.remove(child.tag)
+      &#47&#47read the Librarywise cross section data
+      elif child.tag == &quotLibrarywise&quot:
+        pDict[child.tag] = {}
+        self._readLibrarywise(child,pDict[child.tag])
+        self.toBeReadXML.remove(child.tag)
+    if len(self.toBeReadXML) != 0:
+      raise IOError(&quotThe following nodes xml&quot + str(self.toBeReadXML) + &quot have not been read yet!&quot)
+
+  def _checkYakXS(self,pDict,keyDict):
+    
+      Recalculate some undefined xs, such as &quotNu&quot, &quotFission&quot, &quotCapture&quot.
+      @ In, pDict, dict, dictionary stores all the cross section data for given multigroup library (or material)
+      @ In, keyDict, dict, dictionary stores the multigroup library node names, use to trace the cross section types for given isotope at given gridIndex
+      @ Out, None
+    
+    &#47&#47make sure pDict include the cross sections, if not, copy from Tablewise data
+    for gridKey,isotopeDict in keyDict.items():
+      for isotopeKey,reactionList in isotopeDict.items():
+        if len(reactionList) == 0:
+          if &quotTablewise&quot in pDict[gridKey].keys():
+            pDict[gridKey][isotopeKey] = copy.deepcopy(pDict[gridKey][&quotTablewise&quot])
+          elif &quotLibrarywise&quot in pDict[gridKey].keys():
+            pDict[gridKey][isotopeKey] = copy.deepcopy(pDict[gridKey][&quotLibrarywise&quot])
+          else:
+            raise IOError(&quotThe isotope: &quot + isotopeKey + &quot is provided, but the required cross sections are not found in the library!&quot)
+        else:
+          &#47&#47add the missing cross sections from the Tablewise or Librarywise dictionary. Tablewise first, and then Librarywise
+          if &quotTablewise&quot in pDict[gridKey].keys():
+            for key,value in pDict[gridKey][&quotTablewise&quot].items():
+              if key not in pDict[gridKey][isotopeKey].keys():
+                pDict[gridKey][isotopeKey][key] = value
+          if &quotLibrarywise&quot in pDict.keys():
+            for key,value in pDict[&quotLibrarywise&quot].items():
+              if key not in pDict[gridKey][isotopeKey].keys():
+                pDict[gridKey][isotopeKey][key] = value
+        &#47&#47calculate some independent cross sections if they are not in pDict
+        &#47&#47these cross sections can be: fission, total scattering, capture, nu, kappa
+        self._recalculateYakXS(pDict[gridKey][isotopeKey])
+
+  def _recalculateYakXS(self,reactionDict):
+    
+      Recalculate some undefined xs, such as &quotNu&quot, &quotFission&quot, &quotCapture&quot.
+      @ In, reactionDict, dict, dictionary stores the cross section data for given isotope
+      @ Out, None
+    
+    &#47&#47&#47&#47&#47&#47 fission, nu, kappa
+    reactionList = reactionDict.keys()
+    if &quotnuFission&quot in reactionList:
+      if &quotFission&quot not in reactionList:
+        &#47&#47calculate Fission using default Nu
+        reactionDict[&quotFission&quot] = reactionDict[&quotnuFission&quot]/self.defaultNu
+        reactionDict[&quotNu&quot] = np.ones(self.nGroup)*self.defaultNu
+      else:
+        nu = []
+        for i in range(self.nGroup):
+          if reactionDict[&quotFission&quot][i] != 0:
+            nu.append(reactionDict[&quotnuFission&quot][i]/reactionDict[&quotFission&quot][i])
+          else:
+            nu.append(self.defaultNu)
+        reactionDict[&quotNu&quot] = np.asarray(nu)
+      if &quotkappaFission&quot not in reactionList:
+        &#47&#47calculate kappaFission using default kappa
+        reactionDict[&quotkappaFission&quot] = self.defaultKappa * reactionDict[&quotFission&quot]
+        reactionDict[&quotKappa&quot] = np.ones(self.nGroup) * self.defaultKappa
+      else:
+        kappa = []
+        for i in range(self.nGroup):
+          if reactionDict[&quotFission&quot][i] != 0:
+            kappa.append(reactionDict[&quotkappaFission&quot][i]/reactionDict[&quotFission&quot][i])
+          else:
+            kappa.append(self.defaultKappa)
+        reactionDict[&quotKappa&quot] = np.asarray(kappa)
+    &#47&#47 enable Transport perturbation if it exists.
+    if &quotTransport&quot in reactionList:
+      reactionDict[&quotperturbTransport&quot] = True
+    else:
+      reactionDict[&quotperturbTransport&quot] = False
+    &#47&#47check and calculate total or  transport cross sections
+    if &quotTotal&quot not in reactionList:
+      if &quotTransport&quot not in reactionList:
+        raise IOError(&quotTotal and Transport cross sections are not found in the cross section input file, at least one of them should be provided!&quot)
+      else:
+        &#47&#47calculate total cross sections
+        if &quotScattering&quot not in reactionList:
+          reactionDict[&quotTotal&quot] = copy.copy(reactionDict[&quotTransport&quot])
+        elif reactionDict[&quotScatteringOrder&quot] == 0:
+          reactionDict[&quotTotal&quot] = copy.copy(reactionDict[&quotTransport&quot])
+        else:
+          reactionDict[&quotTotal&quot] = reactionDict[&quotTransport&quot] + np.sum(reactionDict[&quotScattering&quot][self.nGroup:2*self.nGroup])
+    else:
+      if &quotTransport&quot not in reactionList:
+        &#47&#47calculate transport cross sections
+        if &quotScattering&quot not in reactionList:
+          reactionDict[&quotTransport&quot] = copy.copy(reactionDict[&quotTotal&quot])
+        elif reactionDict[&quotScatteringOrder&quot] == 0:
+          reactionDict[&quotTransport&quot] = copy.copy(reactionDict[&quotTotal&quot])
+        else:
+          reactionDict[&quotTransport&quot] = reactionDict[&quotTotal&quot] - np.sum(reactionDict[&quotScattering&quot][self.nGroup:2*self.nGroup])
+
+    &#47&#47Metod 1: Currently, rattlesnake will not check the consistent of provided cross sections, rattlesnake will only use Total,
+    &#47&#47Scattering and nuFission for the transport calculation. In this case, we will recalculate the rest cross sections
+    &#47&#47based on Total, Scattering and Fission.
+    if &quotScattering&quot in reactionList:
+      reactionDict[&quotAbsorption&quot] = reactionDict[&quotTotal&quot] - reactionDict[&quotTotalScattering&quot]
+    else:
+      if self.nGroup == 1 and &quotAbsorption&quot in reactionList:
+        reactionDict[&quotScattering&quot] = reactionDict[&quotTotal&quot] - reactionDict[&quotAbsorption&quot]
+        reactionDict[&quotTotalScattering&quot] = copy.copy(reactionDict[&quotScattering&quot])
+      else:
+        reactionDict[&quotAbsorption&quot] = copy.copy(reactionDict[&quotTotal&quot])
+    &#47&#47calculate capture cross sections
+    if &quotnuFission&quot in reactionList:
+      reactionDict[&quotCapture&quot] = reactionDict[&quotAbsorption&quot] - reactionDict[&quotFission&quot]
+    else:
+      reactionDict[&quotCapture&quot] = copy.copy(reactionDict[&quotAbsorption&quot])
+
+    &#47&#47Method 2: The following can be used to recalculate the unknown cross sections
+    &#47&#47either method 1 or method 2 can be used.
+    &quot&quot&quot
+    &#47&#47calculate scattering cross sections
+    if &quotScattering&quot not in reactionList and self.nGroup == 1:
+      reactionDict[&quotScattering&quot] = reactionDict[&quotTotal&quot] - reactionDict[&quotAbsorption&quot]
+      reactionDict[&quotTotalScattering&quot] = copy.copy(reactionDict[&quotScattering&quot])
+
+    &#47&#47calculate absorption
+    if &quotAbsorption&quot not in  reactionList:
+      if &quotScattering&quot in reactionList:
+        reactionDict[&quotAbsorption&quot] = reactionDict[&quotTotal&quot] - reactionDict[&quotTotalScattering&quot]
+      else:
+        reactionDict[&quotAbsorption&quot] = copy.copy(reactionDict[&quotTotal&quot])
+      &#47&#47calculate capture cross sections
+      if &quotCapture&quot not in reactionList:
+        if &quotnuFission&quot in reactionList:
+          reactionDict[&quotCapture&quot] = reactionDict[&quotAbsorption&quot] - reactionDict[&quotFission&quot]
+        else:
+          reactionDict[&quotCapture&quot] = copy.copy(reactionDict[&quotAbsorption&quot])
+    else:
+      &#47&#47calculate capture cross sections
+      if &quotCapture&quot not in reactionList:
+        if &quotnuFission&quot in reactionList:
+          reactionDict[&quotCapture&quot] = reactionDict[&quotAbsorption&quot] - reactionDict[&quotFission&quot]
+        else:
+          reactionDict[&quotCapture&quot] = copy.copy(reactionDict[&quotAbsorption&quot])
+      &#47&#47calculate scattering cross sections
+      if &quotScattering&quot not in reactionList and self.nGroup == 1:
+        reactionDict[&quotScattering&quot] = reactionDict[&quotTotal&quot] - reactionDict[&quotAbsorption&quot]
+        reactionDict[&quotTotalScattering&quot] = copy.copy(reactionDict[&quotScattering&quot])
+    &quot&quot&quot
+
+  def perturb(self,**Kwargs):
+    
+      Perturb the input cross sections based on the information provided by alias files
+      @ In, Kwargs, dict, dictionary containing raven sampled var value
+      @ Out, None
+    
+    self.pertLib = copy.deepcopy(self.libs)
+    self.modDict = Kwargs[&quotSampledVars&quot]
+    pertFactor = copy.deepcopy(self.aliases)
+    &#47&#47generate the pertLib
+    for libKey, libValue in pertFactor.items():
+      aliasType = self.aliasesType[libKey]
+      self._computePerturbations(libValue,self.pertLib[libKey],aliasType)
+    for libsKey, libDict in pertFactor.items():
+      aliasType = self.aliasesType[libsKey]
+      for libID, gridDict in libDict.items():
+        self._rebalanceXS(self.pertLib[libsKey][libID],gridDict,pertFactor[libsKey][libID],aliasType)
+
+  def _computePerturbations(self,factors,lib,aliasType):
+    
+      compute the perturbed values for input variables
+      @ In, factors, dict, dictionary contains all perturbed input variables, and these variables will be
+        replaced by the actual perturbed factors after this method is called.
+      @ In, lib, dict, dictionary contains all the values of input variables
+      @ In, aliasType, string, the type for provided alias file
+      @ Out, None
+    
+    for libKey, libValue in factors.items():
+      if type(libValue) == dict:
+        self._computePerturbations(libValue,lib[libKey],aliasType)
+      elif type(libValue) == list:
+        groupValues = []
+        for var in libValue:
+          if var in self.modDict.keys():
+            groupValues.append(self.modDict[var])
+          elif var == None:
+            if aliasType == &quotrel&quot:
+              groupValues.append(1.0)
+            elif aliasType == &quotabs&quot:
+              groupValues.append(0.0)
+          else:
+            raise IOError(&quotThe user wants to perturb &quot + var + &quot, but this variable is not defined in the Sampler!&quot)
+        groupValues = np.asarray(groupValues)
+        factors[libKey] = groupValues
+        if not lib[&quotperturbTransport&quot] and libKey == &quotTransport&quot:
+          raise IOError(&quotTransport can not be perturbed since it does not exist in the input XS library!&quot)
+        if aliasType == &quotrel&quot:
+          lib[libKey] *= groupValues
+        elif aliasType == &quotabs&quot:
+          lib[libKey] += groupValues
+
+  def _rebalanceXS(self,libDict,libKeyDict,factorDict,aliasType):
+    
+      Using the perturbed cross sections to recalculate other dependent cross sections
+      @ In, libDict, dict, dictionary used to store the cross section data
+      @ In, libKeyDict, dict, dictionary used to store the cross section types
+      @ In, factorDict, dict, dictionary used to store the perturbation factors
+      @ In, aliasType, string, the type for provided alias file
+      @ Out, None
+    
+    for gridKey,isotopeDict in libKeyDict.items():
+      for isotopeKey,reactionList in isotopeDict.items():
+        &#47&#47recalculate some dependent cross sections
+        self._rebalanceYakXS(libDict[gridKey][isotopeKey],factorDict[gridKey][isotopeKey],aliasType)
+
+  def _rebalanceYakXS(self,reactionDict,perturbDict,aliasType):
+    
+      Recalculate some depedent xs, such as &quotTotal&quot, &quotAbsorption&quot, &quotScattering&quot, &quotnuFission&quot, &quotkappaFission&quot,
+      Removal, Transport.
+      @ In, reactionDict, dict, dictionary used to store the cross section data
+      @ In, perturbDict, dict, dictionary used to store the perturbation factors
+      @ In, aliasType, string, the type for provided alias file
+      @ Out, None
+    
+    &#47&#47fission, nu, kappa, capture, total scattering are assumed to be independent cross section types
+    reactionList = perturbDict.keys()
+    hasTotalScattering = False
+    if &quotTotalScattering&quot in reactionList:
+      hasTotalScattering = True
+    if &quotFission&quot in reactionDict.keys():
+      reactionDict[&quotnuFission&quot] = reactionDict[&quotFission&quot]*reactionDict[&quotNu&quot]
+      reactionDict[&quotkappaFission&quot] = reactionDict[&quotFission&quot]*reactionDict[&quotKappa&quot]
+      reactionDict[&quotAbsorption&quot] = reactionDict[&quotFission&quot] + reactionDict[&quotCapture&quot]
+    else:
+      reactionDict[&quotAbsorption&quot] = copy.copy(reactionDict[&quotCapture&quot])
+    reactionDict[&quotTotal&quot] = reactionDict[&quotAbsorption&quot] + reactionDict[&quotTotalScattering&quot]
+    if hasTotalScattering:
+      &#47&#47total scattering are perturbed
+      &#47&#47recalculate Scattering Cross Sections
+      for g in range(self.nGroup):
+        if aliasType == &quotrel&quot:
+          reactionDict[&quotScattering&quot][0:self.nGroup,g] *= perturbDict[&quotTotalScattering&quot][g]
+        elif aliasType == &quotabs&quot:
+          factor = perturbDict[&quotTotalScattering&quot][g]/self.nGroup
+          reactionDict[&quotScattering&quot][0:self.nGroup,g] += factor
+    &#47&#47recalculate Removal cross sections
+    reactionDict[&quotRemoval&quot] = np.asarray(list(reactionDict[&quotTotal&quot][g] - reactionDict[&quotScattering&quot][g][g] for g in range(self.nGroup)))
+    &#47&#47recalculate Transport cross sections
+    if not reactionDict[&quotperturbTransport&quot]:
+      if reactionDict[&quotScattering&quot].shape[0] &gt;= self.nGroup*2:
+        reactionDict[&quotTransport&quot] = reactionDict[&quotTotal&quot] - np.sum(reactionDict[&quotScattering&quot][self.nGroup:self.nGroup*2])
+      else:
+        &#47&#47recalculate Transport cross sections
+        reactionDict[&quotTransport&quot] = copy.copy(reactionDict[&quotTotal&quot])
+
+  def _addSubElementForIsotope(self,xmlNode):
+    
+      Check if there is a subelement under node Isotope, if not, add the one from the Tablewise or Librarywise
+      @ In, xmlNode, xml.etree.ElementTree.Element, xml element
+      @ Out, None
+    
+    tableWise = xmlNode.find(&quotTablewise&quot)
+    if tableWise is not None:
+      for child in tableWise:
+        for isotope in xmlNode.findall(&quotIsotope&quot):
+          if isotope.find(child.tag) is not None:
+            continue
+          isotope.append(copy.deepcopy(child))
+    libraryWise = xmlNode.find(&quotLibrarywise&quot)
+    if libraryWise is not None:
+      for child in libraryWise:
+        for isotope in xmlNode.findall(&quotIsotope&quot):
+          if isotope.find(child.tag) is not None:
+            continue
+          isotope.append(copy.deepcopy(child))
+
+  def _replaceXMLNodeText(self,xmlNode,reactionDict):
+    
+      Replace the xml node text (cross section values) with perturbed cross section values.
+      @ In, xmlNode, xml.etree.ElementTree.Element, xml element
+      @ In, reactionDict, dict, dictionary contains the cross sections and their values
+      @ Out, None
+    
+    for child in xmlNode:
+      if child.tag in reactionDict.keys() and child.tag != &quotScattering&quot:
+        child.text = &quot  &quot.join([&quot%.5e&quot % num for num in reactionDict[child.tag]])
+      elif child.tag in reactionDict.keys() and child.tag == &quotScattering&quot:
+        for childChild in child:
+          if childChild.tag == &quotValue&quot:
+            msg = &quot&quot
+            for g in range(reactionDict[child.tag].shape[0]):
+              msg = msg + &quot\n&quot + &quot            &quot+&quot &quot.join([&quot%.5e&quot % num for num in reactionDict[child.tag][g][reactionDict[&quotScatterStart&quot][g]-1:reactionDict[&quotScatterEnd&quot][g]]])
+            childChild.text = msg + &quot\n&quot
+
+  def _prettify(self,tree):
+    
+      Script for turning XML tree to be more user friendly.
+      @ In, tree, xml.etree.ElementTree object, the tree form of an input file
+      @ Out, pretty, string, the entire contents of the desired file to write
+    
+    &#47&#47make the first pass at pretty.  This will insert way too many newlines, because of how we maintain XML format.
+    pretty = pxml.parseString(ET.tostring(tree.getroot())).toprettyxml(indent=&quot  &quot)
+    return pretty
+
+  def writeNewInput(self,inFiles=None,**Kwargs):
+    
+      Generates a new input file with the existing parsed dictionary.
+      @ In, Kwargs, dict, dictionary containing raven sampled var value
+      @ In, inFiles, list, list of input files
+      @ Out, None.
+    
+    outFiles = {}
+    if inFiles == None:
+      for fileInp,libKey in self.filesDict.items():
+        outFiles[fileInp.getAbsFile()] = libKey
+    else:
+      for inFile in inFiles:
+        if inFile.getFilename() in self.filesMap.keys():
+          libsKey = self.filesMap[inFile.getFilename()]
+          if libsKey not in self.aliases.keys():
+            continue
+          outFiles[inFile.getAbsFile()] = libsKey
+    for outFile,libsKey in outFiles.items():
+      tree = self.xmlsDict[libsKey]
+      if libsKey not in self.aliases.keys():
+        continue
+      root = tree.getroot()
+      for child in root:
+        libID = child.attrib[&quotID&quot].strip()
+        if libID not in self.aliases[libsKey].keys():
+          continue
+        for table in child.findall(&quotTable&quot):
+          gridIndex = self._stringSpacesToTuple(table.attrib[&quotgridIndex&quot])
+          if gridIndex in self.aliases[libsKey][libID].keys():
+            self._addSubElementForIsotope(table)
+            for subNode in table:
+              if subNode.tag == &quotIsotope&quot:
+                mat = subNode.attrib[&quotName&quot].strip()
+                if mat not in self.aliases[libsKey][libID][gridIndex].keys():
+                  continue
+                self._replaceXMLNodeText(subNode,self.pertLib[libsKey][libID][gridIndex][mat])
+      <a id="change">newFile = open(outFile,&quotw&quot)</a>
+      toWrite = self._prettify(tree)
+      newFile.writelines(toWrite)
+      <a id="change">newFile</a><a id="change">.close()</a>
+</code></pre>

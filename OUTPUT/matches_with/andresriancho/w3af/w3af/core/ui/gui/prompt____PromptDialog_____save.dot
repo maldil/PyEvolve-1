@@ -1,0 +1,137 @@
+digraph G {
+1 [label="(166035031)empty" shape=box style=dashed]
+2 [label="(166035016)Any(fname)" shape=ellipse style=dashed]
+3 [label="(166035042)empty" shape=box style=dashed]
+4 [label="(166035024)gtk(gtk)" shape=ellipse style=dashed]
+5 [label="(166035000)=" shape=box style=dashed]
+6 [label="(166035041)close" shape=box style=dashed color=blue fontcolor=blue]
+7 [label="(166035044)END" style=dashed]
+8 [label="(166035003)Any(text)" shape=ellipse style=dashed]
+9 [label="(166035014)run" shape=box style=dashed]
+10 [label="(166035034)Any(fname)" shape=ellipse style=dashed]
+11 [label="(166035009)gtk(gtk)" shape=ellipse style=dashed]
+12 [label="(166035021)destroy" shape=box style=dashed]
+13 [label="(166034993)START" style=dashed]
+14 [label="(166035037)TextIO(fh)" shape=ellipse style=dashed]
+15 [label="(166035039)Any(text)" shape=ellipse style=dashed]
+16 [label="(166034996)=" shape=box style=dashed]
+17 [label="(166035025)gtk.RESPONSE_OK(RESPONSE_OK)" shape=ellipse style=dashed]
+18 [label="(166035043)return" shape=box style=dashed]
+19 [label="(166035018)get_filename" shape=box style=dashed]
+20 [label="(166035013)Any(dlg)" shape=ellipse style=dashed]
+21 [label="(166035030)If" shape=diamond style=dashed]
+22 [label="(166035019)=" shape=box style=dashed]
+23 [label="(166034994)PromptView(self)" shape=ellipse style=dashed]
+24 [label="(166035006)get_text" shape=box style=dashed]
+25 [label="(166035036)=" shape=box style=dashed color=blue fontcolor=blue]
+26 [label="(166035035)String(lit(w))" shape=ellipse style=dashed color=blue fontcolor=blue]
+27 [label="(166035040)TextIO(fh)" shape=ellipse style=dashed color=blue fontcolor=blue]
+28 [label="(166035005)PromptView.prompt(prompt)" shape=ellipse style=dashed]
+29 [label="(166035023)Any(resp)" shape=ellipse style=dashed]
+30 [label="(166035038)write" shape=box style=dashed]
+31 [label="(166035017)Any(dlg)" shape=ellipse style=dashed]
+32 [label="(166035029)IsNot" shape=box style=dashed]
+33 [label="(166035033)open" shape=box style=dashed color=blue fontcolor=blue]
+34 [label="(166035010)FileChooserDialog" shape=box style=dashed]
+35 [label="(166035015)=" shape=box style=dashed]
+36 [label="(166035004)PromptView(self)" shape=ellipse style=dashed]
+37 [label="(166035032)TextIO(fh)" shape=ellipse style=dashed color=blue fontcolor=blue]
+38 [label="(166035026)Eq" shape=box style=dashed]
+39 [label="(166035012)Any(resp)" shape=ellipse style=dashed]
+40 [label="(166035020)Any(dlg)" shape=ellipse style=dashed]
+41 [label="(166035022)And" shape=box style=dashed]
+42 [label="(166035028)None(None)" shape=ellipse style=dashed]
+43 [label="(166035007)=" shape=box style=dashed]
+44 [label="(166034995)(null)" shape=ellipse style=dashed]
+45 [label="(166035027)Any(fname)" shape=ellipse style=dashed]
+46 [label="(166034998)null(widg)" shape=ellipse style=dashed]
+47 [label="(166034999)(null)" shape=ellipse style=dashed]
+48 [label="(166035011)=" shape=box style=dashed]
+49 [label="(166035008)Any(dlg)" shape=ellipse style=dashed]
+21 -> 1 [label="T"];
+22 -> 2 [label="def" style=dotted];
+21 -> 3 [label="F"];
+13 -> 5 [label="" style=solid];
+47 -> 5 [label="para" style=dotted];
+16 -> 5 [label="dep" style=dotted];
+21 -> 6 [label="T"];
+27 -> 6 [label="recv" style=dotted];
+30 -> 6 [label="dep" style=dotted];
+18 -> 7 [label="dep" style=dotted];
+43 -> 8 [label="def" style=dotted];
+13 -> 9 [label="" style=solid];
+20 -> 9 [label="recv" style=dotted];
+48 -> 9 [label="dep" style=dotted];
+2 -> 10 [label="ref" style=dotted];
+13 -> 12 [label="" style=solid];
+40 -> 12 [label="recv" style=dotted];
+22 -> 12 [label="dep" style=dotted];
+37 -> 14 [label="ref" style=dotted];
+8 -> 15 [label="ref" style=dotted];
+13 -> 16 [label="" style=solid];
+44 -> 16 [label="para" style=dotted];
+4 -> 17 [label="qual" style=dotted];
+13 -> 18 [label="" style=solid];
+6 -> 18 [label="dep" style=dotted];
+3 -> 18 [label="dep" style=dotted];
+13 -> 19 [label="" style=solid];
+31 -> 19 [label="recv" style=dotted];
+35 -> 19 [label="dep" style=dotted];
+49 -> 20 [label="ref" style=dotted];
+13 -> 21 [label="" style=solid];
+41 -> 21 [label="dep" style=dotted];
+41 -> 21 [label="cond" style=dotted];
+13 -> 22 [label="" style=solid];
+19 -> 22 [label="dep" style=dotted];
+19 -> 22 [label="para" style=dotted];
+16 -> 23 [label="def" style=dotted];
+13 -> 24 [label="" style=solid];
+28 -> 24 [label="recv" style=dotted];
+5 -> 24 [label="dep" style=dotted];
+21 -> 25 [label="T"];
+33 -> 25 [label="dep" style=dotted];
+33 -> 25 [label="para" style=dotted];
+37 -> 27 [label="ref" style=dotted];
+36 -> 28 [label="qual" style=dotted];
+39 -> 29 [label="ref" style=dotted];
+21 -> 30 [label="T"];
+14 -> 30 [label="recv" style=dotted];
+15 -> 30 [label="para" style=dotted];
+25 -> 30 [label="dep" style=dotted];
+49 -> 31 [label="ref" style=dotted];
+13 -> 32 [label="" style=solid];
+45 -> 32 [label="para" style=dotted];
+42 -> 32 [label="para" style=dotted];
+12 -> 32 [label="dep" style=dotted];
+21 -> 33 [label="T"];
+10 -> 33 [label="para" style=dotted];
+26 -> 33 [label="para" style=dotted];
+1 -> 33 [label="dep" style=dotted];
+13 -> 34 [label="" style=solid];
+11 -> 34 [label="recv" style=dotted];
+43 -> 34 [label="dep" style=dotted];
+13 -> 35 [label="" style=solid];
+9 -> 35 [label="dep" style=dotted];
+9 -> 35 [label="para" style=dotted];
+25 -> 37 [label="def" style=dotted];
+13 -> 38 [label="" style=solid];
+29 -> 38 [label="para" style=dotted];
+17 -> 38 [label="para" style=dotted];
+12 -> 38 [label="dep" style=dotted];
+35 -> 39 [label="def" style=dotted];
+49 -> 40 [label="ref" style=dotted];
+13 -> 41 [label="" style=solid];
+38 -> 41 [label="dep" style=dotted];
+38 -> 41 [label="para" style=dotted];
+32 -> 41 [label="dep" style=dotted];
+32 -> 41 [label="para" style=dotted];
+13 -> 43 [label="" style=solid];
+24 -> 43 [label="dep" style=dotted];
+24 -> 43 [label="para" style=dotted];
+2 -> 45 [label="ref" style=dotted];
+5 -> 46 [label="def" style=dotted];
+13 -> 48 [label="" style=solid];
+34 -> 48 [label="dep" style=dotted];
+34 -> 48 [label="para" style=dotted];
+48 -> 49 [label="def" style=dotted];
+}

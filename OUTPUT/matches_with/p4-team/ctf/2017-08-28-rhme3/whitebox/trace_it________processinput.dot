@@ -1,0 +1,89 @@
+digraph G {
+1 [label="(154298100)Any(blocksize)" shape=ellipse style=dashed]
+2 [label="(154298114)decode" shape=box style=dashed]
+3 [label="(154298119)[list]" shape=box style=dashed]
+4 [label="(154298087)START" style=dashed]
+5 [label="(154298099)number(2)" shape=ellipse style=dashed]
+6 [label="(154298104)Mod" shape=box style=dashed]
+7 [label="(154298102)Any(iblock)" shape=ellipse style=dashed]
+8 [label="(154298094)=" shape=box style=dashed]
+9 [label="(154298101)Mult" shape=box style=dashed]
+10 [label="(154298105)=" shape=box style=dashed]
+11 [label="(154298111)BinaryIO(f)" shape=ellipse style=dashed]
+12 [label="(154298092)Any(blocksize)" shape=ellipse style=dashed]
+13 [label="(154298112)write" shape=box style=dashed]
+14 [label="(154298113)str(p)" shape=ellipse style=dashed]
+15 [label="(154298121)END" style=dashed]
+16 [label="(154298108)String(lit(/tmp/xd))" shape=ellipse style=dashed color=blue fontcolor=blue]
+17 [label="(154298110)=" shape=box style=dashed color=blue fontcolor=blue]
+18 [label="(154298120)return" shape=box style=dashed]
+19 [label="(154298090)=" shape=box style=dashed]
+20 [label="(154298097)String(lit(%0*x))" shape=ellipse style=dashed]
+21 [label="(154298109)String(lit(wb))" shape=ellipse style=dashed color=blue fontcolor=blue]
+22 [label="(154298116)BinaryIO(f)" shape=ellipse style=dashed color=blue fontcolor=blue]
+23 [label="(154298103)()" shape=box style=dashed]
+24 [label="(154298093)(null)" shape=ellipse style=dashed]
+25 [label="(154298106)BinaryIO(f)" shape=ellipse style=dashed color=blue fontcolor=blue]
+26 [label="(154298115)String(lit(hex))" shape=ellipse style=dashed]
+27 [label="(154298117)close" shape=box style=dashed color=blue fontcolor=blue]
+28 [label="(154298089)(null)" shape=ellipse style=dashed]
+29 [label="(154298118)String(lit(--stdin </tmp/xd))" shape=ellipse style=dashed]
+30 [label="(154298088)Any(iblock)" shape=ellipse style=dashed]
+31 [label="(154298107)open" shape=box style=dashed color=blue fontcolor=blue]
+32 [label="(154298096)str(p)" shape=ellipse style=dashed color=red fontcolor=red]
+4 -> 2 [label="" style=solid];
+14 -> 2 [label="recv" style=dotted];
+26 -> 2 [label="para" style=dotted];
+17 -> 2 [label="dep" style=dotted];
+4 -> 3 [label="" style=solid];
+29 -> 3 [label="para" style=dotted];
+27 -> 3 [label="dep" style=dotted];
+4 -> 6 [label="" style=solid];
+20 -> 6 [label="para" style=dotted];
+23 -> 6 [label="dep" style=dotted];
+23 -> 6 [label="para" style=dotted];
+8 -> 6 [label="dep" style=dotted];
+4 -> 8 [label="" style=solid];
+24 -> 8 [label="para" style=dotted];
+19 -> 8 [label="dep" style=dotted];
+4 -> 9 [label="" style=solid];
+5 -> 9 [label="para" style=dotted];
+1 -> 9 [label="para" style=dotted];
+8 -> 9 [label="dep" style=dotted];
+4 -> 10 [label="" style=solid];
+6 -> 10 [label="dep" style=dotted];
+6 -> 10 [label="para" style=dotted];
+25 -> 11 [label="ref" style=dotted];
+8 -> 12 [label="def" style=dotted];
+4 -> 13 [label="" style=solid];
+11 -> 13 [label="recv" style=dotted];
+2 -> 13 [label="dep" style=dotted];
+2 -> 13 [label="para" style=dotted];
+17 -> 13 [label="dep" style=dotted];
+32 -> 14 [label="ref" style=dotted];
+18 -> 15 [label="dep" style=dotted];
+4 -> 17 [label="" style=solid];
+31 -> 17 [label="dep" style=dotted];
+31 -> 17 [label="para" style=dotted];
+4 -> 18 [label="" style=solid];
+3 -> 18 [label="dep" style=dotted];
+3 -> 18 [label="para" style=dotted];
+4 -> 19 [label="" style=solid];
+28 -> 19 [label="para" style=dotted];
+25 -> 22 [label="ref" style=dotted];
+4 -> 23 [label="" style=solid];
+9 -> 23 [label="dep" style=dotted];
+9 -> 23 [label="para" style=dotted];
+7 -> 23 [label="para" style=dotted];
+8 -> 23 [label="dep" style=dotted];
+17 -> 25 [label="def" style=dotted];
+4 -> 27 [label="" style=solid];
+22 -> 27 [label="recv" style=dotted];
+13 -> 27 [label="dep" style=dotted];
+19 -> 30 [label="def" style=dotted];
+4 -> 31 [label="" style=solid];
+16 -> 31 [label="para" style=dotted];
+21 -> 31 [label="para" style=dotted];
+10 -> 31 [label="dep" style=dotted];
+10 -> 32 [label="def" style=dotted];
+}

@@ -1,0 +1,112 @@
+digraph G {
+1 [label="(201565987)(null)" shape=ellipse style=dashed]
+2 [label="(201566005)write" shape=box style=dashed]
+3 [label="(201566017)write" shape=box style=dashed]
+4 [label="(201566019)TextIO(fh)" shape=ellipse style=dashed color=blue fontcolor=blue]
+5 [label="(201565984)=" shape=box style=dashed]
+6 [label="(201566002)write" shape=box style=dashed]
+7 [label="(201565981)START" style=dashed]
+8 [label="(201566006)String(lit(    <socket port="%r" hostname="%s"/>
+))" shape=ellipse style=dashed]
+9 [label="(201566009)EnergyPlusSimIntegration.socket_server(socket_server)" shape=ellipse style=dashed]
+10 [label="(201565991)open" shape=box style=dashed color=blue fontcolor=blue]
+11 [label="(201565993)String(lit(w+))" shape=ellipse style=dashed color=blue fontcolor=blue]
+12 [label="(201565982)EnergyPlusSimIntegration(self)" shape=ellipse style=dashed]
+13 [label="(201566003)String(lit(  <ipc>
+))" shape=ellipse style=dashed]
+14 [label="(201566000)String(lit(<BCVTB-client>
+))" shape=ellipse style=dashed]
+15 [label="(201566012)EnergyPlusSimIntegration.socket_server(socket_server)" shape=ellipse style=dashed]
+16 [label="(201566016)TextIO(fh)" shape=ellipse style=dashed color=red fontcolor=red]
+17 [label="(201566014)()" shape=box style=dashed]
+18 [label="(201566023)close" shape=box style=dashed color=blue fontcolor=blue]
+19 [label="(201565998)TextIO(fh)" shape=ellipse style=dashed color=red fontcolor=red]
+20 [label="(201566008)EnergyPlusSimIntegration(self)" shape=ellipse style=dashed]
+21 [label="(201566024)END" style=dashed]
+22 [label="(201565986)str(path)" shape=ellipse style=dashed]
+23 [label="(201565999)write" shape=box style=dashed]
+24 [label="(201565995)TextIO(fh)" shape=ellipse style=dashed color=black fontcolor=black]
+25 [label="(201566004)TextIO(fh)" shape=ellipse style=dashed color=yellow fontcolor=yellow]
+26 [label="(201566018)String(lit(  </ipc>
+))" shape=ellipse style=dashed]
+27 [label="(201566020)write" shape=box style=dashed]
+28 [label="(201566021)String(lit(</BCVTB-client>))" shape=ellipse style=dashed]
+29 [label="(201566022)TextIO(fh)" shape=ellipse style=dashed color=blue fontcolor=blue]
+30 [label="(201565988)=" shape=box style=dashed]
+31 [label="(201566013)EnergyPlusSimIntegration.socket_server.host(host)" shape=ellipse style=dashed]
+32 [label="(201565992)str(path)" shape=ellipse style=dashed]
+33 [label="(201566010)EnergyPlusSimIntegration.socket_server.port(port)" shape=ellipse style=dashed]
+34 [label="(201566011)EnergyPlusSimIntegration(self)" shape=ellipse style=dashed]
+35 [label="(201566001)TextIO(fh)" shape=ellipse style=dashed color=red fontcolor=red]
+36 [label="(201565997)String(lit(<?xml version="1.0" encoding="ISO-8859-1"?>
+))" shape=ellipse style=dashed]
+37 [label="(201565983)(null)" shape=ellipse style=dashed]
+38 [label="(201566015)Mod" shape=box style=dashed]
+39 [label="(201565994)=" shape=box style=dashed color=blue fontcolor=blue]
+40 [label="(201565990)TextIO(fh)" shape=ellipse style=dashed color=blue fontcolor=blue]
+41 [label="(201565996)write" shape=box style=dashed]
+7 -> 2 [label="" style=solid];
+25 -> 2 [label="recv" style=dotted];
+38 -> 2 [label="dep" style=dotted];
+38 -> 2 [label="para" style=dotted];
+6 -> 2 [label="dep" style=dotted];
+7 -> 3 [label="" style=solid];
+16 -> 3 [label="recv" style=dotted];
+26 -> 3 [label="para" style=dotted];
+2 -> 3 [label="dep" style=dotted];
+40 -> 4 [label="ref" style=dotted];
+7 -> 5 [label="" style=solid];
+37 -> 5 [label="para" style=dotted];
+7 -> 6 [label="" style=solid];
+35 -> 6 [label="recv" style=dotted];
+13 -> 6 [label="para" style=dotted];
+23 -> 6 [label="dep" style=dotted];
+20 -> 9 [label="qual" style=dotted];
+7 -> 10 [label="" style=solid];
+32 -> 10 [label="para" style=dotted];
+11 -> 10 [label="para" style=dotted];
+30 -> 10 [label="dep" style=dotted];
+5 -> 12 [label="def" style=dotted];
+34 -> 15 [label="qual" style=dotted];
+40 -> 16 [label="ref" style=dotted];
+7 -> 17 [label="" style=solid];
+33 -> 17 [label="para" style=dotted];
+31 -> 17 [label="para" style=dotted];
+6 -> 17 [label="dep" style=dotted];
+7 -> 18 [label="" style=solid];
+29 -> 18 [label="recv" style=dotted];
+27 -> 18 [label="dep" style=dotted];
+40 -> 19 [label="ref" style=dotted];
+18 -> 21 [label="dep" style=dotted];
+30 -> 22 [label="def" style=dotted];
+7 -> 23 [label="" style=solid];
+19 -> 23 [label="recv" style=dotted];
+14 -> 23 [label="para" style=dotted];
+41 -> 23 [label="dep" style=dotted];
+40 -> 24 [label="ref" style=dotted];
+40 -> 25 [label="ref" style=dotted];
+7 -> 27 [label="" style=solid];
+4 -> 27 [label="recv" style=dotted];
+28 -> 27 [label="para" style=dotted];
+3 -> 27 [label="dep" style=dotted];
+40 -> 29 [label="ref" style=dotted];
+7 -> 30 [label="" style=solid];
+1 -> 30 [label="para" style=dotted];
+5 -> 30 [label="dep" style=dotted];
+15 -> 31 [label="qual" style=dotted];
+9 -> 33 [label="qual" style=dotted];
+40 -> 35 [label="ref" style=dotted];
+7 -> 38 [label="" style=solid];
+8 -> 38 [label="para" style=dotted];
+17 -> 38 [label="dep" style=dotted];
+17 -> 38 [label="para" style=dotted];
+6 -> 38 [label="dep" style=dotted];
+7 -> 39 [label="" style=solid];
+10 -> 39 [label="dep" style=dotted];
+10 -> 39 [label="para" style=dotted];
+39 -> 40 [label="def" style=dotted];
+7 -> 41 [label="" style=solid];
+24 -> 41 [label="recv" style=dotted];
+36 -> 41 [label="para" style=dotted];
+39 -> 41 [label="dep" style=dotted];
+}

@@ -1,0 +1,163 @@
+<link rel="stylesheet" href="../../../../../..//default.css">
+<script src="../../../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/acoular/acoular/blob/master/acoular/tests/unsupported/SpeedComparison/sharedFunctions.py#L14">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/acoular/blob/master/acoular/tests/unsupported/SpeedComparison/sharedFunctions.py#L14">GitMyHubLink</a>
+
+&#47&#47!/usr/bin/env python2
+&#47&#47 -*- coding: utf-8 -*-
+
+Created on Wed May 24 11:09:29 2017
+
+@author: tomgensch
+
+from cPickle import dump, load
+import matplotlib.pylab as plt
+import numpy as np
+import glob
+
+
+def savingTimeConsumption(<a id="change">fileName</a>, <a id="change">saveTuple</a>):
+     Saves all data in &quotsaveTuple&quot into &quotfileName.sav&quot. 
+    The First entry of the tuple has to be a String, explaining the structure of 
+    the tuple.
+    <a id="change">fi = open(fileName + &quot.sav&quot, &quotw&quot)</a>
+    dump(saveTuple, fi, -1)
+    <a id="change">fi</a><a id="change">.close()</a>
+    return 0
+
+
+def readingInSAVES(fileName):
+     Reads in the Data saved with &quotsavingTimeConsumption&quot. 
+    fi = open(fileName, &quotr&quot)
+    data = load(fi)
+    fi.close()
+    helpText = data[0]
+    returnData = data[1:]
+    return helpText, returnData
+
+
+def plottingTimeConsumptions(titleString, trialedFuncs, timesToPlot):
+     titleString...String to be displayed in Title
+    trialedFuncs...list of the strings of the trialed functions
+    timesToPlot...dim [numberTrials, numberFunctions]
+    
+&#47&#47    plt.figure()
+    for cnt in range(len(trialedFuncs)):
+        if &quotvectorized&quot in trialedFuncs[cnt]:
+            lineStyle = &quot--&quot
+        elif &quotfaverage&quot in trialedFuncs[cnt]:
+            lineStyle = &quot--&quot
+        else:
+            lineStyle = &quot-&quot
+        plt.semilogy(timesToPlot[cnt], label=trialedFuncs[cnt], linestyle=lineStyle, marker=&quoto&quot)
+    plt.xticks(range(len(timesToPlot[1])))
+    plt.xlabel(&quottrials [1]&quot)
+    plt.ylabel(&quotTime per Trial [s]&quot)
+    plt.grid(which=&quotmajor&quot)
+    plt.grid(which=&quotminor&quot, linestyle=&quot--&quot)
+    plt.title(titleString)
+    yMin, yMax = plt.ylim()
+    newYMin = 10 ** np.floor(np.log10(yMin))
+    plt.ylim(newYMin, yMax)
+    plt.legend(bbox_to_anchor=(1.01, 1), loc=2, borderaxespad=0.)
+    plt.show()
+
+
+def plottingOfOvernightTestcasesBeamformer(fileName):
+    helpText, daten = readingInSAVES(fileName)
+    
+    stringForLegend = []
+    hFig = plt.figure()
+    hAxesRelErr = hFig.add_subplot(3,2,5)
+    hAxesRelErr.set_ylabel(&quotrelative Error - infNorm&quot)
+    hAxesRelErr.set_xlabel(&quottrials [1]&quot)
+    
+    hAxesAbsErr = hFig.add_subplot(3,2,6)
+    hAxesAbsErr.set_ylabel(&quotabsolute Error - infNorm&quot)
+    hAxesAbsErr.set_xlabel(&quottrials [1]&quot)
+    
+    numberMethods = len(daten[0])
+    numberTrials = len(daten[1][0, :])
+    trials = np.arange(numberTrials)
+    
+    &#47&#47 For barplot
+    withPerTrial = 0.75
+    widthBar = withPerTrial / numberMethods
+    offsetOfXAxes = withPerTrial / 2 - widthBar
+
+    &#47&#47 plotting error
+    for cnt in xrange(numberMethods):
+        stringForLegend.append(daten[0][cnt] + &quot | Time=%1.2f&quot %(daten[6][cnt]))  &#47&#47 For time consumption
+        hAxesRelErr.bar(trials + cnt * widthBar - offsetOfXAxes, daten[1][cnt, :], widthBar, label=daten[0][cnt])  &#47&#47 relative error
+        hAxesAbsErr.bar(trials + cnt * widthBar - offsetOfXAxes, daten[7][cnt, :], widthBar, label=daten[0][cnt])  &#47&#47 absolute error
+    hAxesAbsErr.legend()
+    hAxesAbsErr.set_yscale(&quotlog&quot)
+    hAxesAbsErr.set_xticks(trials)
+    
+    hAxesRelErr.set_yscale(&quotlog&quot)
+    hAxesRelErr.set_xticks(trials)
+    
+    &#47&#47 plotting time consumption
+    titelString = &quotPerformance Comparison, nMics = %s, nGridPoints = %s, nFreqs = %s.&quot\
+                &quot\n With time consumption factor in relation to the \noriginal r_beamfull_inverse&quot\
+                &quot in the legend&quot\
+                &quot\n If a method works with manually spawn threads: nThreads = %s.&quot%(daten[3], daten[4], daten[5], daten[8])
+    plt.subplot(3,3,(1,5))
+    plottingTimeConsumptions(titelString, stringForLegend, daten[2])
+    hFig.canvas.set_window_title(fileName)
+
+
+def plottingTimeConsumptionOverSpecificOrdinate(dirName, ordinate=&quotnMics&quot):
+    listOfFiles = glob.glob(dirName + &quot/*.sav&quot)
+    helpText, daten = readingInSAVES(listOfFiles[0])
+    arrayOrdinate = np.zeros(len(listOfFiles))
+    arrayTimeConsump = np.zeros((len(listOfFiles), len(daten[6])))
+    cnt = 0
+    for currentfile in listOfFiles:
+        helpText, daten = readingInSAVES(currentfile)
+        if ordinate == &quotnMics&quot:
+            arrayOrdinate[cnt] = daten[3]
+        arrayTimeConsump[cnt, :] = daten[6]
+        cnt += 1
+    indSorted = np.argsort(arrayOrdinate)
+    plt.semilogy(arrayOrdinate[indSorted], arrayTimeConsump[indSorted, :], marker=&quoto&quot)&#47&#47, label=trialedFuncs[cnt], linestyle=lineStyle, marker=&quoto&quot)
+    plt.legend(daten[0])
+    plt.grid(which=&quotmajor&quot)
+    plt.grid(which=&quotminor&quot, linestyle=&quot--&quot)
+    plt.xlabel(ordinate)
+    plt.ylabel(&quotMean of Time per Trial [s] (normalized to faverage)&quot)
+    plt.title(&quotMean of TimeConsumption over &quot + ordinate + &quot\n asd&quot)
+    plt.xticks(arrayOrdinate)
+        
+
+def plottingOfOvernightTestcasesOnFAVERAGE(fileName):
+    helpText, daten = readingInSAVES(fileName)
+    titleString = &quotNUMBA - using "faverage"\n&quot \
+        &quotnAverages=%s,  nFreqbins=%s,  nMics=%s,  nTest=%s&quot % (daten[2], daten[3], daten[4], daten[5])
+    plottingTimeConsumptions(titleString, daten[0], daten[1])
+
+
+def plotAllAvailableTestCases(dirName):
+    listOfFiles = glob.glob(dirName + &quot/*.sav&quot)
+    for currentfile in listOfFiles:
+        try:
+            plottingOfOvernightTestcasesBeamformer(currentfile)
+        except:
+            print(&quotCould not plot Testcase:&quot + currentfile)
+
+def saveAllCurrentlyOpenedFigures():
+    for cntFig in plt.get_fignums():
+        saveNameForPNGHelp = plt.figure(cntFig).canvas.get_window_title()
+        saveNameForPNG = saveNameForPNGHelp.replace(&quot.sav&quot, &quot.png&quot)
+        plt.savefig(saveNameForPNG)
+
+&#47&#47plottingTimeConsumptionOverSpecificOrdinate(&quotSicherung_DurchgelaufeneTests/faverage/InfluenceOfMics/&quot)
+&#47&#47plottingOfOvernightTestcasesBeamformer(&quotSicherung_DurchgelaufeneTests/.sav&quot)
+&#47&#47plotAllAvailableTestCases(&quotSicherung_DurchgelaufeneTests/damasSolver/&quot)
+&#47&#47plottingOfOvernightTestcasesBeamformer(&quotPeter.sav&quot)
+&#47&#47saveAllCurrentlyOpenedFigures()
+</code></pre>

@@ -1,0 +1,134 @@
+<link rel="stylesheet" href="../..//default.css">
+<script src="../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/zsdonghao/text-to-image/blob/master/downloads.py#L55">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/text-to-image/blob/master/downloads.py#L55">GitMyHubLink</a>
+
+from __future__ import print_function
+import os,sys,gzip,requests,zipfile,tarfile
+from tqdm import tqdm
+from six.moves import urllib
+import time
+
+&quot&quot&quot
+This script is mainly used in cooperation with codes from https://github.com/zsdonghao/text-to-image
+download flower dataset from : http://www.robots.ox.ac.uk/~vgg/data/flowers/102/
+download caption dataset from : https://drive.google.com/uc?export=download&confirm=l7Ld&id=0B0ywwgffWnLLcms2WWJQRFNSWXM
+&quot&quot&quot
+
+
+def get_confirm_token(response):
+	for key, value in response.cookies.items():
+		if key.startswith(&quotdownload_warning&quot):
+			return value
+	return None
+
+def save_response_content(response, destination, chunk_size=32*1024):
+	total_size = int(response.headers.get(&quotcontent-length&quot, 0))
+	with open(destination, "wb") as f:
+		for chunk in tqdm(response.iter_content(chunk_size), total=total_size,
+				unit=&quotB&quot, unit_scale=True, desc=destination):
+			if chunk: &#47&#47 filter out keep-alive new chunks
+				f.write(chunk)
+
+def download_file_from_google_drive(id, destination):    
+	URL = "https://docs.google.com/uc?export=download"
+	session = requests.Session()
+
+	response = session.get(URL, params={ &quotid&quot: id }, stream=True)
+	token = get_confirm_token(response)
+
+	if token:
+		params = { &quotid&quot : id, &quotconfirm&quot : token }
+		response = session.get(URL, params=params, stream=True)
+	save_response_content(response, destination)
+
+def download_caption(dirpath):
+	data_dir = &quotcvpr2016_flowers.tar.gz&quot
+	if os.path.exists(os.path.join(dirpath, data_dir)):
+		print(&quotFound cvpr2016_flowers.tar.gz - skip&quot)
+		return
+
+	filename, drive_id  = "cvpr2016_flowers.tar.gz", "0B0ywwgffWnLLcms2WWJQRFNSWXM"
+	save_path = os.path.join(dirpath, filename)
+
+	if os.path.exists(save_path):
+		print(&quot[*] {} already exists&quot.format(save_path))
+	else:
+		download_file_from_google_drive(drive_id, save_path)
+
+
+def download(<a id="change">url</a>, <a id="change">dirpath</a>):
+	<a id="change">filepath = dirpath</a>
+	<a id="change">u = urllib.request.urlopen(url)</a>
+	<a id="change">f = open(filepath, &quotwb&quot)</a>
+	<a id="change">filesize = int(u.headers["Content-Length"])</a>
+	print("Downloading: %s Bytes: %s" % ("102flowers", filesize))
+
+	<a id="change">downloaded = 0</a>
+	<a id="change">block_sz = 8192</a>
+	<a id="change">status_width = 70</a>
+	while True:
+		<a id="change">buf = u.read(block_sz)</a>
+		if not buf:
+			print(&quot&quot)
+			break
+		else:
+			print(&quot&quot, end=&quot\r&quot)
+		downloaded += len(buf)
+		f.write(buf)
+
+		<a id="change">status = (("[{}  " + " ***progress: {:03.1f}% ]").format(&quot=&quot * int(float(downloaded) / 
+			filesize * status_width) + &quot&gt;&quot, downloaded * 100. / filesize))</a>
+		print(status, end=&quot&quot)
+
+		sys.stdout.flush()
+	<a id="change">f</a><a id="change">.close()</a>
+	return filepath
+
+def unzip(src_dir,new_name = None):
+	&#47&#47 extract to current directory
+	dirpath = &quot.&quot
+	try:
+		if src_dir.endswith(&quot.zip&quot):
+			print(&quotunzipping &quot + src_dir)
+			with zipfile.ZipFile(src_dir) as zf:
+				zip_dir = zf.namelist()[0]
+				zf.extractall(dirpath)
+		elif src_dir.endswith(&quot.tgz&quot) or src_dir.endswith(&quottar.gz&quot):
+			print(&quotunzipping &quot + src_dir)
+			tar = tarfile.open(src_dir)
+			tar.extractall()
+			tar.close()
+		&#47&#47 os.remove(save_path)
+		if new_name is None:
+			pass
+		else:
+			os.rename(&quotjpg&quot, os.path.join(dirpath, new_name))
+	except:
+		raise(&quotwrong format&quot)
+
+def main():
+	url = "http://www.robots.ox.ac.uk/~vgg/data/flowers/102/102flowers.tgz"
+	cur_dir = os.getcwd()
+	image_dir = os.path.join(cur_dir,"102flowers.tgz")
+	if os.path.exists(image_dir):
+		print(&quotdataset already exists&quot)
+	else:
+		download(url,image_dir)
+	unzip(image_dir,&quot102flowers&quot)
+
+	caption_dir = os.path.join(cur_dir,"cvpr2016_flowers.tar.gz")
+	if os.path.exists(caption_dir):
+		print(&quotdataset already exists&quot)
+	else:
+		download_caption(cur_dir)
+	unzip(caption_dir)
+
+if __name__ == &quot__main__&quot:
+	main()
+	
+	</code></pre>

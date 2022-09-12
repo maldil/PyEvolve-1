@@ -1,0 +1,88 @@
+<link rel="stylesheet" href="../../../..//default.css">
+<script src="../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/mozilla/TTS/blob/master/TTS/utils/io.py#L51">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/TTS/blob/master/TTS/utils/io.py#L51">GitMyHubLink</a>
+
+import os
+import re
+import json
+import yaml
+import pickle as pickle_tts
+from shutil import copyfile
+
+
+class RenamingUnpickler(pickle_tts.Unpickler):
+    Overload default pickler to solve module renaming problem
+    def find_class(self, module, name):
+        return super().find_class(module.replace(&quotmozilla_voice_tts&quot, &quotTTS&quot), name)
+
+
+class AttrDict(dict):
+    A custom dict which converts dict keys
+    to class attributes
+    def __init__(self, *args, **kwargs):
+        super(AttrDict, self).__init__(*args, **kwargs)
+        self.__dict__ = self
+
+
+def read_json_with_comments(json_path):
+    &#47&#47 fallback to json
+    with open(json_path, "r") as f:
+        input_str = f.read()
+    &#47&#47 handle comments
+    input_str = re.sub(r&quot\\\n&quot, &quot&quot, input_str)
+    input_str = re.sub(r&quot//.*\n&quot, &quot\n&quot, input_str)
+    data = json.loads(input_str)
+    return data
+
+def load_config(config_path: str) -&gt; AttrDict:
+    Load config files and discard comments
+
+    Args:
+        config_path (str): path to config file.
+    
+    config = AttrDict()
+
+    ext = os.path.splitext(config_path)[1]
+    if ext in (".yml", ".yaml"):
+        with open(config_path, "r") as f:
+            data = yaml.safe_load(f)
+    else:
+        data = read_json_with_comments(config_path)
+    config.update(data)
+    return config
+
+
+def copy_model_files(c, config_file, out_path, new_fields):
+    Copy config.json and other model files to training folder and add
+    new fields.
+
+    Args:
+        c (dict): model config from config.json.
+        config_file (str): path to config file.
+        out_path (str): output path to copy the file.
+        new_fields (dict): new fileds to be added or edited
+            in the config file.
+    
+    &#47&#47 copy config.json
+    <a id="change">copy_config_path</a> = os.path.join(out_path, &quotconfig.json&quot)
+    <a id="change">config_lines</a> = open(config_file, "r").readlines()
+    &#47&#47 add extra information fields
+    for <a id="change">key</a>, <a id="change">value</a> in new_fields.items():
+        if isinstance(value, str):
+            new_line = &quot"{}":"{}",\n&quot.format(key, value)
+        else:
+            new_line = &quot"{}":{},\n&quot.format(key, value)
+        config_lines.insert(1, new_line)
+    <a id="change">config_out_file</a><a id="change"> = open(copy_config_path, "w")</a>
+    config_out_file.writelines(config_lines)
+    <a id="change">config_out_file</a><a id="change">.close()</a>
+    &#47&#47 copy model stats file if available
+    if c.audio[&quotstats_path&quot] is not None:
+        <a id="change">copy_stats_path</a> = os.path.join(out_path, &quotscale_stats.npy&quot)
+        copyfile(c.audio[&quotstats_path&quot], copy_stats_path)
+</code></pre>

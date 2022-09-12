@@ -1,0 +1,94 @@
+<link rel="stylesheet" href="../../..//default.css">
+<script src="../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/google-research/google-research/blob/master/rouge/create_pyrouge_files.py#L65">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/google-research/blob/master/rouge/create_pyrouge_files.py#L65">GitMyHubLink</a>
+
+&#47&#47 coding=utf-8
+&#47&#47 Copyright 2022 The Google Research Authors.
+&#47&#47
+&#47&#47 Licensed under the Apache License, Version 2.0 (the "License");
+&#47&#47 you may not use this file except in compliance with the License.
+&#47&#47 You may obtain a copy of the License at
+&#47&#47
+&#47&#47     http://www.apache.org/licenses/LICENSE-2.0
+&#47&#47
+&#47&#47 Unless required by applicable law or agreed to in writing, software
+&#47&#47 distributed under the License is distributed on an "AS IS" BASIS,
+&#47&#47 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+&#47&#47 See the License for the specific language governing permissions and
+&#47&#47 limitations under the License.
+
+For creating files from {target,prediction}.txt that can be processed
+by pyrouge to compare with scores in scoring_test.py.
+
+  create_pyrouge_files -- --testdata_dir=`pwd`/testdata
+
+  &#47&#47 testConfidenceIntervalsAgainstRouge155WithStemming result
+  pyrouge_evaluate_plain_text_files \
+      -s /tmp/lkj -sfp "prediction.(.*).txt" \
+      -m /tmp/lkj -mfp target.&#47&#47ID&#47&#47.txt
+
+  pyrouge_evaluate_plain_text_files \
+      -s /tmp/lkj -sfp "prediction_multi.(.*).txt" \
+      -m /tmp/lkj -mfp target_multi.&#47&#47ID&#47&#47.txt
+
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+import os
+
+from absl import app
+from absl import flags
+
+FLAGS = flags.FLAGS
+
+flags.DEFINE_string(&quottestdata_dir&quot, &quot&quot, &quottestdata path&quot)
+flags.DEFINE_string(&quotoutput&quot,  &quot/tmp/lkj&quot, &quottestdata path&quot)
+
+
+def main(argv):
+  if len(argv) &gt; 1:
+    raise app.UsageError(&quotToo many command-line arguments.&quot)
+
+  &#47&#47 One line per target
+  with open(os.path.join(FLAGS.testdata_dir, &quottarget_large.txt&quot)) as f:
+    targets = f.readlines()
+  with open(os.path.join(FLAGS.testdata_dir, &quotprediction_large.txt&quot)) as f:
+    predictions = f.readlines()
+
+  def write_files(prefix, items):
+    for i, t in enumerate(items):
+      out = &quot%s.%d.txt&quot % (prefix, i)
+      with open(os.path.join(FLAGS.output, out), &quotw&quot) as f:
+        f.write(t)
+  write_files(&quottarget&quot, targets)
+  write_files(&quotprediction&quot, predictions)
+
+  &#47&#47 Delete this block
+  def write_files2(<a id="change">prefix</a>, <a id="change">items</a>):
+    <a id="change">index = 0</a>
+    <a id="change">f = None</a>
+    for i, t in enumerate(items):
+      &#47&#47 Write 4 lines per file
+      if i % 4 == 0:
+        if f:
+          f.close()
+        <a id="change">f = open(
+            os.path.join(FLAGS.output, &quot%s.%d.txt&quot % (prefix, index)),
+            &quotw&quot)</a>
+        index += 1
+      f.write(t)
+    <a id="change">f</a><a id="change">.close()</a>
+  write_files2(&quottarget_multi&quot, targets)
+  write_files2(&quotprediction_multi&quot, predictions)
+
+
+if __name__ == &quot__main__&quot:
+  app.run(main)
+</code></pre>

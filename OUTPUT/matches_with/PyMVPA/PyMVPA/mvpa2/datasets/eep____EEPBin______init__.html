@@ -1,0 +1,172 @@
+<link rel="stylesheet" href="../../../..//default.css">
+<script src="../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/PyMVPA/PyMVPA/blob/master/mvpa2/datasets/eep.py#L88">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/PyMVPA/blob/master/mvpa2/datasets/eep.py#L88">GitMyHubLink</a>
+
+&#47&#47 emacs: -*- mode: python; py-indent-offset: 4; indent-tabs-mode: nil -*-
+&#47&#47 vi: set ft=python sts=4 ts=4 sw=4 et:
+&#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47
+&#47&#47
+&#47&#47   See COPYING file distributed along with the PyMVPA package for the
+&#47&#47   copyright and license terms.
+&#47&#47
+&#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47
+Support for the binary EEP file format for EEG data
+
+__docformat__ = &quotrestructuredtext&quot
+
+import numpy as np
+from mvpa2.datasets import Dataset
+from mvpa2.misc.io import DataReader
+
+def eep_dataset(samples, targets=None, chunks=None):
+    Create a dataset using an EEP binary file as source.
+
+    EEP files are used by *eeprobe* a software for analysing even-related
+    potentials (ERP), which was developed at the Max-Planck Institute for
+    Cognitive Neuroscience in Leipzig, Germany.
+
+      http://www.ant-neuro.com/products/eeprobe
+
+    Parameters
+    ----------
+    samples : str or EEPBin instance
+      This is either a filename of an EEP file, or an EEPBin instance, providing
+      the samples data in EEP format.
+    targets, chunks : sequence or scalar or None
+      Values are pass through to `Dataset.from_wizard()`. See its documentation
+      for more information.
+
+    Returns
+    -------
+    Dataset
+      Besides is usual attributes (e.g. targets, chunks, and a mapper). The
+      returned dataset also includes feature attributes associating each same
+      with a channel (by id), and a specific timepoint -- based on information
+      read from the EEP data.
+    
+    if isinstance(samples, str):
+        &#47&#47 open the eep file
+        eb = EEPBin(samples)
+    elif isinstance(samples, EEPBin):
+        &#47&#47 nothing special
+        eb = samples
+    else:
+        raise ValueError("eep_dataset takes the filename of an "
+              "EEP file or a EEPBin object as &quotsamples&quot argument.")
+
+    &#47&#47 init dataset
+    ds = Dataset.from_channeltimeseries(
+            eb.data, targets=targets, chunks=chunks, t0=eb.t0, dt=eb.dt,
+            channelids=eb.channels)
+    return ds
+
+
+
+class EEPBin(DataReader):
+    Read-access to binary EEP files.
+
+    EEP files are used by *eeprobe* a software for analysing even-related
+    potentials (ERP), which was developed at the Max-Planck Institute for
+    Cognitive Neuroscience in Leipzig, Germany.
+
+      http://www.ant-neuro.com/products/eeprobe
+
+    EEP files consist of a plain text header and a binary data block in a
+    single file. The header starts with a line of the form
+
+    &quot;%d %d %d %g %g&quot % (Nchannels, Nsamples, Ntrials, t0, dt)
+
+    where Nchannels, Nsamples, Ntrials are the numbers of channels, samples
+    per trial and trials respectively. t0 is the time of the first sample
+    of a trial relative to the stimulus onset and dt is the sampling interval.
+
+    The binary data block consists of single precision floats arranged in the
+    following way::
+
+        &lt;trial1,channel1,sample1&gt;,&lt;trial1,channel1,sample2&gt;,...
+        &lt;trial1,channel2,sample1&gt;,&lt;trial1,channel2,sample2&gt;,...
+        .
+        &lt;trial2,channel1,sample1&gt;,&lt;trial2,channel1,sample2&gt;,...
+        &lt;trial2,channel2,sample1&gt;,&lt;trial2,channel2,sample2&gt;,...
+    
+    def __init__(self, source):
+        Read EEP file and store header and data.
+
+        Parameters
+        ----------
+        source : str
+          Filename.
+        
+        &#47&#47 init base class
+        DataReader.__init__(self)
+        &#47&#47 temp storage of number of samples
+        nsamples = None
+        &#47&#47 non-critical header components stored in temp dict
+        hdr = {}
+
+        <a id="change">infile = open(source, "rb")</a>
+
+        &#47&#47 read file the end of header of EOF
+        while True:
+            &#47&#47 one line at a time
+            try:
+                line = infile.readline().decode(&quotascii&quot)
+            except UnicodeDecodeError:
+                break
+
+            &#47&#47 stop if EOH or EOF
+            if not line or line.startswith(&quot;EOH;&quot):
+                break
+
+            &#47&#47 no crap!
+            line = line.strip()
+
+            &#47&#47 all but first line as colon
+            if not line.count(&quot:&quot):
+                &#47&#47 top header
+                l = line.split()
+                &#47&#47 extract critical information
+                self._props[&quotnchannels&quot] = int(l[0][1:])
+                self._props[&quotntimepoints&quot] = int(l[1])
+                self._props[&quott0&quot] = float(l[3])
+                self._props[&quotdt&quot] = float(l[4])
+                nsamples = int(l[2])
+            else:
+                &#47&#47 simply store non-critical extras
+                l = line.split(&quot:&quot)
+                key = l[0].lstrip(&quot;&quot)
+                value = &quot:&quot.join(l[1:])
+                hdr[key] = value
+
+        &#47&#47 post process channel name info -&gt; list
+        if &quotchannels&quot in hdr:
+            self._props[&quotchannels&quot] = hdr[&quotchannels&quot].split()
+
+        self._data = \
+            np.reshape(np.fromfile(infile, dtype=&quotf&quot), \
+                (nsamples,
+                 self._props[&quotnchannels&quot],
+                 self._props[&quotntimepoints&quot]))
+
+        &#47&#47 cleanup
+        <a id="change">infile</a><a id="change">.close()</a>
+
+
+    nchannels = property(fget=lambda self: self._props[&quotnchannels&quot],
+                         doc="Number of channels")
+    ntimepoints  = property(fget=lambda self: self._props[&quotntimepoints&quot],
+                         doc="Number of data timepoints")
+    nsamples   = property(fget=lambda self: self._data.shape[0],
+                         doc="Number of trials/samples")
+    t0        = property(fget=lambda self: self._props[&quott0&quot],
+                         doc="Relative start time of sampling interval")
+    dt        = property(fget=lambda self: self._props[&quotdt&quot],
+                         doc="Time difference between two adjacent samples")
+    channels  = property(fget=lambda self: self._props[&quotchannels&quot],
+                         doc="List of channel names")
+</code></pre>

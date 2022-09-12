@@ -1,0 +1,889 @@
+<link rel="stylesheet" href="../../..//default.css">
+<script src="../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/merenlab/anvio/blob/master/anvio/hmmops.py#L753">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/anvio/blob/master/anvio/hmmops.py#L753">GitMyHubLink</a>
+
+&#47&#47 -*- coding: utf-8
+&#47&#47 pylint: disable=line-too-long
+
+    HMM related operations.
+
+
+import sys
+import textwrap
+from collections import Counter
+
+from scipy import stats
+
+import anvio
+import anvio.db as db
+import anvio.tables as t
+import anvio.utils as utils
+import anvio.terminal as terminal
+import anvio.filesnpaths as filesnpaths
+
+from anvio.errors import ConfigError
+
+run = terminal.Run()
+progress = terminal.Progress()
+P = terminal.pluralize
+
+
+class SequencesForHMMHits:
+    def __init__(self, contigs_db_path, sources=set([]), split_names_of_interest=set([]), init=True, run=run, progress=progress, bin_name=None):
+        self.run = run
+        self.progress = progress
+
+        if not isinstance(sources, type(set([]))):
+            raise ConfigError("&quotsources&quot variable has to be a set instance.")
+
+        if not isinstance(split_names_of_interest, type(set([]))):
+            raise ConfigError("&quotsplit_names_of_interest&quot variable has to be a set instance.")
+
+        self.bin_name = bin_name &#47&#47 this is only relevant for some output messages
+        self.sources = set([s for s in sources if s])
+        self.hmm_hits = {}
+        self.hmm_hits_info ={}
+        self.hmm_hits_splits = {}
+        self.contig_sequences = {}
+        self.aa_sequences = {}
+        self.genes_in_contigs = {}
+        self.splits_in_contigs = {}
+
+        if contigs_db_path:
+            self.init_dicts(contigs_db_path, split_names_of_interest)
+            self.initialized = True
+        else:
+            self.initialized = False
+
+
+    def init_dicts(self, contigs_db_path, split_names_of_interest=set([])):
+        Initialize essential data for HMM stuff.
+
+           This function will do its best to not load any data that will not
+           be used later for HMM related operations. For instance, it will
+           learn which gene caller ids are of interest based on HMM sources,
+           and only recover data for splits and contigs based on that information,
+           not accessing a large fraction of a given contigs database.
+        
+
+        utils.is_contigs_db(contigs_db_path)
+        contigs_db = db.DB(contigs_db_path, anvio.__contigs__version__, run=self.run, progress=self.progress)
+        self.hmm_hits_info = contigs_db.get_table_as_dict(t.hmm_hits_info_table_name)
+
+        missing_sources = [s for s in self.sources if s not in self.hmm_hits_info]
+        if len(missing_sources):
+            contigs_db.disconnect()
+            progress.reset()
+            raise ConfigError("Bad news, Houston :/ The contigs database &quot%s&quot is missing one or more HMM sources "
+                              "that you wished it didn&quott: &quot%s&quot." % (contigs_db_path, &quot, &quot.join(missing_sources)))
+
+        if not self.sources:
+            self.sources = set(list(self.hmm_hits_info.keys()))
+
+        if not self.sources:
+            &#47&#47 there is nothing to initialize..
+            return
+
+        self.progress.new("Recovering sequences for HMM Hits")
+        self.progress.update(&quot...&quot)
+
+        &#47&#47 get data from HMM tables based on sources of interest
+        self.progress.update(&quotGetting data from HMM tables for %d source(s)&quot % len(self.sources))
+        where_clause_for_sources = "source in (%s)" % &quot, &quot.join([&quot"%s"&quot % s for s in self.sources])
+        self.hmm_hits = contigs_db.get_some_rows_from_table_as_dict(t.hmm_hits_table_name,
+                                                                    where_clause=where_clause_for_sources,
+                                                                    error_if_no_data=False)
+        self.hmm_hits_splits = contigs_db.get_some_rows_from_table_as_dict(t.hmm_hits_splits_table_name,
+                                                                    where_clause=where_clause_for_sources,
+                                                                    error_if_no_data=False)
+
+        &#47&#47 if the user sent a split names of interest, it means they are interested in hits that only occur
+        &#47&#47 in a specific set of split names. NOTE: this really makes it very difficult to deal with HMM hits
+        &#47&#47 that span through multiple splits. here we will mark such HMM hits in `hmm_hits_splits_entry_ids_to_remove`
+        &#47&#47 for removal, but we will also keep track of those guys and let the user know what happened.
+        if len(split_names_of_interest):
+            total_num_split_names = len(set(self.hmm_hits_splits[entry_id][&quotsplit&quot] for entry_id in self.hmm_hits_splits))
+            hmm_hits_splits_entry_ids_to_remove = set([])
+            hmm_hits_entry_ids_to_remove = set([])
+            hmm_hits_entry_ids_associated_with_fragmented_hmm_hits = set([])
+            hmm_sources_associated_with_fragmented_hmm_hits = set([])
+            for entry_id in self.hmm_hits_splits:
+                if self.hmm_hits_splits[entry_id][&quotsplit&quot] not in split_names_of_interest:
+                    hmm_hits_splits_entry_ids_to_remove.add(entry_id)
+                    hmm_hits_entry_ids_to_remove.add(self.hmm_hits_splits[entry_id][&quothmm_hit_entry_id&quot])
+
+                    if not self.hmm_hits_splits[entry_id][&quotpercentage_in_split&quot] == 100:
+                        &#47&#47 this is important. if we are here, there is a bit more to do since it means that
+                        &#47&#47 the split name associated with self.hmm_hits_splits[entry_id] is not in
+                        &#47&#47 `split_names_of_interest`. but since the `percentage_in_split` for this HMM hit is NOT
+                        &#47&#47 100%, it could be the case that other splits that contain pieces of this HMM hit may
+                        &#47&#47 still be in `split_names_of_interest`. But here we are setting the stage for this
+                        &#47&#47 HMM hit to be removed from `self.hmm_hits` altogether. To make things right, we must
+                        &#47&#47 go through `hmm_hits_splits`, and remove remaining entries there that is associated with
+                        &#47&#47 this HMM hit later using the contents of this variable:
+                        hmm_hits_entry_ids_associated_with_fragmented_hmm_hits.add(self.hmm_hits_splits[entry_id][&quothmm_hit_entry_id&quot])
+                        hmm_sources_associated_with_fragmented_hmm_hits.add(self.hmm_hits_splits[entry_id][&quotsource&quot])
+
+            if len(hmm_hits_entry_ids_associated_with_fragmented_hmm_hits):
+                &#47&#47 if we are here, we will have to update `hmm_hits_splits_entry_ids_to_remove` carefully:
+                additional_entry_ids_to_be_removed = set([e for e in self.hmm_hits_splits if self.hmm_hits_splits[e][&quothmm_hit_entry_id&quot] in hmm_hits_entry_ids_associated_with_fragmented_hmm_hits])
+                hmm_hits_splits_entry_ids_to_remove.update(additional_entry_ids_to_be_removed)
+
+                &#47&#47 let&quots warn the user while we&quotre at it so they panic, too.
+                progress.reset()
+                if self.bin_name:
+                    header = f"A WARNING RELATED TO HMMs IN &quot{self.bin_name}&quot"
+                else:
+                    header = "WARNING"
+
+                self.run.warning(f"While anvi&quoto was trying to finalize HMM hits associated with splits of interest, "
+                                 f"it realized that there were one or more HMM hits that spanned through multiple splits "
+                                 f"yet not all of those splits were among the splits of interest. This can happen if you "
+                                 f"refined a contig by excluding some of its splits either manually during binning or "
+                                 f"automatically during whatever black magic you were engaged in. Anvi&quoto does not judge. But "
+                                 f"In these situations anvi&quoto excludes the entire HMM hit from being reported to be on the "
+                                 f"safe side. Some HMM hits coming from {P(&quotHMM source&quot, len(hmm_sources_associated_with_fragmented_hmm_hits))} "
+                                 f"(\"{&quot, &quot.join(hmm_sources_associated_with_fragmented_hmm_hits)}\"), will not appear in your "
+                                 f"downstream analyses (including in your `anvi-summarize` outputs). If you are really really "
+                                 f"interested in those partial HMM hits and sequences associated with them, there are multiple "
+                                 f"ways to recover them (one of the best way to do it involves the use of `anvi-split` and "
+                                 f"re-running HMMs in your final bins). Please feel free to reach out to the anvi&quoto community "
+                                 f"for ideas.", header=header)
+
+
+            if len(hmm_hits_splits_entry_ids_to_remove):
+                for entry_id in hmm_hits_splits_entry_ids_to_remove:
+                    self.hmm_hits_splits.pop(entry_id)
+
+            if len(hmm_hits_entry_ids_to_remove):
+                for entry_id in hmm_hits_entry_ids_to_remove:
+                    self.hmm_hits.pop(entry_id)
+
+            filtered_num_split_names = len(set(self.hmm_hits_splits[entry_id][&quotsplit&quot] for entry_id in self.hmm_hits_splits))
+
+            if anvio.DEBUG:
+                self.progress.end()
+
+                self.run.warning(None, header="SequencesForHMMHits info")
+                self.run.info_single(&quot%d split names of interest are found&quot % len(split_names_of_interest))
+                self.run.info(&quotTotal split names w/HMM hits&quot, total_num_split_names)
+                self.run.info(&quotFinal split names w/HMM hits&quot, filtered_num_split_names, nl_after=1)
+
+                self.progress.new("Recovering sequences for HMM Hits")
+                self.progress.update(&quot...&quot)
+
+        if not len(self.hmm_hits):
+            &#47&#47 there are HMMs but no hits. FINE.
+            self.progress.end()
+            contigs_db.disconnect()
+            progress.reset()
+            self.run.warning(f"SequencesForHMMHits class here. The current database (at {contigs_db_path}) "
+                             f"contains 0 HMM hits, at least within the HMM sources or splits that were "
+                             f"requested. It might not be a problem for your case, but we just thought you should "
+                             f"know, in case it is. So there you have it.")
+            return
+
+        gene_caller_ids_of_interest = set([e[&quotgene_callers_id&quot] for e in self.hmm_hits.values()])
+        where_clause_for_genes = "gene_callers_id in (%s)" % &quot, &quot.join([&quot%d&quot % g for g in gene_caller_ids_of_interest])
+
+        self.progress.update(&quotRecovering split and contig names for %d genes&quot % (len(gene_caller_ids_of_interest)))
+        split_names_of_interest, contig_names_of_interest = utils.get_split_and_contig_names_of_interest(contigs_db_path, gene_caller_ids_of_interest)
+
+        self.progress.update(&quotRecovering contig seqs for %d genes&quot % (len(gene_caller_ids_of_interest)))
+        where_clause_for_contigs = "contig in (%s)" % &quot, &quot.join([&quot"%s"&quot % s for s in contig_names_of_interest])
+        self.contig_sequences = contigs_db.get_some_rows_from_table_as_dict(t.contig_sequences_table_name, \
+                                                                            string_the_key=True, \
+                                                                            where_clause=where_clause_for_contigs)
+
+        self.progress.update(&quotRecovering amino acid seqs for %d genes&quot % (len(gene_caller_ids_of_interest)))
+        self.aa_sequences = contigs_db.get_some_rows_from_table_as_dict(t.gene_amino_acid_sequences_table_name, \
+                                                                        where_clause=where_clause_for_genes)
+
+        self.genes_in_contigs = contigs_db.get_some_rows_from_table_as_dict(t.genes_in_contigs_table_name, \
+                                                                            where_clause=where_clause_for_genes)
+
+        self.splits_in_contigs = list(split_names_of_interest)
+
+        self.progress.end()
+        contigs_db.disconnect()
+
+
+    def check_init(self):
+        if not self.initialized:
+            raise ConfigError("This SequencesForHMMHits instance cannot do what its asked for "
+                              "because it is not yet initialized :/ The programmer could call "
+                              "`init_dicts` first, but clearly they didn&quott care.")
+
+
+    def list_available_gene_names(self, sources=[], dont_quit=False):
+        self.check_init()
+
+        if sources:
+            if not isinstance(sources, list):
+                raise ConfigError(&quotHMM sources must be of type `list`.&quot)
+
+            missing_sources = [s for s in sources if s not in self.hmm_hits_info]
+            if len(missing_sources):
+                raise ConfigError("Some of the HMM sources you are looking for are not known "
+                                  "to this database: %s." % (&quot, &quot.join([&quot"%s"&quot % s for s in missing_sources])))
+            hmm_sources = sources
+        else:
+            hmm_sources = self.sources
+
+        for source in hmm_sources:
+            t = self.hmm_hits_info[source]
+            run.info_single(&quot%s [type: %s]: %s&quot % (source, t[&quotsearch_type&quot], &quot, &quot.join(sorted(t[&quotgenes&quot].split(&quot,&quot)))), nl_after = 2)
+
+        if dont_quit:
+            return
+
+        sys.exit(0)
+
+
+    def get_hmm_hits_in_splits(self, splits_dict):
+        split_names = set([])
+        for s in list(splits_dict.values()):
+            split_names.update(s)
+
+        hits_in_splits = utils.get_filtered_dict(self.hmm_hits_splits, &quotsplit&quot, split_names)
+
+        split_name_to_bin_id = {}
+        for bin_id in splits_dict:
+            for split_name in splits_dict[bin_id]:
+                split_name_to_bin_id[split_name] = bin_id
+
+        return hits_in_splits, split_name_to_bin_id
+
+
+    def get_gene_hit_counts_per_hmm_source(self, sources=None):
+        if not sources:
+            sources = [source for source in self.hmm_hits_info]
+        else:
+            if not isinstance(sources, list):
+                raise ConfigError("get_gene_hit_counts_per_hmm_source speaking: `sources` variable must be of type `list`.")
+
+            missing_sources = [source for source in sources if source not in self.hmm_hits_info]
+            if len(missing_sources):
+                self.progress.end()
+                raise ConfigError("Anvi&quoto was trying to generate information regarding all the hits per HMM source stored "
+                                  "in its databases, but some of the sources you requested do not seem to be found anywhere :/ "
+                                  "Here is the list of those that failed you: &quot%s&quot." % (&quot,&quot.join(sources)))
+
+        gene_hit_counts = {}
+        for source in sources:
+            gene_hit_counts[source] = {}
+
+            for gene_name in self.hmm_hits_info[source][&quotgenes&quot].split(&quot,&quot):
+                gene_hit_counts[source][gene_name.strip()] = 0
+
+        for entry in list(self.hmm_hits.values()):
+            source    = entry[&quotsource&quot]
+            gene_name = entry[&quotgene_name&quot]
+
+            if source in sources:
+                gene_hit_counts[source][gene_name.strip()] += 1
+
+        return gene_hit_counts
+
+
+    def get_num_genomes_from_SCG_sources_dict(self):
+        SCG_sources = [key for key in self.hmm_hits_info if self.hmm_hits_info[key][&quotsearch_type&quot] == &quotsinglecopy&quot]
+
+        if not len(SCG_sources):
+            return {}
+
+        gene_hit_counts_per_hmm_source = self.get_gene_hit_counts_per_hmm_source(SCG_sources)
+
+        num_genomes_per_SCG_source = {}
+        for SCG_source in SCG_sources:
+            l = list(gene_hit_counts_per_hmm_source[SCG_source].values())
+            num_genomes_per_SCG_source[SCG_source] = {&quotnum_genomes&quot: int(stats.mode(l).mode[0]),
+                                                      &quotdomain&quot: self.hmm_hits_info[SCG_source][&quotdomain&quot]}
+
+        return num_genomes_per_SCG_source
+
+
+    def get_hmm_hits_per_bin(self, splits_dict, source):
+        hits_in_splits, split_name_to_bin_id = self.get_hmm_hits_in_splits(splits_dict)
+
+        hmm_hits_per_bin = {}
+        for bin_name in list(splits_dict.keys()):
+            hmm_hits_per_bin[bin_name] = {}
+
+        unique_ids_taken_care_of = set([])
+        for split_entry in list(hits_in_splits.values()):
+            hmm_hit = self.hmm_hits[split_entry[&quothmm_hit_entry_id&quot]]
+
+            hit_source = hmm_hit[&quotsource&quot]
+
+            if source and hit_source != source:
+                continue
+
+            split_name = split_entry[&quotsplit&quot]
+            gene_name = hmm_hit[&quotgene_name&quot]
+            gene_unique_id = hmm_hit[&quotgene_unique_identifier&quot]
+
+            if gene_unique_id in unique_ids_taken_care_of:
+                continue
+            else:
+                unique_ids_taken_care_of.add(gene_unique_id)
+
+            bin_id = split_name_to_bin_id[split_name]
+
+            if gene_name not in hmm_hits_per_bin[bin_id]:
+                hmm_hits_per_bin[bin_id][gene_name] = 1
+            else:
+                hmm_hits_per_bin[bin_id][gene_name] += 1
+
+        return hmm_hits_per_bin
+
+
+    def get_sequences_dict_for_hmm_hits_in_splits(self, splits_dict, return_amino_acid_sequences=False, return_best_hits=False):
+        splits dict is what you get from ccollections.GetSplitNamesInBins(args).get_dict(), and
+           its struture goes like this:
+
+                {
+                    &quotbin_x&quot: set[&quotsplit_a, split_b, ...&quot],
+                    &quotbin_y&quot: set[&quotsplit_c, split_d, ...&quot],
+                    ...
+                }
+
+            This function will return DNA sequences by default. If `return_amino_acid_sequences` parameter
+            is True, it will return AA sequences instead.
+
+            `return_best_hit=True` will filter the resulting dictionary to remove weak hits if there are more
+            than one hit for a given gene name in a bin for a given hmm source.
+        
+
+        &#47&#47 trim hmm hits if sources
+        if len(self.sources):
+            self.hmm_hits_splits = utils.get_filtered_dict(self.hmm_hits_splits, &quotsource&quot, self.sources)
+            self.hmm_hits = utils.get_filtered_dict(self.hmm_hits, &quotsource&quot, self.sources)
+        else:
+            self.sources = list(self.hmm_hits_info.keys())
+
+        hits_in_splits, split_name_to_bin_id = self.get_hmm_hits_in_splits(splits_dict)
+
+        hmm_sequences_dict_for_splits = {}
+
+        unique_hits_taken_care_of = set([])
+        for split_entry in list(hits_in_splits.values()):
+            hmm_hit = self.hmm_hits[split_entry[&quothmm_hit_entry_id&quot]]
+
+            split_name = split_entry[&quotsplit&quot]
+            source = hmm_hit[&quotsource&quot]
+            gene_name = hmm_hit[&quotgene_name&quot]
+            e_value = hmm_hit[&quote_value&quot]
+            hit_unique_id = &quot___&quot.join([source, hmm_hit[&quotgene_unique_identifier&quot]])
+
+            if hit_unique_id in unique_hits_taken_care_of:
+                continue
+            else:
+                unique_hits_taken_care_of.add(hit_unique_id)
+
+            gene_callers_id = hmm_hit[&quotgene_callers_id&quot]
+            gene_call = self.genes_in_contigs[gene_callers_id]
+
+            contig_name = gene_call[&quotcontig&quot]
+            start, stop, forward = gene_call[&quotstart&quot], gene_call[&quotstop&quot], gene_call[&quotdirection&quot] == &quotf&quot
+
+            if return_amino_acid_sequences:
+                sequence = self.aa_sequences[gene_callers_id][&quotsequence&quot]
+            else:
+                sequence = self.contig_sequences[contig_name][&quotsequence&quot][start:stop]
+                if not forward:
+                    sequence = utils.rev_comp(sequence)
+
+            hmm_sequences_dict_for_splits[hit_unique_id] = {&quotsequence&quot: sequence,
+                                                            &quotsource&quot: source,
+                                                            &quotbin_id&quot: split_name_to_bin_id[split_name],
+                                                            &quotgene_name&quot: gene_name,
+                                                            &quote_value&quot: e_value,
+                                                            &quotcontig&quot: contig_name,
+                                                            &quotstart&quot: start,
+                                                            &quotstop&quot: stop,
+                                                            &quotgene_callers_id&quot: gene_callers_id,
+                                                            &quotrev_comped&quot: (not forward),
+                                                            &quotlength&quot: stop - start}
+
+        if return_best_hits:
+            return self.filter_hmm_sequences_dict_for_splits_to_keep_only_best_hits(hmm_sequences_dict_for_splits)
+        else:
+            return hmm_sequences_dict_for_splits
+
+
+    def filter_hmm_sequences_dict_to_keep_only_unique_gene_hits(self, hmm_sequences_dict_for_splits):
+        This takes the output of `get_sequences_dict_for_hmm_hits_in_splits`, and goes through every hit
+           to remove hits that resolve to the same gene, and only keeps the one with the smallest e-value.
+
+           Say, if there are multipe HMMs hitting the same gene, this filter will only keep the one that is the
+           most significant.
+        
+
+        hits_per_gene_caller_id = {}
+        for hit_id in hmm_sequences_dict_for_splits:
+            hit = hmm_sequences_dict_for_splits[hit_id]
+
+            if hit[&quotgene_callers_id&quot] in hits_per_gene_caller_id:
+                hits_per_gene_caller_id[hit[&quotgene_callers_id&quot]].add(hit_id)
+            else:
+                hits_per_gene_caller_id[hit[&quotgene_callers_id&quot]] = set([hit_id])
+
+        for gene_callers_id in hits_per_gene_caller_id:
+            if len(hits_per_gene_caller_id[gene_callers_id]) &gt; 1:
+                hit_ids_to_remove = [tpl[1] for tpl in sorted([(hmm_sequences_dict_for_splits[hit][&quote_value&quot], hit) \
+                                                                    for hit in hits_per_gene_caller_id[gene_callers_id]])[1:]]
+                for hit_id_to_remove in hit_ids_to_remove:
+                    hmm_sequences_dict_for_splits.pop(hit_id_to_remove)
+
+        return hmm_sequences_dict_for_splits
+
+
+    def filter_hmm_sequences_dict_for_splits_to_keep_only_best_hits(self, hmm_sequences_dict_for_splits):
+        This takes the output of `get_sequences_dict_for_hmm_hits_in_splits`, and goes through every hit\
+           to identify for each bin_id hits with the same gene name and source. If there are multiple gene\
+           names and source, removes every other except the one with the smallest e-value.
+
+           Say, if there are multiple RecA hits in a bin based on Campbell_et_al, this will keep only the most\
+           significant one.
+        
+
+        bin_names, hmm_sources = set([]), set([])
+        for v in list(hmm_sequences_dict_for_splits.values()):
+            bin_names.add(v[&quotbin_id&quot])
+            hmm_sources.add(v[&quotsource&quot])
+
+        &#47&#47 this dictionary will keep track of the occurrence of each gene name in each hmm source and bin:
+        d = {}
+
+        for bin_name in bin_names:
+            d[bin_name] = {}
+            for hmm_source in hmm_sources:
+                d[bin_name][hmm_source] = {}
+
+        &#47&#47 fill in gene_names
+        for v in list(hmm_sequences_dict_for_splits.values()):
+            d[v[&quotbin_id&quot]][v[&quotsource&quot]][v[&quotgene_name&quot]] = []
+
+        &#47&#47 add genes into lists
+        for hit_unique_id in hmm_sequences_dict_for_splits:
+            h = hmm_sequences_dict_for_splits[hit_unique_id]
+            d[h[&quotbin_id&quot]][h[&quotsource&quot]][h[&quotgene_name&quot]].append((h[&quote_value&quot], hit_unique_id), )
+
+        &#47&#47 find the ones that occur twice:
+        hit_unique_ids_to_remove = set([])
+        for bin_name in d:
+            for hmm_source in d[bin_name]:
+                for gene_name in d[bin_name][hmm_source]:
+                    if len(d[bin_name][hmm_source][gene_name]) &gt; 1:
+                        &#47&#47 here `d[bin_name][hmm_source][gene_name]` should look like this for a single gene name from
+                        &#47&#47 a single source in a single bin:
+                        &#47&#47
+                        &#47&#47   [(6.2e-19, &quotRinke_et_al___7f25&quot), (1.8e-26, &quotRinke_et_al___57b0&quot), (7.7e-30, &quotRinke_et_al___4e43&quot)]
+                        &#47&#47
+                        &#47&#47 so we will sort from small e_value to big, and add unique ids to the list of shit ids to
+                        &#47&#47 remove them from the dictionary we got.
+                        hit_unique_ids_to_remove.update([t[1] for t in sorted(d[bin_name][hmm_source][gene_name])[1:]])
+
+        for hit_unique_id in hit_unique_ids_to_remove:
+            hmm_sequences_dict_for_splits.pop(hit_unique_id)
+
+        return hmm_sequences_dict_for_splits
+
+
+    def get_gene_num_occurrences_across_bins(self, hmm_sequences_dict_for_splits):
+        Get a dictionary of gene names and their number of occurrences across all bins
+
+        all_bins = set([])
+        all_genes = set([])
+
+        for entry in hmm_sequences_dict_for_splits.values():
+            all_bins.add(entry[&quotbin_id&quot])
+            all_genes.add(entry[&quotgene_name&quot])
+
+        gene_num_occurrences_across_bins = dict([(gene_name, set([])) for gene_name in all_genes])
+
+        for entry in hmm_sequences_dict_for_splits.values():
+            gene_num_occurrences_across_bins[entry[&quotgene_name&quot]].add(entry[&quotbin_id&quot])
+
+        for gene_name in gene_num_occurrences_across_bins:
+            gene_num_occurrences_across_bins[gene_name] = len(gene_num_occurrences_across_bins[gene_name])
+
+        return gene_num_occurrences_across_bins
+
+
+    def get_num_genes_missing_per_bin_dict(self, hmm_sequences_dict_for_splits, gene_names):
+        Get a dictionary of how many genes each bin is missing from a list of `gene_names`
+
+        all_bins = set([])
+
+        for entry in hmm_sequences_dict_for_splits.values():
+            all_bins.add(entry[&quotbin_id&quot])
+
+        genes_in_bins_dict = dict([(bin_name, set([])) for bin_name in all_bins])
+        num_genes_missing_per_bin = dict([(bin_name, 0) for bin_name in all_bins])
+
+        for entry in hmm_sequences_dict_for_splits.values():
+            genes_in_bins_dict[entry[&quotbin_id&quot]].add(entry[&quotgene_name&quot])
+
+        for bin_name in all_bins:
+            for gene_name in gene_names:
+                if gene_name not in genes_in_bins_dict[bin_name]:
+                    num_genes_missing_per_bin[bin_name] += 1
+
+        return num_genes_missing_per_bin
+
+
+    def filter_hmm_sequences_dict_from_genes_that_occur_in_less_than_N_bins(self, hmm_sequences_dict_for_splits, min_num_bins_gene_occurs=None):
+        This takes in your `hmm_sequences_dict_for_splits`, and removes genes that rarely occurs across bins.
+
+           The `min_num_bins_gene_occurs` parameter defines what is the minimum number of bins you want a gene to
+           be present. It removes all the genes that do not fit into that criterion.
+
+        if not isinstance(min_num_bins_gene_occurs, int):
+            raise ConfigError("Funny. Someone called the function to filter gene names from HMM sequences dictionary if they occur in less than "
+                              "a certain amount. But they didn&quott sen an integer for that amount :/")
+
+        if min_num_bins_gene_occurs &lt; 0:
+            raise ConfigError("But the minimum number of bins a gene is expected to be found can&quott be a negative value now. Right? :/")
+
+        all_bins = set([])
+
+        for entry in hmm_sequences_dict_for_splits.values():
+            all_bins.add(entry[&quotbin_id&quot])
+
+        if min_num_bins_gene_occurs &gt; len(all_bins):
+            raise ConfigError("You are asking anvi&quoto to remove any gene that occurs in less than %d genomes (or bins), however, it seems you have only "
+                              "%s genomes. Either you set a parameter that exceeds the number of genomes you actually have, or the previous filters "
+                              "applied to your set of genes have removed all genes from some or all of your genomes :/ Anvi&quoto cannot know here what might "
+                              "have gone wrong, but it kinda believes that it is all on your at this point :/" % (min_num_bins_gene_occurs, len(all_bins)))
+
+        gene_occurrences_accross_bins = self.get_gene_num_occurrences_across_bins(hmm_sequences_dict_for_splits)
+
+        genes_to_remove = set([])
+        all_genes = set(list(gene_occurrences_accross_bins.keys()))
+        for gene_name in all_genes:
+            if gene_occurrences_accross_bins[gene_name] &lt; min_num_bins_gene_occurs:
+                genes_to_remove.add(gene_name)
+
+        genes_to_keep = all_genes.difference(genes_to_remove)
+
+        self.run.info_single("Hi! The anvi&quoto function that was supposed to remove genes that were occurring in "
+                             "less than X number of bins due to the use of `--min-num-bins-gene-occurs` is "
+                             "speaking. What follows is a report of what happened after anvi&quoto tried to remove "
+                             "genes that were occurring in at least %d of the %d bins you had at this point." \
+                                    % (min_num_bins_gene_occurs, len(all_bins)), nl_before=1, nl_after=1)
+
+        self.run.info(&quotAll genes (%d)&quot % len(all_genes), &quot, &quot.join(all_genes), nl_after=1)
+        self.run.info(&quotGenes occurred in at least %d of %d bins (%d)&quot % (min_num_bins_gene_occurs, len(all_bins), len(genes_to_keep)), &quot, &quot.join(genes_to_keep), nl_after=1, mc=&quotgreen&quot)
+        self.run.info(&quotGenes that are no more in the analysis (%d)&quot % (len(genes_to_remove)), &quot, &quot.join(genes_to_remove) if genes_to_remove else &quotNone.&quot, nl_after=1, mc=&quotred&quot)
+
+        if len(genes_to_remove):
+            return (utils.get_filtered_dict(hmm_sequences_dict_for_splits, &quotgene_name&quot, genes_to_keep), genes_to_remove)
+        else:
+            return (hmm_sequences_dict_for_splits, set([]))
+
+
+    def filter_hmm_sequences_dict_for_bins_that_lack_more_than_N_genes(self, hmm_sequences_dict_for_splits, gene_names, max_num_genes_missing=0):
+        This takes the output of `get_sequences_dict_for_hmm_hits_in_splits`, and goes through every bin\
+           to identify bins or genomes that have lack more than `max_num_genes_missing` from a list of genes.
+
+           Note that it returns a filtered dictionary, AND the bins that are removed.
+
+        num_genes_missing_per_bin = self.get_num_genes_missing_per_bin_dict(hmm_sequences_dict_for_splits, gene_names)
+
+        bins_to_remove = set([])
+        all_bins = set(list(num_genes_missing_per_bin.keys()))
+        for bin_name in num_genes_missing_per_bin:
+            if num_genes_missing_per_bin[bin_name] &gt; max_num_genes_missing:
+                bins_to_remove.add(bin_name)
+
+        bins_to_keep = all_bins.difference(bins_to_remove)
+
+        self.run.info_single("Hi there! The anvi&quoto function that kills bins is speaking (we are here because you used "
+                             "the --max-num-genes-missing-from-bin parameter to remove bins that are not good enough for "
+                             "your analysis becasue they are missing lots of genes. What follows is a report of what "
+                             "happened.", nl_before=1, nl_after=1)
+
+        self.run.info(&quotAll bins (%d)&quot % len(all_bins), &quot, &quot.join(all_bins), nl_after=1)
+        self.run.info(&quotBins that missed at most %d of %d genes (%d)&quot % (max_num_genes_missing, len(gene_names), len(bins_to_keep)), &quot, &quot.join(bins_to_keep), nl_after=1, mc=&quotgreen&quot)
+        self.run.info(&quotBins that are no more in the analysis (%d)&quot % (len(bins_to_remove)), &quot, &quot.join(bins_to_remove) if bins_to_remove else &quotNone. Lovely.&quot, nl_after=1, mc=&quotred&quot)
+
+
+        if len(bins_to_remove):
+            return (utils.get_filtered_dict(hmm_sequences_dict_for_splits, &quotbin_id&quot, bins_to_keep), bins_to_remove)
+        else:
+            return (hmm_sequences_dict_for_splits, set([]))
+
+
+    def get_FASTA_header_and_sequence_for_gene_unique_id(self, hmm_sequences_dict_for_splits, gene_unique_id):
+        entry = hmm_sequences_dict_for_splits[gene_unique_id]
+        header = &quot%s___%s &quot % (entry[&quotgene_name&quot], gene_unique_id) + &quot|&quot.join([&quot%s:%s&quot % (k, str(entry[k])) for k in [&quotbin_id&quot, &quotsource&quot, &quote_value&quot, &quotcontig&quot, &quotgene_callers_id&quot, &quotstart&quot, &quotstop&quot, &quotlength&quot]])
+        sequence = hmm_sequences_dict_for_splits[gene_unique_id][&quotsequence&quot]
+        return (header, sequence)
+
+
+    def get_aligner(self, align_with=None):
+        Return an instance of an aligner
+
+        from anvio.drivers import Aligners
+
+        return Aligners().select(align_with)
+
+
+    def __store_concatenated_hmm_sequences_into_FASTA(self, hmm_sequences_dict_for_splits, output_file_path, partition_file_path=None, wrap=120, separator = &quotXXX&quot, genes_order=None, align_with=None, just_do_it=False):
+        Generates concatenated sequences from `hmm_sequences_dict_for_splits` dict.
+
+           Please do NOT directly access to this function, and use `store_hmm_sequences_into_FASTA`
+           instead.
+        
+
+        if len(self.sources) != 1:
+            if just_do_it:
+                self.run.warning("You have asked anvi&quoto to not pay attention to the fact that you are asking for genes to be concatenated "
+                                 "that are coming from different HMM collections. Fingers crossed. Please check the deflines of the "
+                                 "resulting FASTA file carefully.")
+            else:
+                raise ConfigError("In theory you should be requesting a single HMM source if you want your genes to be concatenated. "
+                                  "But in practice everyone has different needs, so we don&quott know. If this is not due to an error on "
+                                  "your part, and if you think you know what you are doing, you can ask anvi&quoto to let you concatenate "
+                                  "genes from multiple HMM sources by using the flag `--just-do-it`. In that case you will not see this "
+                                  "error, but you must be extremely careful to make sure the resulting file looks like it should, and "
+                                  "the information it contains makes sense. Since this not the common practice, you may run into other "
+                                  "errors downstream, for which we apologize in advance.")
+
+        &#47&#47 if the user did not define a single HMM source, then it will recover all genes in all HMM sources.
+        gene_names_in_source = []
+        for _hmm_source in self.sources:
+            gene_names_in_source.extend([g.strip() for g in self.hmm_hits_info[_hmm_source][&quotgenes&quot].split(&quot,&quot)])
+
+        &#47&#47 the user wants to play rough. FINE. we will concatenate genes for phylogenomic analyses.
+        gene_names = None
+
+        &#47&#47 let&quots get an instance of the aligner early on so we learn about issues before its too late.
+        aligner = self.get_aligner(align_with)
+
+        &#47&#47 lets learn about what we have in this dictionary first.
+        bin_names_in_dict = list(set([x[&quotbin_id&quot] for x in hmm_sequences_dict_for_splits.values()]))
+        gene_names_in_dict = sorted(list(set([x[&quotgene_name&quot] for x in hmm_sequences_dict_for_splits.values()])))
+
+        &#47&#47 if the function is called with a particular set and order of genes, use those, otherwise
+        &#47&#47 stick with the gene names / order we found in the dictionary.
+        if genes_order:
+            genes_in_genes_order_but_missing_in_hmm_source = [g for g in genes_order if g not in gene_names_in_source]
+            if len(genes_in_genes_order_but_missing_in_hmm_source):
+                raise ConfigError("One or more gene names in the genes order list does seem to appear among the genes described "
+                                  "by the HMM sources (which translates to &quotterrible news&quot). Here are the genes that cause this "
+                                  "issue if you want to fix this: &quot%s&quot (and here are the HMM sources you have been using for this "
+                                  "operation in case it helps: &quot%s&quot)." \
+                                              % (&quot, &quot.join(genes_in_genes_order_but_missing_in_hmm_source), &quot, &quot.join(self.sources)))
+            gene_names = genes_order
+        else:
+            self.run.warning("You did not define any gene names. Bold move. Now anvi&quoto will attempt to report a file with all "
+                             "genes defined in your HMM source(s). This will likely be quite ugly, so please brace yourself.")
+
+            gene_names = gene_names_in_dict
+
+        &#47&#47 gene lenghts are especially important to accommodate missing genes with proper number of
+        &#47&#47 gap characters
+        gene_lengths = {}
+
+        &#47&#47 buld a simpler dict that keeps genes sequences for each bin for a given gene name
+        genes_in_bins_dict = {}
+        for entry in hmm_sequences_dict_for_splits.values():
+            gene_name = entry[&quotgene_name&quot]
+            bin_name = entry[&quotbin_id&quot]
+            sequence = entry[&quotsequence&quot]
+            if gene_name in genes_in_bins_dict:
+                genes_in_bins_dict[gene_name][bin_name] = sequence
+            else:
+                genes_in_bins_dict[gene_name] = {bin_name: sequence}
+
+        &#47&#47 align homolog sequences across bins
+        self.progress.new(&quotAligning homolog gene sequences pre-concatenation&quot)
+        all_gene_names = list(genes_in_bins_dict.keys())
+        num_genes = len(all_gene_names)
+        for i in range(0, num_genes):
+            gene_name = all_gene_names[i]
+            self.progress.update(&quotworking on %s (%d of %d) ...&quot % (gene_name, i + 1, num_genes))
+            genes_list = [(bin_name, genes_in_bins_dict[gene_name][bin_name]) \
+                                                        for bin_name in genes_in_bins_dict[gene_name] \
+                                                                           if bin_name in genes_in_bins_dict[gene_name]]
+            genes_in_bins_dict[gene_name] = aligner(run=terminal.Run(verbose=False)).run_stdin(genes_list)
+            gene_lengths[gene_name] = len(list(genes_in_bins_dict[gene_name].values())[0])
+        self.progress.end()
+
+        &#47&#47 concatenate all of them and write them in a file
+        f = open(output_file_path, &quotw&quot)
+        gene_names_missing_from_everywhere = []
+        for bin_name in bin_names_in_dict:
+            sequences_list = []
+
+            for gene_name in gene_names:
+                if gene_name in genes_in_bins_dict:
+                    if bin_name in genes_in_bins_dict[gene_name]:
+                        sequences_list.append(genes_in_bins_dict[gene_name][bin_name])
+                    else:
+                        sequences_list.append(&quot-&quot * gene_lengths[gene_name])
+                else:
+                    &#47&#47 if we are here, it means this is a gene that has been missing form the hmm hits dict, since it
+                    &#47&#47 was not in any of the bins the dict described, but the user requested to have it in the
+                    &#47&#47 alignment anyway. This can happen when the user wants to concatanate genes from one or more
+                    &#47&#47 low-completion bins. We will keep track of them, and tell the user.
+                    sequences_list.append(&quot-&quot * 42)
+                    gene_names_missing_from_everywhere.append(gene_name)
+
+            sequence = separator.join(sequences_list)
+
+            if wrap:
+                sequence = textwrap.fill(sequence, wrap, break_on_hyphens=False)
+
+            f.write(&quot&gt;%s num_genes:%d|genes:%s|separator:%s\n&quot % (bin_name, len(gene_names), &quot,&quot.join(gene_names), separator))
+            f.write(&quot%s\n&quot % sequence)
+
+        if len(gene_names_missing_from_everywhere):
+            run.warning("You asked for some genes that were missing from all bins this class had in the "
+           "HMM hits dictionary (here is a list of them: &quot%s&quot). Not knowing what to do with this werid "
+           "situation, anvi&quoto put gap characters for all of them and retained your order. Here are those "
+           "genes that missed the party: &quot%s&quot" % \
+                (&quot, &quot.join(bin_names_in_dict), &quot, &quot.join(set(gene_names_missing_from_everywhere))))
+
+        f.close()
+
+        if partition_file_path:
+            utils.gen_NEXUS_format_partition_file_for_phylogenomics(partition_file_path, [(g, gene_lengths[g]) for g in gene_names], separator, run=self.run, progress=self.progress)
+
+
+    def __store_individual_hmm_sequences_into_FASTA(self, hmm_sequences_dict_for_splits, output_file_path, wrap=120, separator = &quotXXX&quot, genes_order=None, align_with=None):
+        Stores every sequence in hmm_sequences_dict_for_splits into the `output_file_path`.
+
+           Please do NOT directly access to this function, and use `store_hmm_sequences_into_FASTA`
+           instead.
+        
+
+        &#47&#47 if the user wants alignment, lets update the input dictionary with aligned sequences
+        if align_with:
+            self.run.info(&quotSequence aligner&quot, align_with)
+            self.run.warning("Anvi&quoto will align your sequences since you explicitly asked for an aligner. However, you are not "
+                             "concatenating your genes. If you are working with multiple gene names, your multiple sequence alignment "
+                             "may contain genes that are evolutionarily very distant from each other, and the resulting multiple "
+                             "sequence alignment may be irrelevant to answer any biologically relevant questions. So here anvi&quoto will "
+                             "do what you want, assuming that you know what you are doing.")
+
+            aligner = self.get_aligner(align_with)
+            genes_list = [(gene_id, hmm_sequences_dict_for_splits[gene_id][&quotsequence&quot]) for gene_id in hmm_sequences_dict_for_splits]
+
+            self.progress.new(&quotAlignment&quot)
+            self.progress.update(&quotWorking on %d sequences ...&quot % (len(genes_list)))
+            genes_aligned = aligner(run=terminal.Run(verbose=False)).run_stdin(genes_list)
+            self.progress.end()
+
+            for gene_id in genes_aligned:
+                hmm_sequences_dict_for_splits[gene_id][&quotsequence&quot] = genes_aligned[gene_id]
+
+        <a id="change">f = open(output_file_path, &quotw&quot)</a>
+
+        for gene_unique_id in hmm_sequences_dict_for_splits:
+            header, sequence = self.get_FASTA_header_and_sequence_for_gene_unique_id(hmm_sequences_dict_for_splits, gene_unique_id)
+
+            if wrap:
+                sequence = textwrap.fill(sequence, wrap, break_on_hyphens=False)
+
+            f.write(&quot&gt;%s\n&quot % header)
+            f.write(&quot%s\n&quot % sequence)
+
+        <a id="change">f</a><a id="change">.close()</a>
+
+
+    def store_hmm_sequences_into_FASTA(self, hmm_sequences_dict_for_splits, output_file_path, wrap=120, concatenate_genes=False, partition_file_path=None, separator=None, genes_order=None, align_with=None, just_do_it=False):
+        Stores HMM sequences into a FASTA file.
+
+        filesnpaths.is_output_file_writable(output_file_path)
+        filesnpaths.is_output_file_writable(partition_file_path) if partition_file_path else None
+
+        if wrap and not isinstance(wrap, int):
+            raise ConfigError(&quot"wrap" has to be an integer instance&quot)
+
+        if genes_order and concatenate_genes:
+            gene_frequencies = Counter(genes_order)
+            non_unique_genes = [g for g in gene_frequencies if gene_frequencies[g] &gt; 1]
+            if len(non_unique_genes):
+                if just_do_it:
+                    self.run.warning("Anvi&quoto found that some gene names occur multiple times (i.e., %s), but is letting this get away "
+                                     "since the user invoked the grumpy flag." % (&quot, &quot.join(non_unique_genes)), nl_before=1)
+                else:
+                    raise ConfigError("The list of gene names you wish to concatenate contains those that occur more than once. "
+                                      "Here is the list: &quot%s&quot. While anvi&quoto believes it is a silly idea to have the same gene "
+                                      "names multiple times, it will not care about it and will let you get away with it if you "
+                                      "really want that. In which case you can use the flag `--just-do-it`, and move on with your "
+                                      "very unconventional and cool analysis." % (&quot, &quot.join(non_unique_genes)))
+
+        if concatenate_genes:
+            self.__store_concatenated_hmm_sequences_into_FASTA(hmm_sequences_dict_for_splits, output_file_path, partition_file_path, wrap, separator, genes_order, align_with, just_do_it)
+        else:
+            self.__store_individual_hmm_sequences_into_FASTA(hmm_sequences_dict_for_splits, output_file_path, wrap, separator, genes_order, align_with)
+
+
+class NumGenomesEstimator(SequencesForHMMHits):
+    A simple interface to get estimated number of genomes from a contigs database.
+
+    Notes for programmers
+    =====================
+    - Major changes in this class should consdier the use case example
+      in `anvio/docs/artifacts/contigs-db.md`.
+    
+    def __init__(self, contigs_db_path, run=terminal.Run(verbose=False), progress=terminal.Progress(verbose=False)):
+        self.run = run
+        self.progress = progress
+        self.contigs_db_path = contigs_db_path
+
+        SequencesForHMMHits.__init__(self, self.contigs_db_path, run=self.run, progress=self.progress)
+
+        self.estimates_dict = self.get_num_genomes_from_SCG_sources_dict()
+
+        self.per_domain_totals = {}
+        for entry in self.estimates_dict.values():
+            if entry[&quotdomain&quot] not in self.per_domain_totals:
+                self.per_domain_totals[entry[&quotdomain&quot]] = 0
+
+            self.per_domain_totals[entry[&quotdomain&quot]] += entry[&quotnum_genomes&quot]
+
+
+    def num_genomes(self, for_domains=[]):
+        Higher-order estimate for the number of genomes
+
+        Parameters
+        ==========
+        for_domains, list:
+            The SCG domains you wish the get a tally for. By default, the function will return number of
+            genomes found in all domains.
+
+        Returns
+        =======
+            &lt;num_genomes, domains&gt;, tuple:
+                This function will return a tuple with two items. The first is the total number of genomes
+                estimated, and the second is the domains used for this estimate.
+        
+
+        if for_domains:
+            missing_domains = [d for d in for_domains if d not in self.per_domain_totals]
+            if len(missing_domains):
+                raise ConfigError(f"One of more of the domains you have requested do not seem to be among those that "
+                                  f"anvi&quoto knows about \"{&quot, &quot.join(missing_domains)}\". If what you are seeing is not "
+                                  f"due to a typo, this can happen if you don&quott have the single-copy core gene set "
+                                  f"to estimate number of genomes that belong to this domain. You perhaps do not have "
+                                  f"them because you didn&quott run the program `anvi-run-hmms` on your contigs-db with all "
+                                  f"the default HMM collections, or you are a dreamer who wishes some domain you are "
+                                  f"working with is total news to anvi&quoto. If it is the latter, please get in touch with "
+                                  f"us.")
+
+        if not for_domains:
+            for_domains = list(self.per_domain_totals.keys())
+
+        return (sum([self.per_domain_totals[d] for d in for_domains]), for_domains)
+</code></pre>

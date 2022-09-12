@@ -1,0 +1,97 @@
+<link rel="stylesheet" href="../../../..//default.css">
+<script src="../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/baidu/Dialogue/blob/master/DAM/bin/test_and_evaluate.py#L13">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/Dialogue/blob/master/DAM/bin/test_and_evaluate.py#L13">GitMyHubLink</a>
+
+import sys
+import os
+import time
+
+import cPickle as pickle
+import tensorflow as tf
+import numpy as np
+
+import utils.reader as reader
+import utils.evaluation as eva
+
+
+def test(<a id="change">conf</a>, <a id="change">_model</a>):
+    
+    if not os.path.exists(conf[&quotsave_path&quot]):
+        os.makedirs(conf[&quotsave_path&quot])
+
+    &#47&#47 load data
+    print(&quotstarting loading data&quot)
+    print(time.strftime(&quot%Y-%m-%d %H:%M:%S&quot,time.localtime(time.time())))
+    <a id="change">train_data, val_data, test_data = pickle.load(open(conf["data_path"], &quotrb&quot))</a>    
+    print(&quotfinish loading data&quot)
+
+    <a id="change">test_batches = reader.build_batches(test_data, conf)</a>
+
+    print("finish building test batches")
+    print(time.strftime(&quot%Y-%m-%d %H:%M:%S&quot,time.localtime(time.time())))
+
+    &#47&#47 refine conf
+    <a id="change">test_batch_num = len(test_batches["response"])</a>
+
+    print(&quotconfigurations: %s&quot %conf)
+
+
+    <a id="change">_graph = _model.build_graph()</a>
+    print(&quotbuild graph sucess&quot)
+    print(time.strftime(&quot%Y-%m-%d %H:%M:%S&quot,time.localtime(time.time())))
+
+    with tf.Session(graph=_graph) as sess:
+        &#47&#47_model.init.run();
+        _model.saver.restore(sess, conf["init_model"])
+        print("sucess init %s" %conf["init_model"])
+
+        <a id="change">batch_index = 0</a>
+        <a id="change">step = 0</a>
+
+        <a id="change">score_file_path = conf[&quotsave_path&quot] + &quotscore.test&quot</a>
+        <a id="change">score_file = open(score_file_path, &quotw&quot)</a>
+
+        print(&quotstarting test&quot)
+        print(time.strftime(&quot%Y-%m-%d %H:%M:%S&quot,time.localtime(time.time())))
+        for batch_index in xrange(test_batch_num):
+                
+            <a id="change">feed = { 
+                _model.turns: test_batches["turns"][batch_index],
+                _model.tt_turns_len: test_batches["tt_turns_len"][batch_index],
+                _model.every_turn_len: test_batches["every_turn_len"][batch_index],
+                _model.response: test_batches["response"][batch_index],
+                _model.response_len: test_batches["response_len"][batch_index],
+                _model.label: test_batches["label"][batch_index]
+                }</a>   
+                
+            <a id="change">scores = sess.run(_model.logits, feed_dict = feed)</a>
+                    
+            for i in xrange(conf["batch_size"]):
+                score_file.write(
+                    str(scores[i]) + &quot\t&quot + 
+                    str(test_batches["label"][batch_index][i]) + &quot\n&quot)
+                    &#47&#47str(sum(test_batches["every_turn_len"][batch_index][i]) / test_batches[&quottt_turns_len&quot][batch_index][i]) + &quot\t&quot +
+                    &#47&#47str(test_batches[&quottt_turns_len&quot][batch_index][i]) + &quot\n&quot) 
+
+        <a id="change">score_file</a><a id="change">.close()</a>
+        print(&quotfinish test&quot)
+        print(time.strftime(&quot%Y-%m-%d %H:%M:%S&quot,time.localtime(time.time())))
+
+        
+        &#47&#47write evaluation result
+        <a id="change">result = eva.evaluate(score_file_path)</a>
+        <a id="change">result_file_path = conf["save_path"] + "result.test"</a>
+        with open(result_file_path, &quotw&quot) as out_file:
+            for p_at in result:
+                out_file.write(str(p_at) + &quot\n&quot)
+        print(&quotfinish evaluation&quot)
+        print(time.strftime(&quot%Y-%m-%d %H:%M:%S&quot,time.localtime(time.time())))
+        
+
+                    
+</code></pre>

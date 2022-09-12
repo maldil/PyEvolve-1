@@ -1,0 +1,181 @@
+<link rel="stylesheet" href="../../..//default.css">
+<script src="../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/tzutalin/labelImg/blob/master/libs/pascal_voc_io.py#L112">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/labelImg/blob/master/libs/pascal_voc_io.py#L112">GitMyHubLink</a>
+
+&#47&#47!/usr/bin/env python
+&#47&#47 -*- coding: utf8 -*-
+import sys
+from xml.etree import ElementTree
+from xml.etree.ElementTree import Element, SubElement
+from lxml import etree
+import codecs
+from libs.constants import DEFAULT_ENCODING
+from libs.ustr import ustr
+
+
+XML_EXT = &quot.xml&quot
+ENCODE_METHOD = DEFAULT_ENCODING
+
+class PascalVocWriter:
+
+    def __init__(self, folder_name, filename, img_size, database_src=&quotUnknown&quot, local_img_path=None):
+        self.folder_name = folder_name
+        self.filename = filename
+        self.database_src = database_src
+        self.img_size = img_size
+        self.box_list = []
+        self.local_img_path = local_img_path
+        self.verified = False
+
+    def prettify(self, elem):
+        
+            Return a pretty-printed XML string for the Element.
+        
+        rough_string = ElementTree.tostring(elem, &quotutf8&quot)
+        root = etree.fromstring(rough_string)
+        return etree.tostring(root, pretty_print=True, encoding=ENCODE_METHOD).replace("  ".encode(), "\t".encode())
+        &#47&#47 minidom does not support UTF-8
+        &#47&#47 reparsed = minidom.parseString(rough_string)
+        &#47&#47 return reparsed.toprettyxml(indent="\t", encoding=ENCODE_METHOD)
+
+    def gen_xml(self):
+        
+            Return XML root
+        
+        &#47&#47 Check conditions
+        if self.filename is None or \
+                self.folder_name is None or \
+                self.img_size is None:
+            return None
+
+        top = Element(&quotannotation&quot)
+        if self.verified:
+            top.set(&quotverified&quot, &quotyes&quot)
+
+        folder = SubElement(top, &quotfolder&quot)
+        folder.text = self.folder_name
+
+        filename = SubElement(top, &quotfilename&quot)
+        filename.text = self.filename
+
+        if self.local_img_path is not None:
+            local_img_path = SubElement(top, &quotpath&quot)
+            local_img_path.text = self.local_img_path
+
+        source = SubElement(top, &quotsource&quot)
+        database = SubElement(source, &quotdatabase&quot)
+        database.text = self.database_src
+
+        size_part = SubElement(top, &quotsize&quot)
+        width = SubElement(size_part, &quotwidth&quot)
+        height = SubElement(size_part, &quotheight&quot)
+        depth = SubElement(size_part, &quotdepth&quot)
+        width.text = str(self.img_size[1])
+        height.text = str(self.img_size[0])
+        if len(self.img_size) == 3:
+            depth.text = str(self.img_size[2])
+        else:
+            depth.text = &quot1&quot
+
+        segmented = SubElement(top, &quotsegmented&quot)
+        segmented.text = &quot0&quot
+        return top
+
+    def add_bnd_box(self, x_min, y_min, x_max, y_max, name, difficult):
+        bnd_box = {&quotxmin&quot: x_min, &quotymin&quot: y_min, &quotxmax&quot: x_max, &quotymax&quot: y_max}
+        bnd_box[&quotname&quot] = name
+        bnd_box[&quotdifficult&quot] = difficult
+        self.box_list.append(bnd_box)
+
+    def append_objects(self, top):
+        for each_object in self.box_list:
+            object_item = SubElement(top, &quotobject&quot)
+            name = SubElement(object_item, &quotname&quot)
+            name.text = ustr(each_object[&quotname&quot])
+            pose = SubElement(object_item, &quotpose&quot)
+            pose.text = "Unspecified"
+            truncated = SubElement(object_item, &quottruncated&quot)
+            if int(float(each_object[&quotymax&quot])) == int(float(self.img_size[0])) or (int(float(each_object[&quotymin&quot])) == 1):
+                truncated.text = "1"  &#47&#47 max == height or min
+            elif (int(float(each_object[&quotxmax&quot])) == int(float(self.img_size[1]))) or (int(float(each_object[&quotxmin&quot])) == 1):
+                truncated.text = "1"  &#47&#47 max == width or min
+            else:
+                truncated.text = "0"
+            difficult = SubElement(object_item, &quotdifficult&quot)
+            difficult.text = str(bool(each_object[&quotdifficult&quot]) & 1)
+            bnd_box = SubElement(object_item, &quotbndbox&quot)
+            x_min = SubElement(bnd_box, &quotxmin&quot)
+            x_min.text = str(each_object[&quotxmin&quot])
+            y_min = SubElement(bnd_box, &quotymin&quot)
+            y_min.text = str(each_object[&quotymin&quot])
+            x_max = SubElement(bnd_box, &quotxmax&quot)
+            x_max.text = str(each_object[&quotxmax&quot])
+            y_max = SubElement(bnd_box, &quotymax&quot)
+            y_max.text = str(each_object[&quotymax&quot])
+
+    def save(self, target_file=None):
+        root = self.gen_xml()
+        self.append_objects(root)
+        out_file = None
+        if target_file is None:
+            <a id="change">out_file</a><a id="change"> = codecs.open(
+                self.filename + XML_EXT, &quotw&quot, encoding=ENCODE_METHOD)</a>
+        else:
+            <a id="change">out_file = codecs.open(target_file, &quotw&quot, encoding=ENCODE_METHOD)</a>
+
+        prettify_result = self.prettify(root)
+        out_file.write(prettify_result.decode(&quotutf8&quot))
+        <a id="change">out_file</a><a id="change">.close()</a>
+
+
+class PascalVocReader:
+
+    def __init__(self, file_path):
+        &#47&#47 shapes type:
+        &#47&#47 [labbel, [(x1,y1), (x2,y2), (x3,y3), (x4,y4)], color, color, difficult]
+        self.shapes = []
+        self.file_path = file_path
+        self.verified = False
+        try:
+            self.parse_xml()
+        except:
+            pass
+
+    def get_shapes(self):
+        return self.shapes
+
+    def add_shape(self, label, bnd_box, difficult):
+        x_min = int(float(bnd_box.find(&quotxmin&quot).text))
+        y_min = int(float(bnd_box.find(&quotymin&quot).text))
+        x_max = int(float(bnd_box.find(&quotxmax&quot).text))
+        y_max = int(float(bnd_box.find(&quotymax&quot).text))
+        points = [(x_min, y_min), (x_max, y_min), (x_max, y_max), (x_min, y_max)]
+        self.shapes.append((label, points, None, None, difficult))
+
+    def parse_xml(self):
+        assert self.file_path.endswith(XML_EXT), "Unsupported file format"
+        parser = etree.XMLParser(encoding=ENCODE_METHOD)
+        xml_tree = ElementTree.parse(self.file_path, parser=parser).getroot()
+        filename = xml_tree.find(&quotfilename&quot).text
+        try:
+            verified = xml_tree.attrib[&quotverified&quot]
+            if verified == &quotyes&quot:
+                self.verified = True
+        except KeyError:
+            self.verified = False
+
+        for object_iter in xml_tree.findall(&quotobject&quot):
+            bnd_box = object_iter.find("bndbox")
+            label = object_iter.find(&quotname&quot).text
+            &#47&#47 Add chris
+            difficult = False
+            if object_iter.find(&quotdifficult&quot) is not None:
+                difficult = bool(int(object_iter.find(&quotdifficult&quot).text))
+            self.add_shape(label, bnd_box, difficult)
+        return True
+</code></pre>

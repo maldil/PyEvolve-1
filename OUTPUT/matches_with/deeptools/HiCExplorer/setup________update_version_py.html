@@ -1,0 +1,166 @@
+<link rel="stylesheet" href="../..//default.css">
+<script src="../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/deeptools/HiCExplorer/blob/master/setup.py#L19">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/HiCExplorer/blob/master/setup.py#L19">GitMyHubLink</a>
+
+&#47&#47 -*- coding: utf-8 -*-
+
+import os
+import sys
+import subprocess
+import re
+
+from setuptools import setup, find_packages
+from setuptools.command.sdist import sdist as _sdist
+from setuptools.command.install import install as _install
+
+VERSION_PY = 
+&#47&#47 This file is originally generated from Git information by running &quotsetup.py
+&#47&#47 version&quot. Distribution tarballs contain a pre-generated copy of this file.
+__version__ = &quot%s&quot
+
+
+
+def update_version_py():
+    if not os.path.isdir(".git"):
+        print("This does not appear to be a Git repository.")
+        return
+    try:
+        <a id="change">p = subprocess.Popen(["git", "describe",
+                              "--tags", "--always"],
+                             stdout=subprocess.PIPE)</a>
+    except EnvironmentError:
+        print("unable to run git, leaving hicexplorer/_version.py alone")
+        return
+    <a id="change">stdout = p.communicate()[0]</a>
+    if p.returncode != 0:
+        print("unable to run git, leaving hicexplorer/_version.py alone")
+        return
+    <a id="change">ver = stdout.strip()</a>
+    <a id="change">f = open("hicexplorer/_version.py", "w")</a>
+    f.write(VERSION_PY % ver)
+    <a id="change">f</a><a id="change">.close()</a>
+    print("set hicexplorer/_version.py to &quot%s&quot" % ver)
+
+
+def get_version():
+    try:
+        f = open("hicexplorer/_version.py")
+    except EnvironmentError:
+        return None
+    for line in f.readlines():
+        mo = re.match("__version__ = &quot([^&quot]+)&quot", line)
+        if mo:
+            ver = mo.group(1)
+            return ver
+    return None
+
+
+class sdist(_sdist):
+
+    def run(self):
+        &#47&#47 update_version_py()
+        self.distribution.metadata.version = get_version()
+        return _sdist.run(self)
+
+&#47&#47 Install class to check for external dependencies from OS environment
+
+
+class install(_install):
+
+    def run(self):
+        &#47&#47 update_version_py()
+        self.distribution.metadata.version = get_version()
+        _install.run(self)
+        return
+
+    def checkProgramIsInstalled(self, program, args, where_to_download,
+                                affected_tools):
+        try:
+            subprocess.Popen([program, args],
+                             stderr=subprocess.PIPE,
+                             stdout=subprocess.PIPE)
+            return True
+        except EnvironmentError:
+            &#47&#47 handle file not found error.
+            &#47&#47 the config file is installed in:
+            msg = "\n**{0} not found. This " \
+                  "program is needed for the following "\
+                  "tools to work properly:\n"\
+                  " {1}\n"\
+                  "{0} can be downloaded from here:\n " \
+                  " {2}\n".format(program, affected_tools,
+                                  where_to_download)
+            sys.stderr.write(msg)
+
+        except Exception as e:
+            sys.stderr.write("Error: {}".format(e))
+
+
+install_requires_py = ["numpy &gt;= 1.19.*",
+                       "scipy &gt;= 1.5.*",
+                       "matplotlib &gt;= 3.1.*",
+                       "ipykernel &gt;= 5.3.0",
+                       "pysam &gt;= 0.16",
+                       "intervaltree &gt;= 3.1.*",
+                       "biopython",
+                       "tables &gt;= 3.6.*",
+                       "pandas &gt;= 1.1.*",
+                       "pyBigWig &gt;= 0.3.*",
+                       "cooler &gt;= 0.8.10",
+                       "jinja2 &gt;= 2.11.*",
+                       "unidecode &gt;= 1.1.*",
+                       "hicmatrix &gt;= 16",
+                       "pygenometracks &gt;= 3.5",
+                       "psutil &gt;= 5.7.*",
+                       "fit_nbinom &gt;= 1.1",
+                       "hic2cool &gt;= 0.8.3",
+                       "krbalancing &gt;= 0.0.5",
+                       "pybedtools &gt;= 0.8",
+                       "future &gt;= 0.18",
+                       "tqdm &gt;= 4.50",
+                       "hyperopt &gt;= 0.2.4",
+                       "graphviz &gt;= 0.14",
+                       "scikit-learn &gt;= 0.23.2",
+                       "imbalanced-learn &gt;= 0.7.*",
+                       "cleanlab &gt;= 0.1.*"
+                       ]
+
+
+setup(
+    name=&quotHiCExplorer&quot,
+    version=get_version(),
+    author=&quotJoachim Wolff, Leily Rabbani, Bjoern Gruening, Vivek Bhardwaj, Fidel Ramírez&quot,
+    author_email=&quotdeeptools@googlegroups.com&quot,
+    packages=find_packages(),
+    scripts=[&quotbin/hicFindRestSite&quot, &quotbin/hicAggregateContacts&quot, &quotbin/hicBuildMatrix&quot, &quotbin/hicCorrectMatrix&quot,
+             &quotbin/hicCorrelate&quot, &quotbin/hicFindTADs&quot, &quotbin/hicMergeMatrixBins&quot, &quotbin/hicPlotMatrix&quot, &quotbin/hicPlotDistVsCounts&quot,
+             &quotbin/hicPlotTADs&quot, &quotbin/hicSumMatrices&quot, &quotbin/hicInfo&quot, &quotbin/hicexplorer&quot,
+             &quotbin/hicQC&quot, &quotbin/hicCompareMatrices&quot, &quotbin/hicPCA&quot, &quotbin/hicTransform&quot, &quotbin/hicPlotViewpoint&quot,
+             &quotbin/chicViewpointBackgroundModel&quot, &quotbin/chicPlotViewpoint&quot, &quotbin/chicViewpoint&quot,
+             &quotbin/chicAggregateStatistic&quot, &quotbin/chicDifferentialTest&quot, &quotbin/chicQualityControl&quot, &quotbin/chicSignificantInteractions&quot,
+             &quotbin/hicConvertFormat&quot, &quotbin/hicAdjustMatrix&quot, &quotbin/hicNormalize&quot,
+             &quotbin/hicAverageRegions&quot, &quotbin/hicPlotAverageRegions&quot, &quotbin/hicDetectLoops&quot, &quotbin/hicValidateLocations&quot, &quotbin/hicMergeLoops&quot,
+             &quotbin/hicCompartmentalization&quot, &quotbin/hicQuickQC&quot, &quotbin/hicPlotSVL&quot, &quotbin/hicCreateThresholdFile&quot, &quotbin/hicHyperoptDetectLoops&quot,
+             &quotbin/hicHyperoptDetectLoopsHiCCUPS&quot, &quotbin/hicMergeDomains&quot, &quotbin/hicDifferentialTAD&quot, &quotbin/chicExportData&quot, &quotbin/hicInterIntraTAD&quot,
+             &quotbin/hicTADClassifier&quot, &quotbin/hicTrainTADClassifier&quot
+             ],
+    include_package_data=True,
+    package_dir={&quothicexplorer&quot: &quothicexplorer&quot},
+    package_data={&quothicexplorer&quot: [&quotqc_template.html&quot]},
+    url=&quothttp://hicexplorer.readthedocs.io&quot,
+    license=&quotLICENSE&quot,
+    description=&quotSet of programs to process, analyze and visualize Hi-C data&quot,
+    long_description=open(&quotREADME.rst&quot).read(),
+    classifiers=[
+        &quotIntended Audience :: Science/Research&quot,
+        &quotTopic :: Scientific/Engineering :: Bio-Informatics&quot],
+    install_requires=install_requires_py,
+    zip_safe=False,
+    cmdclass={&quotsdist&quot: sdist, &quotinstall&quot: install}
+)
+</code></pre>

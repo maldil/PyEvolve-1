@@ -1,0 +1,358 @@
+<link rel="stylesheet" href="../../..//default.css">
+<script src="../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/salu133445/musegan/blob/main/src/train.py#L162">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/musegan/blob/main/src/train.py#L162">GitMyHubLink</a>
+
+This script trains a model.
+import os
+import logging
+import argparse
+from pprint import pformat
+import numpy as np
+import scipy.stats
+import tensorflow as tf
+from musegan.config import LOGLEVEL, LOG_FORMAT
+from musegan.data import load_data, get_dataset, get_samples
+from musegan.metrics import get_save_metric_ops
+from musegan.model import Model
+from musegan.utils import make_sure_path_exists, load_yaml
+from musegan.utils import backup_src, update_not_none, setup_loggers
+LOGGER = logging.getLogger("musegan.train")
+
+def parse_arguments():
+    Parse and return the command line arguments.
+    parser = argparse.ArgumentParser()
+    parser.add_argument(&quot--exp_dir&quot, help="Directory to save all the results.")
+    parser.add_argument(&quot--params&quot, help="Path to the model parameter file.")
+    parser.add_argument(&quot--config&quot, help="Path to the configuration file.")
+    parser.add_argument(&quot--gpu&quot, &quot--gpu_device_num&quot, type=str, default="0",
+                        help="The GPU device number to use.")
+    parser.add_argument(&quot--n_jobs&quot, type=int,
+                        help="Number of parallel calls to use for input "
+                             "pipeline. Set to 1 to disable multiprocessing.")
+    args = parser.parse_args()
+    return args
+
+def setup_dirs(config):
+    Setup an experiment directory structure and update the `params`
+    dictionary with the directory paths.
+    &#47&#47 Get experiment directory structure
+    config[&quotexp_dir&quot] = os.path.realpath(config[&quotexp_dir&quot])
+    config[&quotsrc_dir&quot] = os.path.join(config[&quotexp_dir&quot], &quotsrc&quot)
+    config[&quoteval_dir&quot] = os.path.join(config[&quotexp_dir&quot], &quoteval&quot)
+    config[&quotmodel_dir&quot] = os.path.join(config[&quotexp_dir&quot], &quotmodel&quot)
+    config[&quotsample_dir&quot] = os.path.join(config[&quotexp_dir&quot], &quotsamples&quot)
+    config[&quotlog_dir&quot] = os.path.join(config[&quotexp_dir&quot], &quotlogs&quot, &quottrain&quot)
+
+    &#47&#47 Make sure directories exist
+    for key in (&quotlog_dir&quot, &quotmodel_dir&quot, &quotsample_dir&quot, &quotsrc_dir&quot):
+        make_sure_path_exists(config[key])
+
+def setup():
+    Parse command line arguments, load model parameters, load configurations,
+    setup environment and setup loggers.
+    &#47&#47 Parse the command line arguments
+    args = parse_arguments()
+
+    &#47&#47 Load parameters
+    params = load_yaml(args.params)
+    if params.get(&quotis_accompaniment&quot) and params.get(&quotcondition_track_idx&quot) is None:
+        raise TypeError("`condition_track_idx` cannot be None type in "
+                        "accompaniment mode.")
+
+    &#47&#47 Load configurations
+    config = load_yaml(args.config)
+    update_not_none(config, vars(args))
+
+    &#47&#47 Set unspecified schedule steps to default values
+    for target in (config[&quotlearning_rate_schedule&quot], config[&quotslope_schedule&quot]):
+        if target[&quotstart&quot] is None:
+            target[&quotstart&quot] = 0
+        if target[&quotend&quot] is None:
+            target[&quotend&quot] = config[&quotsteps&quot]
+
+    &#47&#47 Setup experiment directories and update them to configuration dictionary
+    setup_dirs(config)
+
+    &#47&#47 Setup loggers
+    del logging.getLogger(&quottensorflow&quot).handlers[0]
+    setup_loggers(config[&quotlog_dir&quot])
+
+    &#47&#47 Setup GPUs
+    os.environ["CUDA_VISIBLE_DEVICES"] = config[&quotgpu&quot]
+
+    &#47&#47 Backup source code
+    backup_src(config[&quotsrc_dir&quot])
+
+    return params, config
+
+def load_training_data(params, config):
+    Load and return the training data.
+    &#47&#47 Load data
+    if params[&quotis_conditional&quot]:
+        raise ValueError("Not supported yet.")
+    else:
+        labels = None
+    LOGGER.info("Loading training data.")
+    data = load_data(config[&quotdata_source&quot], config[&quotdata_filename&quot])
+    LOGGER.info("Training data size: %d", len(data))
+
+    &#47&#47 Build dataset
+    LOGGER.info("Building dataset.")
+    dataset = get_dataset(
+        data, labels, config[&quotbatch_size&quot], params[&quotdata_shape&quot],
+        config[&quotuse_random_transpose&quot], config[&quotn_jobs&quot])
+
+    &#47&#47 Create iterator
+    if params[&quotis_conditional&quot]:
+        train_x, train_y = dataset.make_one_shot_iterator().get_next()
+    else:
+        train_x, train_y = dataset.make_one_shot_iterator().get_next(), None
+
+    return train_x, train_y
+
+def load_or_create_samples(params, config):
+    Load or create the samples used as the sampler inputs.
+    &#47&#47 Load sample_z
+    LOGGER.info("Loading sample_z.")
+    sample_z_path = os.path.join(config[&quotmodel_dir&quot], &quotsample_z.npy&quot)
+    if os.path.exists(sample_z_path):
+        sample_z = np.load(sample_z_path)
+        if sample_z.shape[1] != params[&quotlatent_dim&quot]:
+            LOGGER.info("Loaded sample_z has wrong shape")
+            resample = True
+        else:
+            resample = False
+    else:
+        LOGGER.info("File for sample_z not found")
+        resample = True
+
+    &#47&#47 Draw new sample_z
+    if resample:
+        LOGGER.info("Drawing new sample_z.")
+        sample_z = scipy.stats.truncnorm.rvs(
+            -2, 2, size=(np.prod(config[&quotsample_grid&quot]), params[&quotlatent_dim&quot]))
+        make_sure_path_exists(config[&quotmodel_dir&quot])
+        np.save(sample_z_path, sample_z)
+
+    if params.get(&quotis_accompaniment&quot):
+        &#47&#47 Load sample_x
+        LOGGER.info("Loading sample_x.")
+        sample_x_path = os.path.join(config[&quotmodel_dir&quot], &quotsample_x.npy&quot)
+        if os.path.exists(sample_x_path):
+            sample_x = np.load(sample_x_path)
+            if sample_x.shape[1:] != params[&quotdata_shape&quot]:
+                LOGGER.info("Loaded sample_x has wrong shape")
+                resample = True
+            else:
+                resample = False
+        else:
+            LOGGER.info("File for sample_x not found")
+            resample = True
+
+        &#47&#47 Draw new sample_x
+        if resample:
+            LOGGER.info("Drawing new sample_x.")
+            data = load_data(config[&quotdata_source&quot], config[&quotdata_filename&quot])
+            sample_x = get_samples(
+                np.prod(config[&quotsample_grid&quot]), data,
+                use_random_transpose = config[&quotuse_random_transpose&quot])
+            make_sure_path_exists(config[&quotmodel_dir&quot])
+            np.save(sample_x_path, sample_x)
+    else:
+        sample_x = None
+
+    return sample_x, None, sample_z
+
+def main():
+    Main function.
+    &#47&#47 Setup
+    logging.basicConfig(level=LOGLEVEL, format=LOG_FORMAT)
+    <a id="change">params, config = setup()</a>
+    LOGGER.info("Using parameters:\n%s", pformat(params))
+    LOGGER.info("Using configurations:\n%s", pformat(config))
+
+    &#47&#47 ================================== Data ==================================
+    &#47&#47 Load training data
+    <a id="change">train_x, _ = load_training_data(params, config)</a>
+
+    &#47&#47 ================================= Model ==================================
+    &#47&#47 Build model
+    <a id="change">model = Model(params)</a>
+    if params.get(&quotis_accompaniment&quot):
+        <a id="change">train_c = tf.expand_dims(
+            train_x[..., params[&quotcondition_track_idx&quot]], -1)</a>
+        <a id="change">train_nodes = model(
+            x=train_x, c=train_c, mode=&quottrain&quot, params=params, config=config)</a>
+    else:
+        <a id="change">train_nodes = model(
+            x=train_x, mode=&quottrain&quot, params=params, config=config)</a>
+
+    &#47&#47 Log number of parameters in the model
+    def get_n_params(var_list):
+        Return the number of variables in a variable list.
+        return int(np.sum([np.product(
+            [x.value for x in var.get_shape()]) for var in var_list]))
+
+    LOGGER.info("Number of trainable parameters in {}: {:,}".format(
+        model.name, get_n_params(tf.trainable_variables(model.name))))
+    for component in model.components:
+        LOGGER.info("Number of trainable parameters in {}: {:,}".format(
+            component.name, get_n_params(tf.trainable_variables(
+                model.name + &quot/&quot + component.name))))
+
+    &#47&#47 ================================ Sampler =================================
+    if config[&quotsave_samples_steps&quot] &gt; 0:
+        &#47&#47 Get sampler inputs
+        <a id="change">sample_x, sample_y, sample_z = load_or_create_samples(params, config)</a>
+
+        &#47&#47 Create sampler configurations
+        <a id="change">sampler_config = {
+            &quotresult_dir&quot: config[&quotsample_dir&quot],
+            &quotsuffix&quot: tf.as_string(train_nodes[&quotgen_step&quot]),
+            &quotimage_grid&quot: config[&quotsample_grid&quot],
+            &quotcolormap&quot: np.array(config[&quotcolormap&quot]).T,
+            &quotmidi&quot: config[&quotmidi&quot],
+            &quotcollect_save_arrays_op&quot: config[&quotsave_array_samples&quot],
+            &quotcollect_save_images_op&quot: config[&quotsave_image_samples&quot],
+            &quotcollect_save_pianorolls_op&quot: config[&quotsave_pianoroll_samples&quot]}</a>
+
+        &#47&#47 Get prediction nodes
+        <a id="change">placeholder_z = tf.placeholder(tf.float32, shape=sample_z.shape)</a>
+        <a id="change">placeholder_y = None</a>
+        if params.get(&quotis_accompaniment&quot):
+            <a id="change">c_shape = np.append(sample_x.shape[:-1], 1)</a>
+            <a id="change">placeholder_c = tf.placeholder(tf.float32, shape=c_shape)</a>
+            <a id="change">predict_nodes = model(
+                z=placeholder_z, y=placeholder_y, c=placeholder_c,
+                mode=&quotpredict&quot, params=params, config=sampler_config)</a>
+        else:
+            <a id="change">predict_nodes = model(
+                z=placeholder_z, y=placeholder_y, mode=&quotpredict&quot, params=params,
+                config=sampler_config)</a>
+
+        &#47&#47 Get sampler op
+        <a id="change">sampler_op = tf.group([
+            predict_nodes[key] for key in (
+                &quotsave_arrays_op&quot, &quotsave_images_op&quot, &quotsave_pianorolls_op&quot)
+            if key in predict_nodes])</a>
+        <a id="change">sampler_op_no_pianoroll = tf.group([
+            predict_nodes[key] for key in (&quotsave_arrays_op&quot, &quotsave_images_op&quot)
+            if key in predict_nodes])</a>
+
+    &#47&#47 ================================ Metrics =================================
+    if config[&quotevaluate_steps&quot] &gt; 0:
+        <a id="change">binarized = tf.round(.5 * (predict_nodes[&quotfake_x&quot] + 1.))</a>
+        <a id="change">save_metric_ops = get_save_metric_ops(
+            binarized, params[&quotbeat_resolution&quot], train_nodes[&quotgen_step&quot],
+            config[&quoteval_dir&quot])</a>
+        <a id="change">save_metrics_op = tf.group(save_metric_ops)</a>
+
+    &#47&#47 ========================== Training Preparation ==========================
+    &#47&#47 Get tensorflow session config
+    <a id="change">tf_config = tf.ConfigProto()</a>
+    <a id="change">tf_config.gpu_options.allow_growth = True</a>
+
+    &#47&#47 Training hooks
+    <a id="change">global_step = tf.train.get_global_step()</a>
+    <a id="change">steps_per_iter = config[&quotn_dis_updates_per_gen_update&quot] + 1</a>
+    <a id="change">hooks = [tf.train.NanTensorHook(train_nodes[&quotloss&quot])]</a>
+
+    &#47&#47 Tensor logger
+    <a id="change">tensor_logger = {
+        &quotstep&quot: train_nodes[&quotgen_step&quot],
+        &quotgen_loss&quot: train_nodes[&quotgen_loss&quot],
+        &quotdis_loss&quot: train_nodes[&quotdis_loss&quot]}</a>
+    <a id="change">step_logger = open(os.path.join(config[&quotlog_dir&quot], &quotstep.log&quot), &quotw&quot)</a>
+
+    &#47&#47 ======================= Monitored Training Session =======================
+    LOGGER.info("Training start.")
+    with tf.train.MonitoredTrainingSession(
+        save_checkpoint_steps=config[&quotsave_checkpoint_steps&quot] * steps_per_iter,
+        save_summaries_steps=config[&quotsave_summaries_steps&quot] * steps_per_iter,
+        checkpoint_dir=config[&quotmodel_dir&quot], log_step_count_steps=0,
+        hooks=hooks, config=tf_config) as sess:
+
+        &#47&#47 Get global step value
+        <a id="change">step = tf.train.global_step(sess, global_step)</a>
+        if step == 0:
+            step_logger.write(&quot&#47&#47 step, gen_loss, dis_loss\n&quot)
+
+        &#47&#47 ============================== Training ==============================
+        if step &gt;= config[&quotsteps&quot]:
+            LOGGER.info("Global step has already exceeded total steps.")
+            <a id="change">step_logger</a><a id="change">.close()</a>
+            return
+
+        &#47&#47 Training iteration
+        while step &lt; config[&quotsteps&quot]:
+
+            &#47&#47 Train the discriminator
+            if step &lt; 10:
+                <a id="change">n_dis_updates = 10 * config[&quotn_dis_updates_per_gen_update&quot]</a>
+            else:
+                <a id="change">n_dis_updates = config[&quotn_dis_updates_per_gen_update&quot]</a>
+            for _ in range(n_dis_updates):
+                sess.run(train_nodes[&quottrain_ops&quot][&quotdis&quot])
+
+            &#47&#47 Train the generator
+            <a id="change">log_loss_steps = config[&quotlog_loss_steps&quot] or 100</a>
+            if (step + 1) % log_loss_steps == 0:
+                <a id="change">step, _, tensor_logger_values = sess.run([
+                    train_nodes[&quotgen_step&quot], train_nodes[&quottrain_ops&quot][&quotgen&quot],
+                    tensor_logger])</a>
+                &#47&#47 Logger
+                if config[&quotlog_loss_steps&quot] &gt; 0:
+                    LOGGER.info("step={}, {}".format(
+                        tensor_logger_values[&quotstep&quot], &quot, &quot.join([
+                            &quot{}={: 8.4E}&quot.format(key, value)
+                            for key, value in tensor_logger_values.items()
+                            if key != &quotstep&quot])))
+                step_logger.write("{}, {: 10.6E}, {: 10.6E}\n".format(
+                    tensor_logger_values[&quotstep&quot],
+                    tensor_logger_values[&quotgen_loss&quot],
+                    tensor_logger_values[&quotdis_loss&quot]))
+            else:
+                <a id="change">step, _ = sess.run([
+                    train_nodes[&quotgen_step&quot], train_nodes[&quottrain_ops&quot][&quotgen&quot]])</a>
+
+            &#47&#47 Run sampler
+            if ((config[&quotsave_samples_steps&quot] &gt; 0)
+                    and (step % config[&quotsave_samples_steps&quot] == 0)):
+                LOGGER.info("Running sampler")
+                <a id="change">feed_dict_sampler = {placeholder_z: sample_z}</a>
+                if params.get(&quotis_accompaniment&quot):
+                    <a id="change">feed_dict_sampler[placeholder_c] = np.expand_dims(
+                        sample_x[..., params[&quotcondition_track_idx&quot]], -1)</a>
+                if step &lt; 3000:
+                    sess.run(
+                        sampler_op_no_pianoroll, feed_dict=feed_dict_sampler)
+                else:
+                    sess.run(sampler_op, feed_dict=feed_dict_sampler)
+
+            &#47&#47 Run evaluation
+            if ((config[&quotevaluate_steps&quot] &gt; 0)
+                    and (step % config[&quotevaluate_steps&quot] == 0)):
+                LOGGER.info("Running evaluation")
+                <a id="change">feed_dict_evaluation = {
+                    placeholder_z: scipy.stats.truncnorm.rvs(-2, 2, size=(
+                        np.prod(config[&quotsample_grid&quot]), params[&quotlatent_dim&quot]))}</a>
+                if params.get(&quotis_accompaniment&quot):
+                    <a id="change">feed_dict_evaluation[placeholder_c] = np.expand_dims(
+                        sample_x[..., params[&quotcondition_track_idx&quot]], -1)</a>
+                sess.run(save_metrics_op, feed_dict=feed_dict_evaluation)
+
+            &#47&#47 Stop training if stopping criterion suggests
+            if sess.should_stop():
+                break
+
+    LOGGER.info("Training end")
+    <a id="change">step_logger</a><a id="change">.close()</a>
+
+if __name__ == "__main__":
+    main()
+</code></pre>

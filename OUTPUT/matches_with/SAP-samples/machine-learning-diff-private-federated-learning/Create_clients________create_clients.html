@@ -1,0 +1,58 @@
+<link rel="stylesheet" href="../..//default.css">
+<script src="../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/SAP-samples/machine-learning-diff-private-federated-learning/blob/main/Create_clients.py#L5">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/machine-learning-diff-private-federated-learning/blob/main/Create_clients.py#L5">GitMyHubLink</a>
+
+import pickle
+import numpy as np
+import os
+
+def create_clients(<a id="change">num</a>, <a id="change">dir</a>):
+
+    &quot&quot&quot
+    This function creates clients that hold non-iid MNIST data accroding to the experiments in https://research.google.com/pubs/pub44822.html. (it actually just creates indices that point to data.
+    but the way these indices are grouped, they create a non-iid client.)
+    :param num: Number of clients
+    :param dir: where to store
+    :return: _
+    &quot&quot&quot
+
+    <a id="change">num_examples = 50000</a>
+    <a id="change">num_classes = 10</a>
+    if os.path.exists(dir + &quot/&quot+str(num)+&quot_clients.pkl&quot):
+        print(&quotClient exists at: &quot+dir + &quot/&quot+str(num)+&quot_clients.pkl&quot)
+        return
+    if not os.path.exists(dir):
+        os.makedirs(dir)
+    <a id="change">buckets = []</a>
+    for k in range(num_classes):
+        <a id="change">temp = []</a>
+        for j in range(num / 100):
+            <a id="change">temp = np.hstack((temp, k * num_examples/10 + np.random.permutation(int(num_examples/10))))</a>
+        <a id="change">buckets = np.hstack((buckets, temp))</a>
+    <a id="change">shards = 2 * num</a>
+    <a id="change">perm = np.random.permutation(shards)</a>
+    &#47&#47 z will be of length 250 and each element represents a client.
+    <a id="change">z = []</a>
+    <a id="change">ind_list = np.split(buckets, shards)</a>
+    for j in range(0, shards, 2):
+        &#47&#47 each entry of z is associated to two shards. the two shards are sampled randomly by using the permutation matrix
+        &#47&#47 perm and stacking two shards together using vstack. Each client now holds 250*2 datapoints.
+        z.append(np.hstack((ind_list[int(perm[j])], ind_list[int(perm[j + 1])])))
+        &#47&#47 shuffle the data in each element of z, so that each client doesn&quott have all digits stuck together.
+        <a id="change">perm_2 = np.random.permutation(int(2 * len(buckets) / shards))</a>
+        <a id="change">z[-1] = z[-1][perm_2]</a>
+    <a id="change">filehandler = open(dir + &quot/&quot+str(num)+&quot_clients.pkl&quot, "wb")</a>
+    pickle.dump(z, filehandler)
+    <a id="change">filehandler</a><a id="change">.close()</a>
+    print(&quotclient created at: &quot+dir + &quot/&quot+str(num)+&quot_clients.pkl&quot)
+
+if __name__ == &quot__main__&quot:
+    List_of_clients = [100,200,500,1000,2000,5000,10000]
+    for j in List_of_clients:
+        create_clients(j, os.getcwd()+&quot/DATA/clients&quot)
+</code></pre>

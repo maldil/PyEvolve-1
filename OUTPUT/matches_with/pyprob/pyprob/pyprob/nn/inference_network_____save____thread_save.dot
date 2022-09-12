@@ -1,0 +1,81 @@
+digraph G {
+1 [label="(15560318)shutil(shutil)" shape=ellipse style=dashed]
+2 [label="(15560292)Any(tmp_dir)" shape=ellipse style=dashed color=blue fontcolor=blue]
+3 [label="(15560297)os(os)" shape=ellipse style=dashed]
+4 [label="(15560296)str(tmp_file_name)" shape=ellipse style=dashed color=red fontcolor=red]
+5 [label="(15560312)=" shape=box style=dashed color=red fontcolor=red]
+6 [label="(15560316)tarfile.TarFile(tar)" shape=ellipse style=dashed color=red fontcolor=red]
+7 [label="(15560293)tempfile(tempfile)" shape=ellipse style=dashed]
+8 [label="(15560320)Any(tmp_dir)" shape=ellipse style=dashed]
+9 [label="(15560300)Any(tmp_dir)" shape=ellipse style=dashed]
+10 [label="(15560310)Any(file_name)" shape=ellipse style=dashed]
+11 [label="(15560291)START" style=dashed]
+12 [label="(15560307)tarfile.TarFile(tar)" shape=ellipse style=dashed color=red fontcolor=red]
+13 [label="(15560294)mkdtemp" shape=box style=dashed]
+14 [label="(15560303)torch(torch)" shape=ellipse style=dashed]
+15 [label="(15560317)close" shape=box style=dashed color=red fontcolor=red]
+16 [label="(15560308)tarfile(tarfile)" shape=ellipse style=dashed]
+17 [label="(15560295)=" shape=box style=dashed]
+18 [label="(15560299)join" shape=box style=dashed]
+19 [label="(15560301)String(lit(pyprob_inference_network))" shape=ellipse style=dashed]
+20 [label="(15560306)str(tmp_file_name)" shape=ellipse style=dashed]
+21 [label="(15560319)rmtree" shape=box style=dashed]
+22 [label="(15560302)=" shape=box style=dashed]
+23 [label="(15560321)END" style=dashed]
+24 [label="(15560305)Dict[str, Any](data)" shape=ellipse style=dashed]
+25 [label="(15560311)String(lit(w:gz))" shape=ellipse style=dashed color=red fontcolor=red]
+26 [label="(15560315)str(tmp_file_name)" shape=ellipse style=dashed]
+27 [label="(15560304)save" shape=box style=dashed]
+28 [label="(15560313)tarfile.TarFile(tar)" shape=ellipse style=dashed]
+29 [label="(15560314)add" shape=box style=dashed]
+30 [label="(15560298)os.path(path)" shape=ellipse style=dashed]
+31 [label="(15560309)open" shape=box style=dashed color=red fontcolor=red]
+17 -> 2 [label="def" style=dotted];
+22 -> 4 [label="def" style=dotted];
+11 -> 5 [label="" style=solid];
+31 -> 5 [label="dep" style=dotted];
+31 -> 5 [label="para" style=dotted];
+12 -> 6 [label="ref" style=dotted];
+2 -> 8 [label="ref" style=dotted];
+2 -> 9 [label="ref" style=dotted];
+5 -> 12 [label="def" style=dotted];
+11 -> 13 [label="" style=solid];
+7 -> 13 [label="recv" style=dotted];
+11 -> 15 [label="" style=solid];
+6 -> 15 [label="recv" style=dotted];
+29 -> 15 [label="dep" style=dotted];
+11 -> 17 [label="" style=solid];
+13 -> 17 [label="dep" style=dotted];
+13 -> 17 [label="para" style=dotted];
+11 -> 18 [label="" style=solid];
+30 -> 18 [label="recv" style=dotted];
+9 -> 18 [label="para" style=dotted];
+19 -> 18 [label="para" style=dotted];
+17 -> 18 [label="dep" style=dotted];
+4 -> 20 [label="ref" style=dotted];
+11 -> 21 [label="" style=solid];
+1 -> 21 [label="recv" style=dotted];
+8 -> 21 [label="para" style=dotted];
+15 -> 21 [label="dep" style=dotted];
+11 -> 22 [label="" style=solid];
+18 -> 22 [label="dep" style=dotted];
+18 -> 22 [label="para" style=dotted];
+21 -> 23 [label="dep" style=dotted];
+4 -> 26 [label="ref" style=dotted];
+11 -> 27 [label="" style=solid];
+14 -> 27 [label="recv" style=dotted];
+24 -> 27 [label="para" style=dotted];
+20 -> 27 [label="para" style=dotted];
+22 -> 27 [label="dep" style=dotted];
+12 -> 28 [label="ref" style=dotted];
+11 -> 29 [label="" style=solid];
+28 -> 29 [label="recv" style=dotted];
+26 -> 29 [label="para" style=dotted];
+5 -> 29 [label="dep" style=dotted];
+3 -> 30 [label="qual" style=dotted];
+11 -> 31 [label="" style=solid];
+16 -> 31 [label="recv" style=dotted];
+10 -> 31 [label="para" style=dotted];
+25 -> 31 [label="para" style=dotted];
+27 -> 31 [label="dep" style=dotted];
+}

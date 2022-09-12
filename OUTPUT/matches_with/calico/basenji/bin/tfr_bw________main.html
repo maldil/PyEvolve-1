@@ -1,0 +1,172 @@
+<link rel="stylesheet" href="../../..//default.css">
+<script src="../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/calico/basenji/blob/master/bin/tfr_bw.py#L23">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/basenji/blob/master/bin/tfr_bw.py#L23">GitMyHubLink</a>
+
+&#47&#47!/usr/bin/env python
+from optparse import OptionParser
+import os
+
+import numpy as np
+import pysam
+import pyBigWig
+import tensorflow as tf
+
+from basenji.dna_io import hot1_dna
+from basenji.tfrecord_batcher import order_tfrecords
+
+&quot&quot&quot
+tfr_bw.py
+
+Generate BigWig tracks from TFRecords.
+Experimental!
+&quot&quot&quot
+
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+&#47&#47 main
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+def main():
+    <a id="change">usage = &quotusage: %prog [options] &lt;tfr_dir&gt; &lt;out_bw&gt;&quot</a>
+    <a id="change">parser = OptionParser(usage)</a>
+    parser.add_option(&quot-f&quot, dest=&quotfasta_file&quot,
+            default=&quot%s/assembly/ucsc/hg38.fa&quot % os.environ[&quotHG38&quot])
+    parser.add_option(&quot-g&quot, dest=&quotgenome_file&quot,
+            default=&quot%s/assembly/ucsc/hg38.human.genome&quot % os.environ[&quotHG38&quot])
+    parser.add_option(&quot-l&quot, dest=&quottarget_length&quot,
+            default=1024, type=&quotint&quot,
+            help=&quotTFRecord target length [Default: %default]&quot)
+    parser.add_option(&quot-s&quot, dest=&quotdata_split&quot, default=&quottrain&quot)
+    parser.add_option(&quot-t&quot, dest=&quottarget_i&quot,
+            default=0, type=&quotint&quot, help=&quotTarget index [Default: %default]&quot)
+    <a id="change">(options,args) = parser.parse_args()</a>
+
+    if len(args) != 2:
+        parser.error(&quotMust provide TF Records directory and output BigWig&quot)
+    else:
+        <a id="change">tfr_dir = args[0]</a>
+        <a id="change">out_bw_file = args[1]</a>
+
+    &#47&#47 initialize output BigWig
+    <a id="change">out_bw_open = pyBigWig.open(out_bw_file, &quotw&quot)</a>
+
+    &#47&#47 construct header
+    <a id="change">header = []</a>
+    for line in open(options.genome_file):
+        <a id="change">a = line.split()</a>
+        header.append((a[0], int(a[1])))
+
+    &#47&#47 write header
+    out_bw_open.addHeader(header)
+
+    &#47&#47 initialize chr dictionary
+    <a id="change">chr_values = {}</a>
+    for chrm, clen in header:
+        <a id="change">chr_values[chrm] = np.zeros(clen, dtype=&quotfloat16&quot)</a>
+
+    &#47&#47 open sequences BED
+    <a id="change">seq_bed_open = open(&quot%s/../sequences0.bed&quot % tfr_dir)</a>
+
+    &#47&#47 open FASTA
+    <a id="change">fasta_open = pysam.Fastafile(options.fasta_file)</a>
+
+    &#47&#47 initialize one shot iterator
+    &#47&#47 next_op = make_next_op(&quot%s/%s-0-0.tfr&quot % (tfr_dir, options.data_split))
+    <a id="change">next_op = make_next_op(&quot%s/%s-0-*.tfr&quot % (tfr_dir, options.data_split))</a>
+
+    &#47&#47 read sequence values
+    with tf.Session() as sess:
+      <a id="change">next_datum = sess.run(next_op)</a>
+      while next_datum:
+        &#47&#47 read sequence
+        <a id="change">seq_bed_line = seq_bed_open.readline()</a>
+        <a id="change">a = seq_bed_line.rstrip().split(&quot\t&quot)</a>
+        while a[-1] != options.data_split:
+            <a id="change">seq_bed_line = seq_bed_open.readline()</a>
+            <a id="change">a = seq_bed_line.rstrip().split(&quot\t&quot)</a>
+        <a id="change">chrm = a[0]</a>
+        <a id="change">start = int(a[1])</a>
+        <a id="change">end = int(a[2])</a>
+        <a id="change">target_pool = (end - start) // options.target_length</a>
+
+        &#47&#47 check sequence
+        <a id="change">seq_1hot = next_datum[&quotsequence&quot].reshape((-1,4))</a>
+        <a id="change">seq_1hot_dna = hot1_dna(seq_1hot)</a>
+        <a id="change">seq_fasta = fasta_open.fetch(chrm, start, end).upper()</a>
+        if seq_1hot_dna != seq_fasta:
+            <a id="change">seq_diff = [seq_1hot_dna[i] != seq_fasta[i] for i in range(len(seq_fasta))]</a>
+            <a id="change">seq_diff = np.array(seq_match, dtype=&quotbool&quot)</a>
+            print(&quotWARNING: %s:%d-%d differs by %d nts (%.4f)&quot % \
+                    (chrm, start, end, seq_match.sum(), seq_match.mean()))
+
+        &#47&#47 read targets
+        <a id="change">targets = next_datum[&quottarget&quot].reshape(options.target_length, -1)</a>
+        <a id="change">targets_ti = targets[:,options.target_i]</a>
+
+        &#47&#47 set values
+        <a id="change">chr_values[chrm][start:end] = np.repeat(targets_ti, target_pool)</a>
+
+        try:
+          <a id="change">next_datum = sess.run(next_op)</a>
+        except tf.errors.OutOfRangeError:
+          <a id="change">next_datum = False</a>
+
+    fasta_open.close()
+
+    &#47&#47 write chr values
+    for chrm, _ in header:
+        print(chrm)
+        out_bw_open.addEntries(chrm, 0, values=chr_values[chrm], span=1, step=1)
+
+    &#47&#47 close files
+    <a id="change">out_bw_open</a><a id="change">.close()</a>
+
+
+def make_next_op(tfr_pattern):
+    &#47&#47 read TF Records
+    &#47&#47 dataset = tf.data.Dataset.list_files(tfr_pattern)
+    tfr_files = order_tfrecords(tfr_pattern)
+    if tfr_files:
+        dataset = tf.data.Dataset.list_files(tf.constant(tfr_files), shuffle=False)
+    else:
+        print(&quotCannot order TFRecords %s&quot % tfr_pattern, file=sys.stderr)
+        dataset = tf.data.Dataset.list_files(tfr_pattern)
+
+    def file_to_records(filename):
+        return tf.data.TFRecordDataset(filename, compression_type=&quotZLIB&quot)
+    dataset = dataset.flat_map(file_to_records)
+
+    dataset = dataset.batch(1)
+    dataset = dataset.map(parse_proto)
+
+    iterator = dataset.make_one_shot_iterator()
+    try:
+        next_op = iterator.get_next()
+    except tf.errors.OutOfRangeError:
+        print(&quotTFRecord pattern %s is empty&quot % self.tfr_pattern, file=sys.stderr)
+        exit(1)
+
+    return next_op
+
+
+def parse_proto(example_protos):
+    features = {
+        &quotgenome&quot: tf.FixedLenFeature([1], tf.int64),
+        &quotsequence&quot: tf.FixedLenFeature([], tf.string),
+        &quottarget&quot: tf.FixedLenFeature([], tf.string)
+    }
+    parsed_features = tf.parse_example(example_protos, features=features)
+    genome = parsed_features[&quotgenome&quot]
+    seq = tf.decode_raw(parsed_features[&quotsequence&quot], tf.uint8)
+    targets = tf.decode_raw(parsed_features[&quottarget&quot], tf.float16)
+    return {&quotgenome&quot: genome, &quotsequence&quot: seq, &quottarget&quot: targets}
+
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+&#47&#47 __main__
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+if __name__ == &quot__main__&quot:
+    main()
+</code></pre>

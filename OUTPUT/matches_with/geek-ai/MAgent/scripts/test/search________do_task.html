@@ -1,0 +1,35 @@
+<link rel="stylesheet" href="../../../..//default.css">
+<script src="../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/geek-ai/MAgent/blob/master/scripts/test/search.py#L11">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/MAgent/blob/master/scripts/test/search.py#L11">GitMyHubLink</a>
+
+do search task
+
+import os
+import sys
+import argparse
+import time
+
+os.environ[&quotTF_CPP_MIN_LOG_LEVEL&quot] = &quot3&quot
+
+
+def do_task(task_item):
+    <a id="change">recorder = open(task_item["name"] + "-rec.out", "w")</a>
+    for value in task_item["arg_value"]:
+        tmp_name = task_item["name"] + "-" + value
+        cmd = " ".join([task_item["prefix"], task_item["arg_name"], value])
+        &#47&#47 cmd = "time " + cmd
+        cmd += " --name " + tmp_name
+        cmd = cmd + " &gt;&gt; " + tmp_name + ".out"
+        print("%s : %s" % (tmp_name, cmd))
+        start = time.time()
+        os.system(cmd)
+        use_time = time.time() - start
+        recorder.write("log_file: %s\t time: %.2f\n" % (tmp_name + ".log", use_time))
+    <a id="change">recorder</a><a id="change">.close()</a>
+
+</code></pre>

@@ -1,0 +1,199 @@
+<link rel="stylesheet" href="../../../..//default.css">
+<script src="../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/akutuzov/webvectors/blob/master/preprocessing/modular_processing/helpers.py#L46">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/webvectors/blob/master/preprocessing/modular_processing/helpers.py#L46">GitMyHubLink</a>
+
+&#47&#47! python3
+
+import sys
+from smart_open import open
+from gensim.models.word2vec import LineSentence
+from gensim.models.phrases import Phrases, Phraser
+
+
+def check_word(token, pos, nofunc=None, nopunct=True, noshort=True, stopwords=None):
+    outword = &quot_&quot.join([token, pos])
+    if nofunc:
+        if pos in nofunc:
+            return None
+    if nopunct:
+        if pos == &quotPUNCT&quot:
+            return None
+    if stopwords:
+        if token in stopwords:
+            return None
+    if noshort:
+        if len(token) &lt; 2:
+            return None
+    return outword
+
+
+def num_replace(word):
+    newtoken = &quotx&quot * len(word)
+    nw = newtoken + &quot_NUM&quot
+    return nw
+
+
+def convert(word):
+    parts = word.split(&quot:::&quot)
+    poses = [p.split(&quot_&quot)[-1] for p in parts]
+    tokens = [p.split(&quot_&quot)[0] for p in parts]
+    if &quotX&quot in poses:
+        newpos = &quotX&quot
+    elif &quotPROPN&quot in poses:
+        newpos = &quotPROPN&quot
+    else:
+        newpos = poses[-1]
+    newword = &quot::&quot.join(tokens) + &quot_&quot + newpos
+    return newword
+
+
+def bigrammer(source_file, outfile, mincount=100, threshold=0.99, scoring=&quotnpmi&quot,
+              commonfile=&quotcommon_tagged.txt&quot):
+    
+    :param source_file:
+    :param outfile:
+    :param mincount:
+    :param threshold:
+    :param scoring:
+    :param commonfile:
+    :return:
+    
+    common = set([word.strip() for word in open(commonfile, &quotr&quot).readlines()])
+    data = LineSentence(source_file)
+    bigram_transformer = Phrases(sentences=data, min_count=mincount, threshold=threshold,
+                                 scoring=scoring, max_vocab_size=400000000, delimiter=b&quot:::&quot,
+                                 progress_per=100000, common_terms=common)
+    bigrams = Phraser(bigram_transformer)
+    <a id="change">tempfile = open(outfile, &quota&quot)</a>
+    print(&quotWriting bigrammed text to %s&quot % outfile, file=sys.stderr)
+    for i in bigrams[data]:
+        tempfile.write(&quot &quot.join(i) + &quot\n&quot)
+    <a id="change">tempfile</a><a id="change">.close()</a>
+    return len(bigrams.phrasegrams)
+
+
+def clean_token(token, misc):
+    
+    :param token:
+    :param misc:
+    :return:
+    
+    out_token = token.strip().replace(&quot &quot, &quot&quot)
+    if token == &quotФайл&quot and &quotSpaceAfter=No&quot in misc:
+        return None
+    return out_token
+
+
+def clean_lemma(lemma, pos, lowercase=True):
+    
+    :param lowercase:
+    :param lemma:
+    :param pos:
+    :return:
+    
+    out_lemma = lemma.strip().replace(&quot &quot, &quot&quot).replace(&quot_&quot, &quot&quot)
+    if lowercase:
+        out_lemma = out_lemma.lower()
+    if &quot|&quot in out_lemma or out_lemma.endswith(&quot.jpg&quot) or out_lemma.endswith(&quot.png&quot):
+        return None
+    if pos != &quotPUNCT&quot:
+        if out_lemma.startswith(&quot«&quot) or out_lemma.startswith(&quot»&quot):
+            out_lemma = &quot&quot.join(out_lemma[1:])
+        if out_lemma.endswith(&quot«&quot) or out_lemma.endswith(&quot»&quot):
+            out_lemma = &quot&quot.join(out_lemma[:-1])
+        if out_lemma.endswith(&quot!&quot) or out_lemma.endswith(&quot?&quot) or out_lemma.endswith(&quot,&quot) \
+                or out_lemma.endswith(&quot.&quot):
+            out_lemma = &quot&quot.join(out_lemma[:-1])
+    return out_lemma
+
+
+def extract_proper(source_file, outfile, sentencebreaks=True, entities=None, lowercase=True):
+    
+    :param lowercase:
+    :param source_file:
+    :param outfile:
+    :param sentencebreaks:
+    :param entities:
+    :return:
+    
+    if entities is None:
+        entities = {&quotPROPN&quot}
+    print(&quotProcessing CONLLU input %s...&quot % source_file, file=sys.stderr)
+    print(&quotWriting lemmas to %s...&quot % outfile, file=sys.stderr)
+    tempfile0 = open(outfile, &quota&quot)
+
+    nr_lines = 0
+    named = False
+    memory = []
+    mem_case = None
+    mem_number = None
+
+    for line in open(source_file, &quotr&quot):
+        if line.startswith(&quot&#47&#47&quot):
+            continue
+        if not line.strip():
+            if sentencebreaks:
+                tempfile0.write(&quot\n&quot)
+            named = False
+            if memory:
+                past_lemma = &quot::&quot.join(memory)
+                memory = []
+                tempfile0.write(past_lemma + &quot_PROPN &quot)  &#47&#47 Lemmas and POS tags
+            continue
+        res = line.strip().split(&quot\t&quot)
+        if len(res) != 10:
+            continue
+        (word_id, token, lemma, pos, xpos, feats, head, deprel, deps, misc) = res
+        nr_lines += 1
+        token = clean_token(token, misc)
+        if lowercase:
+            lemma = clean_lemma(lemma, pos)
+        else:
+            lemma = clean_lemma(lemma, pos, lowercase=False)
+        if not lemma or not token:
+            continue
+        if pos in entities:
+            if &quot|&quot not in feats:
+                tempfile0.write(&quot%s_%s &quot % (lemma, pos))  &#47&#47 Lemmas and POS tags
+                continue
+            morph = {el.split(&quot=&quot)[0]: el.split(&quot=&quot)[1] for el in feats.split(&quot|&quot)}
+            if &quotCase&quot not in morph or &quotNumber&quot not in morph:
+                tempfile0.write(&quot%s_%s &quot % (lemma, pos))  &#47&#47 Lemmas and POS tags
+                continue
+            if not named:
+                named = True
+                mem_case = morph[&quotCase&quot]
+                mem_number = morph[&quotNumber&quot]
+            if morph[&quotCase&quot] == mem_case and morph[&quotNumber&quot] == mem_number:
+                memory.append(lemma)
+                if &quotSpacesAfter=\\n&quot in misc or &quotSpacesAfter=\s\\n&quot in misc:
+                    named = False
+                    past_lemma = &quot::&quot.join(memory)
+                    memory = []
+                    tempfile0.write(past_lemma + &quot_PROPN &quot)  &#47&#47 Lemmas and POS tags
+                    tempfile0.write(&quot\n&quot)
+            else:
+                named = False
+                past_lemma = &quot::&quot.join(memory)
+                memory = []
+                tempfile0.write(past_lemma + &quot_PROPN &quot)  &#47&#47 Lemmas and POS tags
+                tempfile0.write(&quot%s_%s &quot % (lemma, pos))  &#47&#47 Lemmas and POS tags
+        else:
+            if not named:
+                tempfile0.write(&quot%s_%s &quot % (lemma, pos))  &#47&#47 Lemmas and POS tags
+            else:
+                named = False
+                past_lemma = &quot::&quot.join(memory)
+                memory = []
+                tempfile0.write(past_lemma + &quot_PROPN &quot)  &#47&#47 Lemmas and POS tags
+                tempfile0.write(&quot%s_%s &quot % (lemma, pos))  &#47&#47 Lemmas and POS tags
+        if &quotSpacesAfter=\\n&quot in misc or &quotSpacesAfter=\s\\n&quot in misc:
+            tempfile0.write(&quot\n&quot)
+    tempfile0.close()
+    return nr_lines
+</code></pre>

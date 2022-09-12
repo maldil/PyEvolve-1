@@ -1,0 +1,212 @@
+<link rel="stylesheet" href="../../..//default.css">
+<script src="../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/A3sal0n/CyberThreatHunting/blob/master/tools/dga-hunt.py#L32">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/CyberThreatHunting/blob/master/tools/dga-hunt.py#L32">GitMyHubLink</a>
+
+&#47&#47!/usr/bin/python
+
+&#47&#47Copyright (C) 2018  Leonardo Mokarzel Falcon
+&#47&#47
+&#47&#47This program is free software: you can redistribute it and/or modify
+&#47&#47it under the terms of the GNU General Public License as published by
+&#47&#47the Free Software Foundation, either version 3 of the License, or
+&#47&#47(at your option) any later version.
+&#47&#47
+&#47&#47This program is distributed in the hope that it will be useful,
+&#47&#47but WITHOUT ANY WARRANTY; without even the implied warranty of
+&#47&#47MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+&#47&#47GNU General Public License for more details.
+&#47&#47
+&#47&#47You should have received a copy of the GNU General Public License
+&#47&#47along with this program.  If not, see &lt;http://www.gnu.org/licenses/&gt;
+
+import sys
+from scapy.all import *
+import getopt
+from datetime import datetime
+import sqlite3 as lite
+import requests
+import re
+import math
+from collections import Counter
+import socket
+import lib.gib_detect_train as gib
+import pickle
+
+
+def main(<a id="change">argv</a>):
+    <a id="change">startTime = datetime.now()</a>
+    <a id="change">source = &quot&quot</a>
+    <a id="change">ifile = &quot&quot</a>
+    <a id="change">ofile = &quot&quot</a>
+    <a id="change">domains = []</a>
+
+    try:
+        <a id="change">opts, args = getopt.getopt(argv, "hs:i:o:", ["source=", "ifile=", "ofile="])</a>
+    except getopt.GetoptError:
+        print(&quotdga-hunt.py -s &lt;csv/pcap&gt; -i &lt;input file&gt; -o &lt;output file&gt;&quot)
+        sys.exit(2)
+    for opt, arg in opts:
+        if opt == &quot-h&quot:
+            print(&quotdga-hunt.py -s &lt;csv/pcap&gt; -i &lt;input file&gt; -o &lt;output file&gt;&quot)
+            sys.exit()
+        elif opt in ("-s", "--source"):
+            <a id="change">source = arg</a>
+        elif opt in ("-i", "--ifile"):
+            <a id="change">ifile = arg</a>
+        elif opt in ("-o", "--ofile"):
+            <a id="change">ofile = arg</a>
+
+    if not source or not ifile or not ofile:
+        print(&quotWrong or incomplete input parameters!&quot)
+        print(&quotdga-hunt.py -s &lt;csv/pcap&gt; -i &lt;input file&gt; -o &lt;output file&gt;&quot)
+        sys.exit()
+
+    print(&quotGenerating and training Markov model&quot)
+    gib.train()
+
+    print(&quotRetrieving list of TLDs and Alexa top domains&quot)
+    <a id="change">tlds = get_tlds()</a>
+    <a id="change">topd = get_top_domains(&quotshared/top_domains.sqlite&quot)</a>
+
+    if source == &quotcsv&quot:
+        <a id="change">lines = []</a>
+        try:
+            <a id="change">f = open(ifile, &quotr&quot)</a>
+            <a id="change">lines = f.readlines()</a>
+            <a id="change">f</a><a id="change">.close()</a>
+        except IOError:
+            print(&quotThe file &quot + ifile + &quot was not found or cannot be opened!&quot)
+            print(&quotdga-hunt.py -s &lt;csv/pcap&gt; -i &lt;input file&gt; -o &lt;output file&gt;&quot)
+            sys.exit(2)
+
+        lines.pop(0)
+        for line in lines:
+            <a id="change">domain = line.strip()</a>
+            if domain not in domains:
+                domains.append(domain.lower())
+        <a id="change">domains = set(domains)</a>
+        <a id="change">res = find_bad_domains(topd, domains)</a>
+        if res is None:
+            print(&quotNo suspicious domain were found. Congratulations!&quot)
+        else:
+            <a id="change">f = open(ofile, &quotw&quot)</a>
+            for domain in res:
+                f.write(domain + &quot\n&quot)
+            <a id="change">f</a><a id="change">.close()</a>
+    elif source == &quotpcap&quot:
+        <a id="change">domains = get_pcap_domains(ifile, tlds)</a>
+        <a id="change">res = find_bad_domains(topd, domains)</a>
+        if res is None:
+            print(&quotNo suspicious domain were found. Congratulations!&quot)
+        else:
+            <a id="change">f = open(ofile, &quotw&quot)</a>
+            for domain in res:
+                f.write(domain + &quot\n&quot)
+            <a id="change">f</a><a id="change">.close()</a>
+
+    else:
+        print(&quotWrong or incomplete input parameters!&quot)
+        print(&quotdga-hunt.py -s &lt;csv/pcap&gt; -i &lt;input file&gt; -o &lt;output file&gt;&quot)
+        sys.exit(2)
+
+    print(&quotDone!&quot)
+    print(&quotYour results have been saved to the file &quot + ofile)
+    print(&quotTime elapsed: &quot + str(datetime.now() - startTime))
+    print(&quotHave a nice day!&quot)
+
+
+def get_tlds():
+    tlds = []
+    url = &quothttp://data.iana.org/TLD/tlds-alpha-by-domain.txt&quot
+    try:
+        r = requests.get(url)
+    except requests.exceptions.ConnectionError:
+        print(&quotConnection error!\nCheck your network connection and try again&quot)
+        sys.exit(2)
+    lines = r.text.split(&quot\n&quot)
+    lines.pop(0)
+    for line in lines:
+        tld = line.strip()
+        if tld:
+            tlds.append(tld.lower())
+    return set(tlds)
+
+
+def get_top_domains(dbname):
+    con = lite.connect(dbname)
+    con.text_factory = str
+    with con:
+        cur = con.cursor()
+        cur.execute("SELECT domain FROM domains")
+        rows = cur.fetchall()
+        domains = []
+        if rows:
+            for row in rows:
+                domains.append(row[0].lower())
+        else:
+            pass
+        return set(domains)
+
+
+def get_pcap_domains(pcap_file, tlds):
+    p = re.compile(r&quot^([a-z0-9]+(-[a-z0-9]+)*\.)+[a-z]{2,}$&quot)
+    domains = []
+    try:
+        packets = rdpcap(pcap_file)
+    except IOError:
+        print(&quotPcap file is not present or cannot be opened!&quot)
+        print(&quotdga-hunt.py -s &lt;csv/pcap&gt; -i &lt;input file&gt; -o &lt;output file&gt;&quot)
+        sys.exit(2)
+    for pkt in packets:
+        if pkt.haslayer(DNSQR):
+            query = pkt[DNSQR].qname.rstrip(&quot.&quot)
+            query = query.lower()
+            res = p.match(query)
+            if res is not None:
+                fields = query.split(&quot.&quot)
+                if fields[-1] in tlds:
+                    domains.append(fields[-2]+&quot.&quot+fields[-1])
+    if len(domains) &gt; 0:
+        return set(domains)
+    else:
+        print(&quotThe pcap file provided does not contain relevant DNS requests.&quot)
+        print(&quotRepeat your experiment and ensure that the relevant network traffic from the malware sample is captured.&quot)
+        print(&quotdga-hunt.py -s &lt;csv/pcap&gt; -i &lt;input file&gt; -o &lt;output file&gt;&quot)
+        sys.exit(2)
+
+
+def entropy(s):
+    "Calculates the Boltzmann entropy of a string"
+    l = float(len(s))
+    return -sum(map(lambda a: (a / l) * math.log((a / l), 2), Counter(s).values()))
+
+
+def find_bad_domains(topd, domains):
+    model_data = pickle.load(open(&quotshared/gib_model.pki&quot, &quotrb&quot))
+    model_mat = model_data[&quotmat&quot]
+    threshold = model_data[&quotthresh&quot]
+    suspicious = []
+    for domain in domains:
+        if domain not in topd:
+            &#47&#47resolved = False
+            &#47&#47try:
+            &#47&#47    data = socket.gethostbyname(domain)
+            &#47&#47    resolved = True
+            &#47&#47except socket.gaierror:
+            &#47&#47    pass
+            if (entropy(domain) &gt; 3) and (gib.avg_transition_prob(domain, model_mat) &lt; threshold):
+                suspicious.append(domain)
+    if len(suspicious) &gt; 0:
+        return suspicious
+    else:
+        return None
+
+
+if __name__ == "__main__":
+    main(sys.argv[1:])
+</code></pre>

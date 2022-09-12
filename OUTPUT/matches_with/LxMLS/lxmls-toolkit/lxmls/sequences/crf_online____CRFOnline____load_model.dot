@@ -1,0 +1,122 @@
+digraph G {
+1 [label="(30371929)String(lit(r))" shape=ellipse style=dashed color=black fontcolor=black]
+2 [label="(30371925)open" shape=box style=dashed color=black fontcolor=black]
+3 [label="(30371942)int(p_id)" shape=ellipse style=dashed]
+4 [label="(30371920)Any(dir)" shape=ellipse style=dashed]
+5 [label="(30371936)List[str](toks)" shape=ellipse style=dashed]
+6 [label="(30371922)=" shape=box style=dashed color=blue fontcolor=blue]
+7 [label="(30371950)List[str](toks)" shape=ellipse style=dashed]
+8 [label="(30371926)Any(dir)" shape=ellipse style=dashed]
+9 [label="(30371941)=" shape=box style=dashed color=red fontcolor=red]
+10 [label="(30371944)List[str](toks)" shape=ellipse style=dashed]
+11 [label="(30371959)=" shape=box style=dashed color=red fontcolor=red]
+12 [label="(30371933)str(line)" shape=ellipse style=dashed]
+13 [label="(30371932)str(line)" shape=ellipse style=dashed]
+14 [label="(30371931)TextIO(fn)" shape=ellipse style=dashed]
+15 [label="(30371938)strip" shape=box style=dashed]
+16 [label="(30371917)(null)" shape=ellipse style=dashed]
+17 [label="(30371930)=" shape=box style=dashed color=black fontcolor=black]
+18 [label="(30371947)=" shape=box style=dashed color=yellow fontcolor=yellow]
+19 [label="(30371955)CRFOnline.parameters(parameters)" shape=ellipse style=dashed]
+20 [label="(30371935)empty" shape=box style=dashed]
+21 [label="(30371960)TextIO(fn)" shape=ellipse style=dashed color=black fontcolor=black]
+22 [label="(30371937)str(line)" shape=ellipse style=dashed]
+23 [label="(30371946)number(0)" shape=ellipse style=dashed]
+24 [label="(30371934)For" shape=diamond style=dashed]
+25 [label="(30371952)number(1)" shape=ellipse style=dashed]
+26 [label="(30371943)int" shape=box style=dashed]
+27 [label="(30371948)float(p)" shape=ellipse style=dashed]
+28 [label="(30371940)String(lit(	))" shape=ellipse style=dashed]
+29 [label="(30371915)START" style=dashed]
+30 [label="(30371962)END" style=dashed]
+31 [label="(30371927)String(lit(parameters.txt))" shape=ellipse style=dashed]
+32 [label="(30371953)=" shape=box style=dashed color=blue fontcolor=blue]
+33 [label="(30371916)CRFOnline(self)" shape=ellipse style=dashed]
+34 [label="(30371924)TextIO(fn)" shape=ellipse style=dashed color=black fontcolor=black]
+35 [label="(30371939)split" shape=box style=dashed]
+36 [label="(30371949)float" shape=box style=dashed]
+37 [label="(30371954)CRFOnline(self)" shape=ellipse style=dashed]
+38 [label="(30371945)Any(Subscript)" shape=ellipse style=dashed]
+39 [label="(30371957)int(p_id)" shape=ellipse style=dashed]
+40 [label="(30371918)=" shape=box style=dashed color=red fontcolor=red]
+41 [label="(30371921)(null)" shape=ellipse style=dashed]
+42 [label="(30371958)float(p)" shape=ellipse style=dashed]
+43 [label="(30371928)Add" shape=box style=dashed]
+44 [label="(30371961)close" shape=box style=dashed color=black fontcolor=black]
+45 [label="(30371956)CRFOnline.parameters[.](Subscript)" shape=ellipse style=dashed]
+46 [label="(30371951)Any(Subscript)" shape=ellipse style=dashed]
+29 -> 2 [label="" style=solid];
+43 -> 2 [label="dep" style=dotted];
+43 -> 2 [label="para" style=dotted];
+1 -> 2 [label="para" style=dotted];
+6 -> 2 [label="dep" style=dotted];
+18 -> 3 [label="def" style=dotted];
+6 -> 4 [label="def" style=dotted];
+9 -> 5 [label="def" style=dotted];
+29 -> 6 [label="" style=solid];
+41 -> 6 [label="para" style=dotted];
+40 -> 6 [label="dep" style=dotted];
+5 -> 7 [label="ref" style=dotted];
+24 -> 9 [label="" style=solid];
+35 -> 9 [label="dep" style=dotted];
+35 -> 9 [label="para" style=dotted];
+5 -> 10 [label="ref" style=dotted];
+24 -> 11 [label="" style=solid];
+42 -> 11 [label="para" style=dotted];
+32 -> 11 [label="dep" style=dotted];
+13 -> 12 [label="ref" style=dotted];
+14 -> 13 [label="def" style=dotted];
+34 -> 14 [label="ref" style=dotted];
+24 -> 15 [label="" style=solid];
+22 -> 15 [label="recv" style=dotted];
+20 -> 15 [label="dep" style=dotted];
+29 -> 17 [label="" style=solid];
+2 -> 17 [label="dep" style=dotted];
+2 -> 17 [label="para" style=dotted];
+24 -> 18 [label="" style=solid];
+26 -> 18 [label="dep" style=dotted];
+26 -> 18 [label="para" style=dotted];
+37 -> 19 [label="qual" style=dotted];
+24 -> 20 [label="" style=solid];
+34 -> 21 [label="ref" style=dotted];
+13 -> 22 [label="ref" style=dotted];
+29 -> 24 [label="" style=solid];
+12 -> 24 [label="cond" style=dotted];
+17 -> 24 [label="dep" style=dotted];
+24 -> 26 [label="" style=solid];
+38 -> 26 [label="para" style=dotted];
+9 -> 26 [label="dep" style=dotted];
+32 -> 27 [label="def" style=dotted];
+44 -> 30 [label="dep" style=dotted];
+24 -> 32 [label="" style=solid];
+36 -> 32 [label="dep" style=dotted];
+36 -> 32 [label="para" style=dotted];
+40 -> 33 [label="def" style=dotted];
+17 -> 34 [label="def" style=dotted];
+24 -> 35 [label="" style=solid];
+15 -> 35 [label="dep" style=dotted];
+15 -> 35 [label="recv" style=dotted];
+28 -> 35 [label="para" style=dotted];
+20 -> 35 [label="dep" style=dotted];
+24 -> 36 [label="" style=solid];
+46 -> 36 [label="para" style=dotted];
+18 -> 36 [label="dep" style=dotted];
+10 -> 38 [label="qual" style=dotted];
+23 -> 38 [label="para" style=dotted];
+3 -> 39 [label="ref" style=dotted];
+29 -> 40 [label="" style=solid];
+16 -> 40 [label="para" style=dotted];
+27 -> 42 [label="ref" style=dotted];
+29 -> 43 [label="" style=solid];
+8 -> 43 [label="para" style=dotted];
+31 -> 43 [label="para" style=dotted];
+6 -> 43 [label="dep" style=dotted];
+29 -> 44 [label="" style=solid];
+21 -> 44 [label="recv" style=dotted];
+11 -> 44 [label="dep" style=dotted];
+19 -> 45 [label="qual" style=dotted];
+39 -> 45 [label="para" style=dotted];
+11 -> 45 [label="def" style=dotted];
+7 -> 46 [label="qual" style=dotted];
+25 -> 46 [label="para" style=dotted];
+}

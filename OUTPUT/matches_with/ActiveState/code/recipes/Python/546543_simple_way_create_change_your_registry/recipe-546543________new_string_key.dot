@@ -1,0 +1,42 @@
+digraph G {
+1 [label="(175043572)TextIO(reg2)" shape=ellipse style=dashed color=blue fontcolor=blue]
+2 [label="(175043569)TextIO(reg2)" shape=ellipse style=dashed]
+3 [label="(175043571)String(lit(REGEDIT4
+[HKEY_CURRENT_USER\Example]
+"String Key"="C:\\"))" shape=ellipse style=dashed]
+4 [label="(175043578)END" style=dashed]
+5 [label="(175043564)TextIO(reg2)" shape=ellipse style=dashed color=blue fontcolor=blue]
+6 [label="(175043567)String(lit(w))" shape=ellipse style=dashed color=blue fontcolor=blue]
+7 [label="(175043568)=" shape=box style=dashed color=blue fontcolor=blue]
+8 [label="(175043570)write" shape=box style=dashed]
+9 [label="(175043563)START" style=dashed]
+10 [label="(175043566)String(lit(C:\reg2.reg))" shape=ellipse style=dashed color=blue fontcolor=blue]
+11 [label="(175043575)WinExec" shape=box style=dashed]
+12 [label="(175043565)open" shape=box style=dashed color=blue fontcolor=blue]
+13 [label="(175043576)String(lit(reg import C:\reg2.reg))" shape=ellipse style=dashed]
+14 [label="(175043574)win32api(win32api)" shape=ellipse style=dashed]
+15 [label="(175043577)number(0)" shape=ellipse style=dashed]
+16 [label="(175043573)close" shape=box style=dashed color=blue fontcolor=blue]
+5 -> 1 [label="ref" style=dotted];
+5 -> 2 [label="ref" style=dotted];
+11 -> 4 [label="dep" style=dotted];
+7 -> 5 [label="def" style=dotted];
+9 -> 7 [label="" style=solid];
+12 -> 7 [label="dep" style=dotted];
+12 -> 7 [label="para" style=dotted];
+9 -> 8 [label="" style=solid];
+2 -> 8 [label="recv" style=dotted];
+3 -> 8 [label="para" style=dotted];
+7 -> 8 [label="dep" style=dotted];
+9 -> 11 [label="" style=solid];
+14 -> 11 [label="recv" style=dotted];
+13 -> 11 [label="para" style=dotted];
+15 -> 11 [label="para" style=dotted];
+16 -> 11 [label="dep" style=dotted];
+9 -> 12 [label="" style=solid];
+10 -> 12 [label="para" style=dotted];
+6 -> 12 [label="para" style=dotted];
+9 -> 16 [label="" style=solid];
+1 -> 16 [label="recv" style=dotted];
+8 -> 16 [label="dep" style=dotted];
+}

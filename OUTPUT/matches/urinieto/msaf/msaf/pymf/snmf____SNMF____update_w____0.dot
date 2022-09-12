@@ -1,0 +1,87 @@
+digraph G {
+1 [label="(409016)SNMF.data(data)" shape=ellipse style=dashed]
+2 [label="(409035)SNMF.W(W)" shape=ellipse style=dashed]
+3 [label="(409026)numpy(np)" shape=ellipse style=dashed color=red fontcolor=red]
+4 [label="(409039)numpy(np)" shape=ellipse style=dashed]
+5 [label="(409044)END" style=dashed]
+6 [label="(409025)Any(W2)" shape=ellipse style=dashed]
+7 [label="(409031)SNMF.H(H)" shape=ellipse style=dashed]
+8 [label="(409014)dot" shape=box style=dashed color=red fontcolor=red]
+9 [label="(409007)START" style=dashed]
+10 [label="(409033)=" shape=box style=dashed]
+11 [label="(409020)<:>" shape=box style=dashed]
+12 [label="(409012)Any(W1)" shape=ellipse style=dashed]
+13 [label="(409042)Any(W2)" shape=ellipse style=dashed]
+14 [label="(409036)numpy(np)" shape=ellipse style=dashed color=red fontcolor=red]
+15 [label="(409040)numpy.linalg(linalg)" shape=ellipse style=dashed]
+16 [label="(409028)SNMF(self)" shape=ellipse style=dashed]
+17 [label="(409034)SNMF(self)" shape=ellipse style=dashed]
+18 [label="(409029)SNMF.H(H)" shape=ellipse style=dashed color=red fontcolor=red]
+19 [label="(409041)inv" shape=box style=dashed]
+20 [label="(409027)dot" shape=box style=dashed color=red fontcolor=red]
+21 [label="(409009)(null)" shape=ellipse style=dashed]
+22 [label="(409032)SNMF.H.T(T)" shape=ellipse style=dashed color=red fontcolor=red]
+23 [label="(409010)=" shape=box style=dashed]
+24 [label="(409038)Any(W1)" shape=ellipse style=dashed color=red fontcolor=red]
+25 [label="(409021)SNMF(self)" shape=ellipse style=dashed]
+26 [label="(409008)SNMF(self)" shape=ellipse style=dashed]
+27 [label="(409023)SNMF.H.T(T)" shape=ellipse style=dashed color=red fontcolor=red]
+28 [label="(409030)SNMF(self)" shape=ellipse style=dashed]
+29 [label="(409022)SNMF.H(H)" shape=ellipse style=dashed]
+30 [label="(409037)dot" shape=box style=dashed color=red fontcolor=red]
+31 [label="(409043)=" shape=box style=dashed]
+32 [label="(409017)SNMF.data[.](Subscript)" shape=ellipse style=dashed color=red fontcolor=red]
+33 [label="(409013)numpy(np)" shape=ellipse style=dashed color=red fontcolor=red]
+34 [label="(409015)SNMF(self)" shape=ellipse style=dashed]
+35 [label="(409024)=" shape=box style=dashed]
+34 -> 1 [label="qual" style=dotted];
+17 -> 2 [label="qual" style=dotted];
+31 -> 2 [label="def" style=dotted];
+31 -> 5 [label="dep" style=dotted];
+10 -> 6 [label="def" style=dotted];
+28 -> 7 [label="qual" style=dotted];
+9 -> 8 [label="" style=solid];
+33 -> 8 [label="recv" style=dotted];
+11 -> 8 [label="dep" style=dotted];
+32 -> 8 [label="para" style=dotted];
+27 -> 8 [label="para" style=dotted];
+23 -> 8 [label="dep" style=dotted];
+9 -> 10 [label="" style=solid];
+20 -> 10 [label="dep" style=dotted];
+20 -> 10 [label="para" style=dotted];
+9 -> 11 [label="" style=solid];
+35 -> 12 [label="def" style=dotted];
+6 -> 13 [label="ref" style=dotted];
+4 -> 15 [label="qual" style=dotted];
+16 -> 18 [label="qual" style=dotted];
+9 -> 19 [label="" style=solid];
+15 -> 19 [label="recv" style=dotted];
+13 -> 19 [label="para" style=dotted];
+10 -> 19 [label="dep" style=dotted];
+9 -> 20 [label="" style=solid];
+3 -> 20 [label="recv" style=dotted];
+18 -> 20 [label="para" style=dotted];
+22 -> 20 [label="para" style=dotted];
+35 -> 20 [label="dep" style=dotted];
+7 -> 22 [label="qual" style=dotted];
+9 -> 23 [label="" style=solid];
+21 -> 23 [label="para" style=dotted];
+12 -> 24 [label="ref" style=dotted];
+23 -> 26 [label="def" style=dotted];
+29 -> 27 [label="qual" style=dotted];
+25 -> 29 [label="qual" style=dotted];
+9 -> 30 [label="" style=solid];
+14 -> 30 [label="recv" style=dotted];
+24 -> 30 [label="para" style=dotted];
+19 -> 30 [label="dep" style=dotted];
+19 -> 30 [label="para" style=dotted];
+10 -> 30 [label="dep" style=dotted];
+9 -> 31 [label="" style=solid];
+30 -> 31 [label="dep" style=dotted];
+30 -> 31 [label="para" style=dotted];
+1 -> 32 [label="qual" style=dotted];
+11 -> 32 [label="para" style=dotted];
+9 -> 35 [label="" style=solid];
+8 -> 35 [label="dep" style=dotted];
+8 -> 35 [label="para" style=dotted];
+}

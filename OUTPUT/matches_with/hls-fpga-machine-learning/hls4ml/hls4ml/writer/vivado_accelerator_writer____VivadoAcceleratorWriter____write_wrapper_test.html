@@ -1,0 +1,362 @@
+<link rel="stylesheet" href="../../../..//default.css">
+<script src="../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/hls-fpga-machine-learning/hls4ml/blob/master/hls4ml/writer/vivado_accelerator_writer.py#L227">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/hls4ml/blob/master/hls4ml/writer/vivado_accelerator_writer.py#L227">GitMyHubLink</a>
+
+import os
+from shutil import copyfile
+
+from hls4ml.writer.vivado_writer import VivadoWriter
+
+class VivadoAcceleratorWriter(VivadoWriter):
+
+    def __init__(self):
+        super().__init__()
+        self.vivado_accelerator_config = None
+
+    def write_axi_wrapper(self, model):
+        &quot&quot&quot Write a top level HLS C++ file to wrap the hls4ml project with AXI interfaces
+            Args:
+                model : The ModelGraph to write the wrapper for
+        &quot&quot&quot
+        inp_axi_t, out_axi_t, inp, out = self.vivado_accelerator_config.get_corrected_types()
+        indent = &quot    &quot
+
+        &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+        &#47&#47&#47&#47 myproject_axi.h
+        &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+
+        filedir = os.path.dirname(os.path.abspath(__file__))
+        f = open(os.path.join(filedir, &quot../templates/vivado_accelerator/myproject_axi.h&quot), &quotr&quot)
+        fout = open(&quot{}/firmware/{}_axi.h&quot.format(model.config.get_output_dir(), model.config.get_project_name()), &quotw&quot)
+
+        for line in f.readlines():
+            if &quotMYPROJECT&quot in line:
+                newline = line.replace(&quotMYPROJECT&quot, format(model.config.get_project_name().upper()))
+            elif &quot//hls-fpga-machine-learning insert include&quot in line:
+                newline = &quot&#47&#47include "{}.h"\n&quot.format(model.config.get_project_name())
+            elif &quotvoid myproject(&quot in line:
+                newline = &quotvoid {}_axi(\n&quot.format(model.config.get_project_name())
+            elif &quot//hls-fpga-machine-learning insert definitions&quot in line:
+                newline = &quot&quot
+                newline += &quotstatic const unsigned N_IN = {};\n&quot.format(inp.size())
+                newline += &quotstatic const unsigned N_OUT = {};\n&quot.format(out.size())
+                if self.vivado_accelerator_config.get_interface() == &quotaxi_stream&quot:
+                    newline += &quottypedef {} T_in;\n&quot.format(inp_axi_t)
+                    newline += &quottypedef {} T_out;\n&quot.format(out_axi_t)
+                    newline += &quottypedef struct in_struct {\n&quot + \
+                               indent + &quotT_in data;\n&quot + \
+                               indent + &quotap_uint&lt;1&gt; last;\n&quot + \
+                               indent + &quotin_struct(const T_in& data, const ap_uint&lt;1&gt;& last){this-&gt;data = data; this-&gt;last = last;};\n&quot + \
+                               indent + &quotin_struct(){this-&gt;data = 0; this-&gt;last = 0;};\n&quot + \
+                               indent + &quotfriend std::ostream& operator&lt;&lt;(std::ostream& stream, const in_struct& in)\n&quot + \
+                               indent + &quot{ return stream &lt;&lt; "{ data: " &lt;&lt; in.data &lt;&lt; ", last: " &lt;&lt; in.last &lt;&lt; " }" &lt;&lt; std::endl; }\n&quot + \
+                               indent + &quotoperator float() const {return this-&gt;data;}\n&quot + \
+                               indent + &quotoperator double() const {return this-&gt;data;}\n&quot + \
+                               indent + &quotin_struct(float data) {this-&gt;data = data; this-&gt;last = 0;}\n&quot + \
+                               indent + &quotin_struct(double data) {this-&gt;data = data; this-&gt;last = 0;}\n&quot + \
+                               &quot} input_axi_t;\n&quot
+                    newline += &quottypedef struct out_struct {\n&quot + \
+                               indent + &quotT_out data;\n&quot + \
+                               indent + &quotap_uint&lt;1&gt; last;\n&quot + \
+                               indent + &quotout_struct(const T_out& data, const ap_uint&lt;1&gt;& last){this-&gt;data = data; this-&gt;last = last;};\n&quot + \
+                               indent + &quotout_struct(){this-&gt;data = 0; this-&gt;last = 0;};\n&quot + \
+                               indent + &quotfriend std::ostream& operator&lt;&lt;(std::ostream& stream, const out_struct& out)\n&quot + \
+                               indent + &quot{ return stream &lt;&lt; "{ data: " &lt;&lt; out.data &lt;&lt; ", last: " &lt;&lt; out.last &lt;&lt; " }" &lt;&lt; std::endl; }\n&quot + \
+                               indent + &quotoperator float() const {return this-&gt;data;}\n&quot + \
+                               indent + &quotoperator double() const {return this-&gt;data;}\n&quot + \
+                               indent + &quotout_struct(float data) {this-&gt;data = data; this-&gt;last = 0;}\n&quot + \
+                               indent + &quotout_struct(double data) {this-&gt;data = data; this-&gt;last = 0;}\n&quot + \
+                               &quot} output_axi_t;\n&quot
+                else:
+                    newline += &quottypedef {} input_axi_t;\n&quot.format(inp_axi_t)
+                    newline += &quottypedef {} output_axi_t;\n&quot.format(out_axi_t)
+            else:
+                newline = line
+            fout.write(newline)
+        f.close()
+        fout.close()
+
+        &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+        &#47&#47&#47&#47 myproject_axi.cpp
+        &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+
+        f = open(os.path.join(filedir, &quot../templates/vivado_accelerator/myproject_axi.cpp&quot), &quotr&quot)
+        fout = open(&quot{}/firmware/{}_axi.cpp&quot.format(model.config.get_output_dir(), model.config.get_project_name()),
+                    &quotw&quot)
+
+        io_type = model.config.get_config_value("IOType")
+
+        for line in f.readlines():
+            if &quotvoid myproject(&quot in line:
+                newline = &quotvoid {}_axi(\n&quot.format(model.config.get_project_name())
+            elif &quot//hls-fpga-machine-learning insert include&quot in line:
+                newline = &quot&#47&#47include "{}_axi.h"\n&quot.format(model.config.get_project_name())
+            elif &quot//hls-fpga-machine-learning insert local vars&quot in line:
+                newline = &quot&quot
+                if self.vivado_accelerator_config.get_interface() == &quotaxi_stream&quot:
+                    newline += indent + &quotbool is_last = false;\n&quot
+                if io_type == &quotio_parallel&quot:
+                    newline += indent + inp.type.name + &quot in_local[N_IN];\n&quot
+                    newline += indent + out.type.name + &quot out_local[N_OUT];\n&quot
+                elif io_type == &quotio_stream&quot:
+                    newline += indent + &quothls::stream&lt;&quot + inp.type.name + &quot&gt; in_local("input_1");\n&quot
+                    newline += indent + &quothls::stream&lt;&quot + out.type.name + &quot&gt; out_local("output_1");\n\n&quot
+                    newline += indent + &quot&#47&#47pragma HLS STREAM variable=in_local depth=N_IN\n&quot
+                    newline += indent + &quot&#47&#47pragma HLS STREAM variable=out_local depth=N_OUT\n&quot
+            elif &quot//hls-fpga-machine-learning insert call&quot in line:
+                newline = indent + &quot{}(in_local, out_local, in_size, out_size);\n&quot.format(
+                    model.config.get_project_name())
+            elif &quot//hls-fpga-machine-learning insert interface&quot in line:
+                if self.vivado_accelerator_config.get_interface() == &quotaxi_lite&quot:
+                    newline = &quot&quot
+                    newline += indent + &quot&#47&#47pragma HLS INTERFACE ap_ctrl_none port=return\n&quot
+                    newline += indent + &quot&#47&#47pragma HLS INTERFACE s_axilite port=in\n&quot
+                    newline += indent + &quot&#47&#47pragma HLS INTERFACE s_axilite port=out\n&quot
+                elif self.vivado_accelerator_config.get_interface() == &quotaxi_master&quot:
+                    newline = &quot&quot
+                    newline += indent + &quot&#47&#47pragma HLS INTERFACE s_axilite port=return bundle=CTRL_BUS\n&quot
+                    newline += indent + &quot&#47&#47pragma HLS INTERFACE m_axi depth=N_IN port=in offset=slave bundle=IN_BUS\n&quot
+                    newline += indent + &quot&#47&#47pragma HLS INTERFACE m_axi depth=N_OUT port=out offset=slave bundle=OUT_BUS\n&quot
+                elif self.vivado_accelerator_config.get_interface() == &quotaxi_stream&quot:
+                    newline = &quot&quot
+                    newline += indent + &quot&#47&#47pragma HLS INTERFACE axis port=in\n&quot
+                    newline += indent + &quot&#47&#47pragma HLS INTERFACE axis port=out\n&quot
+                    newline += indent + &quot&#47&#47pragma HLS INTERFACE ap_ctrl_none port=return\n&quot
+                    if model.config.get_config_value("IOType") == &quotio_stream&quot:
+                        newline += indent + &quot&#47&#47pragma HLS DATAFLOW\n&quot
+            elif &quot//hls-fpga-machine-learning insert enqueue&quot in line:
+                io_type = model.config.get_config_value("IOType")
+                if io_type == &quotio_parallel&quot:
+                    newline = &quot&quot
+                    newline += indent + &quotfor(unsigned i = 0; i &lt; N_IN; i++){\n&quot
+                    if self.vivado_accelerator_config.get_interface() == &quotaxi_stream&quot:
+                        newline += indent + indent + &quot&#47&#47pragma HLS PIPELINE\n&quot
+                        newline += indent + indent + &quotin_local[i] = in[i].data; // Read input with cast\n&quot
+                        newline += indent + indent + &quotis_last |= (in[i].last == 1)? true: false;\n&quot
+                    else:
+                        newline += indent + indent + &quot&#47&#47pragma HLS UNROLL\n&quot
+                        newline += indent + indent + &quotin_local[i] = in[i]; // Read input with cast\n&quot
+                    newline += indent + &quot}\n&quot
+                elif io_type == &quotio_stream&quot:
+                    newline = &quot&quot
+                    newline += indent + &quotfor(unsigned i = 0; i &lt; N_IN / {input_t}::size; ++i) {{\n&quot
+                    &#47&#47 newline += indent + indent + &quot&#47&#47pragma HLS PIPELINE\n&quot
+                    newline += indent + indent + &quot{input_t} ctype;\n&quot
+                    newline += indent + indent + &quot&#47&#47pragma HLS DATA_PACK variable=ctype\n&quot
+                    newline += indent + indent + &quotfor(unsigned j = 0; j &lt; {input_t}::size; j++) {{\n&quot
+                    &#47&#47 newline += indent + indent + indent + &quot&#47&#47pragma HLS UNROLL\n&quot
+                    if self.vivado_accelerator_config.get_interface() == &quotaxi_stream&quot:
+                        newline += indent + indent + indent + &quotctype[j] = typename {input_t}::value_type(in[i * {input_t}::size + j].data);\n&quot
+                        newline += indent + indent + indent + &quotis_last |= (in[i * input_t::size + j].last == 1)? true : false;\n&quot
+                    else:
+                        newline += indent + indent + indent + &quotctype[j] = typename {input_t}::value_type(in[i * {input_t}::size + j]);\n&quot
+                    newline += indent + indent + &quot}}\n&quot
+                    newline += indent + indent + &quotin_local.write(ctype);\n&quot
+                    newline += indent + &quot}}\n&quot
+                    newline = newline.format(input_t=inp.type.name)
+            elif &quot//hls-fpga-machine-learning insert dequeue&quot in line:
+                io_type = model.config.get_config_value("IOType")
+                if io_type == &quotio_parallel&quot:
+                    newline = &quot&quot
+                    newline += indent + &quotfor(unsigned i = 0; i &lt; N_OUT; i++){\n&quot
+                    if self.vivado_accelerator_config.get_interface() == &quotaxi_stream&quot:
+                        newline += indent + indent + &quot&#47&#47pragma HLS PIPELINE\n&quot
+                        newline += indent + indent + &quotout[i].data = out_local[i]; // Write output with cast\n&quot
+                        newline += indent + indent + &quotout[i].last = (is_last && (i == N_OUT - 1))? true : false;\n&quot
+                    else:
+                        newline += indent + indent + &quot&#47&#47pragma HLS UNROLL\n&quot
+                        newline += indent + indent + &quotout[i] = out_local[i]; // Write output with cast\n&quot
+                    newline += indent + &quot}\n&quot
+                elif io_type == &quotio_stream&quot:
+                    newline = &quot&quot
+                    newline += indent + &quotfor(unsigned i = 0; i &lt; N_OUT / {result_t}::size; ++i) {{\n&quot
+                    &#47&#47 newline += indent + indent + &quot&#47&#47pragma HLS PIPELINE\n&quot
+                    newline += indent + indent + &quot{result_t} ctype = out_local.read();\n&quot
+                    newline += indent + indent + &quotfor(unsigned j = 0; j &lt; {result_t}::size; j++) {{\n&quot
+                    &#47&#47 newline += indent + indent + indent + &quot&#47&#47pragma HLS UNROLL\n&quot
+                    if self.vivado_accelerator_config.get_interface() == &quotaxi_stream&quot:
+                        newline += indent + indent + indent + &quotbool last = (is_last && (i * {result_t}::size + j == N_OUT - 1)) ? true : false;\n&quot
+                        newline += indent + indent + indent + &quotout[i * {result_t}::size + j] = output_axi_t(ctype[j], last);\n&quot
+                    else:
+                        newline += indent + indent + indent + &quotout[i * {result_t}::size + j] = output_axi_t(ctype[j]);\n&quot
+                    newline += indent + indent + &quot}}\n&quot
+                    newline += indent + &quot}}\n&quot
+                    newline = newline.format(result_t=out.type.name)
+            else:
+                newline = line
+            fout.write(newline)
+        f.close()
+        fout.close()
+
+    def modify_build_script(self, model):
+        &quot&quot&quot
+        Modify the build_prj.tcl and build_lib.sh scripts to add the extra wrapper files and set the top function
+        &quot&quot&quot
+        filedir = os.path.dirname(os.path.abspath(__file__))
+        oldfile = &quot{}/build_prj.tcl&quot.format(model.config.get_output_dir())
+        newfile = &quot{}/build_prj_axi.tcl&quot.format(model.config.get_output_dir())
+        f = open(oldfile, &quotr&quot)
+        fout = open(newfile, &quotw&quot)
+
+        for line in f.readlines():
+            if &quotset_top&quot in line:
+                newline = line[:-1] + &quot_axi\n&quot  &#47&#47 remove the newline from the line end and append _axi for the new top
+                newline += &quotadd_files firmware/{}_axi.cpp -cflags "-std=c++0x"\n&quot.format(
+                    model.config.get_project_name())
+            elif &quotmyproject_cosim&quot in line:
+                newline = line.replace(&quotmyproject_cosim&quot, &quotmyproject_axi_cosim&quot)
+            else:
+                newline = line
+            fout.write(newline)
+
+        f.close()
+        fout.close()
+        os.rename(newfile, oldfile)
+
+        &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+        &#47&#47 build_lib.sh
+        &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+
+        f = open(os.path.join(filedir, &quot../templates/vivado_accelerator/build_lib.sh&quot), &quotr&quot)
+        fout = open(&quot{}/build_lib.sh&quot.format(model.config.get_output_dir()), &quotw&quot)
+
+        for line in f.readlines():
+            line = line.replace(&quotmyproject&quot, model.config.get_project_name())
+            line = line.replace(&quotmystamp&quot, model.config.get_config_value(&quotStamp&quot))
+
+            fout.write(line)
+        f.close()
+        fout.close()
+
+    def write_wrapper_test(self, model):
+
+        &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+        &#47&#47 write myproject_test_wrapper.cpp
+        &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+        oldfile = &quot{}/{}_test.cpp&quot.format(model.config.get_output_dir(), model.config.get_project_name())
+        newfile = &quot{}/{}_test_wrapper.cpp&quot.format(model.config.get_output_dir(), model.config.get_project_name())
+
+        <a id="change">f = open(oldfile, &quotr&quot)</a>
+        <a id="change">fout = open(newfile, &quotw&quot)</a>
+
+        inp = model.get_input_variables()[0]
+        out = model.get_output_variables()[0]
+
+        for line in f.readlines():
+            if &quot{}.h&quot.format(model.config.get_project_name()) in line:
+                newline = line.replace(&quot{}.h&quot.format(model.config.get_project_name()),
+                                       &quot{}_axi.h&quot.format(model.config.get_project_name()))
+            elif inp.definition_cpp() in line:
+                newline = line.replace(inp.definition_cpp(), &quotinput_axi_t inputs[N_IN]&quot) &#47&#47TODO instead of replacing strings, how about we use proper variables and their definition?
+            elif out.definition_cpp() in line:
+                newline = line.replace(out.definition_cpp(), &quotoutput_axi_t outputs[N_OUT]&quot)
+            elif &quotunsigned short&quot in line:
+                newline = &quot&quot
+            elif &quot{}(&quot.format(model.config.get_project_name()) in line:
+                indent_amount = line.split(model.config.get_project_name())[0]
+                newline = indent_amount + &quot{}_axi(inputs,outputs);\n&quot.format(model.config.get_project_name())
+            elif inp.size_cpp() in line or inp.cppname in line or inp.type.name in line:
+                newline = line.replace(inp.size_cpp(), &quotN_IN&quot).replace(inp.cppname, &quotinputs&quot).replace(inp.type.name,
+                                                                                                      &quotinput_axi_t&quot)
+            elif out.size_cpp() in line or out.cppname in line or out.type.name in line:
+                newline = line.replace(out.size_cpp(), &quotN_OUT&quot).replace(out.cppname, &quotoutputs&quot).replace(out.type.name,
+                                                                                                        &quotoutput_axi_t&quot)
+            else:
+                newline = line
+            if self.vivado_accelerator_config.get_interface() == &quotaxi_stream&quot:
+                if &quotnnet::fill_zero&quot in line:
+                    indent = line.split(&quotn&quot)[0]
+                    newline = indent + &quotinputs[N_IN-1].last = 1;\n&quot
+                if &quotcopy_data&quot in line:
+                    newline = newline.replace(&quotcopy_data&quot, &quotcopy_data_axi&quot)
+            fout.write(newline)
+
+        <a id="change">f</a><a id="change">.close()</a>
+        <a id="change">fout</a><a id="change">.close()</a>
+        os.rename(newfile, oldfile)
+
+        &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+        &#47&#47 write myproject_bridge_wrapper.cpp
+        &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+        oldfile = &quot{}/{}_bridge.cpp&quot.format(model.config.get_output_dir(), model.config.get_project_name())
+        newfile = &quot{}/{}_bridge_wrapper.cpp&quot.format(model.config.get_output_dir(), model.config.get_project_name())
+
+        <a id="change">f = open(oldfile, &quotr&quot)</a>
+        <a id="change">fout = open(newfile, &quotw&quot)</a>
+
+        inp = model.get_input_variables()[0]
+        out = model.get_output_variables()[0]
+
+        for line in f.readlines():
+            if &quot{}.h&quot.format(model.config.get_project_name()) in line:
+                newline = line.replace(&quot{}.h&quot.format(model.config.get_project_name()),
+                                       &quot{}_axi.h&quot.format(model.config.get_project_name()))
+            elif inp.definition_cpp(name_suffix=&quot_ap&quot) in line:
+                newline = line.replace(inp.definition_cpp(name_suffix=&quot_ap&quot),
+                                       &quotinput_axi_t {}_ap[N_IN]&quot.format(inp.cppname))
+            elif out.definition_cpp(name_suffix=&quot_ap&quot) in line:
+                newline = line.replace(out.definition_cpp(name_suffix=&quot_ap&quot),
+                                       &quotoutput_axi_t {}_ap[N_OUT]&quot.format(out.cppname))
+            elif &quot{}(&quot.format(model.config.get_project_name()) in line:
+                indent_amount = line.split(model.config.get_project_name())[0]
+                newline = indent_amount + &quot{}_axi({}_ap,{}_ap);\n&quot.format(model.config.get_project_name(), inp.cppname,
+                                                                          out.cppname)
+            elif inp.size_cpp() in line or inp.cppname in line or inp.type.name in line:
+                newline = line.replace(inp.size_cpp(), &quotN_IN&quot).replace(inp.type.name, &quotinput_axi_t&quot)
+            elif out.size_cpp() in line or out.cppname in line or out.type.name in line:
+                newline = line.replace(out.size_cpp(), &quotN_OUT&quot).replace(out.type.name, &quotoutput_axi_t&quot)
+            else:
+                newline = line
+            fout.write(newline)
+
+        <a id="change">f</a><a id="change">.close()</a>
+        <a id="change">fout</a><a id="change">.close()</a>
+        os.rename(newfile, oldfile)
+
+    def write_board_script(self, model):
+        &quot&quot&quot
+        Write the tcl scripts to create a Vivado IPI project for the VivadoAccelerator
+        &quot&quot&quot
+        filedir = os.path.dirname(os.path.abspath(__file__))
+        copyfile(os.path.join(filedir, self.vivado_accelerator_config.get_tcl_file_path()),
+                 &quot{}/design.tcl&quot.format(model.config.get_output_dir()))
+        f = open(&quot{}/project.tcl&quot.format(model.config.get_output_dir()), &quotw&quot)
+        f.write(&quotvariable myproject\n&quot)
+        f.write(&quotset myproject "{}"\n&quot.format(model.config.get_project_name()))
+        if self.vivado_accelerator_config.get_interface() == &quotaxi_stream&quot:
+            in_bit, out_bit = self.vivado_accelerator_config.get_io_bitwidth()
+            f.write(&quotset bit_width_hls_output {}\n&quot.format(in_bit))
+            f.write(&quotset bit_width_hls_input {}\n&quot.format(out_bit))
+        f.close()
+
+    def write_driver(self, model):
+        filedir = os.path.dirname(os.path.abspath(__file__))
+        copyfile(os.path.join(filedir, self.vivado_accelerator_config.get_driver_path()),
+                 (&quot{}/&quot + self.vivado_accelerator_config.get_driver_file()).format(model.config.get_output_dir()))
+        
+    def write_new_tar(self, model):
+        os.remove(model.config.get_output_dir() + &quot.tar.gz&quot)
+        super(VivadoAcceleratorWriter, self).write_tar(model)
+        
+    def write_hls(self, model):
+        
+        Write the HLS project. Calls the VivadoBackend writer, and extra steps for VivadoAccelerator/AXI interface
+        
+        &#47&#47TODO temporarily move config import here to avoid cyclic dependency, until config is moved to its own package
+        from hls4ml.backends import VivadoAcceleratorConfig
+        self.vivado_accelerator_config = VivadoAcceleratorConfig(model.config, model.get_input_variables(),
+                                                                 model.get_output_variables())
+        super(VivadoAcceleratorWriter, self).write_hls(model)
+        self.write_board_script(model)
+        self.write_driver(model)
+        self.write_wrapper_test(model)
+        self.write_axi_wrapper(model)
+        self.modify_build_script(model)
+        self.write_new_tar(model)
+
+</code></pre>

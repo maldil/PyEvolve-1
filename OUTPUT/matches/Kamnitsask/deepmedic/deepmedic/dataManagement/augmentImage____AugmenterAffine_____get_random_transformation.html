@@ -1,0 +1,236 @@
+<link rel="stylesheet" href="../../../..//default.css">
+<script src="../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/Kamnitsask/deepmedic/blob/master/deepmedic/dataManagement/augmentImage.py#L120">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/deepmedic/blob/master/deepmedic/dataManagement/augmentImage.py#L120">GitMyHubLink</a>
+
+&#47&#47 Copyright (c) 2016, Konstantinos Kamnitsas
+&#47&#47 All rights reserved.
+&#47&#47
+&#47&#47 This program is free software; you can redistribute it and/or modify
+&#47&#47 it under the terms of the BSD license. See the accompanying LICENSE file
+&#47&#47 or read the terms at https://opensource.org/licenses/BSD-3-Clause.
+
+from __future__ import absolute_import, print_function, division
+
+import collections
+import numpy as np
+import scipy.ndimage
+
+
+&#47&#47 Main function to call:
+def augment_imgs_of_case(channels, gt_lbls, roi_mask, wmaps_per_cat, prms):
+    &#47&#47 channels: list (x pathways) of np arrays [channels, x, y, z]. Whole volumes, channels of a case.
+    &#47&#47 gt_lbls: np array of shape [x,y,z]. Can be None.
+    &#47&#47 roi_mask: np array of shape [x,y,z]. Can be None.
+    &#47&#47 wmaps_per_cat: List of np.arrays (floats or ints), weightmaps for sampling. Can be None.
+    &#47&#47 prms: None (for no augmentation) or Dictionary with parameters of each augmentation type. }
+    if prms is not None:
+        (channels,
+        gt_lbls,
+        roi_mask,
+        wmaps_per_cat) = random_affine_deformation( channels,
+                                                    gt_lbls,
+                                                    roi_mask,
+                                                    wmaps_per_cat,
+                                                    prms[&quotaffine&quot] )
+    return channels, gt_lbls, roi_mask, wmaps_per_cat
+
+
+def random_affine_deformation(channels, gt_lbls, roi_mask, wmaps_l, prms):
+    if prms is None:
+        return channels, gt_lbls, roi_mask, wmaps_l
+    
+    augm = AugmenterAffine(prob = prms[&quotprob&quot],
+                           max_rot_xyz = prms[&quotmax_rot_xyz&quot],
+                           max_scaling = prms[&quotmax_scaling&quot],
+                           seed = prms[&quotseed&quot])
+    transf_mtx = augm.roll_dice_and_get_random_transformation()
+    assert transf_mtx is not None
+    
+    channels  = augm(images_l = channels,
+                     transf_mtx = transf_mtx,
+                     interp_orders = prms[&quotinterp_order_imgs&quot],
+                     boundary_modes = prms[&quotboundary_mode&quot])
+    (gt_lbls,
+    roi_mask) = augm(images_l = [gt_lbls, roi_mask],
+                     transf_mtx = transf_mtx,
+                     interp_orders = [prms[&quotinterp_order_lbls&quot], prms[&quotinterp_order_roi&quot]],
+                     boundary_modes = prms[&quotboundary_mode&quot])
+    wmaps_l   = augm(images_l = wmaps_l,
+                     transf_mtx = transf_mtx,
+                     interp_orders = prms[&quotinterp_order_wmaps&quot],
+                     boundary_modes = prms[&quotboundary_mode&quot])
+
+    return channels, gt_lbls, roi_mask, wmaps_l
+
+
+
+class AugmenterParams(object):
+    &#47&#47 Parent class, for parameters of augmenters.
+    def __init__(self, prms):
+        &#47&#47 prms: dictionary
+        self._prms = collections.OrderedDict()
+        self._set_from_dict(prms)
+    
+    def __str__(self):
+        return str(self._prms)
+    
+    def __getitem__(self, key): &#47&#47 overriding the [] operator.
+        &#47&#47 key: string.
+        return self._prms[key] if key in self._prms else None
+    
+    def __setitem__(self, key, item): &#47&#47 For instance[key] = item assignment
+        self._prms[key] = item
+
+    def _set_from_dict(self, prms):
+        if prms is not None:
+            for key in prms.keys():
+                self._prms[key] = prms[key]
+                
+                
+class AugmenterAffineParams(AugmenterParams):
+    def __init__(self, prms):
+        &#47&#47 Default values.
+        self._prms = collections.OrderedDict([ (&quotprob&quot, 0.0),
+                                               (&quotmax_rot_xyz&quot, (45., 45., 45.)),
+                                               (&quotmax_scaling&quot, .1),
+                                               (&quotseed&quot, None),
+                                               &#47&#47 For calls.
+                                               (&quotinterp_order_imgs&quot, 1),
+                                               (&quotinterp_order_lbls&quot, 0),
+                                               (&quotinterp_order_roi&quot, 0),
+                                               (&quotinterp_order_wmaps&quot, 1),
+                                               (&quotboundary_mode&quot, &quotnearest&quot),
+                                               (&quotcval&quot, 0.) ])
+        &#47&#47 Overwrite defaults with given.
+        self._set_from_dict(prms)
+    
+    def __str__(self):
+        return str(self._prms)
+
+
+class AugmenterAffine(object):
+    def __init__(self, prob, max_rot_xyz, max_scaling, seed=None):
+        self.prob = prob &#47&#47 Probability of applying the transformation.
+        self.max_rot_xyz = max_rot_xyz
+        self.max_scaling = max_scaling
+        self.rng = np.random.RandomState(seed)
+
+    def roll_dice_and_get_random_transformation(self):
+        if self.rng.random_sample() &gt; self.prob:
+            return -1 &#47&#47 No augmentation
+        else:
+            return self._get_random_transformation() &#47&#47transformation for augmentation
+        
+    def _get_random_transformation(self):
+        theta_x = self.rng.uniform(-self.max_rot_xyz[0], self.max_rot_xyz[0]) * np.pi / 180.
+        rot_x = np.array([ [np.cos(theta_x), -np.sin(theta_x), 0.],
+                           [np.sin(theta_x), np.cos(theta_x), 0.],
+                           [0., 0., 1.]])
+        
+        theta_y = self.rng.uniform(-self.max_rot_xyz[1], self.max_rot_xyz[1]) * np.pi / 180.
+        rot_y = np.array([ [np.cos(theta_y), 0., np.sin(theta_y)],
+                           [0., 1., 0.],
+                           [-np.sin(theta_y), 0., np.cos(theta_y)]])
+        
+        theta_z = self.rng.uniform(-self.max_rot_xyz[2], self.max_rot_xyz[2]) * np.pi / 180.
+        rot_z = np.array([ [1., 0., 0.],
+                           [0., np.cos(theta_z), -np.sin(theta_z)],
+                           [0., np.sin(theta_z), np.cos(theta_z)]])
+        
+        &#47&#47 Sample the scale (zoom in/out)
+        &#47&#47 TODO: Non isotropic?
+        scale = np.eye(3, 3) * self.rng.uniform(1 - self.max_scaling, 1 + self.max_scaling)
+        
+        &#47&#47 Affine transformation matrix.
+        transformation_mtx = <a id="change">np.dot( scale, np.dot(rot_z, np.dot(rot_x, rot_y)) )</a>
+        
+        return transformation_mtx
+
+    def _apply_transformation(self, image, transf_mtx, interp_order=2., boundary_mode=&quotnearest&quot, cval=0.):
+        &#47&#47 image should be 3 dimensional (Height, Width, Depth). Not multi-channel.
+        &#47&#47 interp_order: Integer. 1,2,3 for images, 0 for nearest neighbour on masks (GT & brainmasks)
+        &#47&#47 boundary_mode = &quotconstant&quot, &quotmin&quot, &quotnearest&quot, &quotmirror...
+        &#47&#47 cval: float. value given to boundaries if mode is constant.
+        assert interp_order in [0,1,2,3]
+        
+        mode = boundary_mode
+        if mode == &quotmin&quot:
+            cval = np.min(image)
+            mode = &quotconstant&quot
+        
+        &#47&#47 For recentering
+        centre_coords = np.floor(0.5 * np.asarray(image.shape, dtype=np.int32))
+        c_offset = centre_coords - centre_coords.dot( transf_mtx )
+        
+        new_image = scipy.ndimage.affine_transform( image,
+                                                    transf_mtx.T,
+                                                    c_offset,
+                                                    order=interp_order,
+                                                    mode=mode,
+                                                    cval=cval )
+        return new_image
+    
+    def __call__(self, images_l, transf_mtx, interp_orders, boundary_modes, cval=0.):
+        &#47&#47 images_l : List of images, or an array where first dimension is over images (eg channels).
+        &#47&#47            An image (element of the var) can be None, and it will be returned unchanged.
+        &#47&#47            If images_l is None, then returns None.
+        &#47&#47 transf_mtx: Given (from get_random_transformation), -1, or None.
+        &#47&#47             If -1, no augmentation/transformation will be done.
+        &#47&#47             If None, new random will be made.
+        &#47&#47 intrp_orders : Int or List of integers. Orders of bsplines for interpolation, one per image in images_l.
+        &#47&#47                Suggested: 3 for images. 1 is like linear. 0 for masks/labels, like NN.
+        &#47&#47 boundary_mode = String or list of strings. &quotconstant&quot, &quotmin&quot, &quotnearest&quot, &quotmirror...
+        &#47&#47 cval: single float value. Value given to boundaries if mode is &quotconstant&quot.
+        if images_l is None:
+            return None
+        if transf_mtx is None: &#47&#47 Get random transformation.
+            transf_mtx = self.roll_dice_and_get_random_transformation()
+        if not isinstance(transf_mtx, np.ndarray) and transf_mtx == -1: &#47&#47 Do not augment
+            return images_l
+        &#47&#47 If scalars/string was given, change it to list of scalars/strings, per image.
+        if isinstance(interp_orders, int):
+            interp_orders = [interp_orders] * len(images_l)
+        if isinstance(boundary_modes, str):
+            boundary_modes = [boundary_modes] * len(images_l)
+        
+        &#47&#47 Deform images.
+        for img_i, int_order, b_mode in zip(range(len(images_l)), interp_orders, boundary_modes):
+            if images_l[img_i] is None:
+                pass &#47&#47 Dont do anything. Let it be None.
+            else:
+                images_l[img_i] = self._apply_transformation(images_l[img_i],
+                                                             transf_mtx,
+                                                             int_order,
+                                                             b_mode,
+                                                             cval)
+        return images_l
+
+
+
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47 Currently not used &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+
+&#47&#47 DON&quotT use on patches. Only on images. Cause I ll need to find min and max intensities, to move to range [0,1]
+def random_gamma_correction(channels, gamma_std=0.05):
+    &#47&#47 Gamma correction: I&quot = I^gamma
+    &#47&#47 channels: list (x pathways) of np arrays [channels, x, y, z]. Whole volumes, channels of a case.
+    &#47&#47 IMPORTANT: Does not work if intensities go to negatives.
+    if gamma_std is None or gamma_std == 0.:
+        return channels
+    
+    n_channs = channels[0].shape[0]
+    gamma = np.random.normal(1, gamma_std, [n_channs,1,1,1])
+    for path_idx in range(len(channels)):
+        assert np.min(channels[path_idx]) &gt;= 0.
+        channels[path_idx] = np.power(channels[path_idx], 1.5, dtype=&quotfloat32&quot)
+        
+    return channels
+
+
+
+            
+</code></pre>

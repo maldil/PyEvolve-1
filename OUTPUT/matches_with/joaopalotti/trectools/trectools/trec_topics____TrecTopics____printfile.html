@@ -1,0 +1,113 @@
+<link rel="stylesheet" href="../../..//default.css">
+<script src="../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/joaopalotti/trectools/blob/master/trectools/trec_topics.py#L62">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/trectools/blob/master/trectools/trec_topics.py#L62">GitMyHubLink</a>
+
+from trectools.misc import remove_punctuation
+from lxml import etree
+import codecs
+from bs4 import BeautifulSoup
+import os
+
+
+class TrecTopics:
+
+    def __init__(self, topics={}):
+        self.topics = topics
+
+    def read_topics_from_file(self, filename, topic_tag="topic", numberid_tag="number", number_attr=True, querytext_tag=None, debug=False):
+        
+            Reads a xml file into a TrecTopics object. Example:
+            &lt;topics&gt;
+            &lt;topic number="201" type="single"&gt;
+                &lt;query&gt;amazon raspberry pi&lt;/query&gt;
+                &lt;description&gt; You have heard quite a lot about cheap computing as being the way of the future,
+                including one recent model called a Raspberry Pi. You start thinking about buying one, and wonder how much they cost.
+                &lt;/description&gt;
+            &lt;/topic&gt;
+            &lt;/topics&gt;
+
+            If your query number is a tag &lt;number&gt; 201 &lt;/number&gt;, set number_attr = False.
+
+        
+        &#47&#47 TODO: throw an exception for errors when reading the topics.
+        soup = BeautifulSoup(codecs.open(filename, "r"), "lxml")
+
+
+        if querytext_tag:
+            parse_query = lambda topic: topic.findNext(querytext_tag).getText()
+        else:
+            &#47&#47If querytext_tag is not defined then the topic description is within the topic itself.
+            parse_query = lambda topic: topic.getText()
+
+        for topic in soup.findAll(topic_tag):
+            if number_attr:
+                topic_id = topic.get(numberid_tag)
+            else:
+                topic_id = topic.findNext(numberid_tag).getText()
+
+            query = parse_query(topic)
+            if debug:
+                print("Number: %s Query: %s" % (topic_id, query))
+            self.topics[topic_id] = query
+
+    def set_topics(self, topics):
+        self.topics = topics
+
+    def set_topic(self, topic_id, topic_text):
+        self.topics[topic_id] = topic_text
+
+    def clean_topics(self):
+        result = {}
+        for topid, text in self.topics.items():
+            cleaned_text = remove_punctuation(text)
+            result[topid] = cleaned_text
+        self.topics = result
+
+    def printfile(self, filename="output.xml", fileformat="terrier", outputdir=None, debug=True):
+        
+            Writes out the topics to a file.
+            After one runs this method, TrecTopics.outputfile is available with the
+            filepath to the created file.
+            fileformat: terrier, indri or indribaseline
+        
+        if outputdir is None:
+            outputdir = os.getcwd()
+
+        self.outputfile = os.path.join(outputdir, filename)
+        if debug == True:
+            print("Writing topics to %s" % (self.outputfile))
+
+        if fileformat == "terrier":
+            &#47&#47 Creates file object
+            root = etree.Element(&quottopics&quot)
+            for qid, text in sorted(self.topics.items(), key=lambda x:x[0]):
+                topic = etree.SubElement(root, &quottop&quot)
+                tid = etree.SubElement(topic, &quotnum&quot)
+                tid.text = str(qid)
+                ttext = etree.SubElement(topic, &quottitle&quot)
+                ttext.text = text
+        elif fileformat == "indri" or fileformat == "indribaseline":
+            root = etree.Element(&quotparameters&quot)
+            trecformat = etree.SubElement(root, &quottrecFormat&quot)
+            trecformat.text = "true"
+            for qid, text in sorted(self.topics.items(), key=lambda x:x[0]):
+                topic = etree.SubElement(root, &quotquery&quot)
+                tid = etree.SubElement(topic, &quotid&quot)
+                tid.text = str(qid)
+                ttext = etree.SubElement(topic, &quottext&quot)
+                cleaned_text = remove_punctuation(text)
+                if fileformat == "indri":
+                    ttext.text = "&#47&#47combine( " + cleaned_text + " )"
+                elif fileformat == "indribaseline":
+                    ttext.text = cleaned_text
+
+        <a id="change">f = open(self.outputfile, "w")</a>
+        f.writelines(etree.tostring(root, pretty_print=True))
+        <a id="change">f</a><a id="change">.close()</a>
+
+</code></pre>

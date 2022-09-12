@@ -1,0 +1,46 @@
+<link rel="stylesheet" href="../../../..//default.css">
+<script src="../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/autorope/donkeycar/blob/main/donkeycar/tests/test_template.py#L17">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/donkeycar/blob/main/donkeycar/tests/test_template.py#L17">GitMyHubLink</a>
+
+&#47&#47 -*- coding: utf-8 -*-
+
+from tempfile import gettempdir
+from donkeycar.templates import complete
+import donkeycar as dk
+import os
+
+from .setup import default_template, d2_path, custom_template
+
+
+def test_config():
+    path = default_template(d2_path(gettempdir()))
+    cfg = dk.load_config(os.path.join(path, &quotconfig.py&quot))
+    assert (cfg is not None)
+
+
+def test_drive():
+    <a id="change">path</a> = default_template(d2_path(gettempdir()))
+    <a id="change">myconfig</a><a id="change"> = open(os.path.join(path, &quotmyconfig.py&quot), "wt")</a>
+    myconfig.write("CAMERA_TYPE = &quotMOCK&quot\n")
+    myconfig.write("USE_SSD1306_128_32 = False \n")
+    myconfig.write("DRIVE_TRAIN_TYPE = &quotNone&quot")
+    <a id="change">myconfig</a><a id="change">.close()</a>
+    <a id="change">cfg</a> = dk.load_config(os.path.join(path, &quotconfig.py&quot))
+    cfg.MAX_LOOPS = 10
+    complete.drive(cfg=cfg)
+
+
+def test_custom_templates():
+    template_names = ["complete", "basic", "square"]
+    for template in template_names:
+        path = custom_template(d2_path(gettempdir()), template=template)
+        cfg = dk.load_config(os.path.join(path, &quotconfig.py&quot))
+        assert (cfg is not None)
+        mcfg = dk.load_config(os.path.join(path, &quotmyconfig.py&quot))
+        assert (mcfg is not None)
+</code></pre>

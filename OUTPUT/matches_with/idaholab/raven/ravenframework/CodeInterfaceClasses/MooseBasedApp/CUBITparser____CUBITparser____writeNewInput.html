@@ -1,0 +1,106 @@
+<link rel="stylesheet" href="../../../../..//default.css">
+<script src="../../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/idaholab/raven/blob/devel/ravenframework/CodeInterfaceClasses/MooseBasedApp/CUBITparser.py#L81">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/raven/blob/devel/ravenframework/CodeInterfaceClasses/MooseBasedApp/CUBITparser.py#L81">GitMyHubLink</a>
+
+&#47&#47 Copyright 2017 Battelle Energy Alliance, LLC
+&#47&#47
+&#47&#47 Licensed under the Apache License, Version 2.0 (the "License");
+&#47&#47 you may not use this file except in compliance with the License.
+&#47&#47 You may obtain a copy of the License at
+&#47&#47
+&#47&#47 http://www.apache.org/licenses/LICENSE-2.0
+&#47&#47
+&#47&#47 Unless required by applicable law or agreed to in writing, software
+&#47&#47 distributed under the License is distributed on an "AS IS" BASIS,
+&#47&#47 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+&#47&#47 See the License for the specific language governing permissions and
+&#47&#47 limitations under the License.
+
+created on Jul 15, 2015
+
+@author: tompjame
+
+from __future__ import division, print_function, unicode_literals, absolute_import
+import warnings
+import os
+import re
+import collections
+
+class CUBITparser():
+  
+    Import Cubit journal file input, provide methods to add/change entries and print input back
+  
+  def __init__(self,inputFile):
+    
+      Open and read file content into an ordered dictionary
+      @ In, inputFile, File object, object with information about the template input file
+      @ Out, None
+    
+    self.printTag = &quotCUBIT_PARSER&quot
+    if not os.path.exists(inputFile.getAbsFile()):
+      raise IOError(&quotInput file not found: &quot+inputFile.getAbsFile())
+    &#47&#47 Initialize file dictionary, storage order, and internal variables
+    self.keywordDictionary = collections.OrderedDict()
+    self.fileOrderStorage = []
+    between_str = &quot&quot
+    dict_stored = False
+    &#47&#47 Open file
+    self.inputfile = inputFile.getAbsFile()
+    &#47&#47 Generate Global Input Dictionary
+    for line in inputFile:
+      clear_ws = line.replace(" ", "")
+      if clear_ws.startswith(&quot&#47&#47{&quot):
+        &#47&#47 Catch Aprepro logic
+        if &quotelse&quot in line or &quotifdef&quot in line or &quotifndef&quot in line or &quotendif&quot in line or &quotLoop&quot in line or &quotEndLoop&quot in line:
+          between_str += line
+        elif&quot=&quot in line:
+          splitline_clear_ws = re.split(&quot{|&lt;|&gt;|=|}|!&quot, clear_ws)
+          splitline = re.split(&quot{|&lt;|&gt;|=|}|!&quot, line)
+          &#47&#47 Catch Aprepro if logic
+          if splitline_clear_ws[1] != splitline[1].strip():
+            between_str += line
+          elif splitline_clear_ws[1] == splitline[1].strip():
+            if len(between_str) &gt; 0:
+              self.fileOrderStorage.append(between_str); between_str = &quot&quot
+            if dict_stored == False:
+              self.fileOrderStorage.append([&quotdict_location&quot]); dict_stored = True
+            _, keywordAndValue, _ = re.split(&quot&#47&#47{|}&quot,clear_ws)
+            varname, varvalue = keywordAndValue.split(&quot=&quot)
+            self.keywordDictionary[varname] = varvalue
+      else:
+        between_str += line
+    if len(between_str) &gt; 0:
+      self.fileOrderStorage.append(between_str)
+
+  def modifyInternalDictionary(self,**inDictionary):
+    
+      Parse the input dictionary and replace matching keywords in internal dictionary.
+      @ In, inDictionary, dict, dictionary containing full longform name and raven sampled var value
+      @ Out, None
+    
+    for keyword, newvalue in inDictionary.items():
+      _, keyword = keyword.split(&quot@&quot)
+      self.keywordDictionary[keyword] = newvalue
+
+  def writeNewInput(self,outFile=None):
+    
+      Using the fileOrderStorage list, reconstruct the template input with modified keywordDictionary.
+      @ In, outFile, string, optional, outFile name
+      @ Out, None
+    
+    if outFile == None:
+      outFile = self.inputfile
+    <a id="change">IOfile = open(outFile,&quotw&quot)</a>
+    for entry in self.fileOrderStorage:
+      if type(entry) == unicode:
+        IOfile.writelines(entry)
+      elif type(entry) == list:
+        for key, value in self.keywordDictionary.items():
+          IOfile.writelines(&quot&#47&#47{ &quot+key+&quot = &quot+str(value)+&quot}&quot+&quot\n&quot)
+    <a id="change">IOfile</a><a id="change">.close()</a>
+</code></pre>

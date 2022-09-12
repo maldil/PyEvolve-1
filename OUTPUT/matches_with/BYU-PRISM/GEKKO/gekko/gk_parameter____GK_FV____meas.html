@@ -1,0 +1,223 @@
+<link rel="stylesheet" href="../../..//default.css">
+<script src="../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/BYU-PRISM/GEKKO/blob/master/gekko/gk_parameter.py#L161">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/GEKKO/blob/master/gekko/gk_parameter.py#L161">GitMyHubLink</a>
+
+import os 
+from .gk_operators import GK_Operators
+
+Param_input_options = []
+Param_inout_options = [&quotVALUE&quot]
+Param_output_options = []
+
+
+FV_input_options = Param_input_options+[&quotCRITICAL&quot, &quotDMAX&quot, &quotDMAXHI&quot, 
+                                        &quotDMAXLO&quot, &quotFSTATUS&quot, &quotLOWER&quot,&quotMEAS&quot, 
+                                        &quotPSTATUS&quot,&quotSTATUS&quot, &quotUPPER&quot, &quotVDVL&quot, 
+                                        &quotVLACTION&quot, &quotVLHI&quot, &quotVLLO&quot]
+FV_inout_options = Param_inout_options+[]
+FV_output_options = Param_output_options+[&quotLSTVAL&quot, &quotNEWVAL&quot]
+
+MV_inout_options = FV_inout_options+[]
+MV_input_options = FV_input_options + [&quotCOST&quot, &quotDCOST&quot, &quotMV_STEP_HOR&quot,&quotREQONCTRL&quot, &quotTIER&quot]
+MV_output_options = FV_output_options + [&quotAWS&quot, &quotDPRED&quot, &quotNXTVAL&quot, &quotPRED&quot, ]
+
+&#47&#47gather in dictionary
+parameter_options = {&quotFV&quot:{&quotinputs&quot:FV_input_options, &quotoutputs&quot:FV_output_options, &quotinout&quot: FV_inout_options}, 
+                     &quotMV&quot:{&quotinputs&quot:MV_input_options,&quotoutputs&quot:MV_output_options,&quotinout&quot:MV_inout_options},
+                     None:{&quotinputs&quot:Param_input_options,&quotoutputs&quot:Param_output_options,&quotinout&quot:Param_inout_options}}
+
+
+from .properties import parameter_options as options
+
+class GKParameter(GK_Operators):
+    Represents a parameter in a model.
+    counter = 1
+
+    def __init__(self, name=&quot&quot, value=None, lb=None, ub=None, integer=False):
+        if name == &quot&quot:
+            name = &quotp&quot + GKParameter.counter
+            GKParameter.counter += 1
+            if integer == True:
+                name = &quotint_&quot + name
+                
+        &#47&#47 prevents the __setattr__ function from sending options to the server
+        &#47&#47 until the __init__ function has completed since they should only be
+        &#47&#47 sent if changed from their defaults
+        self.__dict__[&quot_initialized&quot] = False
+        
+        &#47&#47register fixed values through connections to ensure consistency in the 
+        &#47&#47csv file, otherwise the requested fixed value will be overridden by
+        &#47&#47whatever initialization value is in the csv
+        &#47&#47self._override_csv = []        
+        self._override_csv = []
+                
+        GK_Operators.__init__(self, name, value=value)
+
+        &#47&#47self.VALUE = value &#47&#47initialized value SET IN GK_Operators
+            
+        if not hasattr(self,&quottype&quot): &#47&#47don&quott overwrite FV and MV
+            self.type = None 
+       
+        &#47&#47 parameters can have lower and upper bounds       
+        if lb is not None:
+            self.LOWER = lb
+        else:
+            self.LOWER = None
+        if ub is not None:
+            self.UPPER = ub
+        else:
+            self.UPPER = None
+        
+        &#47&#47 now allow options to be sent to the server
+        self._initialized = True
+        
+        
+    def __repr__(self):
+        return str(self.value) &#47&#47&quot%s = %f&quot % (self.name, self.value)
+
+    def __len__(self):
+        return len(self.value)
+    def __getitem__(self,key):
+        return self.value[key]
+    def __setitem__(self,key,value):
+        self.value[key] = value
+
+&#47&#47    def __getattr__(self,name):
+&#47&#47        name = name.upper()
+&#47&#47        if name == &quotVALUE&quot:
+&#47&#47            return self.__dict__[&quotVALUE&quot].value
+&#47&#47        else:
+&#47&#47            return self.__dict__[name]
+    
+    def __setattr__(self, name, value):
+        if self._initialized:
+            &#47&#47ignore cases on global options
+            name = name.upper()
+
+            &#47&#47only allow user to set input or input/output options:
+            if name in options[self.type][&quotinputs&quot]+options[self.type][&quotinout&quot]:
+                if name == &quotVALUE&quot:
+                    &#47&#47 Extract input array from pandas series if needed
+                    if type(value).__name__ == &quotSeries&quot:
+                        value = value.values
+                    self.__dict__[name].value = value
+                else:
+                    self.__dict__[name] = value
+
+                    
+            &#47&#47don&quott allow writing to output properties by default
+            elif name in options[self.type][&quotoutputs&quot]:
+                &#47&#47define outputs by passing list/tuple with 1st element being True
+                &#47&#47to override the output writing prevention 
+                try:
+                    if value[0] == True:
+                        self.__dict__[name] = value[1]
+                    else:
+                        raise TypeError
+                except TypeError:
+                    raise AttributeError(str(name)+" is an output property")
+
+                    
+            &#47&#47no other properties allowed
+            else:
+                raise AttributeError(str(name)+" is not a property of this variable")
+
+                
+        &#47&#47for initializing model
+        else:
+            self.__dict__[name] = value
+            
+            
+class GK_FV(GKParameter):
+    Fixed Variable. Inherits GKParameter.
+
+    def __init__(self, name=&quot&quot, value=0, lb=None, ub=None, gk_model=None, model_path=None, integer=False):
+
+        &#47&#47 prevents the __setattr__ function from sending options to the server
+        &#47&#47 until the __init__ function has completed since they should only be
+        &#47&#47 sent if changed from their defaults
+        self.__dict__[&quot_initialized&quot] = False
+
+        if not hasattr(self,&quottype&quot): &#47&#47don&quott overwrite MV
+            self.type = &quotFV&quot
+        self.model_name = gk_model
+        self.path = model_path &#47&#47use the same path as the model 
+        
+        &#47&#47 FV options
+        self.CRITICAL = None
+        self.DMAX = None
+        self.DMAXHI = None
+        self.DMAXLO = None
+        self.FSTATUS = None
+        self.LSTVAL = None
+        self.MEAS = None
+        self.NEWVAL = None
+        self.PSTATUS = None
+        self.STATUS = None
+        self.VDVL = None
+        self.VLACTION = None
+        self.VLHI = None
+        self.VLLO = None
+       
+        GKParameter.__init__(self, name=name, value=value, lb=lb, ub=ub, integer=integer)
+
+
+    def meas(<a id="change">self</a>,<a id="change">measurement</a>):
+        <a id="change">self.MEAS = measurement</a>
+        &#47&#47open measurement.dbs file
+        <a id="change">f = open(os.path.join(self.path,&quotmeasurements.dbs&quot),&quota&quot)</a>
+        &#47&#47write measurement
+        f.write(self.name+&quot.MEAS = &quot+str(measurement)+&quot, 1, none\n&quot)
+        &#47&#47close file
+        <a id="change">f</a><a id="change">.close()</a>
+        
+        &#47&#47write tag file
+        <a id="change">f = open(os.path.join(self.path,self.name),&quotw&quot)</a>
+        &#47&#47write measurement
+        f.write(str(measurement))
+        &#47&#47close tag file
+        <a id="change">f</a><a id="change">.close()</a>
+        
+        
+        
+
+
+
+class GK_MV(GK_FV):
+     Manipulated Variable. Inherits GK_FV.
+
+    def __init__(self, name=&quot&quot, value=0, lb=None, ub=None, gk_model=None, model_path=None, integer=False):
+        
+        &#47&#47 prevents the __setattr__ function from sending options to the server
+        &#47&#47 until the __init__ function has completed since they should only be
+        &#47&#47 sent if changed from their defaults
+        self.__dict__[&quot_initialized&quot] = False
+
+        &#47&#47 prevents the __setattr__ function from sending options to the server
+        &#47&#47 until the __init__ function has completed since they should only be
+        &#47&#47 sent if changed from their defaults
+        self.initialized = False
+
+        self.type = &quotMV&quot
+
+        &#47&#47 options for manipulated variables
+        self.AWS = None
+        self.COST = None
+        self.DCOST = None
+        self.DPRED = None
+        self.MV_STEP_HOR = None
+        self.NXTVAL = None
+        self.PRED = None
+        self.REQONCTRL = None
+        self.TIER = None
+        
+        
+        GK_FV.__init__(self, name=name, value=value, lb=lb, ub=ub, gk_model=gk_model, model_path=model_path, integer=integer)
+
+        
+</code></pre>

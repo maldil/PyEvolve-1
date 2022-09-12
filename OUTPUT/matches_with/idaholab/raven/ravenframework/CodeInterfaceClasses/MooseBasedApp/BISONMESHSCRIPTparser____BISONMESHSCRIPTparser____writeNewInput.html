@@ -1,0 +1,169 @@
+<link rel="stylesheet" href="../../../../..//default.css">
+<script src="../../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/idaholab/raven/blob/devel/ravenframework/CodeInterfaceClasses/MooseBasedApp/BISONMESHSCRIPTparser.py#L142">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/raven/blob/devel/ravenframework/CodeInterfaceClasses/MooseBasedApp/BISONMESHSCRIPTparser.py#L142">GitMyHubLink</a>
+
+&#47&#47 Copyright 2017 Battelle Energy Alliance, LLC
+&#47&#47
+&#47&#47 Licensed under the Apache License, Version 2.0 (the "License");
+&#47&#47 you may not use this file except in compliance with the License.
+&#47&#47 You may obtain a copy of the License at
+&#47&#47
+&#47&#47 http://www.apache.org/licenses/LICENSE-2.0
+&#47&#47
+&#47&#47 Unless required by applicable law or agreed to in writing, software
+&#47&#47 distributed under the License is distributed on an "AS IS" BASIS,
+&#47&#47 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+&#47&#47 See the License for the specific language governing permissions and
+&#47&#47 limitations under the License.
+
+Created on Jul 09, 2015
+
+@author: tompjame
+
+from __future__ import division, print_function, unicode_literals, absolute_import
+import os
+import re
+import collections
+
+class BISONMESHSCRIPTparser():
+  
+    Import Bison Mesh Script input, provide methods to add/change entries and print input back
+  
+  def __init__(self,inputFile):
+    
+      Open and read file content into an ordered dictionary
+      @ In, inputFile, File object, object with information about the template input file
+      @ Out, None
+    
+    self.printTag = &quotBISONMESHSCRIPT_PARSER&quot
+    if not os.path.exists(inputFile.getAbsFile()):
+      raise IOError(&quotInput file not found: &quot+inputFile.getAbsFile())
+    &#47&#47 Initialize file dictionary, storage order, and internal variables
+    self.AllVarDict = collections.OrderedDict()
+    self.fileOrderStorage = []
+    quote_comment = False
+    quote_comment_line = False
+    apostrophe_comment = False
+    apostrophe_comment_line = False
+    between_str = &quot&quot
+    &#47&#47 Open file
+    self.inputfile = inputFile.getAbsFile()
+    &#47&#47 self.keywordDictionary dictionary
+    for line in inputFile:
+      if &quot&quot in line or "&quot&quot&quot" in line:
+        if &quot&quot in line and quote_comment == True:
+          quote_comment_line = True
+          splitline = line.split(&quot&quot)
+          between_str += splitline[0] + &quot&quot
+          line = splitline[1]
+          quote_comment = not quote_comment
+        elif &quot&quot in line and quote_comment == False:
+          quote_comment_line = True
+          splitline = line.split(&quot&quot)
+          line = splitline[0]
+          quote_comment = not quote_comment
+        elif "&quot&quot&quot" in line and apostrophe_comment == True:
+          apostrophe_comment_line = True
+          splitline = line.split("&quot&quot&quot")
+          between_str += splitline[0] + "&quot&quot&quot"
+          line = splitline[1]
+          apostrophe_comment = not apostrophe_comment
+        elif "&quot&quot&quot" in line and apostrophe_comment == False:
+          apostrophe_comment_line = True
+          splitline = line.split("&quot&quot&quot")
+          line = splitline[0]
+          apostrophe_comment = not apostrophe_comment
+        &#47&#47 parse stuff that is left over on the line
+        if len(line) == 0:
+          between_str += line
+        elif line.isspace():
+          between_str += line
+        elif line.startswith(&quot&#47&#47&quot):
+          between_str += line
+        elif &quot{}&quot in line:
+          between_str += line
+        elif line.startswith(&quotpellets&quot):
+          between_str += line
+        else:
+          &#47&#47 Append string of non-varying parts of input file to file storage and reset the collection string
+          if len(between_str) &gt; 0:
+            self.fileOrderStorage.append(between_str); between_str = &quot&quot
+          dictname, varname, varvalue = re.split(r"\[&quot|&quot] = |&quot] =|&quot]= ", line)
+          if dictname in self.AllVarDict.keys():
+            self.AllVarDict[dictname][varname] = varvalue.strip()
+          else:
+            self.fileOrderStorage.append([dictname])
+            self.AllVarDict[dictname] = collections.OrderedDict()
+            self.AllVarDict[dictname][varname] = varvalue.strip()
+        &#47&#47 Add comment contents to storage for &quot&quot&quot or  that starts comment block after code on same line
+        if quote_comment_line == True and quote_comment == True:
+          between_str += &quot&quot + splitline[1]
+        elif apostrophe_comment_line == True and apostrophe_comment == True:
+          between_str += "&quot&quot&quot" + splitline[1]
+        quote_comment_line = False
+        apostrophe_comment_line = False
+      else:
+        &#47&#47 Didn&quott find a comment block flag
+        if quote_comment == True or apostrophe_comment == True:
+          between_str += line
+          continue
+        else:
+          &#47&#47 Outside of comment block (in code)
+          if len(line) == 0:
+            between_str += line
+          elif line.isspace():
+            between_str += line
+          elif line.startswith(&quot&#47&#47&quot):
+            between_str += line
+          elif &quot{}&quot in line:
+            between_str += line
+          elif line.startswith(&quotpellets&quot):
+            between_str += line
+          else:
+            &#47&#47 Append string of non-varying parts of input file to file storage and reset the collection string
+            if len(between_str) &gt; 0:
+              self.fileOrderStorage.append(between_str); between_str = &quot&quot
+            dictname, varname, varvalue = re.split(r"\[&quot|&quot] = |&quot] =|&quot]= ", line)
+            if dictname in self.AllVarDict.keys():
+              self.AllVarDict[dictname][varname] = varvalue.strip()
+            else:
+              self.fileOrderStorage.append([dictname])
+              self.AllVarDict[dictname] = collections.OrderedDict()
+              self.AllVarDict[dictname][varname] = varvalue.strip()
+    if len(between_str) &gt; 0:
+      self.fileOrderStorage.append(between_str)
+
+  def modifyInternalDictionary(self,**inDictionary):
+    
+      Parse the input dictionary and replace matching keywords in internal dictionary.
+      @ In, inDictionary, dict, dictionary containing full longform name and raven sampled var value
+      @ Out, None
+    
+    for keyword, newvalue in inDictionary.items():
+      keyword1, keyword2 = keyword.split(&quot@&quot)[-1].split(&quot|&quot)
+      self.AllVarDict[keyword1][keyword2] = newvalue
+
+  def writeNewInput(self,outfile=None):
+    
+      Using the fileOrderStorage list, reconstruct the template input with modified keywordDictionary
+      @ In, outfile, string, optional, output file name
+      @ Out, None
+    
+    if outfile==None:
+      outfile = self.inputfile
+    <a id="change">IOfile = open(outfile,&quotw&quot)</a>
+    for e, entry in enumerate(self.fileOrderStorage):
+      if type(entry) == unicode:
+        IOfile.writelines(entry)
+      elif type(entry) == list:
+        DictBlockName = self.fileOrderStorage[e][0]
+        DictBlock = self.AllVarDict[DictBlockName]
+        for key, value in DictBlock.items():
+          IOfile.writelines(DictBlockName + "[&quot" + key + "&quot] = " + str(value) + &quot\n&quot)
+    <a id="change">IOfile</a><a id="change">.close()</a>
+</code></pre>

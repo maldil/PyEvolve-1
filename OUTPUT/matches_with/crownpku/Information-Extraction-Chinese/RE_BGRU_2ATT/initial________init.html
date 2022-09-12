@@ -1,0 +1,368 @@
+<link rel="stylesheet" href="../../..//default.css">
+<script src="../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/crownpku/Information-Extraction-Chinese/blob/master/RE_BGRU_2ATT/initial.py#L27">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/Information-Extraction-Chinese/blob/master/RE_BGRU_2ATT/initial.py#L27">GitMyHubLink</a>
+
+import numpy as np
+import os
+
+
+&#47&#47 embedding the position
+def pos_embed(x):
+    if x &lt; -60:
+        return 0
+    if -60 &lt;= x &lt;= 60:
+        return x + 61
+    if x &gt; 60:
+        return 122
+
+
+&#47&#47 find the index of x in y, if x not in y, return -1
+def find_index(x, y):
+    flag = -1
+    for i in range(len(y)):
+        if x != y[i]:
+            continue
+        else:
+            return i
+    return flag
+
+
+&#47&#47 reading data
+def init():
+    print(&quotreading word embedding data...&quot)
+    vec = []
+    word2id = {}
+    <a id="change">f</a><a id="change"> = open(&quot./origin_data/vec.txt&quot, encoding=&quotutf-8&quot)</a>
+    content = <a id="change">f</a>.readline()
+    content = <a id="change">content</a>.strip().split()
+    dim = int(content[1])
+    while True:
+        content = <a id="change">f</a>.readline()
+        if content == &quot&quot:
+            break
+        content = <a id="change">content</a>.strip().split()
+        word2id[content[0]] = len(word2id)
+        content = content[1:]
+        content = [(float)(i) for i in content]
+        <a id="change">vec</a>.append(content)
+    <a id="change">f</a><a id="change">.close()</a>
+    word2id[&quotUNK&quot] = len(word2id)
+    word2id[&quotBLANK&quot] = len(word2id)
+
+    <a id="change">vec</a>.append(np.random.normal(size=dim, loc=0, scale=0.05))
+    <a id="change">vec</a>.append(np.random.normal(size=dim, loc=0, scale=0.05))
+    vec = np.array(vec, dtype=np.float32)
+
+    print(&quotreading relation to id&quot)
+    relation2id = {}
+    <a id="change">f</a><a id="change"> = open(&quot./origin_data/relation2id.txt&quot, &quotr&quot, encoding=&quotutf-8&quot)</a>
+    while True:
+        content = <a id="change">f</a>.readline()
+        if content == &quot&quot:
+            break
+        content = <a id="change">content</a>.strip().split()
+        relation2id[content[0]] = int(content[1])
+    <a id="change">f</a><a id="change">.close()</a>
+
+    &#47&#47 length of sentence is 70
+    fixlen = 70
+    &#47&#47 max length of position embedding is 60 (-60~+60)
+    maxlen = 60
+
+    train_sen = {}  &#47&#47 {entity pair:[[[label1-sentence 1],[label1-sentence 2]...],[[label2-sentence 1],[label2-sentence 2]...]}
+    train_ans = {}  &#47&#47 {entity pair:[label1,label2,...]} the label is one-hot vector
+
+    print(&quotreading train data...&quot)
+    f = open(&quot./origin_data/train.txt&quot, &quotr&quot, encoding=&quotutf-8&quot)
+
+    while True:
+        content = <a id="change">f</a>.readline()
+        if content == &quot&quot:
+            break
+
+        content = <a id="change">content</a>.strip().split()
+        &#47&#47 get entity name
+        en1 = content[0]
+        en2 = content[1]
+        relation = 0
+        if content[2] not in relation2id:
+            relation = relation2id[&quotNA&quot]
+        else:
+            relation = relation2id[content[2]]
+        &#47&#47 put the same entity pair sentences into a dict
+        tup = (en1, en2)
+        label_tag = 0
+        if tup not in train_sen:
+            train_sen[tup] = []
+            train_sen[tup].append([])
+            y_id = relation
+            label_tag = 0
+            label = [0 for i in range(len(relation2id))]
+            label[y_id] = 1
+            train_ans[tup] = []
+            train_ans[tup].append(label)
+        else:
+            y_id = relation
+            label_tag = 0
+            label = [0 for i in range(len(relation2id))]
+            label[y_id] = 1
+
+            temp = find_index(label, train_ans[tup])
+            if temp == -1:
+                train_ans[tup].append(label)
+                label_tag = len(train_ans[tup]) - 1
+                train_sen[tup].append([])
+            else:
+                label_tag = temp
+
+        sentence = content[3]
+
+        en1pos = 0
+        en2pos = 0
+        
+        &#47&#47For Chinese
+        en1pos = <a id="change">sentence</a>.find(en1)
+        if en1pos == -1:
+            en1pos = 0
+        en2pos = <a id="change">sentence</a>.find(en2)
+        if en2pos == -1:
+            en2pos = 0
+        
+        output = []
+
+        &#47&#47Embeding the position
+        for i in range(fixlen):
+            word = word2id[&quotBLANK&quot]
+            rel_e1 = pos_embed(i - en1pos)
+            rel_e2 = pos_embed(i - en2pos)
+            <a id="change">output</a>.append([word, rel_e1, rel_e2])
+
+        for i in range(min(fixlen, len(sentence))):
+            word = 0
+            if sentence[i] not in word2id:
+                word = word2id[&quotUNK&quot]
+            else:
+                word = word2id[sentence[i]]
+
+            output[i][0] = word
+
+        train_sen[tup][label_tag].append(output)
+
+    print(&quotreading test data ...&quot)
+
+    test_sen = {}  &#47&#47 {entity pair:[[sentence 1],[sentence 2]...]}
+    test_ans = {}  &#47&#47 {entity pair:[labels,...]} the labels is N-hot vector (N is the number of multi-label)
+
+    f = open(&quot./origin_data/test.txt&quot, &quotr&quot, encoding=&quotutf-8&quot)
+
+    while True:
+        content = <a id="change">f</a>.readline()
+        if content == &quot&quot:
+            break
+
+        content = <a id="change">content</a>.strip().split()
+        en1 = content[0]
+        en2 = content[1]
+        relation = 0
+        if content[2] not in relation2id:
+            relation = relation2id[&quotNA&quot]
+        else:
+            relation = relation2id[content[2]]
+        tup = (en1, en2)
+
+        if tup not in test_sen:
+            test_sen[tup] = []
+            y_id = relation
+            label_tag = 0
+            label = [0 for i in range(len(relation2id))]
+            label[y_id] = 1
+            test_ans[tup] = label
+        else:
+            y_id = relation
+            test_ans[tup][y_id] = 1
+
+        sentence = content[3]
+
+        en1pos = 0
+        en2pos = 0
+        
+        &#47&#47For Chinese
+        en1pos = <a id="change">sentence</a>.find(en1)
+        if en1pos == -1:
+            en1pos = 0
+        en2pos = <a id="change">sentence</a>.find(en2)
+        if en2pos == -1:
+            en2pos = 0
+            
+        output = []
+
+        for i in range(fixlen):
+            word = word2id[&quotBLANK&quot]
+            rel_e1 = pos_embed(i - en1pos)
+            rel_e2 = pos_embed(i - en2pos)
+            <a id="change">output</a>.append([word, rel_e1, rel_e2])
+
+        for i in range(min(fixlen, len(sentence))):
+            word = 0
+            if sentence[i] not in word2id:
+                word = word2id[&quotUNK&quot]
+            else:
+                word = word2id[sentence[i]]
+
+            output[i][0] = word
+        test_sen[tup].append(output)
+
+    train_x = []
+    train_y = []
+    test_x = []
+    test_y = []
+
+    if not os.path.exists("data"):
+        os.makedirs("data")
+
+    print(&quotorganizing train data&quot)
+    <a id="change">f</a><a id="change"> = open(&quot./data/train_q&a.txt&quot, &quotw&quot, encoding=&quotutf-8&quot)</a>
+    temp = 0
+    for i in train_sen:
+        if len(train_ans[i]) != len(train_sen[i]):
+            print(&quotERROR&quot)
+        lenth = len(train_ans[i])
+        for j in range(lenth):
+            <a id="change">train_x</a>.append(train_sen[i][j])
+            <a id="change">train_y</a>.append(train_ans[i][j])
+            <a id="change">f</a>.write(str(temp) + &quot\t&quot + i[0] + &quot\t&quot + i[1] + &quot\t&quot + str(np.argmax(train_ans[i][j])) + &quot\n&quot)
+            temp += 1
+    <a id="change">f</a><a id="change">.close()</a>
+
+    print(&quotorganizing test data&quot)
+    <a id="change">f</a><a id="change"> = open(&quot./data/test_q&a.txt&quot, &quotw&quot, encoding=&quotutf-8&quot)</a>
+    temp = 0
+    for i in test_sen:
+        <a id="change">test_x</a>.append(test_sen[i])
+        <a id="change">test_y</a>.append(test_ans[i])
+        tempstr = &quot&quot
+        for j in range(len(test_ans[i])):
+            if test_ans[i][j] != 0:
+                tempstr = tempstr + str(j) + &quot\t&quot
+        <a id="change">f</a>.write(str(temp) + &quot\t&quot + i[0] + &quot\t&quot + i[1] + &quot\t&quot + tempstr + &quot\n&quot)
+        temp += 1
+    <a id="change">f</a><a id="change">.close()</a>
+
+    train_x = np.array(train_x)
+    train_y = np.array(train_y)
+    test_x = np.array(test_x)
+    test_y = np.array(test_y)
+
+    np.save(&quot./data/vec.npy&quot, vec)
+    np.save(&quot./data/train_x.npy&quot, train_x)
+    np.save(&quot./data/train_y.npy&quot, train_y)
+    np.save(&quot./data/testall_x.npy&quot, test_x)
+    np.save(&quot./data/testall_y.npy&quot, test_y)
+
+   
+
+
+def seperate():
+    print(&quotreading training data&quot)
+    x_train = np.load(&quot./data/train_x.npy&quot)
+
+    train_word = []
+    train_pos1 = []
+    train_pos2 = []
+
+    print(&quotseprating train data&quot)
+    for i in range(len(x_train)):
+        word = []
+        pos1 = []
+        pos2 = []
+        for j in x_train[i]:
+            temp_word = []
+            temp_pos1 = []
+            temp_pos2 = []
+            for k in j:
+                temp_word.append(k[0])
+                temp_pos1.append(k[1])
+                temp_pos2.append(k[2])
+            word.append(temp_word)
+            pos1.append(temp_pos1)
+            pos2.append(temp_pos2)
+        train_word.append(word)
+        train_pos1.append(pos1)
+        train_pos2.append(pos2)
+
+    train_word = np.array(train_word)
+    train_pos1 = np.array(train_pos1)
+    train_pos2 = np.array(train_pos2)
+    np.save(&quot./data/train_word.npy&quot, train_word)
+    np.save(&quot./data/train_pos1.npy&quot, train_pos1)
+    np.save(&quot./data/train_pos2.npy&quot, train_pos2)
+
+    print(&quotseperating test all data&quot)
+    x_test = np.load(&quot./data/testall_x.npy&quot)
+    test_word = []
+    test_pos1 = []
+    test_pos2 = []
+
+    for i in range(len(x_test)):
+        word = []
+        pos1 = []
+        pos2 = []
+        for j in x_test[i]:
+            temp_word = []
+            temp_pos1 = []
+            temp_pos2 = []
+            for k in j:
+                temp_word.append(k[0])
+                temp_pos1.append(k[1])
+                temp_pos2.append(k[2])
+            word.append(temp_word)
+            pos1.append(temp_pos1)
+            pos2.append(temp_pos2)
+        test_word.append(word)
+        test_pos1.append(pos1)
+        test_pos2.append(pos2)
+
+    test_word = np.array(test_word)
+    test_pos1 = np.array(test_pos1)
+    test_pos2 = np.array(test_pos2)
+
+    np.save(&quot./data/testall_word.npy&quot, test_word)
+    np.save(&quot./data/testall_pos1.npy&quot, test_pos1)
+    np.save(&quot./data/testall_pos2.npy&quot, test_pos2)
+
+
+
+&#47&#47 get answer metric for PR curve evaluation
+def getans():
+    test_y = np.load(&quot./data/testall_y.npy&quot)
+    eval_y = []
+    for i in test_y:
+        eval_y.append(i[1:])
+    allans = np.reshape(eval_y, (-1))
+    np.save(&quot./data/allans.npy&quot, allans)
+
+
+def get_metadata():
+    fwrite = open(&quot./data/metadata.tsv&quot, &quotw&quot, encoding=&quotutf-8&quot)
+    f = open(&quot./origin_data/vec.txt&quot, encoding=&quotutf-8&quot)
+    f.readline()
+    while True:
+        content = f.readline().strip()
+        if content == &quot&quot:
+            break
+        name = content.split()[0]
+        fwrite.write(name + &quot\n&quot)
+    f.close()
+    fwrite.close()
+
+
+init()
+seperate()
+getans()
+get_metadata()
+</code></pre>

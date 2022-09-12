@@ -1,0 +1,56 @@
+<link rel="stylesheet" href="../../../..//default.css">
+<script src="../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/hellohaptik/chatbot_ner/blob/develop/lib/nlp/etc.py#L5">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/chatbot_ner/blob/develop/lib/nlp/etc.py#L5">GitMyHubLink</a>
+
+from __future__ import absolute_import
+import csv
+
+
+def store_data_in_list(file_path, stemmer=None, lower_case=True):
+    Stores data in the list
+
+    This function will read the file and store it in a list
+    Args:
+        file_path: file that needs to be converted to the list
+        stemmer: object of stemmer
+        lower_case: True if string needs to be converted to lower case
+    Returns:
+        The list of words
+
+    
+    list_of_words = []
+    <a id="change">input_file</a><a id="change"> = open(file_path, "rt")</a>  &#47&#47 file containing words
+    csv_reader = csv.reader(input_file)
+    &#47&#47 populate list of words
+    for word in csv_reader:
+        token = word[0].lower() if lower_case else word[0]
+        if not stemmer:
+            <a id="change">list_of_words</a>.append(str(token))
+        else:
+            <a id="change">list_of_words</a>.append(str(stemmer.stem_word(token)))
+    <a id="change">input_file</a><a id="change">.close()</a>
+    return list_of_words
+
+
+def filter_list(list_to_filter, remove_elements):
+    
+    Args:
+        list_to_filter (list): list to filter
+        remove_elements (list): list elements to remove from first list
+
+    Returns:
+        list of str: The list of elements in first list but not in second
+
+        For example, output = filter_list([&quothi&quot, &quothello&quot, &quotbye&quot],[&quothi&quot, &quotbye&quot])
+        print(output)
+        &gt;&gt; [&quothello&quot]
+    
+    return [item for item in list_to_filter if item not in remove_elements]
+
+
+</code></pre>

@@ -1,0 +1,117 @@
+<link rel="stylesheet" href="../../../../..//default.css">
+<script src="../../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/maxpumperla/deep_learning_and_the_game_of_go/blob/master/code/dlgo/data/index_processor.py#L71">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/deep_learning_and_the_game_of_go/blob/master/code/dlgo/data/index_processor.py#L71">GitMyHubLink</a>
+
+&#47&#47 This Source Code Form is subject to the terms of the Mozilla Public License,
+&#47&#47 v. 2.0. If a copy of the MPL was not distributed with this file, You can
+&#47&#47 obtain one at http://mozilla.org/MPL/2.0/.
+from __future__ import print_function
+from __future__ import absolute_import
+import os
+import sys
+import multiprocessing
+import six
+if sys.version_info[0] == 3:
+    from urllib.request import urlopen, urlretrieve
+else:
+    from urllib import urlopen, urlretrieve
+
+
+def worker(url_and_target):  &#47&#47 Parallelize data download via multiprocessing
+    try:
+        (url, target_path) = url_and_target
+        print(&quot&gt;&gt;&gt; Downloading &quot + target_path)
+        urlretrieve(url, target_path)
+    except (KeyboardInterrupt, SystemExit):
+        print(&quot&gt;&gt;&gt; Exiting child process&quot)
+
+
+class KGSIndex:
+
+    def __init__(self,
+                 kgs_url=&quothttp://u-go.net/gamerecords/&quot,
+                 index_page=&quotkgs_index.html&quot,
+                 data_directory=&quotdata&quot):
+        Create an index of zip files containing SGF data of actual Go Games on KGS.
+
+        Parameters:
+        -----------
+        kgs_url: URL with links to zip files of games
+        index_page: Name of local html file of kgs_url
+        data_directory: name of directory relative to current path to store SGF data
+        
+        self.kgs_url = kgs_url
+        self.index_page = index_page
+        self.data_directory = data_directory
+        self.file_info = []
+        self.urls = []
+        self.load_index()  &#47&#47 Load index on creation
+
+    def download_files(self):
+        Download zip files by distributing work on all available CPUs
+        if not os.path.isdir(self.data_directory):
+            os.makedirs(self.data_directory)
+
+        urls_to_download = []
+        for file_info in self.file_info:
+            url = file_info[&quoturl&quot]
+            file_name = file_info[&quotfilename&quot]
+            if not os.path.isfile(self.data_directory + &quot/&quot + file_name):
+                urls_to_download.append((url, self.data_directory + &quot/&quot + file_name))
+        cores = multiprocessing.cpu_count()
+        pool = multiprocessing.Pool(processes=cores)
+        try:
+            it = pool.imap(worker, urls_to_download)
+            for _ in it:
+                pass
+            pool.close()
+            pool.join()
+        except KeyboardInterrupt:
+            print("&gt;&gt;&gt; Caught KeyboardInterrupt, terminating workers")
+            pool.terminate()
+            pool.join()
+            sys.exit(-1)
+
+    def create_index_page(<a id="change">self</a>):
+        If there is no local html containing links to files, create one.
+        if os.path.isfile(self.index_page):
+            print(&quot&gt;&gt;&gt; Reading cached index page&quot)
+            <a id="change">index_file = open(self.index_page, &quotr&quot)</a>
+            <a id="change">index_contents = index_file.read()</a>
+            <a id="change">index_file</a><a id="change">.close()</a>
+        else:
+            print(&quot&gt;&gt;&gt; Downloading index page&quot)
+            <a id="change">fp = urlopen(self.kgs_url)</a>
+            <a id="change">data = six.text_type(fp.read())</a>
+            fp.close()
+            <a id="change">index_contents = data</a>
+            <a id="change">index_file = open(self.index_page, &quotw&quot)</a>
+            index_file.write(index_contents)
+            <a id="change">index_file</a><a id="change">.close()</a>
+        return index_contents
+
+    def load_index(self):
+        Create the actual index representation from the previously downloaded or cached html.
+        index_contents = self.create_index_page()
+        split_page = [item for item in index_contents.split(&quot&lt;a href="&quot) if item.startswith("https://")]
+        for item in split_page:
+            download_url = item.split(&quot"&gt;Download&quot)[0]
+            if download_url.endswith(&quot.tar.gz&quot):
+                self.urls.append(download_url)
+        for url in self.urls:
+            filename = os.path.basename(url)
+            split_file_name = filename.split(&quot-&quot)
+            num_games = int(split_file_name[len(split_file_name) - 2])
+            print(filename + &quot &quot + str(num_games))
+            self.file_info.append({&quoturl&quot: url, &quotfilename&quot: filename, &quotnum_games&quot: num_games})
+
+
+if __name__ == &quot__main__&quot:
+    index = KGSIndex()
+    index.download_files()
+</code></pre>

@@ -1,0 +1,676 @@
+<link rel="stylesheet" href="../../../..//default.css">
+<script src="../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/calico/basenji/blob/master/bin/archive/basenji_hdf5_cluster.py#L450">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/basenji/blob/master/bin/archive/basenji_hdf5_cluster.py#L450">GitMyHubLink</a>
+
+&#47&#47!/usr/bin/env python
+&#47&#47 Copyright 2017 Calico LLC
+
+&#47&#47 Licensed under the Apache License, Version 2.0 (the "License");
+&#47&#47 you may not use this file except in compliance with the License.
+&#47&#47 You may obtain a copy of the License at
+
+&#47&#47     https://www.apache.org/licenses/LICENSE-2.0
+
+&#47&#47 Unless required by applicable law or agreed to in writing, software
+&#47&#47 distributed under the License is distributed on an "AS IS" BASIS,
+&#47&#47 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+&#47&#47 See the License for the specific language governing permissions and
+&#47&#47 limitations under the License.
+&#47&#47 =========================================================================
+from __future__ import print_function
+
+from optparse import OptionParser
+from collections import OrderedDict
+import math
+import os
+import random
+import subprocess
+import sys
+import tempfile
+import time
+
+import h5py
+import joblib
+import numpy as np
+import pyBigWig
+import pysam
+
+import slurm
+
+from basenji import dna_io
+from basenji import genome
+
+&quot&quot&quot
+basenji_hdf5.py
+
+Tile the genome and project the full functional profile to latent space
+using a given model. Save the result in HDF5 for Basenji learning.
+
+To Do:
+ -If unmappable regions are cutting my data, I could squeeze a little more out
+   by allowing them to sit at the edges of sequences where I&quotm not making
+   predictions anyway.
+&quot&quot&quot
+
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+def main():
+  usage = &quotusage: %prog [options] &lt;fasta_file&gt; &lt;sample_wigs_file&gt; &lt;hdf5_file&gt;&quot
+  parser = OptionParser(usage)
+  parser.add_option(
+      &quot-b&quot,
+      dest=&quotlimit_bed&quot,
+      help=&quotLimit to segments that overlap regions in a BED file&quot)
+  parser.add_option(
+      &quot-c&quot,
+      dest=&quotclip&quot,
+      default=None,
+      type=&quotfloat&quot,
+      help=&quotClip target values to have minimum [Default: %default]&quot)
+  parser.add_option(&quot--cluster_dir&quot, dest=&quotcluster_dir&quot, default=&quotbasenji_hdf5&quot)
+  parser.add_option(
+      &quot-d&quot,
+      dest=&quotsample_pct&quot,
+      default=1.0,
+      type=&quotfloat&quot,
+      help=&quotDown-sample the segments&quot)
+  parser.add_option(
+      &quot-f&quot,
+      dest=&quotfourier_dim&quot,
+      default=None,
+      type=&quotint&quot,
+      help=&quotFourier transform dimension [Default: %default]&quot)
+  parser.add_option(
+      &quot-g&quot,
+      dest=&quotgaps_file&quot,
+      help=&quotGenome assembly gaps BED [Default: %default]&quot)
+  parser.add_option(
+      &quot-l&quot,
+      dest=&quotseq_length&quot,
+      default=1024,
+      type=&quotint&quot,
+      help=&quotSequence length [Default: %default]&quot)
+  parser.add_option(
+      &quot--log2&quot,
+      dest=&quotlog10to2&quot,
+      default=False,
+      action=&quotstore_true&quot,
+      help=&quotTransform values from log10 to log2 [Default: %default]&quot)
+  parser.add_option(
+      &quot--mult_cov&quot,
+      dest=&quotcov_multiplier&quot,
+      default=1,
+      type=&quotfloat&quot,
+      help=
+      &quotCoverage multiplier, useful when the read extension and pool width do not match [Default: %default]&quot
+  )
+  parser.add_option(
+      &quot-n&quot,
+      dest=&quotna_t&quot,
+      default=0.25,
+      type=&quotfloat&quot,
+      help=
+      &quotRemove sequences with an NA% greater than this threshold [Default: %default]&quot
+  )
+  parser.add_option(
+      &quot-o&quot,
+      dest=&quotout_bed_file&quot,
+      help=&quotOutput the train/valid/test sequences as a BED file&quot)
+  parser.add_option(
+      &quot-p&quot,
+      dest=&quotprocesses&quot,
+      default=1,
+      type=&quotint&quot,
+      help=&quotNumber parallel processes to load data [Default: %default]&quot)
+  parser.add_option(
+      &quot-s&quot,
+      dest=&quotstride&quot,
+      type=&quotint&quot,
+      help=&quotStride to advance segments [Default: seq_length]&quot)
+  parser.add_option(
+      &quot-t&quot,
+      dest=&quottest_pct_or_chr&quot,
+      type=&quotstr&quot,
+      default=0.05,
+      help=&quotProportion of the data for testing [Default: %default]&quot)
+  parser.add_option(
+      &quot-u&quot, dest=&quotunmap_bed&quot, help=&quotUnmappable segments to set to NA&quot)
+  parser.add_option(
+      &quot-w&quot,
+      dest=&quotpool_width&quot,
+      type=&quotint&quot,
+      default=1,
+      help=&quotAverage pooling width [Default: %default]&quot)
+  parser.add_option(
+      &quot-v&quot,
+      dest=&quotvalid_pct_or_chr&quot,
+      type=&quotstr&quot,
+      default=0.05,
+      help=&quotProportion of the data for validation [Default: %default]&quot)
+  parser.add_option(
+      &quot-z&quot, dest=&quotcompression&quot, help=&quoth5py compression [Default: %default]&quot)
+  (options, args) = parser.parse_args()
+
+  if len(args) != 3:
+    parser.error(
+        &quotMust provide genome FASTA file, sample Wig/BigWig labels and paths, &quot
+        &quotand model output file&quot)
+  else:
+    fasta_file = args[0]
+    sample_wigs_file = args[1]
+    hdf5_file = args[2]
+
+  random.seed(1)
+
+  if options.stride is None:
+    options.stride = options.seq_length
+
+  &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+  &#47&#47 assess bigwigs
+  &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+  &#47&#47 get wig files and labels
+  target_wigs = OrderedDict()
+  target_strands = []
+  target_labels = []
+  for line in open(sample_wigs_file, encoding=&quotUTF-8&quot):
+    a = line.rstrip().split(&quot\t&quot)
+
+    if a[0] in target_wigs:
+      print(&quotWARNING: duplicate target id %s&quot % a[0], file=sys.stderr)
+
+    target_wigs[a[0]] = a[1]
+    target_strands.append(a[2])
+    if len(a) &gt; 3:
+      target_labels.append(a[3])
+    else:
+      target_labels.append(&quot&quot)
+
+  if options.fourier_dim is not None and 2 * options.fourier_dim &gt;= options.seq_length / options.pool_width:
+    print(
+        "Fourier transform to %d dims won&quott compress %d length sequences with %d pooling"
+        % (options.fourier_dim, options.seq_length, options.pool_width),
+        file=sys.stderr)
+    exit(1)
+
+  &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+  &#47&#47 prepare genomic segments
+  &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+  chrom_segments = genome.load_chromosomes(fasta_file)
+
+  &#47&#47 remove gaps
+  if options.gaps_file:
+    chrom_segments = genome.split_contigs(chrom_segments,
+                                                  options.gaps_file)
+
+  &#47&#47 ditch the chromosomes
+  segments = []
+  for chrom in chrom_segments:
+    segments += [(chrom, seg_start, seg_end)
+                 for seg_start, seg_end in chrom_segments[chrom]]
+
+  &#47&#47 standardize order
+  segments.sort()
+
+  &#47&#47 filter for large enough
+  segments = [cse for cse in segments if cse[2] - cse[1] &gt;= options.seq_length]
+
+  &#47&#47 down-sample
+  if options.sample_pct &lt; 1.0:
+    segments = random.sample(segments, int(options.sample_pct * len(segments)))
+
+  &#47&#47 limit to a BED file
+  if options.limit_bed is not None:
+    segments = limit_segments(segments, options.limit_bed)
+
+  if not os.path.isdir(options.cluster_dir):
+    os.mkdir(options.cluster_dir)
+
+  &#47&#47 print segments to BED file
+  seg_bed_file = &quot%s/segments.bed&quot % options.cluster_dir
+  seg_bed_out = open(seg_bed_file, &quotw&quot)
+  for chrom, seg_start, seg_end in segments:
+    print(&quot%s\t%d\t%d&quot % (chrom, seg_start, seg_end), file=seg_bed_out)
+  seg_bed_out.close()
+
+  &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+  &#47&#47 bigwig read and process
+  &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+  print(
+      &quotReading and pre-processing bigwigs for %d segments&quot % len(segments),
+      flush=True)
+
+  targets_real = []
+  targets_imag = []
+
+  &#47&#47 generate numpy arrays on cluster
+  jobs = []
+  for target_label in target_wigs.keys():
+    wig_file = target_wigs[target_label]
+    npy_file = &quot%s/%s&quot % (options.cluster_dir, target_label)
+    if not os.path.isfile(npy_file) and not os.path.isfile(&quot%s.npy&quot % npy_file):
+      print(npy_file)
+
+      if os.path.splitext(wig_file)[1] == &quot.h5&quot:
+        script = &quotseqs_hdf5.py&quot
+      else:
+        script = &quotbigwig_hdf5.py&quot
+
+      cmd = &quotecho $HOSTNAME; %s -l %d -s %d -w %d %s %s %s&quot % (
+          script, options.seq_length, options.stride, options.pool_width,
+          wig_file, seg_bed_file, npy_file)
+      name = &quothdf5_%s&quot % target_label
+      outf = &quot%s/%s.out&quot % (options.cluster_dir, target_label)
+      errf = &quot%s/%s.err&quot % (options.cluster_dir, target_label)
+      j = slurm.Job(
+          cmd, name, outf, errf, queue=&quotstandard,tbdisk&quot, mem=15000, time=&quot12:0:0&quot)
+      jobs.append(j)
+
+  slurm.multi_run(jobs)
+
+  &#47&#47 load into targets_real, targets_imag
+  for target_label in target_wigs.keys():
+    npy_file = &quot%s/%s.npy&quot % (options.cluster_dir, target_label)
+    wig_targets = np.load(npy_file)
+    targets_real.append(wig_targets)
+
+  &#47&#47 transpose from TxSxL to SxLxT
+  targets_real = np.transpose(np.array(targets_real), axes=(1, 2, 0))
+
+  print(&quot%d target sequences&quot % targets_real.shape[0])
+
+  &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+  &#47&#47 one hot code sequences
+  &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+  seqs_1hot, seqs_segments = segments_1hot(fasta_file, segments,
+                                           options.seq_length, options.stride)
+  print(&quot%d sequences one hot coded&quot % seqs_1hot.shape[0])
+
+  &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+  &#47&#47 correct for unmappable regions
+  &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+  if options.unmap_bed is not None:
+    seqs_na = annotate_na(seqs_segments, options.unmap_bed, options.seq_length,
+                          options.pool_width)
+
+    &#47&#47 determine mappable sequences and update test indexes
+    map_indexes = []
+
+    for i in range(seqs_na.shape[0]):
+      &#47&#47 mappable
+      if seqs_na[i, :].mean(dtype=&quotfloat64&quot) &lt; options.na_t:
+        map_indexes.append(i)
+
+      &#47&#47 unmappable
+      else:
+        &#47&#47 forget it
+        pass
+
+    &#47&#47 update data structures
+    targets_real = targets_real[map_indexes]
+    if options.fourier_dim is not None:
+      targets_imag = targets_imag[map_indexes]
+
+    seqs_1hot = seqs_1hot[map_indexes]
+    seqs_segments = [seqs_segments[mi] for mi in map_indexes]
+    seqs_na = seqs_na[map_indexes]
+
+  &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+  &#47&#47 write to train, valid, test HDF5
+  &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+
+  &#47&#47 choose test indexes
+  if options.test_pct_or_chr.startswith(&quotchr&quot):
+    test_indexes = [
+        si for si in range(len(seqs_segments))
+        if seqs_segments[si][0] == options.test_pct_or_chr
+    ]
+  else:
+    test_pct = float(options.test_pct_or_chr)
+    test_indexes = [
+        twi for twi in range(len(seqs_segments)) if random.random() &lt; test_pct
+    ]
+
+  &#47&#47 choose valid indexes
+  if options.valid_pct_or_chr.startswith(&quotchr&quot):
+    &#47&#47 valid_indexes = np.array([seq_seg[0] == options.valid_pct_or_chr for seq_seg in seqs_segments])
+    valid_indexes = [
+        si for si in range(len(seqs_segments))
+        if seqs_segments[si][0] == options.valid_pct_or_chr
+    ]
+  else:
+    valid_pct = float(options.valid_pct_or_chr)
+    valid_n = int(valid_pct * len(seqs_segments))
+    nontest_indexes = set(range(len(seqs_segments))) - set(test_indexes)
+    valid_indexes = random.sample(nontest_indexes, valid_n)
+
+  &#47&#47 remainder is training
+  train_indexes = list(
+      set(range(len(seqs_segments))) - set(valid_indexes) - set(test_indexes))
+
+  &#47&#47 training may require shuffling
+  random.shuffle(train_indexes)
+  random.shuffle(valid_indexes)
+  random.shuffle(test_indexes)
+
+  &#47&#47 write to HDF5
+  hdf5_out = h5py.File(hdf5_file, &quotw&quot)
+
+  &#47&#47 store pooling
+  hdf5_out.create_dataset(&quotpool_width&quot, data=options.pool_width, dtype=&quotint&quot)
+
+  &#47&#47 store targets
+  target_ids = np.array(list(target_wigs.keys()), dtype=&quotS&quot)
+  hdf5_out.create_dataset(&quottarget_ids&quot, data=target_ids)
+
+  target_labels = np.array(target_labels, dtype=&quotS&quot)
+  hdf5_out.create_dataset(&quottarget_labels&quot, data=target_labels)
+
+  target_strands = np.array(target_strands, dtype=&quotS&quot)
+  hdf5_out.create_dataset(&quottarget_strands&quot, data=target_strands)
+
+  &#47&#47 HDF5 train
+  hdf5_out.create_dataset(
+      &quottrain_in&quot,
+      data=seqs_1hot[train_indexes],
+      dtype=&quotbool&quot,
+      compression=options.compression)
+  hdf5_out.create_dataset(
+      &quottrain_out&quot,
+      data=targets_real[train_indexes],
+      dtype=&quotfloat16&quot,
+      compression=options.compression)
+  if options.fourier_dim is not None:
+    hdf5_out.create_dataset(
+        &quottrain_out_imag&quot,
+        data=targets_imag[train_indexes],
+        dtype=&quotfloat16&quot,
+        compression=options.compression)
+  hdf5_out.create_dataset(
+      &quottrain_na&quot,
+      data=seqs_na[train_indexes],
+      dtype=&quotbool&quot,
+      compression=options.compression)
+
+  &#47&#47 HDF5 valid
+  hdf5_out.create_dataset(
+      &quotvalid_in&quot,
+      data=seqs_1hot[valid_indexes],
+      dtype=&quotbool&quot,
+      compression=options.compression)
+  hdf5_out.create_dataset(
+      &quotvalid_out&quot,
+      data=targets_real[valid_indexes],
+      dtype=&quotfloat16&quot,
+      compression=options.compression)
+  if options.fourier_dim is not None:
+    hdf5_out.create_dataset(
+        &quotvalid_out_imag&quot,
+        data=targets_imag[valid_indexes],
+        dtype=&quotfloat16&quot,
+        compression=options.compression)
+  hdf5_out.create_dataset(
+      &quotvalid_na&quot,
+      data=seqs_na[valid_indexes],
+      dtype=&quotbool&quot,
+      compression=options.compression)
+
+  &#47&#47 HDF5 test
+  hdf5_out.create_dataset(
+      &quottest_in&quot,
+      data=seqs_1hot[test_indexes],
+      dtype=&quotbool&quot,
+      compression=options.compression)
+  hdf5_out.create_dataset(
+      &quottest_out&quot,
+      data=targets_real[test_indexes],
+      dtype=&quotfloat16&quot,
+      compression=options.compression)
+  if options.fourier_dim is not None:
+    hdf5_out.create_dataset(
+        &quottest_out_imag&quot,
+        data=targets_imag[test_indexes],
+        dtype=&quotfloat16&quot,
+        compression=options.compression)
+  hdf5_out.create_dataset(
+      &quottest_na&quot,
+      data=seqs_na[test_indexes],
+      dtype=&quotbool&quot,
+      compression=options.compression)
+
+  hdf5_out.close()
+
+  &#47&#47 output BED file
+  if options.out_bed_file:
+    out_bed_out = open(options.out_bed_file, &quotw&quot)
+    for si in train_indexes:
+      print(&quot%s\t%d\t%d\ttrain&quot % seqs_segments[si], file=out_bed_out)
+    for si in valid_indexes:
+      print(&quot%s\t%d\t%d\tvalid&quot % seqs_segments[si], file=out_bed_out)
+    for si in test_indexes:
+      print(&quot%s\t%d\t%d\ttest&quot % seqs_segments[si], file=out_bed_out)
+    out_bed_out.close()
+
+
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+def annotate_na(<a id="change">seqs_segments</a>, <a id="change">unmap_bed</a>, <a id="change">seq_length</a>, <a id="change">pool_width</a>):
+   Intersect the sequence segments with unmappable regions
+         and annoate the segments as NaN to possible be ignored.
+
+    Args:
+      seqs_segments: list of (chrom,start,end) sequence segments
+      unmap_bed: unmappable regions BED file
+      seq_length: sequence length
+      pool_width: pooled bin width
+
+    Returns:
+      seqs_na: NxL binary NA indicators
+    
+
+  &#47&#47 print sequence segments to file
+  <a id="change">segs_temp = tempfile.NamedTemporaryFile()</a>
+  <a id="change">segs_bed = segs_temp.name</a>
+  <a id="change">segs_out = open(segs_bed, &quotw&quot)</a>
+  for (chrom, start, end) in seqs_segments:
+    print(&quot%s\t%d\t%d&quot % (chrom, start, end), file=segs_out)
+  <a id="change">segs_out</a><a id="change">.close()</a>
+
+  &#47&#47 hash segments to indexes
+  <a id="change">segment_indexes = {}</a>
+  for i in range(len(seqs_segments)):
+    <a id="change">segment_indexes[seqs_segments[i]] = i</a>
+
+  &#47&#47 initialize NA array
+  <a id="change">seqs_na = np.zeros(
+      (len(seqs_segments), seq_length // pool_width), dtype=&quotbool&quot)</a>
+
+  &#47&#47 intersect with unmappable regions
+  <a id="change">p = subprocess.Popen(
+      &quotbedtools intersect -wo -a %s -b %s&quot % (segs_bed, unmap_bed),
+      shell=True,
+      stdout=subprocess.PIPE)</a>
+  for line in p.stdout:
+    <a id="change">line = line.decode(&quotutf-8&quot)</a>
+    <a id="change">a = line.split()</a>
+
+    <a id="change">seg_chrom = a[0]</a>
+    <a id="change">seg_start = int(a[1])</a>
+    <a id="change">seg_end = int(a[2])</a>
+    seg_tup = (seg_chrom, seg_start, seg_end)
+
+    <a id="change">unmap_start = int(a[4])</a>
+    <a id="change">unmap_end = int(a[5])</a>
+
+    <a id="change">seg_unmap_start_i = math.floor((unmap_start - seg_start) / pool_width)</a>
+    <a id="change">seg_unmap_end_i = math.ceil((unmap_end - seg_start) / pool_width)</a>
+
+    &#47&#47 skip minor overlaps to the first
+    <a id="change">first_start = seg_start + seg_unmap_start_i * pool_width</a>
+    <a id="change">first_end = first_start + pool_width</a>
+    <a id="change">first_overlap = first_end - unmap_start</a>
+    if first_overlap &lt; 0.25 * pool_width:
+      seg_unmap_start_i += 1
+
+    &#47&#47 skip minor overlaps to the last
+    <a id="change">last_start = seg_start + (seg_unmap_end_i - 1) * pool_width</a>
+    <a id="change">last_overlap = unmap_end - last_start</a>
+    if last_overlap &lt; 0.25 * pool_width:
+      seg_unmap_end_i -= 1
+
+    <a id="change">seqs_na[segment_indexes[seg_tup], seg_unmap_start_i:seg_unmap_end_i] = True</a>
+
+  return seqs_na
+
+
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+def batch_end(segments, bstart, batch_max):
+   Determine the batch end that will keep the
+          batch length under the given max. 
+
+  bi = bstart
+  blength = 0
+
+  while bi &lt; len(segments) and blength &lt; batch_max:
+    chrom, seg_start, seg_end = segments[bi]
+    blength += seg_end - seg_start
+    bi += 1
+
+  bend = bi
+  if bstart &gt;= bend or bend &gt; len(segments):
+    print("I&quotve made a terrible mistake. On batching segments", file=sys.stderr)
+    exit(1)
+
+  return bend
+
+
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+def limit_segments(segments, filter_bed):
+   Limit to segments overlapping the given BED.
+
+    Args
+     segments: list of (chrom,start,end) genomic segments
+     filter_bed: BED file to filter by
+
+    Returns:
+     fsegments: list of (chrom,start,end) genomic segments
+    
+
+  &#47&#47 print segments to BED
+  seg_fd, seg_bed_file = tempfile.mkstemp()
+  seg_bed_out = open(seg_bed_file, &quotw&quot)
+  for chrom, seg_start, seg_end in segments:
+    print(&quot%s\t%d\t%d&quot % (chrom, seg_start, seg_end), file=seg_bed_out)
+  seg_bed_out.close()
+
+  &#47&#47 intersect w/ filter_bed
+  fsegments = []
+  p = subprocess.Popen(
+      &quotbedtools intersect -u -a %s -b %s&quot % (seg_bed_file, filter_bed),
+      shell=True,
+      stdout=subprocess.PIPE)
+  for line in p.stdout:
+    a = line.decode(&quotutf-8&quot).split()
+    chrom = a[0]
+    seg_start = int(a[1])
+    seg_end = int(a[2])
+    fsegments.append((chrom, seg_start, seg_end))
+
+  p.communicate()
+
+  os.close(seg_fd)
+  os.remove(seg_bed_file)
+
+  return fsegments
+
+
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+def filter_boring(targets, var_t=.01):
+   Filter boring segments without signal variance.
+
+    Args
+     targets: SxLxT array of target values
+     var_t: Average variance threshold
+
+    Returns:
+     targets_exciting: SxLxT array of target values
+    
+  target_lvar_max = targets.var(axis=1).max(axis=1)
+  exciting_mask = (target_lvar_max &gt; var_t)
+  return targets[exciting_mask]
+
+
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+def fourier_transform(targets, dim):
+   Fourier transform.
+
+    Args
+     targets: SxLxT array of target values
+     dim: &#47&#47 of fourier dimensions
+
+    Returns:
+     fourier_real: transformed targets, real component
+     fourier_imag: transformed targets, imaginary component
+    
+  tn = targets.shape[2]
+  fourier_real = np.zeros((targets.shape[0], dim, tn), dtype=&quotfloat16&quot)
+  fourier_imag = np.zeros((targets.shape[0], dim, tn), dtype=&quotfloat16&quot)
+
+  for ti in range(tn):
+    fourier_ti = np.fft.rfft(targets[:, :, ti])[:, :dim]
+    fourier_real[:, :, ti] = fourier_ti.real.astype(&quotfloat16&quot)
+    fourier_imag[:, :, ti] = fourier_ti.imag.astype(&quotfloat16&quot)
+
+  return fourier_real, fourier_imag
+
+
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+def segments_1hot(fasta_file, segments, seq_length, stride):
+   Read and 1-hot code sequences in their segment batches.
+
+    Args
+     fasta_file: FASTA genome
+     segments: list of (chrom,start,end) genomic segments to read
+     seq_length: sequence length to break them into
+     stride: distance to advance each sequence
+
+    Returns:
+     seqs_1hot: You know.
+     seqs_segments: list of (chrom,start,end) sequence segments
+    
+
+  &#47&#47 open fasta
+  fasta = pysam.Fastafile(fasta_file)
+
+  &#47&#47 initialize 1-hot coding list
+  seqs_1hot = []
+
+  &#47&#47 segment corresponding to each sequence
+  seqs_segments = []
+
+  for chrom, seg_start, seg_end in segments:
+    &#47&#47 read sequence
+    seg_seq = fasta.fetch(chrom, seg_start, seg_end)
+
+    &#47&#47 break up into batchable sequences (as above in bigwig_batch)
+    bstart = 0
+    bend = bstart + seq_length
+    while bend &lt; len(seg_seq):
+      &#47&#47 append
+      seqs_1hot.append(dna_io.dna_1hot(seg_seq[bstart:bend]))
+
+      seqs_segments.append((chrom, seg_start + bstart, seg_start + bend))
+
+      &#47&#47 update
+      bstart += stride
+      bend += stride
+
+  return np.array(seqs_1hot), seqs_segments
+
+
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+if __name__ == &quot__main__&quot:
+  main()
+</code></pre>

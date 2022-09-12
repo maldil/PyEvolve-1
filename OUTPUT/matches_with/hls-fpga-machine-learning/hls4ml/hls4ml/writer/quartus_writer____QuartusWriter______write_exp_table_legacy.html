@@ -1,0 +1,901 @@
+<link rel="stylesheet" href="../../../..//default.css">
+<script src="../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/hls-fpga-machine-learning/hls4ml/blob/master/hls4ml/writer/quartus_writer.py#L790">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/hls4ml/blob/master/hls4ml/writer/quartus_writer.py#L790">GitMyHubLink</a>
+
+from __future__ import print_function
+import tarfile
+import yaml
+from shutil import copyfile, copytree, rmtree
+import numpy as np
+import re
+import os
+import glob
+from collections import OrderedDict
+
+from hls4ml.writer.writers import Writer
+from hls4ml.backends import get_backend
+from hls4ml.utils.fixed_point_utils import FixedPointEmulator, ceil_log2, uint_to_binary
+
+config_filename = &quothls4ml_config.yml&quot
+
+
+class QuartusWriter(Writer):
+
+    def next_pow2(self, x):
+        return 1 &lt;&lt; (x - 1).bit_length()
+
+    def get_max_reuse_factor(self, model):
+        max_rf = 0
+        for layer in model.get_layers():
+            rf = int(layer.get_attr(&quotreuse_factor&quot))
+            if (rf &gt; max_rf):
+                max_rf = rf
+        return max_rf
+
+    def print_array_to_cpp(self, var, layer, odir):
+        &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+        &#47&#47&#47&#47 Print weight array to C++
+        &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+        h_file = open("{}/firmware/weights/{}.h".format(odir, var.name), "w")
+
+        &#47&#47 meta data
+        h_file.write("//Numpy array shape {}\n".format(var.shape))
+        h_file.write("//Min {:.12f}\n".format(np.min(var.min)))
+        h_file.write("//Max {:.12f}\n".format(np.max(var.max)))
+        h_file.write("//Number of zeros {}\n".format(var.nzeros))
+        h_file.write("\n")
+
+        h_file.write("&#47&#47ifndef {}_H_\n".format(var.name.upper()))
+        h_file.write("&#47&#47define {}_H_\n".format(var.name.upper()))
+        h_file.write("\n")
+
+        rf = int(layer.get_attr(&quotreuse_factor&quot))
+        weight_header = &quot&#47&#47ifdef __INTELFPGA_COMPILER__\n&quot
+        if (rf == 1 or var.name[0] == &quotb&quot or layer.get_attr(&quotn_in&quot) * layer.get_attr(&quotn_out&quot) &lt;= 2048
+                or (var.name[0] == &quotw&quot and var.type.precision.width &lt; 3)):
+            weight_header += &quothls_init_on_powerup\n&quot
+        else:
+            block_factor = (layer.get_attr(&quotn_in&quot) * layer.get_attr(&quotn_out&quot)) / rf
+            nbanks = int(2 ** np.ceil(np.log2(block_factor)) / 2)
+            var_width = int(np.ceil(var.type.precision.width / 8))
+            bwidth = self.next_pow2(var_width)
+            weight_header += &quothls_bankwidth({bwidth})\nhls_numbanks({nbanks})\nhls_max_replicates(1)\nhls_memory_impl("BLOCK_RAM")\n&quot.format(
+                bwidth=bwidth, nbanks=nbanks)
+        weight_header += &quot&#47&#47endif\n&quot
+        weight_header += &quotstatic const &quot
+        h_file.write(weight_header + var.definition_cpp() + " = {")
+
+        &#47&#47 fill c++ array.
+        &#47&#47 not including internal brackets for multidimensional case
+        sep = &quot&quot
+        for x in var:
+            h_file.write(sep + x)
+            sep = ", "
+        h_file.write("};\n")
+        h_file.write("\n&#47&#47endif\n")
+        h_file.close()
+
+    def write_project_dir(self, model):
+        if not os.path.isdir("{}/firmware/weights".format(model.config.get_output_dir())):
+            os.makedirs("{}/firmware/weights".format(model.config.get_output_dir()))
+
+    def write_project_cpp(self, model):
+        &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+        &#47&#47&#47&#47 myproject.cpp
+        &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+
+        filedir = os.path.dirname(os.path.abspath(__file__))
+        f = open(os.path.join(filedir, &quot../templates/quartus/firmware/myproject.cpp&quot), &quotr&quot)
+        fout = open(&quot{}/firmware/{}.cpp&quot.format(model.config.get_output_dir(), model.config.get_project_name()), &quotw&quot)
+
+        model_inputs = model.get_input_variables()
+        model_outputs = model.get_output_variables()
+
+        indent = &quot    &quot
+
+        for line in f.readlines():
+            &#47&#47 Add headers to weights and biases
+            if &quotmyproject&quot in line:
+                newline = line.replace(&quotmyproject&quot, model.config.get_project_name())
+
+            elif &quot//hls-fpga-machine-learning insert cpragmas&quot in line:
+
+                newline = line
+                newline += &quothls_max_concurrency(0)\n&quot
+                newline += &quothls_component_ii({})\n&quot.format(self.get_max_reuse_factor(model))
+                clock_mhz = 1000 / (model.config.get_config_value(&quotClockPeriod&quot))
+                newline += &quothls_scheduler_target_fmax_mhz({})\n&quot.format(np.ceil(clock_mhz).astype(np.int))
+
+            elif &quot//hls-fpga-machine-learning insert weights&quot in line:
+                newline = line
+                for layer in model.get_layers():
+                    for w in layer.get_weights():
+                        newline += &quot&#47&#47include "weights/{}.h"\n&quot.format(w.name)
+
+            elif &quot//hls-fpga-machine-learning insert test weights&quot in line:
+                newline = line
+                for layer in model.get_layers():
+                    for w in layer.get_weights():
+                        newline += &quot&#47&#47include "weights/{}_test.h"\n&quot.format(w.name)
+
+            elif &quot//hls-fpga-machine-learning insert layers&quot in line:
+                newline = line + &quot\n&quot
+                for layer in model.get_layers():
+                    vars = layer.get_variables()
+                    for var in vars:
+                        if var not in model_inputs and var not in model_outputs:
+                            def_cpp = var.definition_cpp()
+                            if def_cpp is not None:
+                                newline += &quot    &quot + def_cpp + &quot;\n&quot
+                    if layer.get_attr(&quotactivation&quot) == &quottanh&quot:  &#47&#47 TODO move this to an optimizer
+                        layer.set_attr(&quotactivation&quot) == &quotdense_tanh&quot
+                    func = layer.get_attr(&quotfunction_cpp&quot, None)
+                    if func:
+                        newline += &quot    &quot + func + &quot\n&quot
+                        newline += &quot\n&quot
+
+            &#47&#47 Just copy line
+            else:
+                newline = line
+
+            fout.write(newline)
+
+        f.close()
+        fout.close()
+
+    def write_project_header(self, model):
+        &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+        &#47&#47&#47&#47 myproject.h
+        &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+
+        filedir = os.path.dirname(os.path.abspath(__file__))
+        f = open(os.path.join(filedir, &quot../templates/quartus/firmware/myproject.h&quot), &quotr&quot)
+        fout = open(&quot{}/firmware/{}.h&quot.format(model.config.get_output_dir(), model.config.get_project_name()), &quotw&quot)
+
+        model_inputs = model.get_input_variables()
+        model_outputs = model.get_output_variables()
+
+        indent = &quot    &quot
+
+        for line in f.readlines():
+
+            if &quotMYPROJECT&quot in line:
+                newline = line.replace(&quotMYPROJECT&quot, format(model.config.get_project_name().upper()))
+            elif &quotmyproject&quot in line:
+                newline = line.replace(&quotmyproject&quot, model.config.get_project_name())
+            elif &quot//hls-fpga-machine-learning insert cpragmas&quot in line:
+                newline = line
+                newline += &quothls_max_concurrency(0)\n&quot
+                newline += &quothls_component_ii({})\n&quot.format(self.get_max_reuse_factor(model))
+                clock_mhz = 1000 / (model.config.get_config_value(&quotClockPeriod&quot))
+                newline += &quothls_scheduler_target_fmax_mhz({})\n&quot.format(np.ceil(clock_mhz).astype(np.int))
+            elif &quotcomponent output_data myproject(&quot in line:
+                newline = &quotcomponent output_data {}(\n&quot.format(model.config.get_project_name())
+            elif &quot//hls-fpga-machine-learning insert inputs&quot in line:
+                for inp in model_inputs:
+                    newline = &quot&quot
+                    newline += indent + inp.definition_cpp() + &quot;\n&quot
+            elif &quot//hls-fpga-machine-learning insert outputs&quot in line:
+                for out in model_outputs:
+                    newline = &quot&quot
+                    newline += indent + out.definition_cpp() + &quot;\n&quot
+            else:
+                newline = line
+            fout.write(newline)
+
+        f.close()
+        fout.close()
+
+    def write_defines(self, model):
+        filedir = os.path.dirname(os.path.abspath(__file__))
+        f = open(os.path.join(filedir, &quot../templates/quartus/firmware/defines.h&quot), &quotr&quot)
+        fout = open(&quot{}/firmware/defines.h&quot.format(model.config.get_output_dir()), &quotw&quot)
+
+        for line in f.readlines():
+
+            &#47&#47 Insert numbers
+            if &quot//hls-fpga-machine-learning insert numbers&quot in line:
+                newline = line
+                numbers = OrderedDict.fromkeys([layer.get_numbers_cpp() for layer in model.get_layers()])
+                newline += &quot&quot.join(numbers)
+
+            elif &quot//hls-fpga-machine-learning insert layer-precision&quot in line:
+                newline = line
+                all_precision = OrderedDict()
+                for layer in model.get_layers():
+                    layer_precision = layer.get_layer_precision()
+                    all_precision.update(layer_precision)
+                for used_type in all_precision.values():
+                    newline += used_type.definition_cpp()
+            else:
+                newline = line
+            fout.write(newline)
+        f.close()
+        fout.close()
+
+    def write_parameters(self, model):
+        filedir = os.path.dirname(os.path.abspath(__file__))
+        f = open(os.path.join(filedir, &quot../templates/quartus/firmware/parameters.h&quot), &quotr&quot)
+        fout = open(&quot{}/firmware/parameters.h&quot.format(model.config.get_output_dir()), &quotw&quot)
+
+        for line in f.readlines():
+
+            if &quot//hls-fpga-machine-learning insert includes&quot in line:
+                newline = line
+                for include in sorted(
+                        set(sum((layer.get_attr(&quotinclude_header&quot, []) for layer in model.get_layers()), []))):
+                    newline += &quot&#47&#47include "%s"\n&quot % include
+
+            elif "//hls-fpga-machine-learning insert layer-config" in line:
+                newline = line
+                for layer in model.get_layers():
+                    config = layer.get_attr(&quotconfig_cpp&quot, None)
+                    if config:
+                        newline += config + &quot\n&quot
+            else:
+                newline = line
+            fout.write(newline)
+        f.close()
+        fout.close()
+
+    def write_weights(self, model):
+        for layer in model.get_layers():
+            for weights in layer.get_weights():
+                self.print_array_to_cpp(weights, layer, model.config.get_output_dir())
+
+    def write_test_bench(self, model):
+        &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+        &#47&#47&#47&#47 test bench
+        &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+
+        if len(model.get_output_variables()) != 1:
+            print("WARNING:  The testbench only supports one output variable. Leaving empty testbench")
+            return
+
+        outvar = model.get_output_variables()[0]
+
+        filedir = os.path.dirname(os.path.abspath(__file__))
+
+        if not os.path.exists(&quot{}/tb_data/&quot.format(model.config.get_output_dir())):
+            os.mkdir(&quot{}/tb_data/&quot.format(model.config.get_output_dir()))
+
+        input_data = model.config.get_config_value(&quotInputData&quot)
+        output_predictions = model.config.get_config_value(&quotOutputPredictions&quot)
+
+        if input_data:
+            if input_data[-3:] == "dat":
+                copyfile(input_data, &quot{}/tb_data/tb_input_features.dat&quot.format(model.config.get_output_dir()))
+            else:
+                self.__make_dat_file(input_data,
+                                     &quot{}/tb_data/tb_input_features.dat&quot.format(model.config.get_output_dir()))
+
+        if output_predictions:
+            if output_predictions[-3:] == "dat":
+                copyfile(output_predictions,
+                         &quot{}/tb_data/tb_output_predictions.dat&quot.format(model.config.get_output_dir()))
+            else:
+                self.__make_dat_file(output_predictions,
+                                     &quot{}/tb_data/tb_output_predictions.dat&quot.format(model.config.get_output_dir()))
+
+        f = open(os.path.join(filedir, &quot../templates/quartus/myproject_test.cpp&quot), &quotr&quot)
+        fout = open(&quot{}/{}_test.cpp&quot.format(model.config.get_output_dir(), model.config.get_project_name()), &quotw&quot)
+
+        for line in f.readlines():
+            indent = &quot &quot * (len(line) - len(line.lstrip(&quot &quot)))
+
+            &#47&#47 Insert numbers
+            if &quotmyproject&quot in line:
+                newline = line.replace(&quotmyproject&quot, model.config.get_project_name())
+            elif &quot//hls-fpga-machine-learning insert data&quot in line:
+                newline = line
+                &#47&#47 TODO this is not correct for more than one input
+                newline += &quot      std::vector&lt;float&gt;::const_iterator in_begin = in.cbegin();\n&quot
+                newline += &quot      std::vector&lt;float&gt;::const_iterator in_end;\n&quot
+                newline += &quot      inputs.emplace_back();\n&quot
+                for inp in model.get_input_variables():
+                    newline += f&quot      in_end = in_begin + ({inp.size_cpp()});\n&quot
+                    newline += f&quot      std::copy(in_begin, in_end, inputs.back().{inp.member_name});\n&quot
+                    newline += &quot      in_begin = in_end;\n&quot
+                newline += &quot      outputs.emplace_back();\n&quot
+            elif &quot//hls-fpga-machine-learning insert zero&quot in line:
+                newline = line
+                newline += indent + &quotfor(int i = 0; i &lt; num_iterations; i++) {\n&quot
+                for inp in model.get_input_variables():
+                    newline += indent + f&quot  inputs.emplace_back();\n&quot
+                    newline += indent + f&quot  outputs.emplace_back();\n&quot
+                    newline += indent + f&quot  std::fill_n(inputs[i].{inp.member_name}, {inp.size_cpp()}, 0.0);\n&quot
+                newline += indent + &quot}\n&quot
+
+            elif &quot//hls-fpga-machine-learning insert top-level-function&quot in line:
+                newline = line
+
+                newline += indent + &quotfor(int i = 0; i &lt; num_iterations; i++) {\n&quot
+                newline += indent + f&quot  ihc_hls_enqueue(&outputs[i], {model.config.get_project_name()}, inputs[i]);\n&quot
+                newline += indent + &quot}\n&quot
+            elif &quothls-fpga-machine-learning insert run&quot in line:
+                newline = line
+                newline += &quot    &quot + &quotihc_hls_component_run_all({});\n&quot.format(model.config.get_project_name())
+            elif &quot//hls-fpga-machine-learning insert predictions&quot in line:
+                newline = line
+                newline += indent + &quotfor(int i = 0; i &lt; {}; i++) {{\n&quot.format(outvar.size_cpp())
+                newline += indent + &quot  std::cout &lt;&lt; predictions[j][i] &lt;&lt; " ";\n&quot
+                newline += indent + &quot}\n&quot
+                newline += indent + &quotstd::cout &lt;&lt; std::endl;\n&quot
+            elif &quot//hls-fpga-machine-learning insert tb-output&quot in line:
+                newline = line
+                newline += indent + &quotfor(int i = 0; i &lt; {}; i++) {{\n&quot.format(outvar.size_cpp())
+                newline += indent + &quot  fout &lt;&lt; outputs[j].{}[i] &lt;&lt; " ";\n&quot.format(outvar.member_name)
+                newline += indent + &quot}\n&quot
+                newline += indent + &quotfout &lt;&lt; std::endl;\n&quot
+            elif &quot//hls-fpga-machine-learning insert output&quot in line or &quot//hls-fpga-machine-learning insert quantized&quot in line:
+                newline = line
+                newline += indent + &quotfor(int i = 0; i &lt; {}; i++) {{\n&quot.format(outvar.size_cpp())
+                newline += indent + &quot  std::cout &lt;&lt; outputs[j].{}[i] &lt;&lt; " ";\n&quot.format(outvar.member_name)
+                newline += indent + &quot}\n&quot
+                newline += indent + &quotstd::cout &lt;&lt; std::endl;\n&quot
+            else:
+                newline = line
+            fout.write(newline)
+        f.close()
+        fout.close()
+
+    def write_bridge(self, model):
+        &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+        &#47&#47 c++-python bridge
+        &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+
+        filedir = os.path.dirname(os.path.abspath(__file__))
+        f = open(os.path.join(filedir, &quot../templates/quartus/myproject_bridge.cpp&quot), &quotr&quot)
+        fout = open(&quot{}/{}_bridge.cpp&quot.format(model.config.get_output_dir(), model.config.get_project_name()), &quotw&quot)
+
+        model_inputs = model.get_input_variables()
+        model_outputs = model.get_output_variables()
+
+        indent = &quot    &quot
+
+        for line in f.readlines():
+
+            if &quotMYPROJECT&quot in line:
+                newline = line.replace(&quotMYPROJECT&quot, format(model.config.get_project_name().upper()))
+            elif &quotmyproject&quot in line:
+                newline = line.replace(&quotmyproject&quot, format(model.config.get_project_name()))
+            elif &quot//hls-fpga-machine-learning insert header&quot in line:
+                dtype = line.split(&quot&#47&#47&quot, 1)[1].strip()
+                inputs_str = &quot, &quot.join(
+                    [&quot{type} {name}[{shape}]&quot.format(type=dtype, name=i.cppname, shape=i.size_cpp()) for i in
+                     model_inputs])
+                outputs_str = &quot, &quot.join(
+                    [&quot{type} {name}[{shape}]&quot.format(type=dtype, name=o.cppname, shape=o.size_cpp()) for o in
+                     model_outputs])
+                insize_str = &quot, &quot.join(
+                    [&quotunsigned short &const_size_in_{}&quot.format(i) for i in range(1, len(model_inputs) + 1)])
+                outsize_str = &quot, &quot.join(
+                    [&quotunsigned short &const_size_out_{}&quot.format(o) for o in range(1, len(model_outputs) + 1)])
+
+                newline = &quot&quot
+                newline += indent + inputs_str + &quot,\n&quot
+                newline += indent + outputs_str + &quot,\n&quot
+                newline += indent + insize_str + &quot,\n&quot
+                newline += indent + outsize_str + &quot\n&quot
+
+            elif &quot//hls-fpga-machine-learning insert wrapper&quot in line:
+                dtype = line.split(&quot&#47&#47&quot, 1)[1].strip()
+                newline = &quot&quot
+                newline += indent + &quotinput_data inputs_ap;\n&quot
+                for i in model_inputs:
+                    newline += indent + &quotnnet::convert_data&lt;{}, {}, {}&gt;({}, inputs_ap.{});\n&quot.format(dtype, i.type.name,
+                                                                                                     i.size_cpp(),
+                                                                                                     i.cppname,
+                                                                                                     i.cppname)
+                newline += &quot\n&quot
+
+                newline += indent + &quotoutput_data outputs_ap;\n&quot
+                top_level = indent + &quotoutputs_ap = {}(inputs_ap);\n&quot.format(model.config.get_project_name())
+                newline += top_level
+                newline += &quot\n&quot
+
+                for o in model_outputs:
+                    newline += indent + &quotnnet::convert_data_back&lt;{}, {}, {}&gt;(outputs_ap.{}, {});\n&quot.format(o.type.name,
+                                                                                                           dtype,
+                                                                                                           o.size_cpp(),
+                                                                                                           o.cppname,
+                                                                                                           o.cppname)
+            elif &quot//hls-fpga-machine-learning insert trace_outputs&quot in line:
+                newline = &quot&quot
+                for layer in model.get_layers():
+                    func = layer.get_attr(&quotfunction_cpp&quot)
+                    if func and model.config.trace_output and model.config.get_layer_config_value(layer, &quotTrace&quot,
+                                                                                                  False):
+                        vars = layer.get_variables()
+                        for var in vars:
+                            newline += indent + &quotnnet::trace_outputs-&gt;insert(std::pair&lt;std::string, void *&gt;("{}", (void *) malloc({} * element_size)));\n&quot.format(
+                                layer.name, var.size_cpp())
+
+            else:
+                newline = line
+            fout.write(newline)
+
+        f.close()
+        fout.close()
+
+    def write_build_script(self, model):
+        &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+        &#47&#47 Makefile
+        &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+
+        filedir = os.path.dirname(os.path.abspath(__file__))
+        f = open(os.path.join(filedir, &quot../templates/quartus/Makefile&quot), &quotr&quot)
+        fout = open(&quot{}/Makefile&quot.format(model.config.get_output_dir()), &quotw&quot)
+
+        for line in f.readlines():
+
+            line = line.replace(&quotmyproject&quot, model.config.get_project_name())
+
+            if &quotDEVICE   :=&quot in line:
+                line = &quotDEVICE   := {}\n&quot.format(model.config.get_config_value(&quotPart&quot))
+
+            fout.write(line)
+        f.close()
+        fout.close()
+
+        &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+        &#47&#47 build_lib.sh
+        &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+
+        f = open(os.path.join(filedir, &quot../templates/quartus/build_lib.sh&quot), &quotr&quot)
+        fout = open(&quot{}/build_lib.sh&quot.format(model.config.get_output_dir()), &quotw&quot)
+
+        for line in f.readlines():
+            line = line.replace(&quotmyproject&quot, model.config.get_project_name())
+            line = line.replace(&quotmystamp&quot, model.config.get_config_value(&quotStamp&quot))
+
+            fout.write(line)
+        f.close()
+        fout.close()
+
+    def write_nnet_utils(self, model):
+        &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+        &#47&#47&#47&#47 nnet_utils
+        &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+
+        filedir = os.path.dirname(os.path.abspath(__file__))
+
+        srcpath = os.path.join(filedir, &quot../templates/quartus/firmware/nnet_utils/&quot)
+        dstpath = &quot{}/firmware/nnet_utils/&quot.format(model.config.get_output_dir())
+
+        if not os.path.exists(dstpath):
+            os.mkdir(dstpath)
+
+        headers = [os.path.basename(h) for h in glob.glob(srcpath + &quot*.h&quot)]
+
+        for h in headers:
+            copyfile(srcpath + h, dstpath + h)
+
+        &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+        &#47&#47&#47&#47 ac_types
+        &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+
+        filedir = os.path.dirname(os.path.abspath(__file__))
+
+        srcpath = os.path.join(filedir, &quot../templates/quartus/ac_types/&quot)
+        dstpath = &quot{}/firmware/ac_types/&quot.format(model.config.get_output_dir())
+
+        if os.path.exists(dstpath):
+            rmtree(dstpath)
+
+        copytree(srcpath, dstpath)
+
+        &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+        &#47&#47&#47&#47 custom source
+        &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+
+        filedir = os.path.dirname(os.path.abspath(__file__))
+
+        custom_source = get_backend(&quotQuartus&quot).get_custom_source()
+        for dst, srcpath in custom_source.items():
+            dstpath = &quot{}/firmware/{}&quot.format(model.config.get_output_dir(), dst)
+            copyfile(srcpath, dstpath)
+
+    def __get_table_size(self, model, activation):
+        for layer in model.get_layers():
+            if layer.get_attr(&quotactivation&quot) == activation and layer.get_attr(&quottable_size&quot) is not None:
+                return layer.get_attr(&quottable_size&quot)
+        return 1024
+
+    def __get_table_header(self, table_name, table_size):
+        table_header = &quot&#47&#47ifndef {}_H_\n&quot.format(table_name.upper())
+        table_header += &quot&#47&#47define {}_H_\n&quot.format(table_name.upper())
+        table_header += &quot\n&quot
+
+        table_header += &quot&#47&#47ifdef __INTELFPGA_COMPILER__\n&quot
+        table_header += &quothls_init_on_powerup\n&quot
+        table_header += &quot&#47&#47endif\n&quot
+        table_header += &quotstatic const typename CONFIG_T::table_t {}[{}] = {{&quot.format(table_name, table_size)
+        return table_header
+
+    def __write_elu_table(self, model, path):
+        table_name = &quotelu_table&quot
+        table_size = self.__get_table_size(model, &quotelu&quot)
+
+        h_file = open(&quot{}/{}.tb&quot.format(path, table_name), &quotw&quot)
+        h_file.write(self.__get_table_header(table_name, table_size))
+
+        sep = &quot&quot
+        for i in range(table_size):
+            in_val = -8.0 * i / float(table_size)
+            real_val = np.exp(in_val) - 1.
+            h_file.write(sep + str(real_val))
+            sep = ", "
+
+        h_file.write(&quot};\n&quot)
+        h_file.write(&quot\n&#47&#47endif\n&quot)
+        h_file.close()
+
+    def __write_sigmoid_table(self, model, path):
+        MAX_VALUE = 8
+        MIN_VALUE = 0
+
+        table_name = &quotsigmoid_table&quot
+        table_size = self.__get_table_size(model, &quotsigmoid&quot)
+
+        h_file = open(&quot{}/{}.tb&quot.format(path, table_name), &quotw&quot)
+        h_file.write(self.__get_table_header(table_name, table_size))
+
+        sep = &quot&quot
+        for i in range(table_size):
+            in_val = i * (MAX_VALUE - MIN_VALUE) / float(table_size) + (MAX_VALUE - MIN_VALUE) / (
+                        float(table_size) * 2) + MIN_VALUE
+            real_val = 1.0 / (1 + np.exp(-in_val))
+            if (real_val &gt;= 0.5):
+                h_file.write(sep + str(real_val))
+                sep = ", "
+
+        h_file.write(&quot};\n&quot)
+        h_file.write(&quot\n&#47&#47endif\n&quot)
+        h_file.close()
+
+    def __write_tanh_table(self, model, path):
+        MAX_VALUE = 4
+        MIN_VALUE = 0
+
+        table_name = &quottanh_table&quot
+        table_size = self.__get_table_size(model, &quotdense_tanh&quot)
+
+        h_file = open(&quot{}/{}.tb&quot.format(path, table_name), &quotw&quot)
+        h_file.write(self.__get_table_header(table_name, table_size))
+
+        sep = &quot&quot
+        for i in range(table_size):
+            in_val = i * (MAX_VALUE - MIN_VALUE) / float(table_size) + (MAX_VALUE - MIN_VALUE) / (
+                        float(table_size) * 2) + MIN_VALUE
+            real_val = np.tanh(in_val)
+            if (real_val &gt;= 0):
+                h_file.write(sep + str(real_val))
+                sep = ", "
+
+        h_file.write(&quot};\n&quot)
+        h_file.write(&quot\n&#47&#47endif\n&quot)
+        h_file.close()
+
+    def __write_softplus_table(self, model, path):
+        table_name = &quotsoftplus_table&quot
+        table_size = self.__get_table_size(model, &quotsoftplus&quot)
+
+        h_file = open(&quot{}/{}.tb&quot.format(path, table_name), &quotw&quot)
+        h_file.write(self.__get_table_header(table_name, table_size))
+
+        sep = &quot&quot
+        for i in range(table_size):
+            in_val = 2 * 8.0 * (i - float(table_size) / 2.0) / float(table_size)
+            real_val = np.log(np.exp(in_val) + 1.)
+            h_file.write(sep + str(real_val))
+            sep = ", "
+
+        h_file.write(&quot};\n&quot)
+        h_file.write(&quot\n&#47&#47endif\n&quot)
+        h_file.close()
+
+    def __write_softsign_table(self, model, path):
+        table_name = &quotsoftsign_table&quot
+        table_size = self.__get_table_size(model, &quotsoftsign&quot)
+
+        h_file = open(&quot{}/{}.tb&quot.format(path, table_name), &quotw&quot)
+        h_file.write(self.__get_table_header(table_name, table_size))
+
+        sep = &quot&quot
+        for i in range(table_size):
+            in_val = 2 * 8.0 * (i - float(table_size) / 2.0) / float(table_size)
+            real_val = in_val / (np.fabs(in_val) + 1.)
+            h_file.write(sep + str(real_val))
+            sep = ", "
+
+        h_file.write(&quot};\n&quot)
+        h_file.write(&quot\n&#47&#47endif\n&quot)
+        h_file.close()
+
+    def __write_selu_table(self, model, path):
+        table_name = &quotselu_table&quot
+        table_size = self.__get_table_size(model, &quotselu&quot)
+
+        h_file = open(&quot{}/{}.tb&quot.format(path, table_name), &quotw&quot)
+        h_file.write(self.__get_table_header(table_name, table_size))
+
+        sep = &quot&quot
+        for i in range(table_size):
+            in_val = -8.0 * i / float(table_size)
+            real_val = 1.0507009873554804934193349852946 * (1.6732632423543772848170429916717 * (np.exp(in_val) - 1.))
+            h_file.write(sep + str(real_val))
+            sep = ", "
+
+        h_file.write(&quot};\n&quot)
+        h_file.write(&quot\n&#47&#47endif\n&quot)
+        h_file.close()
+
+    def __write_exp_table(self, model, path):
+        table_name = &quotexp_table&quot
+        table_size = self.__get_table_size(model, &quotsoftmax&quot)
+
+        h_file = open(&quot{}/{}.tb&quot.format(path, table_name), &quotw&quot)
+        h_file.write(self.__get_table_header(table_name, table_size))
+
+        &#47&#47 Default fixed point precision
+        &#47&#47 6 bits for integer part, 10 bits for decimal - total, 16
+        fp_bits = 16
+        fp_integer = 6
+        fp_signed = True
+
+        &#47&#47 Exp table should use the same precision as exp_table, as seen in Vivado code
+        &#47&#47 init_exp_table&lt;data_T, CONFIG_T&gt;(exp_table);
+        for layer in model.get_layers():
+            if layer.name == &quotsoftmax&quot:
+                ac_type = layer.get_input_variable().type
+                if ac_type is not None:
+                    try:
+                        fp_bits = ac_type.precision.integer + ac_type.precision.fractional
+                        fp_integer = ac_type.precision.integer
+                        fp_signed = ac_type.precision.signed
+                    except:
+                        &#47&#47 FixedPrecisionType wasn&quott correctly stored in layer attributes, use default values
+                        pass
+
+        sep = &quot&quot
+        N = ceil_log2(table_size)
+        for i in range(table_size):
+            f = FixedPointEmulator(fp_bits, fp_integer, signed=fp_signed)
+            f.set_msb_bits(uint_to_binary(i, N))
+            real_val = f.exp_float()
+            h_file.write(sep + str(real_val))
+            sep = ", "
+
+        h_file.write(&quot};\n&quot)
+        h_file.write(&quot\n&#47&#47endif\n&quot)
+        h_file.close()
+
+    def __write_invert_table(self, model, path):
+        table_name = &quotinvert_table&quot
+        table_size = self.__get_table_size(model, &quotsoftmax&quot)
+
+        h_file = open(&quot{}/{}.tb&quot.format(path, table_name), &quotw&quot)
+        h_file.write(self.__get_table_header(table_name, table_size))
+
+        &#47&#47 Default fixed point precision, in case values from layer attributes cannot be extracted
+        &#47&#47 8 bits for integer part, 10 bits for decimal - total, 18
+        fp_bits = 18
+        fp_integer = 8
+        fp_signed = True
+
+        &#47&#47 Invert table should use the same precision as exp_table, as seen in Vivado code
+        &#47&#47 init_invert_table&lt;typename CONFIG_T::exp_table_t, CONFIG_T&gt;(invert_table);
+        for layer in model.get_layers():
+            if layer.name == &quotsoftmax&quot:
+                ac_type = layer.get_attr(&quotexp_table_t&quot)
+                if ac_type is not None:
+                    try:
+                        fp_bits = ac_type.precision.integer + ac_type.precision.fractional
+                        fp_integer = ac_type.precision.integer
+                        fp_signed = ac_type.precision.signed
+                    except:
+                        &#47&#47 FixedPrecisionType wasn&quott correctly stored in layer attributes, use default values
+                        pass
+
+        sep = &quot&quot
+        N = ceil_log2(table_size)
+        for i in range(table_size):
+            f = FixedPointEmulator(fp_bits, fp_integer, signed=fp_signed)
+            f.set_msb_bits(uint_to_binary(i, N))
+            real_val = f.inv_float()
+            h_file.write(sep + str(real_val))
+            sep = ", "
+
+        h_file.write(&quot};\n&quot)
+        h_file.write(&quot\n&#47&#47endif\n&quot)
+        h_file.close()
+
+    def __write_exp_table_latency(self, model, path):
+        table_name = &quotexp_table_latency&quot
+        table_size = self.__get_table_size(model, &quotsoftmax&quot)
+
+        h_file = open(&quot{}/{}.tb&quot.format(path, table_name), &quotw&quot)
+        h_file.write(self.__get_table_header(table_name, table_size))
+
+        &#47&#47 Default fixed point precision
+        &#47&#47 6 bits for integer part, 10 bits for decimal - total, 16
+        fp_bits = 16
+        fp_integer = 6
+        fp_signed = True
+
+        &#47&#47 Exp table should use the same precision as exp_table, as seen in Vivado code
+        &#47&#47 init_exp_table&lt;data_T, CONFIG_T&gt;(exp_table);
+        for layer in model.get_layers():
+            if layer.name == &quotsoftmax&quot:
+                ac_type = layer.get_input_variable().type
+                if ac_type is not None:
+                    try:
+                        fp_bits = ac_type.precision.integer + ac_type.precision.fractional
+                        fp_integer = ac_type.precision.integer
+                        fp_signed = ac_type.precision.signed
+                    except:
+                        &#47&#47 FixedPrecisionType wasn&quott correctly stored in layer attributes, use default values
+                        pass
+
+        sep = &quot&quot
+        N = ceil_log2(table_size)
+        for i in range(table_size):
+            f = FixedPointEmulator(fp_bits, fp_integer, signed=fp_signed)
+            f.set_msb_bits(uint_to_binary(i, N))
+            real_val = f.exp_float()
+            h_file.write(sep + str(real_val))
+            sep = ", "
+
+        h_file.write(&quot};\n&quot)
+        h_file.write(&quot\n&#47&#47endif\n&quot)
+        h_file.close()
+
+    def __write_invert_table_latency(self, model, path):
+        table_name = &quotinvert_table_latency&quot
+        table_size = self.__get_table_size(model, &quotsoftmax&quot)
+
+        h_file = open(&quot{}/{}.tb&quot.format(path, table_name), &quotw&quot)
+        h_file.write(self.__get_table_header(table_name, table_size))
+
+        &#47&#47 Default fixed point precision, in case values from layer attributes cannot be extracted
+        &#47&#47 8 bits for integer part, 10 bits for decimal - total, 18
+        fp_bits = 18
+        fp_integer = 8
+        fp_signed = True
+
+        &#47&#47 Invert table should use the same precision as exp_table, as seen in Vivado code
+        &#47&#47 init_invert_table&lt;typename CONFIG_T::exp_table_t, CONFIG_T&gt;(invert_table);
+        for layer in model.get_layers():
+            if layer.name == &quotsoftmax&quot:
+                ac_type = layer.get_attr(&quotexp_table_t&quot)
+                if ac_type is not None:
+                    try:
+                        fp_bits = ac_type.precision.integer + ac_type.precision.fractional
+                        fp_integer = ac_type.precision.integer
+                        fp_signed = ac_type.precision.signed
+                    except:
+                        &#47&#47 FixedPrecisionType wasn&quott correctly stored in layer attributes, use default values
+                        pass
+
+        sep = &quot&quot
+        N = ceil_log2(table_size)
+        for i in range(table_size):
+            f = FixedPointEmulator(fp_bits, fp_integer, signed=fp_signed)
+            f.set_msb_bits(uint_to_binary(i, N))
+            real_val = f.inv_float()
+            h_file.write(sep + str(real_val))
+            sep = ", "
+
+        h_file.write(&quot};\n&quot)
+        h_file.write(&quot\n&#47&#47endif\n&quot)
+        h_file.close()
+
+    def __write_exp_table_legacy(self, model, path):
+        table_name = &quotexp_table_legacy&quot
+        table_size = self.__get_table_size(model, &quotsoftmax&quot)
+
+        <a id="change">h_file = open(&quot{}/{}.tb&quot.format(path, table_name), &quotw&quot)</a>
+        h_file.write(self.__get_table_header(table_name, table_size))
+
+        sep = &quot&quot
+        for i in range(table_size):
+            in_val = 2 * 8.0 * (i - float(table_size) / 2.0) / float(table_size)
+            real_val = np.exp(in_val)
+            h_file.write(sep + str(real_val))
+            sep = ", "
+
+        h_file.write(&quot};\n&quot)
+        h_file.write(&quot\n&#47&#47endif\n&quot)
+        <a id="change">h_file</a><a id="change">.close()</a>
+
+    def __write_invert_table_legacy(self, model, path):
+        table_name = &quotinvert_table_legacy&quot
+        table_size = self.__get_table_size(model, &quotsoftmax&quot)
+
+        h_file = open(&quot{}/{}.tb&quot.format(path, table_name), &quotw&quot)
+        h_file.write(self.__get_table_header(table_name, table_size))
+
+        sep = &quot&quot
+        for i in range(table_size):
+            real_val = 0
+            in_val = 64.0 * i / float(table_size)
+            if (in_val &gt; 0.0):
+                real_val = 1.0 / in_val
+            h_file.write(sep + str(real_val))
+            sep = ", "
+
+        h_file.write(&quot};\n&quot)
+        h_file.write(&quot\n&#47&#47endif\n&quot)
+        h_file.close()
+
+    def write_activation_tables(self, model):
+        &#47&#47 Output path
+        dstpath = &quot{}/firmware/nnet_utils/activation_tables&quot.format(model.config.get_output_dir())
+        if not os.path.exists(dstpath):
+            os.mkdir(dstpath)
+
+        &#47&#47 Tables
+        &#47&#47 TODO - Only write tables needed by model, not all of them
+        self.__write_elu_table(model, dstpath)
+        self.__write_sigmoid_table(model, dstpath)
+        self.__write_tanh_table(model, dstpath)
+        self.__write_softplus_table(model, dstpath)
+        self.__write_softsign_table(model, dstpath)
+        self.__write_selu_table(model, dstpath)
+        self.__write_exp_table(model, dstpath)
+        self.__write_invert_table(model, dstpath)
+        self.__write_exp_table_latency(model, dstpath)
+        self.__write_invert_table_latency(model, dstpath)
+        self.__write_exp_table_legacy(model, dstpath)
+        self.__write_invert_table_legacy(model, dstpath)
+
+    def write_yml(self, model):
+        &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+        &#47&#47 YAML config file
+        &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+
+        def keras_model_representer(dumper, keras_model):
+            model_path = model.config.get_output_dir() + &quot/keras_model.h5&quot
+            keras_model.save(model_path)
+            return dumper.represent_scalar(u&quot!keras_model&quot, model_path)
+
+        try:
+            from tensorflow.keras import Model as KerasModel
+            yaml.add_multi_representer(KerasModel, keras_model_representer)
+        except:
+            pass
+
+        with open(model.config.get_output_dir() + &quot/&quot + config_filename, &quotw&quot) as file:
+            yaml.dump(model.config.config, file)
+
+    def write_tar(self, model):
+        &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+        &#47&#47 Tarball output
+        &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+
+        with tarfile.open(model.config.get_output_dir() + &quot.tar.gz&quot, mode=&quotw:gz&quot) as archive:
+            archive.add(model.config.get_output_dir(), recursive=True)
+
+    def write_hls(self, model):
+        print(&quotWriting HLS project&quot)
+        self.write_project_dir(model)
+        self.write_project_cpp(model)
+        self.write_project_header(model)
+        self.write_weights(model)
+        self.write_defines(model)
+        self.write_parameters(model)
+        self.write_test_bench(model)
+        self.write_bridge(model)
+        self.write_build_script(model)
+        self.write_nnet_utils(model)
+        self.write_activation_tables(model)
+        self.write_yml(model)
+        self.write_tar(model)
+        print(&quotDone&quot)
+</code></pre>

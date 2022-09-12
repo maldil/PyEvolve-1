@@ -1,0 +1,145 @@
+<link rel="stylesheet" href="../../../../..//default.css">
+<script src="../../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/PyMVPA/PyMVPA/blob/master/mvpa2/support/nibabel/surf_fs_asc.py#L94">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/PyMVPA/blob/master/mvpa2/support/nibabel/surf_fs_asc.py#L94">GitMyHubLink</a>
+
+&#47&#47 emacs: -*- mode: python; py-indent-offset: 4; indent-tabs-mode: nil -*-
+&#47&#47 vi: set ft=python sts=4 ts=4 sw=4 et:
+&#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47
+&#47&#47
+&#47&#47   See COPYING file distributed along with the PyMVPA package for the
+&#47&#47   copyright and license terms.
+&#47&#47
+&#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47
+&quot&quot&quot
+Simple FreeSurfer ASCII surface file I/O functions
+
+Reads and writes surface anatomy files as understood by AFNI SUMA (and maybe other programs)
+The format for a surface with NV vertices and NF faces is:
+
+NV NF
+x_0 y_0 z_0 0
+x_1 y_1 z_1 0
+...
+x_[NV-1] y_[NV-1] z_[NV-1] 0
+f_00 f01 f02 0
+f_10 f11 f12 0
+...
+f_[NF-1]0 f_[NF-1]1 f_[NF-1]2 0
+
+where the (x,y,z) triples are coordinates and fi(p,q,r) are faces so that vertices with
+indices p, q and r form a single triangle
+
+Created on Feb 12, 2012
+
+@author: nick
+&quot&quot&quot
+
+import numpy as np, os, datetime
+
+from mvpa2.support.nibabel import surf
+
+def read(fn):
+    &quot&quot&quot
+    Reads a AFNI SUMA ASCII surface
+
+    Parameters
+    ----------
+    fn : str
+        Filename of ASCII surface file
+
+    Returns
+    -------
+    s : Surface
+        a surf.Surface as defined in &quotfn&quot
+    &quot&quot&quot
+
+    if not os.path.exists(fn):
+        raise Exception("File not found: %s" % fn)
+
+    with open(fn) as f:
+        r = f.read().split("\n")
+
+    row = 0
+    nv = nf = None &#47&#47 number of vertices and faces
+    while True:
+        line = r[row]
+        row += 1
+
+        if line.startswith("&#47&#47"):
+            continue
+
+        try:
+            nvnf = line.split(" ")
+            nv = int(nvnf[0])
+            nf = int(nvnf[1])
+            break
+
+        except:
+            continue
+
+    if not nf:
+        raise Exception("Not found in %s: number of nodes and faces" % fn)
+
+    &#47&#47 helper function to get a numpy Cx3 ndarray
+    def getrows(c, s): &#47&#47 c: number of rows, s is string with data
+        vs = np.fromstring(s, count=4 * c, sep=" ")
+        vx = np.reshape(vs, (c, 4))
+        return vx[:, :3]
+
+    &#47&#47 coordinates should start at pos...
+    v = getrows(nv, "\n".join(r[row:(row + nv)]))
+
+    &#47&#47 and the faces just after those
+    ffloat = getrows(nf, "\n".join(r[(row + nv):(row + nv + nf)]))
+    f = ffloat.astype(int)
+
+    return surf.Surface(v=v, f=f)
+
+def write(fn, surface, overwrite=False, comment=None):
+    &quot&quot&quot
+    Writes a AFNI SUMA ASCII surface
+
+    Parameters
+    ----------
+    surface: surface.Surface
+        surface to be written
+    fn : str
+        Output filename of ASCII surface file
+    overwrite : bool
+        Whether to overwrite &quotfn&quot if it exists
+    comment : str
+        Comments to add to &quotfn&quot
+    &quot&quot&quot
+
+    if isinstance(surface, str) and isinstance(fn, surf.Surface):
+        surface, fn = fn, surface
+
+    if not overwrite and os.path.exists(fn):
+        raise Exception("File already exists: %s" % fn)
+
+    s = []
+    if comment is None:
+        comment = &quot&#47&#47 Created %s&quot % str(datetime.datetime.now())
+    s.append(comment)
+
+    nv, nf = surface.nvertices, surface.nfaces,
+    v, f = surface.vertices, surface.faces
+
+    &#47&#47 number of vertices and faces
+    s.append(&quot%d %d&quot % (nv, nf))
+
+    &#47&#47 add vertices and faces
+    s.extend(&quot%f %f %f 0&quot % (v[i, 0], v[i, 1], v[i, 2]) for i in xrange(nv))
+    s.extend(&quot%d %d %d 0&quot % (f[i, 0], f[i, 1], f[i, 2]) for i in xrange(nf))
+
+    &#47&#47 write to file
+    <a id="change">f = open(fn, &quotw&quot)</a>
+    f.write("\n".join(s))
+    <a id="change">f</a><a id="change">.close()</a>
+
+</code></pre>

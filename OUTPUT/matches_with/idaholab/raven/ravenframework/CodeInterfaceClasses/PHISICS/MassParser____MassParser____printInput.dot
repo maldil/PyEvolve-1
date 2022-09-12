@@ -1,0 +1,88 @@
+digraph G {
+1 [label="(201961849)remove" shape=box style=dashed]
+2 [label="(201961832)MassParser.inputFiles(inputFiles)" shape=ellipse style=dashed]
+3 [label="(201961842)os.path(path)" shape=ellipse style=dashed]
+4 [label="(201961845)MassParser.inputFiles(inputFiles)" shape=ellipse style=dashed]
+5 [label="(201961825)(null)" shape=ellipse style=dashed]
+6 [label="(201961834)=" shape=box style=dashed color=blue fontcolor=blue]
+7 [label="(201961836)TextIO(openInputFile)" shape=ellipse style=dashed]
+8 [label="(201961846)If" shape=diamond style=dashed]
+9 [label="(201961820)MassParser(self)" shape=ellipse style=dashed]
+10 [label="(201961848)os(os)" shape=ellipse style=dashed]
+11 [label="(201961839)TextIO(openInputFile)" shape=ellipse style=dashed color=blue fontcolor=blue]
+12 [label="(201961841)os(os)" shape=ellipse style=dashed]
+13 [label="(201961850)MassParser(self)" shape=ellipse style=dashed]
+14 [label="(201961826)=" shape=box style=dashed]
+15 [label="(201961829)TextIO(openInputFile)" shape=ellipse style=dashed color=blue fontcolor=blue]
+16 [label="(201961837)readlines" shape=box style=dashed]
+17 [label="(201961854)hardcopyPrinter" shape=box style=dashed]
+18 [label="(201961835)List[str](lines)" shape=ellipse style=dashed]
+19 [label="(201961822)=" shape=box style=dashed]
+20 [label="(201961831)MassParser(self)" shape=ellipse style=dashed]
+21 [label="(201961833)String(lit(r))" shape=ellipse style=dashed color=blue fontcolor=blue]
+22 [label="(201961821)(null)" shape=ellipse style=dashed]
+23 [label="(201961838)=" shape=box style=dashed]
+24 [label="(201961840)close" shape=box style=dashed color=blue fontcolor=blue]
+25 [label="(201961851)MassParser.inputFiles(inputFiles)" shape=ellipse style=dashed]
+26 [label="(201961853)MassParser(self)" shape=ellipse style=dashed]
+27 [label="(201961819)START" style=dashed]
+28 [label="(201961852)empty" shape=box style=dashed]
+29 [label="(201961824)Any(workingDir)" shape=ellipse style=dashed]
+30 [label="(201961855)List[str](lines)" shape=ellipse style=dashed]
+31 [label="(201961830)open" shape=box style=dashed color=blue fontcolor=blue]
+32 [label="(201961844)MassParser(self)" shape=ellipse style=dashed]
+33 [label="(201961847)empty" shape=box style=dashed]
+34 [label="(201961856)END" style=dashed]
+35 [label="(201961843)exists" shape=box style=dashed]
+8 -> 1 [label="T"];
+10 -> 1 [label="recv" style=dotted];
+25 -> 1 [label="para" style=dotted];
+33 -> 1 [label="dep" style=dotted];
+20 -> 2 [label="qual" style=dotted];
+12 -> 3 [label="qual" style=dotted];
+32 -> 4 [label="qual" style=dotted];
+27 -> 6 [label="" style=solid];
+31 -> 6 [label="dep" style=dotted];
+31 -> 6 [label="para" style=dotted];
+15 -> 7 [label="ref" style=dotted];
+27 -> 8 [label="" style=solid];
+35 -> 8 [label="dep" style=dotted];
+35 -> 8 [label="cond" style=dotted];
+19 -> 9 [label="def" style=dotted];
+15 -> 11 [label="ref" style=dotted];
+27 -> 14 [label="" style=solid];
+5 -> 14 [label="para" style=dotted];
+19 -> 14 [label="dep" style=dotted];
+6 -> 15 [label="def" style=dotted];
+27 -> 16 [label="" style=solid];
+7 -> 16 [label="recv" style=dotted];
+6 -> 16 [label="dep" style=dotted];
+27 -> 17 [label="" style=solid];
+26 -> 17 [label="recv" style=dotted];
+30 -> 17 [label="para" style=dotted];
+1 -> 17 [label="dep" style=dotted];
+28 -> 17 [label="dep" style=dotted];
+23 -> 18 [label="def" style=dotted];
+27 -> 19 [label="" style=solid];
+22 -> 19 [label="para" style=dotted];
+27 -> 23 [label="" style=solid];
+16 -> 23 [label="dep" style=dotted];
+16 -> 23 [label="para" style=dotted];
+27 -> 24 [label="" style=solid];
+11 -> 24 [label="recv" style=dotted];
+23 -> 24 [label="dep" style=dotted];
+13 -> 25 [label="qual" style=dotted];
+8 -> 28 [label="F"];
+14 -> 29 [label="def" style=dotted];
+18 -> 30 [label="ref" style=dotted];
+27 -> 31 [label="" style=solid];
+2 -> 31 [label="para" style=dotted];
+21 -> 31 [label="para" style=dotted];
+14 -> 31 [label="dep" style=dotted];
+8 -> 33 [label="T"];
+17 -> 34 [label="dep" style=dotted];
+27 -> 35 [label="" style=solid];
+3 -> 35 [label="recv" style=dotted];
+4 -> 35 [label="para" style=dotted];
+24 -> 35 [label="dep" style=dotted];
+}

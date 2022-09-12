@@ -1,0 +1,89 @@
+digraph G {
+1 [label="(12912705)=" shape=box style=dashed color=blue fontcolor=blue]
+2 [label="(12912719)[list]" shape=box style=dashed]
+3 [label="(12912715)Any(self)" shape=ellipse style=dashed]
+4 [label="(12912708)String(lit(test_file.txt))" shape=ellipse style=dashed]
+5 [label="(12912722)END" style=dashed]
+6 [label="(12912712)run_git_command" shape=box style=dashed]
+7 [label="(12912701)TextIO(file)" shape=ellipse style=dashed color=blue fontcolor=blue]
+8 [label="(12912690)Any(self)" shape=ellipse style=dashed]
+9 [label="(12912709)TextIO(file)" shape=ellipse style=dashed color=blue fontcolor=blue]
+10 [label="(12912711)Any(self)" shape=ellipse style=dashed]
+11 [label="(12912710)close" shape=box style=dashed color=blue fontcolor=blue]
+12 [label="(12912716)assertEqual" shape=box style=dashed]
+13 [label="(12912713)String(lit(add))" shape=ellipse style=dashed]
+14 [label="(12912698)=" shape=box style=dashed color=red fontcolor=red]
+15 [label="(12912721)assert_no_msgs" shape=box style=dashed]
+16 [label="(12912706)TextIO(file)" shape=ellipse style=dashed]
+17 [label="(12912718)run_uut" shape=box style=dashed]
+18 [label="(12912691)(null)" shape=ellipse style=dashed]
+19 [label="(12912702)open" shape=box style=dashed color=blue fontcolor=blue]
+20 [label="(12912699)TextIO(file)" shape=ellipse style=dashed color=red fontcolor=red]
+21 [label="(12912700)close" shape=box style=dashed color=red fontcolor=red]
+22 [label="(12912704)String(lit(w))" shape=ellipse style=dashed color=blue fontcolor=blue]
+23 [label="(12912695)open" shape=box style=dashed color=red fontcolor=red]
+24 [label="(12912717)Any(self)" shape=ellipse style=dashed]
+25 [label="(12912714)String(lit(.gitignore))" shape=ellipse style=dashed]
+26 [label="(12912720)Any(self)" shape=ellipse style=dashed]
+27 [label="(12912689)START" style=dashed]
+28 [label="(12912692)=" shape=box style=dashed]
+29 [label="(12912697)String(lit(w))" shape=ellipse style=dashed color=red fontcolor=red]
+30 [label="(12912694)TextIO(file)" shape=ellipse style=dashed color=red fontcolor=red]
+31 [label="(12912696)String(lit(test_file.txt))" shape=ellipse style=dashed color=red fontcolor=red]
+32 [label="(12912703)String(lit(.gitignore))" shape=ellipse style=dashed color=blue fontcolor=blue]
+33 [label="(12912707)write" shape=box style=dashed]
+27 -> 1 [label="" style=solid];
+19 -> 1 [label="dep" style=dotted];
+19 -> 1 [label="para" style=dotted];
+27 -> 2 [label="" style=solid];
+6 -> 2 [label="dep" style=dotted];
+15 -> 5 [label="dep" style=dotted];
+27 -> 6 [label="" style=solid];
+10 -> 6 [label="recv" style=dotted];
+13 -> 6 [label="para" style=dotted];
+25 -> 6 [label="para" style=dotted];
+11 -> 6 [label="dep" style=dotted];
+1 -> 7 [label="def" style=dotted];
+30 -> 7 [label="re_def" style=dotted color=red];
+28 -> 8 [label="def" style=dotted];
+7 -> 9 [label="ref" style=dotted];
+27 -> 11 [label="" style=solid];
+9 -> 11 [label="recv" style=dotted];
+33 -> 11 [label="dep" style=dotted];
+27 -> 12 [label="" style=solid];
+3 -> 12 [label="recv" style=dotted];
+17 -> 12 [label="dep" style=dotted];
+17 -> 12 [label="para" style=dotted];
+2 -> 12 [label="dep" style=dotted];
+2 -> 12 [label="para" style=dotted];
+6 -> 12 [label="dep" style=dotted];
+27 -> 14 [label="" style=solid];
+23 -> 14 [label="dep" style=dotted];
+23 -> 14 [label="para" style=dotted];
+27 -> 15 [label="" style=solid];
+26 -> 15 [label="recv" style=dotted];
+12 -> 15 [label="dep" style=dotted];
+7 -> 16 [label="ref" style=dotted];
+27 -> 17 [label="" style=solid];
+24 -> 17 [label="recv" style=dotted];
+6 -> 17 [label="dep" style=dotted];
+27 -> 19 [label="" style=solid];
+32 -> 19 [label="para" style=dotted];
+22 -> 19 [label="para" style=dotted];
+21 -> 19 [label="dep" style=dotted];
+30 -> 20 [label="ref" style=dotted];
+27 -> 21 [label="" style=solid];
+20 -> 21 [label="recv" style=dotted];
+14 -> 21 [label="dep" style=dotted];
+27 -> 23 [label="" style=solid];
+31 -> 23 [label="para" style=dotted];
+29 -> 23 [label="para" style=dotted];
+28 -> 23 [label="dep" style=dotted];
+27 -> 28 [label="" style=solid];
+18 -> 28 [label="para" style=dotted];
+14 -> 30 [label="def" style=dotted];
+27 -> 33 [label="" style=solid];
+16 -> 33 [label="recv" style=dotted];
+4 -> 33 [label="para" style=dotted];
+1 -> 33 [label="dep" style=dotted];
+}

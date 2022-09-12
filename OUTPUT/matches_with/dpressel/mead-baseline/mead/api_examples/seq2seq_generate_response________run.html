@@ -1,0 +1,195 @@
+<link rel="stylesheet" href="../../../..//default.css">
+<script src="../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/dpressel/mead-baseline/blob/master/mead/api_examples/seq2seq_generate_response.py#L87">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/mead-baseline/blob/master/mead/api_examples/seq2seq_generate_response.py#L87">GitMyHubLink</a>
+
+import numpy as np
+import torch
+import logging
+from eight_mile.utils import listify
+import os
+import glob
+from argparse import ArgumentParser
+import baseline
+from eight_mile.pytorch.layers import find_latest_checkpoint
+from baseline.pytorch.embeddings import *
+from baseline.pytorch.seq2seq.model import TiedEmbeddingsSeq2SeqModel
+from eight_mile.pytorch.serialize import load_transformer_seq2seq_npz
+from eight_mile.utils import str2bool, Offsets, revlut
+from baseline.vectorizers import BPEVectorizer1D, WordpieceVectorizer1D
+
+logger = logging.getLogger(__file__)
+
+
+def decode_sentences(model, vectorizer, queries, word2index, index2word, beamsz, end_token):
+
+    vecs = []
+    end_id = word2index.get(end_token)
+    sentinels = [Offsets.PAD, Offsets.EOS]
+    if end_id and end_id not in sentinels:
+        sentinels.append(end_id)
+    sentinels = set(sentinels)
+    lengths = []
+    for query in queries:
+        vec, length = vectorizer.run(query, word2index)
+        vecs.append(vec)
+        lengths.append(length)
+    vecs = np.stack(vecs)
+    lengths = np.stack(lengths)
+    &#47&#47 B x K x T
+    with torch.no_grad():
+        response, _ = model.predict({&quotx&quot: vecs, &quotx_lengths&quot: lengths}, beam=beamsz)
+    sentences = []
+    for candidate in response:
+        best_sentence_idx = candidate[0]
+        best_sentence_toks = []
+        for x in best_sentence_idx:
+
+            if x in sentinels:
+                break
+            best_sentence_toks.append(index2word[x])
+        best_sentence = &quot &quot.join(best_sentence_toks)
+        sentences.append(best_sentence.replace(&quot@@ &quot, &quot&quot))
+    return sentences
+
+def create_model(embeddings, d_model, d_ff, num_heads, num_layers, rpr_k, d_k, activation, checkpoint_name, device):
+    if len(rpr_k) == 0 or rpr_k[0] &lt; 1:
+        rpr_k = [None]
+    else:
+        rpr_k = listify(rpr_k)
+    logger.info("Creating tied encoder decoder model")
+    hps = {"dsz": d_model,
+           "hsz": d_model,
+           "d_ff": d_ff,
+           "dropout": 0.0,
+           "num_heads": num_heads,
+           "layers": num_layers,
+           "encoder_type": "transformer",
+           "decoder_type": "transformer",
+           "src_lengths_key": "x_lengths",
+           "d_k": d_k,
+           "activation": activation,
+           "rpr_k": rpr_k}
+    model = TiedEmbeddingsSeq2SeqModel({&quotx&quot: embeddings}, None, **hps)
+    if checkpoint_name.endswith(&quotnpz&quot):
+        load_transformer_seq2seq_npz(model, checkpoint_name)
+    else:
+        model.load_state_dict(torch.load(checkpoint_name, map_location=torch.device(device)))
+    print(model)
+    return model
+
+
+def get_subword_vec1d(type):
+    if type == &quotbpe&quot:
+        return BPEVectorizer1D
+    elif type == &quotwordpiece&quot:
+        return WordpieceVectorizer1D
+    else:
+        from baseline.vectorizers import SentencePieceVectorizer1D
+        return SentencePieceVectorizer1D
+
+
+def run():
+    <a id="change">parser = ArgumentParser()</a>
+    parser.add_argument("--basedir", type=str)
+    parser.add_argument("--checkpoint", type=str, help=&quotCheckpoint name or directory to load&quot)
+    parser.add_argument("--vocab", type=str, help=&quotVocab file to load&quot, required=False)
+    parser.add_argument("--input", type=str, default=&quothello how are you ?&quot)
+    parser.add_argument("--dataset_cache", type=str, default=os.path.expanduser(&quot~/.bl-data&quot),
+                        help="Path or url of the dataset cache")
+    parser.add_argument("--d_model", type=int, default=512, help="Model dimension (and embedding dsz)")
+    parser.add_argument("--d_ff", type=int, default=2048, help="FFN dimension")
+    parser.add_argument("--d_k", type=int, default=None, help="Dimension per head.  Use if num_heads=1 to reduce dims")
+    parser.add_argument("--num_heads", type=int, default=8, help="Number of heads")
+    parser.add_argument("--num_layers", type=int, default=8, help="Number of layers")
+    parser.add_argument("--nctx", type=int, default=256, help="Max context length (for both encoder and decoder)")
+    parser.add_argument("--embed_type", type=str, default=&quotdefault&quot,
+                        help="register label of the embeddings, so far support positional or learned-positional")
+    parser.add_argument("--subword_model_file", type=str, required=True)
+    parser.add_argument("--subword_vocab_file", type=str, required=True)
+    parser.add_argument("--batchsz", help="Size of a batch to pass at once", default=4, type=int)
+    parser.add_argument("--beamsz", help="Size of beam to use", default=4, type=int)
+    parser.add_argument("--activation", type=str, default=&quotrelu&quot)
+    parser.add_argument(&quot--rpr_k&quot, help=&quotRelative attention positional sizes pass 0 if you dont want relative attention&quot,
+                        type=int, default=[8]*8, nargs=&quot+&quot)
+    parser.add_argument("--subword_type", type=str, choices=["bpe", "wordpiece", "sentencepiece"], default="bpe")
+    parser.add_argument("--end_token", default="&lt;EOS&gt;")
+    parser.add_argument("--output_file", type=str)
+    parser.add_argument("--show_query", type=str2bool, default=False, help="Show the original query as well")
+    parser.add_argument("--device", type=str,
+                        default="cuda" if torch.cuda.is_available() else "cpu",
+                        help="Device (cuda or cpu)")
+    parser.add_argument("--extra_tokens", help="What extra tokens should we use", nargs="+", default=["[CLS]", "[MASK]"])
+    <a id="change">args = parser.parse_args()</a>
+
+    if torch.cuda.device_count() == 1:
+        torch.cuda.set_device(0)
+        <a id="change">args.device = torch.device("cuda", 0)</a>
+
+    if os.path.isdir(args.checkpoint):
+        <a id="change">checkpoint, _ = find_latest_checkpoint(args.checkpoint)</a>
+        logger.warning("Found latest checkpoint %s", checkpoint)
+    else:
+        <a id="change">checkpoint = args.checkpoint</a>
+
+    <a id="change">Vec1D = get_subword_vec1d(args.subword_type)</a>
+    <a id="change">vectorizer = Vec1D(model_file=args.subword_model_file, vocab_file=args.subword_vocab_file,
+                       mxlen=args.nctx, emit_end_tok=args.end_token, extra_tokens=args.extra_tokens)</a>
+
+    <a id="change">vocab = vectorizer.vocab</a>
+    &#47&#47 If we are not using chars, then use &quotx&quot for both input and output
+    <a id="change">preproc_data = baseline.embeddings.load_embeddings(&quotx&quot, dsz=args.d_model, counts=False, known_vocab=vocab, embed_type=args.embed_type)</a>
+    <a id="change">embeddings = preproc_data[&quotembeddings&quot]</a>
+    <a id="change">vocab = preproc_data[&quotvocab&quot]</a>
+    <a id="change">model = create_model(embeddings, d_model=args.d_model, d_ff=args.d_ff, num_heads=args.num_heads, num_layers=args.num_layers,
+                         rpr_k=args.rpr_k, d_k=args.d_k, checkpoint_name=checkpoint, activation=args.activation,
+                         device=args.device)</a>
+    model.to(args.device)
+
+    <a id="change">index2word = revlut(vocab)</a>
+    <a id="change">wf</a><a id="change"> = None</a>
+    if args.output_file:
+        <a id="change">wf = open(args.output_file, "w")</a>
+
+
+    <a id="change">batches = []</a>
+    if os.path.exists(args.input) and os.path.isfile(args.input):
+        with open(args.input, &quotrt&quot, encoding=&quotutf-8&quot) as f:
+            <a id="change">batch = []</a>
+            for line in f:
+                <a id="change">text = line.strip().split()</a>
+                if len(batch) == args.batchsz:
+                    batches.append(batch)
+                    <a id="change">batch = []</a>
+                batch.append(text)
+
+            if len(batch) &gt; 0:
+                batches.append(batch)
+
+    else:
+        <a id="change">batch = [args.input.split()]</a>
+        batches.append(batch)
+
+    for queries in batches:
+
+        <a id="change">outputs = decode_sentences(model, vectorizer, queries, vocab, index2word, args.beamsz, args.end_token)</a>
+
+        if args.show_query:
+            for query, output in zip(queries, outputs):
+                print(f"[Query] {query}")
+                print(f"[Response] {output}")
+        elif wf:
+            for query, output in zip(queries, outputs):
+                wf.write(f&quot{output}\n&quot)
+                wf.flush()
+        else:
+            for query, output in zip(queries, outputs):
+                print(output)
+    if wf:
+        <a id="change">wf</a><a id="change">.close()</a>
+run()
+</code></pre>

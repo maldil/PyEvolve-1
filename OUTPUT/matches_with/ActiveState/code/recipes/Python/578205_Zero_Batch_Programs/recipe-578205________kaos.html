@@ -1,0 +1,195 @@
+<link rel="stylesheet" href="../../../../..//default.css">
+<script src="../../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/ActiveState/code/blob/master/recipes/Python/578205_Zero_Batch_Programs/recipe-578205.py#L126">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/code/blob/master/recipes/Python/578205_Zero_Batch_Programs/recipe-578205.py#L126">GitMyHubLink</a>
+
+&#47&#47 ==============================================================================
+&#47&#47 zero.py
+&#47&#47 ==============================================================================
+
+import os
+import sys
+
+ERROR = False
+
+def main(function):
+    try:
+        arguments = sys.argv[1:]
+        assert arguments
+        for path in arguments:
+            assert os.path.isdir(path)
+        for path in arguments:
+            engine(path, function)
+    except:
+        sys.stdout.write(&quotUsage: %s &lt;directory&gt;&quot % os.path.basename(sys.argv[0]))
+
+def engine(path, function):
+    global ERROR
+    for root, dirs, files in os.walk(path):
+        for name in files:
+            path = os.path.join(root, name)
+            try:
+                function(path)
+            except:
+                sys.stderr.write(&quot%sError: %s&quot % (ERROR and &quot\n&quot or &quot&quot, path))
+                ERROR = True
+
+def zero(path):
+    size = os.path.getsize(path)
+    if size:
+        data = open(path, &quotwb&quot)
+        todo = size
+        if todo &gt;= 2 ** 20:
+            buff = &quot\x00&quot * 2 ** 20
+            while todo &gt;= 2 ** 20:
+                data.write(buff)
+                todo = size - data.tell()
+        data.write(&quot\x00&quot * todo)
+        data.close()
+
+if __name__ == &quot__main__&quot:
+    main(zero)
+
+&#47&#47 ==============================================================================
+&#47&#47 upper.py
+&#47&#47 ==============================================================================
+
+import zero
+
+def upper(path):
+    root, ext = zero.os.path.splitext(path)
+    upper = ext.upper()
+    if ext != upper:
+        zero.os.rename(path, root + upper)
+
+if __name__ == &quot__main__&quot:
+    zero.main(upper)
+
+&#47&#47 ==============================================================================
+&#47&#47 untar.py
+&#47&#47 ==============================================================================
+
+import zero
+import tarfile
+
+if __name__ == &quot__main__&quot:
+    zero.main(lambda path: tarfile.open(path).extractall(
+        zero.os.path.dirname(path)))
+
+&#47&#47 ==============================================================================
+&#47&#47 remove.py
+&#47&#47 ==============================================================================
+
+import zero
+
+if __name__ == &quot__main__&quot:
+    zero.main(zero.os.remove)
+
+&#47&#47 ==============================================================================
+&#47&#47 one.py
+&#47&#47 ==============================================================================
+
+import zero
+
+def one(path):
+    size = zero.os.path.getsize(path)
+    if size:
+        data = open(path, &quotwb&quot)
+        todo = size
+        if todo &gt;= 2 ** 20:
+            buff = &quot\xFF&quot * 2 ** 20
+            while todo &gt;= 2 ** 20:
+                data.write(buff)
+                todo = size - data.tell()
+        data.write(&quot\xFF&quot * todo)
+        data.close()
+
+if __name__ == &quot__main__&quot:
+    zero.main(one)
+
+&#47&#47 ==============================================================================
+&#47&#47 lower.py
+&#47&#47 ==============================================================================
+
+import zero
+
+def lower(path):
+    root, ext = zero.os.path.splitext(path)
+    lower = ext.lower()
+    if ext != lower:
+        zero.os.rename(path, root + lower)
+
+if __name__ == &quot__main__&quot:
+    zero.main(lower)
+
+&#47&#47 ==============================================================================
+&#47&#47 random.py
+&#47&#47 ==============================================================================
+
+import zero
+
+def kaos(<a id="change">path</a>):
+    <a id="change">size = zero.os.path.getsize(path)</a>
+    if size:
+        <a id="change">data = open(path, &quotwb&quot)</a>
+        <a id="change">todo = size</a>
+        while todo:
+            data.write(zero.os.urandom(min(todo, 2 ** 20)))
+            <a id="change">todo = size - data.tell()</a>
+        <a id="change">data</a><a id="change">.close()</a>
+
+if __name__ == &quot__main__&quot:
+    zero.main(kaos)
+
+&#47&#47 ==============================================================================
+&#47&#47 name.py
+&#47&#47 ==============================================================================
+
+import zero
+import random
+
+STRING = &quot0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz&quot
+
+def ident(path):
+    d, b = zero.os.path.split(path)
+    zero.os.rename(path, zero.os.path.join(d, &quot&quot.join(random.sample(
+        STRING, len(STRING))) + zero.os.path.splitext(b)[1]))
+
+if __name__ == &quot__main__&quot:
+    zero.main(ident)
+
+&#47&#47 ==============================================================================
+&#47&#47 newlines.py
+&#47&#47 ==============================================================================
+
+import zero
+
+TABLE = &quot&quot.join(map(chr, range(256)))
+DELETECHARS = &quot&quot.join(c for c in TABLE if len(repr(c)) != 6)
+
+def convert(path):
+    if not file(path, &quotrb&quot).read(2 ** 20).translate(TABLE, DELETECHARS):
+        data = file(path, &quotr&quot).read()
+        file(path, &quotw&quot).write(data)
+
+if __name__ == &quot__main__&quot:
+    zero.main(convert)
+
+&#47&#47 ==============================================================================
+&#47&#47 extension.py
+&#47&#47 ==============================================================================
+
+import zero
+
+def bias(path):
+    root, ext = zero.os.path.splitext(path)
+    if not ext[1:]:
+        zero.os.rename(path, root + &quot.txt&quot)
+
+if __name__ == &quot__main__&quot:
+    zero.main(bias)
+</code></pre>

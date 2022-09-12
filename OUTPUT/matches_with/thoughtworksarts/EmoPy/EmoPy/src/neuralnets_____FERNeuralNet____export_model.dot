@@ -1,0 +1,123 @@
+digraph G {
+1 [label="(32447711)open" shape=box style=dashed color=red fontcolor=red]
+2 [label="(32447722)open" shape=box style=dashed]
+3 [label="(32447725)AS" shape=box style=dashed]
+4 [label="(32447730)Any(emotion_map)" shape=ellipse style=dashed]
+5 [label="(32447720)With" shape=diamond style=dashed]
+6 [label="(32447729)dump" shape=box style=dashed]
+7 [label="(32447690)(null)" shape=ellipse style=dashed]
+8 [label="(32447719)close" shape=box style=dashed color=red fontcolor=red]
+9 [label="(32447728)json(json)" shape=ellipse style=dashed]
+10 [label="(32447718)TextIO(model_json_file)" shape=ellipse style=dashed color=red fontcolor=red]
+11 [label="(32447731)TextIO(fp)" shape=ellipse style=dashed]
+12 [label="(32447713)String(lit(w))" shape=ellipse style=dashed color=red fontcolor=red]
+13 [label="(32447687)=" shape=box style=dashed]
+14 [label="(32447685)Any(model_filepath)" shape=ellipse style=dashed]
+15 [label="(32447691)=" shape=box style=dashed]
+16 [label="(32447699)=" shape=box style=dashed]
+17 [label="(32447707)ConvolutionalLstmNN.model(model)" shape=ellipse style=dashed]
+18 [label="(32447689)Any(weights_filepath)" shape=ellipse style=dashed]
+19 [label="(32447712)Any(model_filepath)" shape=ellipse style=dashed]
+20 [label="(32447715)TextIO(model_json_file)" shape=ellipse style=dashed]
+21 [label="(32447716)write" shape=box style=dashed]
+22 [label="(32447714)=" shape=box style=dashed color=red fontcolor=red]
+23 [label="(32447701)ConvolutionalLstmNN(self)" shape=ellipse style=dashed]
+24 [label="(32447681)ConvolutionalLstmNN(self)" shape=ellipse style=dashed]
+25 [label="(32447726)TextIO(fp)" shape=ellipse style=dashed]
+26 [label="(32447705)Any(model_json_string)" shape=ellipse style=dashed color=blue fontcolor=blue]
+27 [label="(32447686)(null)" shape=ellipse style=dashed]
+28 [label="(32447724)String(lit(w))" shape=ellipse style=dashed]
+29 [label="(32447697)Any(emotion_map)" shape=ellipse style=dashed]
+30 [label="(32447717)Any(model_json_string)" shape=ellipse style=dashed]
+31 [label="(32447723)Any(emotion_map_filepath)" shape=ellipse style=dashed]
+32 [label="(32447708)to_json" shape=box style=dashed]
+33 [label="(32447703)save_weights" shape=box style=dashed]
+34 [label="(32447710)TextIO(model_json_file)" shape=ellipse style=dashed color=red fontcolor=red]
+35 [label="(32447702)ConvolutionalLstmNN.model(model)" shape=ellipse style=dashed]
+36 [label="(32447683)=" shape=box style=dashed]
+37 [label="(32447693)Any(emotion_map_filepath)" shape=ellipse style=dashed]
+38 [label="(32447709)=" shape=box style=dashed]
+39 [label="(32447698)(null)" shape=ellipse style=dashed]
+40 [label="(32447680)START" style=dashed]
+41 [label="(32447694)(null)" shape=ellipse style=dashed]
+42 [label="(32447733)END" style=dashed]
+43 [label="(32447682)(null)" shape=ellipse style=dashed]
+44 [label="(32447695)=" shape=box style=dashed]
+45 [label="(32447704)Any(weights_filepath)" shape=ellipse style=dashed]
+46 [label="(32447727)empty" shape=box style=dashed]
+47 [label="(32447732)empty" shape=box style=dashed]
+48 [label="(32447721)TextIO(fp)" shape=ellipse style=dashed color=red fontcolor=red]
+49 [label="(32447706)ConvolutionalLstmNN(self)" shape=ellipse style=dashed]
+40 -> 1 [label="" style=solid];
+19 -> 1 [label="para" style=dotted];
+12 -> 1 [label="para" style=dotted];
+38 -> 1 [label="dep" style=dotted];
+40 -> 2 [label="" style=solid];
+31 -> 2 [label="para" style=dotted];
+28 -> 2 [label="para" style=dotted];
+8 -> 2 [label="dep" style=dotted];
+40 -> 3 [label="" style=solid];
+2 -> 3 [label="dep" style=dotted];
+2 -> 3 [label="para" style=dotted];
+40 -> 5 [label="" style=solid];
+3 -> 5 [label="dep" style=dotted];
+25 -> 5 [label="para" style=dotted];
+5 -> 6 [label="T"];
+9 -> 6 [label="recv" style=dotted];
+4 -> 6 [label="para" style=dotted];
+11 -> 6 [label="para" style=dotted];
+46 -> 6 [label="dep" style=dotted];
+40 -> 8 [label="" style=solid];
+10 -> 8 [label="recv" style=dotted];
+21 -> 8 [label="dep" style=dotted];
+34 -> 10 [label="ref" style=dotted];
+48 -> 11 [label="ref" style=dotted];
+40 -> 13 [label="" style=solid];
+27 -> 13 [label="para" style=dotted];
+36 -> 13 [label="dep" style=dotted];
+13 -> 14 [label="def" style=dotted];
+40 -> 15 [label="" style=solid];
+7 -> 15 [label="para" style=dotted];
+13 -> 15 [label="dep" style=dotted];
+40 -> 16 [label="" style=solid];
+39 -> 16 [label="para" style=dotted];
+44 -> 16 [label="dep" style=dotted];
+49 -> 17 [label="qual" style=dotted];
+15 -> 18 [label="def" style=dotted];
+34 -> 20 [label="ref" style=dotted];
+40 -> 21 [label="" style=solid];
+20 -> 21 [label="recv" style=dotted];
+30 -> 21 [label="para" style=dotted];
+22 -> 21 [label="dep" style=dotted];
+40 -> 22 [label="" style=solid];
+1 -> 22 [label="dep" style=dotted];
+1 -> 22 [label="para" style=dotted];
+36 -> 24 [label="def" style=dotted];
+48 -> 25 [label="ref" style=dotted];
+38 -> 26 [label="def" style=dotted];
+16 -> 29 [label="def" style=dotted];
+26 -> 30 [label="ref" style=dotted];
+40 -> 32 [label="" style=solid];
+17 -> 32 [label="recv" style=dotted];
+33 -> 32 [label="dep" style=dotted];
+40 -> 33 [label="" style=solid];
+35 -> 33 [label="recv" style=dotted];
+45 -> 33 [label="para" style=dotted];
+16 -> 33 [label="dep" style=dotted];
+22 -> 34 [label="def" style=dotted];
+23 -> 35 [label="qual" style=dotted];
+40 -> 36 [label="" style=solid];
+43 -> 36 [label="para" style=dotted];
+44 -> 37 [label="def" style=dotted];
+40 -> 38 [label="" style=solid];
+32 -> 38 [label="dep" style=dotted];
+32 -> 38 [label="para" style=dotted];
+47 -> 42 [label="dep" style=dotted];
+6 -> 42 [label="dep" style=dotted];
+40 -> 44 [label="" style=solid];
+41 -> 44 [label="para" style=dotted];
+15 -> 44 [label="dep" style=dotted];
+5 -> 46 [label="T"];
+5 -> 47 [label="F"];
+3 -> 48 [label="def" style=dotted];
+}

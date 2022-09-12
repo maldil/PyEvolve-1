@@ -1,0 +1,102 @@
+<link rel="stylesheet" href="../../../../..//default.css">
+<script src="../../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/deepinsight/insightface/blob/master/detection/scrfd/tools/convert_crowdhuman.py#L19">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/insightface/blob/master/detection/scrfd/tools/convert_crowdhuman.py#L19">GitMyHubLink</a>
+
+from __future__ import print_function
+import cv2
+import argparse
+import os
+import os.path as osp
+import shutil
+import numpy as np
+import json
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description=&quotconvert crowdhuman dataset to scrfd format&quot)
+    parser.add_argument(&quot--raw&quot, help=&quotraw dataset dir&quot)
+    parser.add_argument(&quot--save&quot, default=&quotdata/crowdhuman&quot, help=&quotsave path&quot)
+    args = parser.parse_args()
+
+    return args
+
+def main():
+    args = parse_args()
+    raw_image_dir = osp.join(args.raw, &quotImages&quot)
+    for subset in [&quottrain&quot, &quotval&quot]:
+        save_image_dir = osp.join(args.save, subset, &quotimages&quot)
+        if not osp.exists(save_image_dir):
+            os.makedirs(save_image_dir)
+        anno_file = osp.join(args.raw, &quotannotation_%s.odgt&quot%subset)
+        fullbody_anno_file = osp.join(osp.join(args.save, subset, "label_fullbody.txt"))
+        head_anno_file = osp.join(osp.join(args.save, subset, "label_head.txt"))
+        <a id="change">fullbody_f = open(fullbody_anno_file, &quotw&quot)</a>
+        <a id="change">head_f = open(head_anno_file, &quotw&quot)</a>
+        for line in open(anno_file, &quotr&quot):
+            data = json.loads(line)
+            img_id = data[&quotID&quot]
+            img_name = "%s.jpg"%img_id
+            raw_image_file = osp.join(raw_image_dir, img_name)
+            target_image_file = osp.join(save_image_dir, img_name)
+            img = cv2.imread(raw_image_file)
+            print(raw_image_file, img.shape)
+            fullbody_f.write("&#47&#47 %s %d %d\n"%(img_name,img.shape[1],img.shape[0]))
+            head_f.write("&#47&#47 %s %d %d\n"%(img_name,img.shape[1],img.shape[0]))
+            shutil.copyfile(raw_image_file, target_image_file)
+            items = data[&quotgtboxes&quot]
+            for item in items:
+                fbox = item[&quotfbox&quot]
+                is_ignore = False
+                extra = item[&quotextra&quot]
+                if &quotignore&quot in extra:
+                    is_ignore = extra[&quotignore&quot]==1
+                bbox = np.array(fbox, dtype=np.float32)
+                bbox[2] += bbox[0]
+                bbox[3] += bbox[1]
+                if is_ignore:
+                    fullbody_f.write("%.5f %.5f %.5f %.5f %d\n"%(bbox[0], bbox[1], bbox[2], bbox[3], is_ignore))
+                else:
+                    vbox = item[&quotvbox&quot]
+                    vbox = np.array(vbox, dtype=np.float32)
+                    vbox[2] += vbox[0]
+                    vbox[3] += vbox[1]
+                    x1, y1, x2, y2 = vbox[0], vbox[1], vbox[2], vbox[3]
+                    cx = (x1+x2)/2
+                    cy = (y1+y2)/2
+                    kps = np.ones( (5,3), dtype=np.float32)
+                    kps[0,0] = x1
+                    kps[0,1] = y1
+                    kps[1,0] = x2
+                    kps[1,1] = y1
+                    kps[2,0] = cx
+                    kps[2,1] = cy
+                    kps[3,0] = x1
+                    kps[3,1] = y2
+                    kps[4,0] = x2
+                    kps[4,1] = y2
+                    kps_str = " ".join(["%.5f"%x for x in kps.flatten()])
+                    fullbody_f.write("%.5f %.5f %.5f %.5f %s\n"%(bbox[0], bbox[1], bbox[2], bbox[3], kps_str))
+
+
+                hbox = item[&quothbox&quot]
+                is_ignore = False
+                extra = item[&quothead_attr&quot]
+                if &quotignore&quot in extra:
+                    is_ignore = extra[&quotignore&quot]==1
+                bbox = np.array(hbox, dtype=np.float32)
+                bbox[2] += bbox[0]
+                bbox[3] += bbox[1]
+                head_f.write("%.5f %.5f %.5f %.5f %d\n"%(bbox[0], bbox[1], bbox[2], bbox[3], is_ignore))
+        <a id="change">fullbody_f</a><a id="change">.close()</a>
+        <a id="change">head_f</a><a id="change">.close()</a>
+
+
+if __name__ == &quot__main__&quot:
+    main()
+
+</code></pre>

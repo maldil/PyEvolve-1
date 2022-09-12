@@ -1,0 +1,90 @@
+digraph G {
+1 [label="(30684073)str(tfile)" shape=ellipse style=dashed]
+2 [label="(30684059)str(tfile)" shape=ellipse style=dashed]
+3 [label="(30684040)TestWord2VecModel(self)" shape=ellipse style=dashed]
+4 [label="(30684050)Word2Vec" shape=box style=dashed]
+5 [label="(30684054)Any.wv(wv)" shape=ellipse style=dashed]
+6 [label="(30684058)open" shape=box style=dashed color=red fontcolor=red]
+7 [label="(30684044)str(tfile)" shape=ellipse style=dashed color=blue fontcolor=blue]
+8 [label="(30684053)Any(model)" shape=ellipse style=dashed]
+9 [label="(30684048)Any(model)" shape=ellipse style=dashed color=red fontcolor=red]
+10 [label="(30684066)close" shape=box style=dashed color=red fontcolor=red]
+11 [label="(30684072)gensim.models.keyedvectors.KeyedVectors.load_word2vec_format(load_word2vec_format)" shape=ellipse style=dashed]
+12 [label="(30684056)str(tfile)" shape=ellipse style=dashed]
+13 [label="(30684045)get_tmpfile" shape=box style=dashed]
+14 [label="(30684052)=" shape=box style=dashed]
+15 [label="(30684067)TestWord2VecModel(self)" shape=ellipse style=dashed]
+16 [label="(30684071)gensim.models.keyedvectors.KeyedVectors(KeyedVectors)" shape=ellipse style=dashed]
+17 [label="(30684047)=" shape=box style=dashed]
+18 [label="(30684055)save_word2vec_format" shape=box style=dashed]
+19 [label="(30684057)BinaryIO(f)" shape=ellipse style=dashed color=red fontcolor=red]
+20 [label="(30684064)Bytes(13)" shape=ellipse style=dashed]
+21 [label="(30684049)gensim.models.word2vec(word2vec)" shape=ellipse style=dashed]
+22 [label="(30684065)BinaryIO(f)" shape=ellipse style=dashed color=red fontcolor=red]
+23 [label="(30684039)START" style=dashed]
+24 [label="(30684041)(null)" shape=ellipse style=dashed]
+25 [label="(30684046)String(lit(gensim_word2vec.tst))" shape=ellipse style=dashed]
+26 [label="(30684070)gensim.models.keyedvectors(keyedvectors)" shape=ellipse style=dashed]
+27 [label="(30684042)=" shape=box style=dashed]
+28 [label="(30684062)BinaryIO(f)" shape=ellipse style=dashed]
+29 [label="(30684069)Type[EOFError](EOFError)" shape=ellipse style=dashed]
+30 [label="(30684074)END" style=dashed]
+31 [label="(30684063)write" shape=box style=dashed]
+32 [label="(30684060)String(lit(r+b))" shape=ellipse style=dashed color=red fontcolor=red]
+33 [label="(30684068)assertRaises" shape=box style=dashed]
+34 [label="(30684051)gensim.test.utils.common_texts(sentences)" shape=ellipse style=dashed]
+35 [label="(30684061)=" shape=box style=dashed color=red fontcolor=red]
+7 -> 1 [label="ref" style=dotted];
+7 -> 2 [label="ref" style=dotted];
+27 -> 3 [label="def" style=dotted];
+23 -> 4 [label="" style=solid];
+21 -> 4 [label="recv" style=dotted];
+34 -> 4 [label="para" style=dotted];
+17 -> 4 [label="dep" style=dotted];
+8 -> 5 [label="qual" style=dotted];
+23 -> 6 [label="" style=solid];
+2 -> 6 [label="para" style=dotted];
+32 -> 6 [label="para" style=dotted];
+18 -> 6 [label="dep" style=dotted];
+17 -> 7 [label="def" style=dotted];
+9 -> 8 [label="ref" style=dotted];
+14 -> 9 [label="def" style=dotted];
+23 -> 10 [label="" style=solid];
+22 -> 10 [label="recv" style=dotted];
+31 -> 10 [label="dep" style=dotted];
+16 -> 11 [label="qual" style=dotted];
+7 -> 12 [label="ref" style=dotted];
+23 -> 13 [label="" style=solid];
+25 -> 13 [label="para" style=dotted];
+27 -> 13 [label="dep" style=dotted];
+23 -> 14 [label="" style=solid];
+4 -> 14 [label="dep" style=dotted];
+4 -> 14 [label="para" style=dotted];
+26 -> 16 [label="qual" style=dotted];
+23 -> 17 [label="" style=solid];
+13 -> 17 [label="dep" style=dotted];
+13 -> 17 [label="para" style=dotted];
+23 -> 18 [label="" style=solid];
+5 -> 18 [label="recv" style=dotted];
+12 -> 18 [label="para" style=dotted];
+14 -> 18 [label="dep" style=dotted];
+35 -> 19 [label="def" style=dotted];
+19 -> 22 [label="ref" style=dotted];
+23 -> 27 [label="" style=solid];
+24 -> 27 [label="para" style=dotted];
+19 -> 28 [label="ref" style=dotted];
+33 -> 30 [label="dep" style=dotted];
+23 -> 31 [label="" style=solid];
+28 -> 31 [label="recv" style=dotted];
+20 -> 31 [label="para" style=dotted];
+35 -> 31 [label="dep" style=dotted];
+23 -> 33 [label="" style=solid];
+15 -> 33 [label="recv" style=dotted];
+29 -> 33 [label="para" style=dotted];
+11 -> 33 [label="para" style=dotted];
+1 -> 33 [label="para" style=dotted];
+10 -> 33 [label="dep" style=dotted];
+23 -> 35 [label="" style=solid];
+6 -> 35 [label="dep" style=dotted];
+6 -> 35 [label="para" style=dotted];
+}

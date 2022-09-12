@@ -1,0 +1,77 @@
+digraph G {
+1 [label="(110095304)read" shape=box style=dashed]
+2 [label="(110095302)TryExcept" shape=diamond style=dashed]
+3 [label="(110095290)=" shape=box style=dashed]
+4 [label="(110095309)String(lit(failed to read config file! check format))" shape=ellipse style=dashed]
+5 [label="(110095315)close" shape=box style=dashed color=blue fontcolor=blue]
+6 [label="(110095301)=" shape=box style=dashed]
+7 [label="(110095287)START" style=dashed]
+8 [label="(110095308)print" shape=box style=dashed]
+9 [label="(110095294)open" shape=box style=dashed color=blue fontcolor=blue]
+10 [label="(110095293)TextIO(f)" shape=ellipse style=dashed color=blue fontcolor=blue]
+11 [label="(110095306)AST" shape=diamond style=dashed]
+12 [label="(110095314)TextIO(f)" shape=ellipse style=dashed color=blue fontcolor=blue]
+13 [label="(110095288)str(conffile)" shape=ellipse style=dashed]
+14 [label="(110095312)Exception(e)" shape=ellipse style=dashed]
+15 [label="(110095317)return" shape=box style=dashed]
+16 [label="(110095289)(null)" shape=ellipse style=dashed]
+17 [label="(110095295)str(conffile)" shape=ellipse style=dashed]
+18 [label="(110095307)empty" shape=box style=dashed]
+19 [label="(110095310)print" shape=box style=dashed]
+20 [label="(110095318)END" style=dashed]
+21 [label="(110095296)String(lit(r))" shape=ellipse style=dashed color=blue fontcolor=blue]
+22 [label="(110095303)Any(cp)" shape=ellipse style=dashed]
+23 [label="(110095316)Any(cp)" shape=ellipse style=dashed]
+24 [label="(110095305)str(conffile)" shape=ellipse style=dashed]
+25 [label="(110095297)=" shape=box style=dashed color=blue fontcolor=blue]
+26 [label="(110095313)return" shape=box style=dashed]
+27 [label="(110095300)ConfigParser" shape=box style=dashed]
+28 [label="(110095299)Any(configparser)" shape=ellipse style=dashed]
+29 [label="(110095311)String(lit(Error returned:))" shape=ellipse style=dashed]
+30 [label="(110095298)Any(cp)" shape=ellipse style=dashed]
+2 -> 1 [label="T"];
+22 -> 1 [label="recv" style=dotted];
+24 -> 1 [label="para" style=dotted];
+7 -> 2 [label="" style=solid];
+6 -> 2 [label="dep" style=dotted];
+7 -> 3 [label="" style=solid];
+16 -> 3 [label="para" style=dotted];
+7 -> 5 [label="" style=solid];
+12 -> 5 [label="recv" style=dotted];
+1 -> 5 [label="dep" style=dotted];
+7 -> 6 [label="" style=solid];
+27 -> 6 [label="dep" style=dotted];
+27 -> 6 [label="para" style=dotted];
+11 -> 8 [label="" style=solid];
+4 -> 8 [label="para" style=dotted];
+18 -> 8 [label="dep" style=dotted];
+7 -> 9 [label="" style=solid];
+17 -> 9 [label="para" style=dotted];
+21 -> 9 [label="para" style=dotted];
+3 -> 9 [label="dep" style=dotted];
+25 -> 10 [label="def" style=dotted];
+2 -> 11 [label="F"];
+10 -> 12 [label="ref" style=dotted];
+3 -> 13 [label="def" style=dotted];
+7 -> 15 [label="" style=solid];
+23 -> 15 [label="para" style=dotted];
+5 -> 15 [label="dep" style=dotted];
+11 -> 18 [label="" style=solid];
+11 -> 19 [label="" style=solid];
+29 -> 19 [label="para" style=dotted];
+14 -> 19 [label="para" style=dotted];
+8 -> 19 [label="dep" style=dotted];
+15 -> 20 [label="dep" style=dotted];
+26 -> 20 [label="dep" style=dotted];
+30 -> 22 [label="ref" style=dotted];
+30 -> 23 [label="ref" style=dotted];
+7 -> 25 [label="" style=solid];
+9 -> 25 [label="dep" style=dotted];
+9 -> 25 [label="para" style=dotted];
+11 -> 26 [label="" style=solid];
+19 -> 26 [label="dep" style=dotted];
+7 -> 27 [label="" style=solid];
+28 -> 27 [label="recv" style=dotted];
+25 -> 27 [label="dep" style=dotted];
+6 -> 30 [label="def" style=dotted];
+}

@@ -1,0 +1,218 @@
+<link rel="stylesheet" href="../..//default.css">
+<script src="../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/mynlp/ccg2lambda/blob/master/extract_jsem_problems.py#L125">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/ccg2lambda/blob/master/extract_jsem_problems.py#L125">GitMyHubLink</a>
+
+&#47&#47 Create a list of jsem-problems with tags for entailment-type and phenomena-type ("jsem_problems_list").
+&#47&#47 "jsem_problems_list" is needed to run evaluate_jsem_tags.sh
+
+import codecs
+from copy import deepcopy
+from lxml import etree
+import os
+import re
+import sys
+
+&#47&#47 Read the FraCaS or JSeM xml file into a tree and return it.
+def ReadFracasFile(fracas_filename):
+  finput = open(fracas_filename, &quotr&quot)
+  tree_string = finput.read()
+  finput.close()
+  tree = etree.fromstring(tree_string)
+  return tree
+
+&#47&#47 The text T of a T-H pair may contain several premises splitted into
+&#47&#47 several "&lt;p ...&gt; ... &lt;/p&gt;" leaves. This function retrieves them
+&#47&#47 and returns them as a list of premises.
+&#47&#47 In FraCaS, the text is attached directly between &lt;p ...&gt; "text" &lt;/p&gt; tags,
+&#47&#47 while in JSeM, it is found under &lt;p ...&gt; &lt;script&gt; "text in Japanese" &lt;/script&gt; &lt;/p&gt;
+def GetPremisesFromNode_(node):
+  text_and_idx = []
+  for i, child in enumerate(node):
+    if child.tag == &quotp&quot:
+      text = child.text.strip() if not child.get(&quotscript&quot, None) \
+                                else child.get(&quotscript&quot).text.strip()
+      idx  = int(child.attrib[&quotidx&quot])
+      text_and_idx.append((text, idx))
+  text_and_idx.sort(key = lambda x: x[1])
+  premises = [x[0] for x in text_and_idx]
+  return premises
+
+def GetTextFromScriptNode(script):
+  if len(script) &gt; 0:
+    &#47&#47 There is a comment node inside of script.
+    text = script[0].tail.strip()
+  else:
+    text = script.text.strip()
+  return text
+
+def GetTextFromNode(node):
+  script = node.findall(&quot.//script&quot)
+  if not script:
+    text = node.text.strip()
+  else:
+    text = GetTextFromScriptNode(script[0])
+  return text
+
+def GetPremisesFromNode(node):
+  text_and_idx = []
+  premise_nodes = node.findall(&quot.//p&quot)
+  for premise_node in premise_nodes:
+    text = GetTextFromNode(premise_node)
+    idx  = int(premise_node.attrib[&quotidx&quot])
+    text_and_idx.append((text, idx))
+  text_and_idx.sort(key = lambda x: x[1])
+  premises = [x[0] for x in text_and_idx]
+  return premises
+
+&#47&#47 Retrieve the Hypothesis side of an entailment pair.
+def GetHypothesisFromNode(node):
+  for child in node:
+    if child.tag == &quoth&quot:
+      text = GetTextFromNode(child)
+      return text
+  return &quot&quot
+
+def NormalizeSectionName(section_name):
+  &#47&#47 Remove parenthesis and non alphabetic characters.
+  section_name = re.sub(r&quot[^a-zA-Z ]&quot, &quot&quot, section_name)
+  &#47&#47 Strip whitespaces from beginning or end of string.
+  section_name = section_name.strip()
+  &#47&#47 Replace whitespaces by underscore and lowercase.
+  section_name = re.sub(r&quot &quot, &quot_&quot, section_name).lower()
+  return section_name
+
+def EscapeReservedChars(sentence):
+  sentence_escaped = sentence
+  sentence_escaped = re.sub(r&quot-&quot, r&quot_&quot, sentence_escaped)
+  return sentence_escaped
+
+def GetFracasProblems(contents):
+  problems = []
+  current_section = &quotnosection&quot
+  for node in contents:
+    if node.tag == &quotcomment&quot \
+       and &quotclass&quot in node.attrib \
+       and node.attrib[&quotclass&quot] == &quotsection&quot:
+      current_section = NormalizeSectionName(node.text)
+    if node.tag == &quotproblem&quot:
+      &#47&#47 Retrieve the first answer (there should be only one).
+      answer = [value for key, value in node.attrib.items() if &quotanswer&quot in key]
+      assert len(answer) &lt;= 1, &quotMultiple gold entailment answers found&quot
+      answer = None if not answer else answer[0]
+      &#47&#47 Retrieve problem ID.
+      problem_id = [value for key, value in node.attrib.items() if key.endswith(&quotid&quot)]
+      assert len(problem_id) == 1, &quotProblem has no ID&quot
+      problem_id = problem_id[0]
+      &#47&#47 Retrieve section name from phenomena, if any.
+      if &quotphenomena&quot in node.attrib:
+        current_section = NormalizeSectionName(node.attrib[&quotphenomena&quot].split(&quot,&quot)[0])
+        phenomena = node.attrib[&quotphenomena&quot].split(&quot, &quot) &#47&#47 comma and space
+      if &quotinference_type&quot in node.attrib:
+        inference_type = node.attrib[&quotinference_type&quot].split(&quot, &quot) &#47&#47 comma and space
+      premises = GetPremisesFromNode(node)
+      hypothesis = GetHypothesisFromNode(node)
+      sentences = premises + [hypothesis]
+      sentences = [EscapeReservedChars(s) for s in sentences]
+      problem = FracasProblem(problem_id, current_section, sentences, answer, phenomena, inference_type)
+      problems.append(problem)
+  return problems
+
+class FracasProblem:
+  def __init__(self, problem_id, section_name, sentences, answer, phenomena, inference_type):
+    self.problem_id = problem_id
+    self.section_name = section_name
+    self.sentences = sentences
+    self.answer = answer
+    self.phenomena = phenomena &#47&#47 list of phenomenon
+    self.inference_type = inference_type &#47&#47 list of inference_type
+
+def WriteFracasProblems(<a id="change">problems</a>, <a id="change">fracas_dirname</a>, <a id="change">file_prefix</a> = &quot&quot):
+  <a id="change">foutput_list = codecs.open("jsem_problems_list", &quotw&quot, &quotutf-8&quot)</a>
+  for i, problem in enumerate(problems):
+    <a id="change">tags = ""</a> &#47&#47 initialize tags (string)
+    <a id="change">n_sentence = 0</a> &#47&#47 initialize sentences counter
+    &#47&#47 Write sentences.
+    if problem.problem_id == &quotunknown&quot:
+      continue
+    <a id="change">problem_filename = &quot{0}/{1}{2:03d}_{3}.txt&quot.format(fracas_dirname,
+                                                       file_prefix,
+                                                       int(problem.problem_id),
+                                                       problem.section_name)</a>
+    <a id="change">problem_filename2 = &quot{0}{1:03d}_{2}.txt&quot.format(file_prefix,
+                                                       int(problem.problem_id),
+                                                       problem.section_name)</a>
+    <a id="change">foutput = codecs.open(problem_filename, &quotw&quot, &quotutf-8&quot)</a>
+    for sentence in problem.sentences:
+      foutput.write(u&quot{0}\n&quot.format(sentence))
+      n_sentence += 1 &#47&#47 count the number of sentences
+    <a id="change">foutput</a><a id="change">.close()</a>
+    &#47&#47 Add entry in "jsem_problems_list"
+    <a id="change">tags = tags + &quot\t&quot + problem.answer</a>
+    for type in problem.inference_type:
+ &#47&#47     if not type:
+ &#47&#47       tags = tags + type
+ &#47&#47     else:
+      <a id="change">tags = tags + &quot\t&quot + type</a>
+    for phenomenon in problem.phenomena:
+ &#47&#47     if not tags:
+ &#47&#47       tags = tags + phenomenon
+ &#47&#47     else:
+      <a id="change">tags = tags + &quot\t&quot + phenomenon</a>
+    <a id="change">n_premise = n_sentence - 1</a> &#47&#47 number of premises
+    &#47&#47 add tag "single" or "multi" (premises)
+    if n_premise == 1:
+      <a id="change">tags = tags + &quot\t&quot + "single"</a>
+    else:
+      <a id="change">tags = tags + &quot\t&quot + "multi"</a>
+    foutput_list.write(&quot{0}{1}\n&quot.format(problem_filename2, tags))
+    &#47&#47 Write the answer.
+    <a id="change">answer_filename = &quot{0}/{1}{2:03d}_{3}.answer&quot.format(fracas_dirname,
+                                                         file_prefix,
+                                                         int(problem.problem_id),
+                                                         problem.section_name)</a>
+    <a id="change">foutput = codecs.open(answer_filename, &quotw&quot, &quotutf-8&quot)</a>
+    foutput.write(&quot{0}&quot.format(problem.answer))
+    <a id="change">foutput</a><a id="change">.close()</a>
+  <a id="change">foutput_list</a><a id="change">.close()</a>
+  return
+
+def main(args = None):
+  import textwrap
+  USAGE=textwrap.dedent(\
+      Usage:
+          python extract_entailment_problems.py &lt;fracas.xml|jsem.xml&gt; &lt;output_directory&gt;
+
+          Extracts from the fracas or jsem XML file all the entailment problems. Problems are
+          written separatedly in different files inside of &lt;output_directory&gt;.
+          Each file contains one premise in every line, and the conclusion
+          in the last line.
+    )
+  if args is None:
+    args = sys.argv[1:]
+  if len(args) != 2:
+    print(&quotWrong number of arguments.&quot)
+    print(USAGE)
+    sys.exit(1)
+  if not os.path.exists(args[0]):
+    print(&quotFile does not exist: {0}&quot.format(args[0]))
+    sys.exit(1)
+  if not os.path.exists(args[1]):
+    print(&quotDirectory does not exist: {0}&quot.format(args[1]))
+    sys.exit(1)
+  problems_filename = args[0]
+  output_dirname = args[1]
+  kFilePrefix = problems_filename.split(&quot.&quot)[0] + &quot_&quot
+
+  xml_tree = etree.parse(problems_filename).getroot()
+  problems = GetFracasProblems(xml_tree)
+  WriteFracasProblems(problems, output_dirname, kFilePrefix)
+
+if __name__ == &quot__main__&quot:
+  main()
+
+</code></pre>

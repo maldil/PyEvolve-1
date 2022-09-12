@@ -1,0 +1,149 @@
+<link rel="stylesheet" href="../../..//default.css">
+<script src="../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/yangyanli/PointCNN/blob/master/data_conversions/prepare_partseg_data.py#L19">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/PointCNN/blob/master/data_conversions/prepare_partseg_data.py#L19">GitMyHubLink</a>
+
+&#47&#47!/usr/bin/python3
+&quot&quot&quotPrepare Data for ShapeNet Segmentation Task.&quot&quot&quot
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+import os
+import sys
+import h5py
+import argparse
+import numpy as np
+from datetime import datetime
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import data_utils
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(&quot--folder&quot, &quot-f&quot, help=&quotPath to data folder&quot)
+    parser.add_argument(&quot--save_ply&quot, &quot-s&quot, help=&quotConvert .pts to .ply&quot, action=&quotstore_true&quot)
+    args = parser.parse_args()
+    print(args)
+
+    root = args.folder if args.folder else &quot../../data/shapenet_partseg&quot
+    folders = [(os.path.join(root,&quottrain_data&quot), os.path.join(root,&quottrain_label&quot)),
+               (os.path.join(root,&quotval_data&quot), os.path.join(root,&quotval_label&quot)),
+               (os.path.join(root,&quottest_data&quot), os.path.join(root,&quottest_label&quot))]
+    category_label_seg_max_dict = dict()
+    max_point_num = 0
+    label_seg_min = sys.maxsize
+    for data_folder, label_folder in folders:
+        if not os.path.exists(data_folder):
+            continue
+        for category in sorted(os.listdir(data_folder)):
+            if category not in category_label_seg_max_dict:
+                category_label_seg_max_dict[category] = 0
+            data_category_folder = os.path.join(data_folder, category)
+            category_label_seg_max = 0
+            for filename in sorted(os.listdir(data_category_folder)):
+                data_filepath = os.path.join(data_category_folder, filename)
+                coordinates = [xyz for xyz in open(data_filepath, &quotr&quot) if len(xyz.split(&quot &quot)) == 3]
+                max_point_num = max(max_point_num, len(coordinates))
+
+                if label_folder is not None:
+                    label_filepath = os.path.join(label_folder, category, filename[0:-3] + &quotseg&quot)
+                    label_seg_this = np.loadtxt(label_filepath).astype(np.int32)
+                    assert (len(coordinates) == len(label_seg_this))
+                    category_label_seg_max = max(category_label_seg_max, max(label_seg_this))
+                    label_seg_min = min(label_seg_min, min(label_seg_this))
+            category_label_seg_max_dict[category] = max(category_label_seg_max_dict[category], category_label_seg_max)
+    category_label_seg_max_list = [(key, category_label_seg_max_dict[key]) for key in
+                                   sorted(category_label_seg_max_dict.keys())]
+
+    category_label = dict()
+    offset = 0
+    category_offset = dict()
+    label_seg_max = max([category_label_seg_max for _, category_label_seg_max in category_label_seg_max_list])
+    with <a id="change">open(os.path.join(root, &quotcategories.txt&quot), &quotw&quot)</a> as file_categories:
+        for idx, (category, category_label_seg_max) in enumerate(category_label_seg_max_list):
+            file_categories.write(&quot%s %d\n&quot % (category, category_label_seg_max - label_seg_min + 1))
+            category_label[category] = idx
+            category_offset[category] = offset
+            offset = offset + category_label_seg_max - label_seg_min + 1
+
+    print(&quotpart_num:&quot, offset)
+    print(&quotmax_point_num:&quot, max_point_num)
+    print(category_label_seg_max_list)
+
+    batch_size = 2048
+    data = np.zeros((batch_size, max_point_num, 3))
+    data_num = np.zeros((batch_size), dtype=np.int32)
+    label = np.zeros((batch_size), dtype=np.int32)
+    label_seg = np.zeros((batch_size, max_point_num), dtype=np.int32)
+    for data_folder, label_folder in folders:
+        if not os.path.exists(data_folder):
+            continue
+        data_folder_ply = data_folder + &quot_ply&quot
+        file_num = 0
+        for category in sorted(os.listdir(data_folder)):
+            data_category_folder = os.path.join(data_folder, category)
+            file_num = file_num + len(os.listdir(data_category_folder))
+        idx_h5 = 0
+        idx = 0
+
+        save_path = &quot%s/%s&quot % (os.path.dirname(data_folder), os.path.basename(data_folder)[0:-5])
+        filename_txt = &quot%s_files.txt&quot % (save_path)
+        ply_filepath_list = []
+        with <a id="change">open(filename_txt, &quotw&quot)</a> as filelist:
+            for category in sorted(os.listdir(data_folder)):
+                data_category_folder = os.path.join(data_folder, category)
+                for filename in sorted(os.listdir(data_category_folder)):
+                    data_filepath = os.path.join(data_category_folder, filename)
+                    coordinates = [[float(value) for value in xyz.split(&quot &quot)]
+                                   for xyz in open(data_filepath, &quotr&quot) if len(xyz.split(&quot &quot)) == 3]
+                    idx_in_batch = idx % batch_size
+                    data[idx_in_batch, 0:len(coordinates), ...] = np.array(coordinates)
+                    data_num[idx_in_batch] = len(coordinates)
+                    label[idx_in_batch] = category_label[category]
+
+                    if label_folder is not None:
+                        label_filepath = os.path.join(label_folder, category, filename[0:-3] + &quotseg&quot)
+                        label_seg_this = np.loadtxt(label_filepath).astype(np.int32) - label_seg_min
+                        assert (len(coordinates) == label_seg_this.shape[0])
+                        label_seg[idx_in_batch, 0:len(coordinates)] = label_seg_this + category_offset[category]
+
+                    data_ply_filepath = os.path.join(data_folder_ply, category, filename[:-3] + &quotply&quot)
+                    ply_filepath_list.append(data_ply_filepath)
+
+                    if ((idx + 1) % batch_size == 0) or idx == file_num - 1:
+                        item_num = idx_in_batch + 1
+                        filename_h5 = &quot%s_%d.h5&quot % (save_path, idx_h5)
+                        print(&quot{}-Saving {}...&quot.format(datetime.now(), filename_h5))
+                        filelist.write(&quot./%s_%d.h5\n&quot % (os.path.basename(data_folder)[0:-5], idx_h5))
+
+                        <a id="change">file = h5py.File(filename_h5, &quotw&quot)</a>
+                        file.create_dataset(&quotdata&quot, data=data[0:item_num, ...])
+                        file.create_dataset(&quotdata_num&quot, data=data_num[0:item_num, ...])
+                        file.create_dataset(&quotlabel&quot, data=label[0:item_num, ...])
+                        file.create_dataset(&quotlabel_seg&quot, data=label_seg[0:item_num, ...])
+                        <a id="change">file</a><a id="change">.close()</a>
+
+                        if args.save_ply:
+                            data_utils.save_ply_property_batch(data[0:item_num, ...], label_seg[0:item_num, ...],
+                                                               ply_filepath_list, data_num[0:item_num, ...],
+                                                               label_seg_max - label_seg_min)
+                        ply_filepath_list = []
+                        idx_h5 = idx_h5 + 1
+                    idx = idx + 1
+
+    train_val_txt = os.path.join(root, "train_val_files.txt")
+    with <a id="change">open(train_val_txt, "w")</a> as train_val:
+        for part in ("train", "val"):
+            part_txt = os.path.join(root, "%s_files.txt" % part)
+            train_val.write(open(part_txt, "r").read())
+
+if __name__ == &quot__main__&quot:
+    main()
+</code></pre>

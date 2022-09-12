@@ -1,0 +1,72 @@
+<link rel="stylesheet" href="../../..//default.css">
+<script src="../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/nltk/nltk/blob/develop/tools/global_replace.py#L19">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/nltk/blob/develop/tools/global_replace.py#L19">GitMyHubLink</a>
+
+&#47&#47!/usr/bin/env python
+&#47&#47
+&#47&#47 Natural Language Toolkit: substitute a pattern with
+&#47&#47                           a replacement in every file
+&#47&#47 Copyright (C) 2001-2022 NLTK Project
+&#47&#47 Author: Edward Loper &lt;edloper@gmail.com&gt;
+&#47&#47         Steven Bird &lt;stevenbird1@gmail.com&gt;
+&#47&#47 URL: &lt;https://www.nltk.org/&gt;
+&#47&#47 For license information, see LICENSE.TXT
+
+&#47&#47 NB Should work on all platforms,
+&#47&#47 http://www.python.org/doc/2.5.2/lib/os-file-dir.html
+
+import os
+import stat
+import sys
+
+
+def update(<a id="change">file</a>, <a id="change">pattern</a>, <a id="change">replacement</a>):
+
+    try:
+        &#47&#47 make sure we can write the file
+        <a id="change">old_perm = os.stat(file)[0]</a>
+        if not os.access(file, os.W_OK):
+            os.chmod(file, old_perm | stat.S_IWRITE)
+
+        &#47&#47 write the file
+        <a id="change">s = open(file, "rb").read().decode("utf-8")</a>
+        <a id="change">t = s.replace(pattern, replacement)</a>
+        <a id="change">out = open(file, "wb")</a>
+        out.write(t.encode("utf-8"))
+        <a id="change">out</a><a id="change">.close()</a>
+
+        &#47&#47 restore permissions
+        os.chmod(file, old_perm)
+
+        return s != t
+
+    except Exception:
+        <a id="change">exc_type, exc_obj, exc_tb = sys.exc_info()</a>
+        print(f"Unable to check {file:s} {str(exc_type):s}")
+        return 0
+
+
+if __name__ == "__main__":
+
+    if len(sys.argv) != 3:
+        exit("Usage: %s &lt;pattern&gt; &lt;replacement&gt;" % sys.argv[0])
+
+    pattern = sys.argv[1]
+    replacement = sys.argv[2]
+    count = 0
+
+    for root, dirs, files in os.walk("."):
+        if not ("/.git" in root or "/.tox" in root):
+            for file in files:
+                path = os.path.join(root, file)
+                if update(path, pattern, replacement):
+                    print("Updated:", path)
+                    count += 1
+
+    print(f"Updated {count} files")
+</code></pre>

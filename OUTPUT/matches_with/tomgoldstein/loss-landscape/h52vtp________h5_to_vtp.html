@@ -1,0 +1,269 @@
+<link rel="stylesheet" href="../..//default.css">
+<script src="../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/tomgoldstein/loss-landscape/blob/master/h52vtp.py#L30">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/loss-landscape/blob/master/h52vtp.py#L30">GitMyHubLink</a>
+
+
+    Convert h5 files to vtp files in VTK XML format that can be opened by ParaView.
+    The data type of the vtp file is "vtkPolyData", each PolyData piece specifies a set
+    of points and cells independently from the other pieces. The points are described
+    explicitly by the Points element. The cells are described explicitly by the Verts,
+    Lines, Strips, and Polys elements.
+
+    &lt;VTKFile type="PolyData" ...&gt;
+          &lt;PolyData&gt;
+              &lt;Piece NumberOfPoints="&#47&#47" NumberOfVerts="&#47&#47" NumberOfLines="&#47&#47"
+              NumberOfStrips="&#47&#47" NumberOfPolys="&#47&#47"&gt;
+                  &lt;PointData&gt;...&lt;/PointData&gt;
+                  &lt;CellData&gt;...&lt;/CellData&gt;
+                  &lt;Points&gt;...&lt;/Points&gt;
+                  &lt;Verts&gt;...&lt;/Verts&gt;
+                  &lt;Lines&gt;...&lt;/Lines&gt;
+                  &lt;Strips&gt;...&lt;/Strips&gt;
+                  &lt;Polys&gt;...&lt;/Polys&gt;
+              &lt;/Piece&gt;
+          &lt;/PolyData&gt;
+    &lt;/VTKFile&gt;
+
+
+import math
+import argparse
+import h5py
+import numpy as np
+from scipy import interpolate
+
+def h5_to_vtp(surf_file, surf_name=&quottrain_loss&quot, log=False, zmax=-1, interp=-1):
+    &#47&#47set this to True to generate points
+    show_points = False
+    &#47&#47set this to True to generate polygons
+    show_polys = True
+
+    f = h5py.File(surf_file,&quotr&quot)
+
+    [xcoordinates, ycoordinates] = np.meshgrid(f[&quotxcoordinates&quot][:], f[&quotycoordinates&quot][:][:])
+    vals = f[surf_name]
+
+    x_array = xcoordinates[:].ravel()
+    y_array = ycoordinates[:].ravel()
+    z_array = vals[:].ravel()
+
+    &#47&#47 Interpolate the resolution up to the desired amount
+    if interp &gt; 0:
+        m = interpolate.interp2d(xcoordinates[0,:], ycoordinates[:,0], vals, kind=&quotcubic&quot)
+        x_array = np.linspace(min(x_array), max(x_array), interp)
+        y_array = np.linspace(min(y_array), max(y_array), interp)
+        z_array = m(x_array, y_array).ravel()
+
+        x_array, y_array = np.meshgrid(x_array, y_array)
+        x_array = x_array.ravel()
+        y_array = y_array.ravel()
+
+    vtp_file = surf_file + "_" + surf_name
+    if zmax &gt; 0:
+        z_array[z_array &gt; zmax] = zmax
+        vtp_file +=  "_zmax=" + str(zmax)
+
+    if log:
+        z_array = np.log(z_array + 0.1)
+        vtp_file +=  "_log"
+    vtp_file +=  ".vtp"
+    print("Here&quots your output file:{}".format(vtp_file))
+
+    number_points = len(z_array)
+    print("number_points = {} points".format(number_points))
+
+    matrix_size = int(math.sqrt(number_points))
+    print("matrix_size = {} x {}".format(matrix_size, matrix_size))
+
+    poly_size = matrix_size - 1
+    print("poly_size = {} x {}".format(poly_size, poly_size))
+
+    number_polys = poly_size * poly_size
+    print("number_polys = {}".format(number_polys))
+
+    min_value_array = [min(x_array), min(y_array), min(z_array)]
+    max_value_array = [max(x_array), max(y_array), max(z_array)]
+    min_value = min(min_value_array)
+    max_value = max(max_value_array)
+
+    averaged_z_value_array = []
+
+    poly_count = 0
+    for column_count in range(poly_size):
+        stride_value = column_count * matrix_size
+        for row_count in range(poly_size):
+            temp_index = stride_value + row_count
+            averaged_z_value = (z_array[temp_index] + z_array[temp_index + 1] +
+                                z_array[temp_index + matrix_size]  +
+                                z_array[temp_index + matrix_size + 1]) / 4.0
+            averaged_z_value_array.append(averaged_z_value)
+            poly_count += 1
+
+    avg_min_value = min(averaged_z_value_array)
+    avg_max_value = max(averaged_z_value_array)
+
+    <a id="change">output_file = open(vtp_file, &quotw&quot)</a>
+    output_file.write(&quot&lt;VTKFile type="PolyData" version="1.0" byte_order="LittleEndian" header_type="UInt64"&gt;\n&quot)
+    output_file.write(&quot  &lt;PolyData&gt;\n&quot)
+
+    if (show_points and show_polys):
+        output_file.write(&quot    &lt;Piece NumberOfPoints="{}" NumberOfVerts="{}" NumberOfLines="0" NumberOfStrips="0" NumberOfPolys="{}"&gt;\n&quot.format(number_points, number_points, number_polys))
+    elif (show_polys):
+        output_file.write(&quot    &lt;Piece NumberOfPoints="{}" NumberOfVerts="0" NumberOfLines="0" NumberOfStrips="0" NumberOfPolys="{}"&gt;\n&quot.format(number_points, number_polys))
+    else:
+        output_file.write(&quot    &lt;Piece NumberOfPoints="{}" NumberOfVerts="{}" NumberOfLines="0" NumberOfStrips="0" NumberOfPolys=""&gt;\n&quot.format(number_points, number_points))
+
+    &#47&#47 &lt;PointData&gt;
+    output_file.write(&quot      &lt;PointData&gt;\n&quot)
+    output_file.write(&quot        &lt;DataArray type="Float32" Name="zvalue" NumberOfComponents="1" format="ascii" RangeMin="{}" RangeMax="{}"&gt;\n&quot.format(min_value_array[2], max_value_array[2]))
+    for vertexcount in range(number_points):
+        if (vertexcount % 6) is 0:
+            output_file.write(&quot          &quot)
+        output_file.write(&quot{}&quot.format(z_array[vertexcount]))
+        if (vertexcount % 6) is 5:
+            output_file.write(&quot\n&quot)
+        else:
+            output_file.write(&quot &quot)
+    if (vertexcount % 6) is not 5:
+        output_file.write(&quot\n&quot)
+    output_file.write(&quot        &lt;/DataArray&gt;\n&quot)
+    output_file.write(&quot      &lt;/PointData&gt;\n&quot)
+
+    &#47&#47 &lt;CellData&gt;
+    output_file.write(&quot      &lt;CellData&gt;\n&quot)
+    if (show_polys and not show_points):
+        output_file.write(&quot        &lt;DataArray type="Float32" Name="averaged zvalue" NumberOfComponents="1" format="ascii" RangeMin="{}" RangeMax="{}"&gt;\n&quot.format(avg_min_value, avg_max_value))
+        for vertexcount in range(number_polys):
+            if (vertexcount % 6) is 0:
+                output_file.write(&quot          &quot)
+            output_file.write(&quot{}&quot.format(averaged_z_value_array[vertexcount]))
+            if (vertexcount % 6) is 5:
+                output_file.write(&quot\n&quot)
+            else:
+                output_file.write(&quot &quot)
+        if (vertexcount % 6) is not 5:
+            output_file.write(&quot\n&quot)
+        output_file.write(&quot        &lt;/DataArray&gt;\n&quot)
+    output_file.write(&quot      &lt;/CellData&gt;\n&quot)
+
+    &#47&#47 &lt;Points&gt;
+    output_file.write(&quot      &lt;Points&gt;\n&quot)
+    output_file.write(&quot        &lt;DataArray type="Float32" Name="Points" NumberOfComponents="3" format="ascii" RangeMin="{}" RangeMax="{}"&gt;\n&quot.format(min_value, max_value))
+    for vertexcount in range(number_points):
+        if (vertexcount % 2) is 0:
+            output_file.write(&quot          &quot)
+        output_file.write(&quot{} {} {}&quot.format(x_array[vertexcount], y_array[vertexcount], z_array[vertexcount]))
+        if (vertexcount % 2) is 1:
+            output_file.write(&quot\n&quot)
+        else:
+            output_file.write(&quot &quot)
+    if (vertexcount % 2) is not 1:
+        output_file.write(&quot\n&quot)
+    output_file.write(&quot        &lt;/DataArray&gt;\n&quot)
+    output_file.write(&quot      &lt;/Points&gt;\n&quot)
+
+    &#47&#47 &lt;Verts&gt;
+    output_file.write(&quot      &lt;Verts&gt;\n&quot)
+    output_file.write(&quot        &lt;DataArray type="Int64" Name="connectivity" format="ascii" RangeMin="0" RangeMax="{}"&gt;\n&quot.format(number_points - 1))
+    if (show_points):
+        for vertexcount in range(number_points):
+            if (vertexcount % 6) is 0:
+                output_file.write(&quot          &quot)
+            output_file.write(&quot{}&quot.format(vertexcount))
+            if (vertexcount % 6) is 5:
+                output_file.write(&quot\n&quot)
+            else:
+                output_file.write(&quot &quot)
+        if (vertexcount % 6) is not 5:
+            output_file.write(&quot\n&quot)
+    output_file.write(&quot        &lt;/DataArray&gt;\n&quot)
+    output_file.write(&quot        &lt;DataArray type="Int64" Name="offsets" format="ascii" RangeMin="1" RangeMax="{}"&gt;\n&quot.format(number_points))
+    if (show_points):
+        for vertexcount in range(number_points):
+            if (vertexcount % 6) is 0:
+                output_file.write(&quot          &quot)
+            output_file.write(&quot{}&quot.format(vertexcount + 1))
+            if (vertexcount % 6) is 5:
+                output_file.write(&quot\n&quot)
+            else:
+                output_file.write(&quot &quot)
+        if (vertexcount % 6) is not 5:
+            output_file.write(&quot\n&quot)
+    output_file.write(&quot        &lt;/DataArray&gt;\n&quot)
+    output_file.write(&quot      &lt;/Verts&gt;\n&quot)
+
+    &#47&#47 &lt;Lines&gt;
+    output_file.write(&quot      &lt;Lines&gt;\n&quot)
+    output_file.write(&quot        &lt;DataArray type="Int64" Name="connectivity" format="ascii" RangeMin="0" RangeMax="{}"&gt;\n&quot.format(number_polys - 1))
+    output_file.write(&quot        &lt;/DataArray&gt;\n&quot)
+    output_file.write(&quot        &lt;DataArray type="Int64" Name="offsets" format="ascii" RangeMin="1" RangeMax="{}"&gt;\n&quot.format(number_polys))
+    output_file.write(&quot        &lt;/DataArray&gt;\n&quot)
+    output_file.write(&quot      &lt;/Lines&gt;\n&quot)
+
+    &#47&#47 &lt;Strips&gt;
+    output_file.write(&quot      &lt;Strips&gt;\n&quot)
+    output_file.write(&quot        &lt;DataArray type="Int64" Name="connectivity" format="ascii" RangeMin="0" RangeMax="{}"&gt;\n&quot.format(number_polys - 1))
+    output_file.write(&quot        &lt;/DataArray&gt;\n&quot)
+    output_file.write(&quot        &lt;DataArray type="Int64" Name="offsets" format="ascii" RangeMin="1" RangeMax="{}"&gt;\n&quot.format(number_polys))
+    output_file.write(&quot        &lt;/DataArray&gt;\n&quot)
+    output_file.write(&quot      &lt;/Strips&gt;\n&quot)
+
+    &#47&#47 &lt;Polys&gt;
+    output_file.write(&quot      &lt;Polys&gt;\n&quot)
+    output_file.write(&quot        &lt;DataArray type="Int64" Name="connectivity" format="ascii" RangeMin="0" RangeMax="{}"&gt;\n&quot.format(number_polys - 1))
+    if (show_polys):
+        polycount = 0
+        for column_count in range(poly_size):
+            stride_value = column_count * matrix_size
+            for row_count in range(poly_size):
+                temp_index = stride_value + row_count
+                if (polycount % 2) is 0:
+                    output_file.write(&quot          &quot)
+                output_file.write(&quot{} {} {} {}&quot.format(temp_index, (temp_index + 1), (temp_index + matrix_size + 1), (temp_index + matrix_size)))
+                if (polycount % 2) is 1:
+                    output_file.write(&quot\n&quot)
+                else:
+                    output_file.write(&quot &quot)
+                polycount += 1
+        if (polycount % 2) is 1:
+            output_file.write(&quot\n&quot)
+    output_file.write(&quot        &lt;/DataArray&gt;\n&quot)
+    output_file.write(&quot        &lt;DataArray type="Int64" Name="offsets" format="ascii" RangeMin="1" RangeMax="{}"&gt;\n&quot.format(number_polys))
+    if (show_polys):
+        for polycount in range(number_polys):
+            if (polycount % 6) is 0:
+                output_file.write(&quot          &quot)
+            output_file.write(&quot{}&quot.format((polycount + 1) * 4))
+            if (polycount % 6) is 5:
+                output_file.write(&quot\n&quot)
+            else:
+                output_file.write(&quot &quot)
+        if (polycount % 6) is not 5:
+            output_file.write(&quot\n&quot)
+    output_file.write(&quot        &lt;/DataArray&gt;\n&quot)
+    output_file.write(&quot      &lt;/Polys&gt;\n&quot)
+
+    output_file.write(&quot    &lt;/Piece&gt;\n&quot)
+    output_file.write(&quot  &lt;/PolyData&gt;\n&quot)
+    output_file.write(&quot&lt;/VTKFile&gt;\n&quot)
+    output_file.write(&quot&quot)
+    <a id="change">output_file</a><a id="change">.close()</a>
+
+    print("Done with file:{}".format(vtp_file))
+
+if __name__ == &quot__main__&quot:
+    parser = argparse.ArgumentParser(description=&quotConvert h5 file to XML-based VTK file that can be opened with ParaView&quot)
+    parser.add_argument(&quot--surf_file&quot, &quot-f&quot, default=&quot&quot, help=&quotThe h5 file that contains surface values&quot)
+    parser.add_argument(&quot--surf_name&quot, default=&quottrain_loss&quot,
+		help=&quotThe type of surface to plot: train_loss | test_loss | train_acc | test_acc &quot)
+    parser.add_argument(&quot--zmax&quot, default=-1, type=float, help=&quotMaximum z value to map&quot)
+    parser.add_argument(&quot--interp&quot, default=-1, type=int, help=&quotInterpolate the surface to this resolution (1000 recommended)&quot)
+    parser.add_argument(&quot--log&quot, action=&quotstore_true&quot, default=False, help=&quotlog scale&quot)
+    args = parser.parse_args()
+
+    h5_to_vtp(args.surf_file, args.surf_name, log=args.log, zmax=args.zmax, interp=args.interp)
+</code></pre>

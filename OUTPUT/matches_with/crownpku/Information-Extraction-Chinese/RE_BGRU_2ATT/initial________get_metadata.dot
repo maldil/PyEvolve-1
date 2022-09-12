@@ -1,0 +1,123 @@
+digraph G {
+1 [label="(112171028)empty" shape=box style=dashed]
+2 [label="(112170992)open" shape=box style=dashed color=blue fontcolor=blue]
+3 [label="(112171001)readline" shape=box style=dashed]
+4 [label="(112171008)strip" shape=box style=dashed]
+5 [label="(112171015)break" shape=box style=dashed]
+6 [label="(112171009)=" shape=box style=dashed]
+7 [label="(112171031)TextIO(fwrite)" shape=ellipse style=dashed color=blue fontcolor=blue]
+8 [label="(112171006)TextIO(f)" shape=ellipse style=dashed color=red fontcolor=red]
+9 [label="(112171018)str(content)" shape=ellipse style=dashed color=red fontcolor=red]
+10 [label="(112171022)=" shape=box style=dashed]
+11 [label="(112171000)TextIO(f)" shape=ellipse style=dashed color=black fontcolor=black]
+12 [label="(112171032)close" shape=box style=dashed color=blue fontcolor=blue]
+13 [label="(112170993)String(lit(./data/metadata.tsv))" shape=ellipse style=dashed color=blue fontcolor=blue]
+14 [label="(112171014)empty" shape=box style=dashed]
+15 [label="(112171024)write" shape=box style=dashed]
+16 [label="(112170995)=" shape=box style=dashed color=blue fontcolor=blue]
+17 [label="(112171004)empty" shape=box style=dashed]
+18 [label="(112170991)TextIO(fwrite)" shape=ellipse style=dashed color=blue fontcolor=blue]
+19 [label="(112171002)True(True)" shape=ellipse style=dashed]
+20 [label="(112171023)TextIO(fwrite)" shape=ellipse style=dashed color=yellow fontcolor=yellow]
+21 [label="(112171027)Add" shape=box style=dashed]
+22 [label="(112171030)close" shape=box style=dashed color=blue fontcolor=blue]
+23 [label="(112171020)str.split()[.](Subscript)" shape=ellipse style=dashed]
+24 [label="(112171017)str(name)" shape=ellipse style=dashed]
+25 [label="(112171033)END" style=dashed]
+26 [label="(112171003)While" shape=diamond style=dashed]
+27 [label="(112171012)Eq" shape=box style=dashed]
+28 [label="(112171013)If" shape=diamond style=dashed]
+29 [label="(112171026)String(lit(
+))" shape=ellipse style=dashed]
+30 [label="(112170997)open" shape=box style=dashed color=blue fontcolor=blue]
+31 [label="(112170996)TextIO(f)" shape=ellipse style=dashed color=blue fontcolor=blue]
+32 [label="(112170990)START" style=dashed]
+33 [label="(112170998)String(lit(./origin_data/vec.txt))" shape=ellipse style=dashed color=blue fontcolor=blue]
+34 [label="(112170999)=" shape=box style=dashed color=blue fontcolor=blue]
+35 [label="(112171007)readline" shape=box style=dashed]
+36 [label="(112171011)String(lit())" shape=ellipse style=dashed]
+37 [label="(112171019)split" shape=box style=dashed]
+38 [label="(112171025)str(name)" shape=ellipse style=dashed]
+39 [label="(112171010)str(content)" shape=ellipse style=dashed]
+40 [label="(112171021)number(0)" shape=ellipse style=dashed]
+41 [label="(112171029)TextIO(f)" shape=ellipse style=dashed color=blue fontcolor=blue]
+42 [label="(112170994)String(lit(w))" shape=ellipse style=dashed color=blue fontcolor=blue]
+43 [label="(112171005)str(content)" shape=ellipse style=dashed]
+44 [label="(112171016)empty" shape=box style=dashed]
+26 -> 1 [label="F"];
+32 -> 2 [label="" style=solid];
+13 -> 2 [label="para" style=dotted];
+42 -> 2 [label="para" style=dotted];
+32 -> 3 [label="" style=solid];
+11 -> 3 [label="recv" style=dotted];
+34 -> 3 [label="dep" style=dotted];
+26 -> 4 [label="T"];
+35 -> 4 [label="dep" style=dotted];
+35 -> 4 [label="recv" style=dotted];
+28 -> 5 [label="T"];
+14 -> 5 [label="dep" style=dotted];
+26 -> 6 [label="T"];
+4 -> 6 [label="dep" style=dotted];
+4 -> 6 [label="para" style=dotted];
+18 -> 7 [label="ref" style=dotted];
+31 -> 8 [label="ref" style=dotted];
+43 -> 9 [label="ref" style=dotted];
+28 -> 10 [label="F"];
+23 -> 10 [label="para" style=dotted];
+31 -> 11 [label="ref" style=dotted];
+32 -> 12 [label="" style=solid];
+7 -> 12 [label="recv" style=dotted];
+22 -> 12 [label="dep" style=dotted];
+28 -> 14 [label="T"];
+28 -> 15 [label="F"];
+20 -> 15 [label="recv" style=dotted];
+21 -> 15 [label="dep" style=dotted];
+21 -> 15 [label="para" style=dotted];
+10 -> 15 [label="dep" style=dotted];
+32 -> 16 [label="" style=solid];
+2 -> 16 [label="dep" style=dotted];
+2 -> 16 [label="para" style=dotted];
+26 -> 17 [label="T"];
+16 -> 18 [label="def" style=dotted];
+18 -> 20 [label="ref" style=dotted];
+28 -> 21 [label="F"];
+38 -> 21 [label="para" style=dotted];
+29 -> 21 [label="para" style=dotted];
+10 -> 21 [label="dep" style=dotted];
+32 -> 22 [label="" style=solid];
+41 -> 22 [label="recv" style=dotted];
+1 -> 22 [label="dep" style=dotted];
+15 -> 22 [label="dep" style=dotted];
+37 -> 23 [label="qual" style=dotted];
+40 -> 23 [label="para" style=dotted];
+10 -> 24 [label="def" style=dotted];
+12 -> 25 [label="dep" style=dotted];
+32 -> 26 [label="" style=solid];
+19 -> 26 [label="cond" style=dotted];
+3 -> 26 [label="dep" style=dotted];
+26 -> 27 [label="T"];
+39 -> 27 [label="para" style=dotted];
+36 -> 27 [label="para" style=dotted];
+6 -> 27 [label="dep" style=dotted];
+26 -> 28 [label="T"];
+27 -> 28 [label="dep" style=dotted];
+27 -> 28 [label="cond" style=dotted];
+32 -> 30 [label="" style=solid];
+33 -> 30 [label="para" style=dotted];
+16 -> 30 [label="dep" style=dotted];
+34 -> 31 [label="def" style=dotted];
+32 -> 34 [label="" style=solid];
+30 -> 34 [label="dep" style=dotted];
+30 -> 34 [label="para" style=dotted];
+26 -> 35 [label="T"];
+8 -> 35 [label="recv" style=dotted];
+17 -> 35 [label="dep" style=dotted];
+28 -> 37 [label="F"];
+9 -> 37 [label="recv" style=dotted];
+44 -> 37 [label="dep" style=dotted];
+24 -> 38 [label="ref" style=dotted];
+43 -> 39 [label="ref" style=dotted];
+31 -> 41 [label="ref" style=dotted];
+6 -> 43 [label="def" style=dotted];
+28 -> 44 [label="F"];
+}

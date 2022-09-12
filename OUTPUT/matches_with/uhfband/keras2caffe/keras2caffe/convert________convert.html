@@ -1,0 +1,416 @@
+<link rel="stylesheet" href="../../..//default.css">
+<script src="../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/uhfband/keras2caffe/blob/master/keras2caffe/convert.py#L47">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/keras2caffe/blob/master/keras2caffe/convert.py#L47">GitMyHubLink</a>
+
+import caffe
+from caffe import layers as L, params as P
+
+import math
+import numpy as np
+
+def set_padding(config_keras, input_shape, config_caffe):
+    if config_keras[&quotpadding&quot]==&quotvalid&quot:
+        return
+    elif config_keras[&quotpadding&quot]==&quotsame&quot:
+        &#47&#47pad = ((layer.output_shape[1] - 1)*strides[0] + pool_size[0] - layer.input_shape[1])/2
+        &#47&#47pad=pool_size[0]/(strides[0]*2)
+        &#47&#47pad = (pool_size[0]*layer.output_shape[1] - (pool_size[0]-strides[0])*(layer.output_shape[1]-1) - layer.input_shape[1])/2
+        
+        if &quotkernel_size&quot in config_keras:
+            kernel_size = config_keras[&quotkernel_size&quot]
+        elif &quotpool_size&quot in config_keras:
+            kernel_size = config_keras[&quotpool_size&quot]
+        else:
+            raise Exception(&quotUndefined kernel size&quot)
+        
+        &#47&#47pad_w = int(kernel_size[1] // 2)
+        &#47&#47pad_h = int(kernel_size[0] // 2)
+        
+        strides = config_keras[&quotstrides&quot]
+        w = input_shape[1]
+        h = input_shape[2]
+        
+        out_w = math.ceil(w / float(strides[1]))
+        pad_w = int((kernel_size[1]*out_w - (kernel_size[1]-strides[1])*(out_w - 1) - w)/2)
+        
+        out_h = math.ceil(h / float(strides[0]))
+        pad_h = int((kernel_size[0]*out_h - (kernel_size[0]-strides[0])*(out_h - 1) - h)/2)
+        
+        if pad_w==0 and pad_h==0:
+            return
+        
+        if pad_w==pad_h:
+            config_caffe[&quotpad&quot] = pad_w
+        else:
+            config_caffe[&quotpad_h&quot] = pad_h
+            config_caffe[&quotpad_w&quot] = pad_w
+        
+    else:
+        raise Exception(config_keras[&quotpadding&quot]+&quot padding is not supported&quot)
+
+def convert(keras_model, caffe_net_file, caffe_params_file):
+    
+    caffe_net = caffe.NetSpec()
+    
+    net_params = dict()
+    
+    outputs=dict()
+    shape=()
+    
+    input_str = &quot&quot
+    
+    for layer in keras_model.layers:
+        name = layer.name
+        layer_type = type(layer).__name__
+        
+        config = layer.get_config()
+
+        blobs = layer.get_weights()
+        blobs_num = len(blobs)
+        
+        if type(layer.output)==list:
+            raise Exception(&quotLayers with multiply outputs are not supported&quot)
+        else: 
+            top=layer.output.name
+        
+        if type(layer.input)!=list:
+            bottom = layer.input.name
+        
+        &#47&#47first we need to create Input layer
+        if layer_type==&quotInputLayer&quot or len(caffe_net.tops)==0:
+
+            input_name = &quotdata&quot
+            caffe_net[input_name] = L.Layer()
+            input_shape = config[&quotbatch_input_shape&quot]
+            input_str = &quotinput: {}\ninput_dim: {}\ninput_dim: {}\ninput_dim: {}\ninput_dim: {}&quot.format(&quot"&quot + input_name + &quot"&quot,
+                1, input_shape[3], input_shape[1], input_shape[2])
+            outputs[layer.input.name] = input_name
+            if layer_type==&quotInputLayer&quot:
+                continue
+                
+        if layer_type==&quotConv2D&quot or layer_type==&quotConvolution2D&quot:
+            
+            strides = config[&quotstrides&quot]
+            kernel_size = config[&quotkernel_size&quot]
+            
+            kwargs = { &quotnum_output&quot: config[&quotfilters&quot] }
+            
+            if kernel_size[0]==kernel_size[1]:
+            	kwargs[&quotkernel_size&quot]=kernel_size[0]
+            else:
+            	kwargs[&quotkernel_h&quot]=kernel_size[0]
+            	kwargs[&quotkernel_w&quot]=kernel_size[1]
+            
+            if strides[0]==strides[1]:
+            	kwargs[&quotstride&quot]=strides[0]
+            else:
+            	kwargs[&quotstride_h&quot]=strides[0]
+            	kwargs[&quotstride_w&quot]=strides[1]
+            
+            if not config[&quotuse_bias&quot]:
+            	kwargs[&quotbias_term&quot] = False
+            	&#47&#47kwargs[&quotparam&quot]=[dict(lr_mult=0)]
+            else:
+                &#47&#47kwargs[&quotparam&quot]=[dict(lr_mult=0), dict(lr_mult=0)]
+                pass
+            
+            set_padding(config, layer.input_shape, kwargs)
+            
+            caffe_net[name] = L.Convolution(caffe_net[outputs[bottom]], **kwargs)
+            
+            blobs[0] = np.array(blobs[0]).transpose(3,2,0,1)
+            net_params[name] = blobs
+
+            if config[&quotactivation&quot] == &quotrelu&quot:
+                name_s = name+&quots&quot
+                caffe_net[name_s] = L.ReLU(caffe_net[name], in_place=True)
+            elif config[&quotactivation&quot] == &quotsigmoid&quot:
+                name_s = name+&quots&quot
+                caffe_net[name_s] = L.Sigmoid(caffe_net[name], in_place=True)
+            elif config[&quotactivation&quot] == &quotlinear&quot:
+                &#47&#47do nothing
+                pass
+            else:
+                raise Exception(&quotUnsupported activation &quot+config[&quotactivation&quot])
+        
+        elif layer_type==&quotDepthwiseConv2D&quot:
+            
+            strides = config[&quotstrides&quot]
+            kernel_size = config[&quotkernel_size&quot]
+
+            kwargs = {&quotnum_output&quot: layer.input_shape[3]}
+
+            if kernel_size[0] == kernel_size[1]:
+                kwargs[&quotkernel_size&quot] = kernel_size[0]
+            else:
+                kwargs[&quotkernel_h&quot] = kernel_size[0]
+                kwargs[&quotkernel_w&quot] = kernel_size[1]
+
+            if strides[0] == strides[1]:
+                kwargs[&quotstride&quot] = strides[0]
+            else:
+                kwargs[&quotstride_h&quot] = strides[0]
+                kwargs[&quotstride_w&quot] = strides[1]
+
+            set_padding(config, layer.input_shape, kwargs)
+
+            kwargs[&quotgroup&quot] = layer.input_shape[3]
+
+            kwargs[&quotbias_term&quot] = False
+            caffe_net[name] = L.Convolution(caffe_net[outputs[bottom]], **kwargs)
+            blob = np.array(blobs[0]).transpose(2, 3, 0, 1)
+            blob.shape = (1,) + blob.shape
+            net_params[name] = blob
+            
+            if config[&quotactivation&quot] == &quotrelu&quot:
+                name_s = name+&quots&quot
+                caffe_net[name_s] = L.ReLU(caffe_net[name], in_place=True)
+            elif config[&quotactivation&quot] == &quotsigmoid&quot:
+                name_s = name+&quots&quot
+                caffe_net[name_s] = L.Sigmoid(caffe_net[name], in_place=True)
+            elif config[&quotactivation&quot] == &quotlinear&quot:
+                &#47&#47do nothing
+                pass
+            else:
+                raise Exception(&quotUnsupported activation &quot+config[&quotactivation&quot])
+
+        elif layer_type == &quotSeparableConv2D&quot:
+
+            strides = config[&quotstrides&quot]
+            kernel_size = config[&quotkernel_size&quot]
+
+            kwargs = {&quotnum_output&quot: layer.input_shape[3]}
+
+            if kernel_size[0] == kernel_size[1]:
+                kwargs[&quotkernel_size&quot] = kernel_size[0]
+            else:
+                kwargs[&quotkernel_h&quot] = kernel_size[0]
+                kwargs[&quotkernel_w&quot] = kernel_size[1]
+
+            if strides[0] == strides[1]:
+                kwargs[&quotstride&quot] = strides[0]
+            else:
+                kwargs[&quotstride_h&quot] = strides[0]
+                kwargs[&quotstride_w&quot] = strides[1]
+
+            set_padding(config, layer.input_shape, kwargs)
+
+            kwargs[&quotgroup&quot] = layer.input_shape[3]
+
+            kwargs[&quotbias_term&quot] = False
+            caffe_net[name] = L.Convolution(caffe_net[outputs[bottom]], **kwargs)
+            blob = np.array(blobs[0]).transpose(2, 3, 0, 1)
+            blob.shape = (1,) + blob.shape
+            net_params[name] = blob
+
+            name2 = name + &quot_&quot
+            kwargs = {&quotnum_output&quot: config[&quotfilters&quot], &quotkernel_size&quot: 1, &quotbias_term&quot: config[&quotuse_bias&quot]}
+            caffe_net[name2] = L.Convolution(caffe_net[name], **kwargs)
+
+            if config[&quotuse_bias&quot] == True:
+                blob2 = []
+                blob2.append(np.array(blobs[1]).transpose(3, 2, 0, 1))
+                blob2.append(np.array(blobs[2]))
+                blob2[0].shape = (1,) + blob2[0].shape
+            else:
+                blob2 = np.array(blobs[1]).transpose(3, 2, 0, 1)
+                blob2.shape = (1,) + blob2.shape
+
+            net_params[name2] = blob2
+            name = name2
+
+        elif layer_type==&quotBatchNormalization&quot:
+            
+            param = dict()
+            
+            variance = np.array(blobs[-1])
+            mean = np.array(blobs[-2])
+            
+            if config[&quotscale&quot]:
+                gamma = np.array(blobs[0])
+                sparam=[dict(lr_mult=1), dict(lr_mult=1)]
+            else:
+                gamma = np.ones(mean.shape, dtype=np.float32)
+                &#47&#47sparam=[dict(lr_mult=0, decay_mult=0), dict(lr_mult=1, decay_mult=1)]
+                sparam=[dict(lr_mult=0), dict(lr_mult=1)]
+                &#47&#47sparam=[dict(lr_mult=0), dict(lr_mult=0)]
+            
+            if config[&quotcenter&quot]:
+                beta = np.array(blobs[-3])
+                param[&quotbias_term&quot]=True
+            else:
+                beta = np.zeros(mean.shape, dtype=np.float32)
+                param[&quotbias_term&quot]=False
+            
+            caffe_net[name] = L.BatchNorm(caffe_net[outputs[bottom]], in_place=True)
+            	&#47&#47param=[dict(lr_mult=1, decay_mult=1), dict(lr_mult=1, decay_mult=1), dict(lr_mult=0, decay_mult=0)])
+            	&#47&#47param=[dict(lr_mult=1), dict(lr_mult=1), dict(lr_mult=0)])
+                
+            net_params[name] = (mean, variance, np.array(1.0)) 
+            
+            name_s = name+&quots&quot
+            
+            caffe_net[name_s] = L.Scale(caffe_net[name], in_place=True, 
+            	param=sparam, scale_param={&quotbias_term&quot: config[&quotcenter&quot]})
+            net_params[name_s] = (gamma, beta)
+            
+        elif layer_type==&quotDense&quot:
+            caffe_net[name] = L.InnerProduct(caffe_net[outputs[bottom]], 
+            	num_output=config[&quotunits&quot], weight_filler=dict(type=&quotxavier&quot))
+            
+            if config[&quotuse_bias&quot]:
+                weight=np.array(blobs[0]).transpose(1, 0)
+                if type(layer._inbound_nodes[0].inbound_layers[0]).__name__==&quotFlatten&quot:
+                    flatten_shape=layer._inbound_nodes[0].inbound_layers[0].input_shape
+                    for i in range(weight.shape[0]):
+                        weight[i]=np.array(weight[i].reshape(flatten_shape[1],flatten_shape[2],flatten_shape[3]).transpose(2,0,1).reshape(weight.shape[1]))
+                net_params[name] = (weight, np.array(blobs[1]))
+            else:
+                net_params[name] = (blobs[0])
+                
+            name_s = name+&quots&quot
+            if config[&quotactivation&quot]==&quotsoftmax&quot:
+                caffe_net[name_s] = L.Softmax(caffe_net[name], in_place=True)
+            elif config[&quotactivation&quot]==&quotrelu&quot:
+                caffe_net[name_s] = L.ReLU(caffe_net[name], in_place=True)
+        
+        elif layer_type==&quotActivation&quot:
+            if config[&quotactivation&quot]==&quotrelu&quot:
+                &#47&#47caffe_net[name] = L.ReLU(caffe_net[outputs[bottom]], in_place=True)
+                if len(layer.input.consumers())&gt;1:
+                    caffe_net[name] = L.ReLU(caffe_net[outputs[bottom]])
+                else:
+                    caffe_net[name] = L.ReLU(caffe_net[outputs[bottom]], in_place=True)
+            elif config[&quotactivation&quot]==&quotrelu6&quot:
+                &#47&#47TODO
+                caffe_net[name] = L.ReLU(caffe_net[outputs[bottom]])
+            elif config[&quotactivation&quot]==&quotsoftmax&quot:
+                caffe_net[name] = L.Softmax(caffe_net[outputs[bottom]], in_place=True)
+            elif config[&quotactivation&quot] == &quotsigmoid&quot:
+                &#47&#47 name_s = name+&quots&quot
+                caffe_net[name] = L.Sigmoid(caffe_net[outputs[bottom]], in_place=True)
+            else:
+                raise Exception(&quotUnsupported activation &quot+config[&quotactivation&quot])
+        
+        elif layer_type==&quotCropping2D&quot:
+            shape = layer.output_shape
+            ddata = L.DummyData(shape=dict(dim=[1, shape[3],shape[1], shape[2]]))
+            layers = []
+            layers.append(caffe_net[outputs[bottom]])   
+            layers.append(ddata)   &#47&#47TODO
+            caffe_net[name] = L.Crop(*layers)
+        
+        elif layer_type==&quotConcatenate&quot or layer_type==&quotMerge&quot:
+            layers = []
+            for i in layer.input:
+                layers.append(caffe_net[outputs[i.name]])
+            caffe_net[name] = L.Concat(*layers, axis=1)
+        
+        elif layer_type==&quotAdd&quot:
+            layers = []
+            for i in layer.input:
+                layers.append(caffe_net[outputs[i.name]])
+            caffe_net[name] = L.Eltwise(*layers)
+        
+        elif layer_type==&quotFlatten&quot:
+            caffe_net[name] = L.Flatten(caffe_net[outputs[bottom]])
+        
+        elif layer_type==&quotReshape&quot:
+            shape = config[&quottarget_shape&quot]
+            if len(shape)==3:
+                &#47&#47shape = (layer.input_shape[0], shape[2], shape[0], shape[1])
+                shape = (1, shape[2], shape[0], shape[1])
+            elif len(shape)==1:
+                &#47&#47shape = (layer.input_shape[0], 1, 1, shape[0])
+                shape = (1, 1, 1, shape[0])
+            caffe_net[name] = L.Reshape(caffe_net[outputs[bottom]], 
+                reshape_param={&quotshape&quot:{&quotdim&quot: list(shape)}})
+        
+        elif layer_type==&quotMaxPooling2D&quot or layer_type==&quotAveragePooling2D&quot:
+            
+            kwargs={}
+            
+            if layer_type==&quotMaxPooling2D&quot:
+                kwargs[&quotpool&quot] = P.Pooling.MAX
+            else:
+                kwargs[&quotpool&quot] = P.Pooling.AVE
+                
+            pool_size = config[&quotpool_size&quot]
+            strides  = config[&quotstrides&quot]
+            
+            if pool_size[0]!=pool_size[1]:
+                raise Exception(&quotUnsupported pool_size&quot)
+                    
+            if strides[0]!=strides[1]:
+                raise Exception(&quotUnsupported strides&quot)
+            
+            set_padding(config, layer.input_shape, kwargs)
+            
+            caffe_net[name] = L.Pooling(caffe_net[outputs[bottom]], kernel_size=pool_size[0], 
+                stride=strides[0], **kwargs)
+        
+        elif layer_type==&quotDropout&quot:
+            caffe_net[name] = L.Dropout(caffe_net[outputs[bottom]], 
+                dropout_param=dict(dropout_ratio=config[&quotrate&quot]))
+        
+        elif layer_type==&quotGlobalAveragePooling2D&quot:
+            caffe_net[name] = L.Pooling(caffe_net[outputs[bottom]], pool=P.Pooling.AVE, 
+                pooling_param=dict(global_pooling=True))
+        
+        elif layer_type==&quotUpSampling2D&quot:
+            if config[&quotsize&quot][0]!=config[&quotsize&quot][1]:
+                raise Exception(&quotUnsupported upsampling factor&quot)
+            factor = config[&quotsize&quot][0]
+            kernel_size = 2 * factor - factor % 2
+            stride = factor
+            pad = int(math.ceil((factor - 1) / 2.0))
+            channels = layer.input_shape[-1]
+            caffe_net[name] = L.Deconvolution(caffe_net[outputs[bottom]], convolution_param=dict(num_output=channels, 
+                group=channels, kernel_size=kernel_size, stride=stride, pad=pad, weight_filler=dict(type=&quotbilinear&quot), 
+                bias_term=False), param=dict(lr_mult=0, decay_mult=0))
+        
+        elif layer_type==&quotLeakyReLU&quot:
+            caffe_net[name] = L.ReLU(caffe_net[outputs[bottom]], negative_slope=config[&quotalpha&quot], in_place=True)
+
+        &#47&#47TODO
+        elif layer_type==&quotZeroPadding2D&quot:
+            padding=config[&quotpadding&quot]
+            &#47&#47ch = layer.input_shape[3]
+            &#47&#47caffe_net[name] = L.Convolution(caffe_net[outputs[bottom]], num_output=ch, kernel_size=1, stride=1, group=ch,
+            &#47&#47    pad_h=padding[0][0], pad_w=padding[1][0], convolution_param=dict(bias_term = False))
+            &#47&#47params = np.ones((1,ch,1,1))
+            
+            &#47&#47net_params[name] = np.ones((1,ch,1,1,1))
+            &#47&#47net_params[name] = np.ones(layer.output_shape)
+            
+            caffe_net[name] = L.Pooling(caffe_net[outputs[bottom]], kernel_size=1, 
+                stride=1, pad_h=padding[0][0]+padding[0][1], pad_w=padding[1][0]+padding[1][1], pool=P.Pooling.AVE)
+        
+        else:
+            raise Exception(&quotUnsupported layer type: &quot+layer_type)
+            
+        outputs[top]=name
+        
+    
+    &#47&#47replace empty layer with input blob
+    net_proto = input_str + &quot\n&quot + &quotlayer {&quot + &quotlayer {&quot.join(str(caffe_net.to_proto()).split(&quotlayer {&quot)[2:])
+    
+    <a id="change">f = open(caffe_net_file, &quotw&quot)</a> 
+    f.write(net_proto)
+    <a id="change">f</a><a id="change">.close()</a>
+    
+    caffe_model = caffe.Net(caffe_net_file, caffe.TEST)
+    
+    for layer in caffe_model.params.keys():
+        if &quotup_sampling2d&quot in layer:
+            continue
+        for n in range(0, len(caffe_model.params[layer])):
+            caffe_model.params[layer][n].data[...] = net_params[layer][n]
+
+    caffe_model.save(caffe_params_file)
+</code></pre>

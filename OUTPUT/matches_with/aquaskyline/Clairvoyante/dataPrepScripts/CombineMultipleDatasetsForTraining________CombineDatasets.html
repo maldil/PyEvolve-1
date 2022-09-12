@@ -1,0 +1,94 @@
+<link rel="stylesheet" href="../../..//default.css">
+<script src="../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/aquaskyline/Clairvoyante/blob/rbDev/dataPrepScripts/CombineMultipleDatasetsForTraining.py#L11">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/Clairvoyante/blob/rbDev/dataPrepScripts/CombineMultipleDatasetsForTraining.py#L11">GitMyHubLink</a>
+
+import os
+import sys
+import shlex
+import argparse
+import subprocess
+
+def Run(args):
+    CombineDatasets(args)
+
+
+def CombineDatasets(<a id="change">args</a>):
+
+    <a id="change">ocant_fpo = open(args.tensor_can_out, "wb")</a>
+    <a id="change">ocant_fh = subprocess.Popen(shlex.split("gzip -c -1"), stdin=subprocess.PIPE, stdout=ocant_fpo, stderr=sys.stderr, bufsize=8388608)</a>
+    <a id="change">ovart_fpo = open(args.tensor_var_out, "wb")</a>
+    <a id="change">ovart_fh = subprocess.Popen(shlex.split("gzip -c -1"), stdin=subprocess.PIPE, stdout=ovart_fpo, stderr=sys.stderr, bufsize=8388608)</a>
+    <a id="change">ovar_fpo = open(args.var_out, "wb")</a>
+    <a id="change">ovar_fh = subprocess.Popen(shlex.split("gzip -c -1"), stdin=subprocess.PIPE, stdout=ovar_fpo, stderr=sys.stderr, bufsize=8388608)</a>
+    <a id="change">obed_fpo = open(args.bed_out, "wb")</a>
+    <a id="change">obed_fh = subprocess.Popen(shlex.split("gzip -c -1"), stdin=subprocess.PIPE, stdout=obed_fpo, stderr=sys.stderr, bufsize=8388608)</a>
+
+    <a id="change">prefix = "a"</a>
+    with open(args.input_list, "r") as l:
+        for d in l:
+            <a id="change">s = d.strip().split()</a>
+
+            print &gt;&gt; sys.stderr, "Combining %s ..." % (s[0])
+            <a id="change">f = subprocess.Popen(shlex.split("gzip -fdc %s" % (s[0]) ), stdout=subprocess.PIPE, bufsize=8388608)</a>
+            for row in f.stdout: ocant_fh.stdin.write(prefix); ocant_fh.stdin.write(row);
+            f.stdout.close(); f.wait()
+
+            print &gt;&gt; sys.stderr, "Combining %s ..." % (s[1])
+            <a id="change">f = subprocess.Popen(shlex.split("gzip -fdc %s" % (s[1]) ), stdout=subprocess.PIPE, bufsize=8388608)</a>
+            for row in f.stdout: ovart_fh.stdin.write(prefix); ovart_fh.stdin.write(row);
+            f.stdout.close(); f.wait()
+
+            print &gt;&gt; sys.stderr, "Combining %s ..." % (s[2])
+            <a id="change">f = subprocess.Popen(shlex.split("gzip -fdc %s" % (s[2]) ), stdout=subprocess.PIPE, bufsize=8388608)</a>
+            for row in f.stdout: ovar_fh.stdin.write(prefix); ovar_fh.stdin.write(row);
+            f.stdout.close(); f.wait()
+
+            print &gt;&gt; sys.stderr, "Combining %s ..." % (s[3])
+            <a id="change">f = subprocess.Popen(shlex.split("gzip -fdc %s" % (s[3]) ), stdout=subprocess.PIPE, bufsize=8388608)</a>
+            for row in f.stdout: obed_fh.stdin.write(prefix); obed_fh.stdin.write(row);
+            f.stdout.close(); f.wait()
+
+            <a id="change">prefix = chr(ord(prefix)+1)</a>
+
+    ocant_fh.stdin.close(); ocant_fh.wait(); <a id="change">ocant_fpo</a><a id="change">.close()</a>
+    ovart_fh.stdin.close(); ovart_fh.wait(); <a id="change">ovart_fpo</a><a id="change">.close()</a>
+    ovar_fh.stdin.close(); ovar_fh.wait(); <a id="change">ovar_fpo</a><a id="change">.close()</a>
+    obed_fh.stdin.close(); obed_fh.wait(); <a id="change">obed_fpo</a><a id="change">.close()</a>
+
+
+def main():
+    parser = argparse.ArgumentParser(
+            description="Combine datasets for model training" )
+
+    parser.add_argument(&quot--input_list&quot, type=str, default = None,
+            help="A list with 4 columns of filenames. &lt;Tensors generated at randome genome positions genearted by ExtractVariantCandidates.py+CreateTensor.py&gt; &lt;Variant tensors generated GetTruth.py+CreateTensor.py&gt; &lt;Truth variants genearted by GetTruth.py&gt; &lt;Usable genome regions in BED format&gt;")
+
+    parser.add_argument(&quot--tensor_can_out&quot, type=str, default = None,
+            help="Combined tensors generated at randome genome positions")
+
+    parser.add_argument(&quot--tensor_var_out&quot, type=str, default = None,
+            help="Combined variant tensors output")
+
+    parser.add_argument(&quot--var_out&quot, type=str, default = None,
+            help="Combined Truth variants list output")
+
+    parser.add_argument(&quot--bed_out&quot, type=str, default = None,
+            help="Combined usable genome regions output")
+
+    args = parser.parse_args()
+
+    if len(sys.argv[1:]) == 0:
+        parser.print_help()
+        sys.exit(1)
+
+    Run(args)
+
+
+if __name__ == "__main__":
+    main()
+</code></pre>

@@ -1,0 +1,459 @@
+<link rel="stylesheet" href="../../..//default.css">
+<script src="../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/zsdonghao/text-to-image/blob/master/tensorlayer/db.py#L280">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/text-to-image/blob/master/tensorlayer/db.py#L280">GitMyHubLink</a>
+
+&#47&#47! /usr/bin/python
+&#47&#47 -*- coding: utf8 -*-
+import tensorflow as tf
+import tensorlayer as tl
+from . import iterate
+import numpy as np
+import time
+import math
+
+
+import pymongo
+import gridfs
+import pickle
+from pymongo import MongoClient
+from datetime import datetime
+
+class TensorDB(object):
+    TensorDB is a MongoDB based manager that help you to manage data, model and logging.
+
+    Parameters
+    -------------
+    ip : string, localhost or IP address.
+    port : int, port number.
+    db_name : string, database name.
+    user_name : string, set to None if it donnot need authentication.
+    password : string.
+
+    Properties
+    ------------
+    db : ``pymongo.MongoClient[db_name]``, xxxxxx
+    datafs : ``gridfs.GridFS(self.db, collection="datafs")``, xxxxxxxxxx
+    modelfs : ``gridfs.GridFS(self.db, collection="modelfs")``,
+    paramsfs : ``gridfs.GridFS(self.db, collection="paramsfs")``,
+    db.Params : Collection for
+    db.TrainLog : Collection for
+    db.ValidLog : Collection for
+    db.TestLog : Collection for
+
+    Dependencies
+    -------------
+    1 : MongoDB, as TensorDB is based on MongoDB, you need to install it in your
+       local machine or remote machine.
+    2 : pip install pymongo, for MongoDB python API.
+
+    Optional Tools
+    ----------------
+    1 : You may like to install MongoChef or Mongo Management Studo APP for
+       visualizing or testing your MongoDB.
+    
+    def __init__(
+        self,
+        ip = &quotlocalhost&quot,
+        port = 27017,
+        db_name = &quotdb_name&quot,
+        user_name = None,
+        password = &quotpassword&quot,
+    ):
+        &#47&#47&#47&#47 connect mongodb
+        client = MongoClient(ip, port)
+        self.db = client[db_name]
+        if user_name != None:
+            self.db.authenticate(user_name, password)
+        &#47&#47&#47&#47 define file system (Buckets)
+        self.datafs = gridfs.GridFS(self.db, collection="datafs")
+        self.modelfs = gridfs.GridFS(self.db, collection="modelfs")
+        self.paramsfs = gridfs.GridFS(self.db, collection="paramsfs")
+        &#47&#47&#47&#47
+        print("[TensorDB] Connect SUCCESS {}:{} {} {}".format(ip, port, db_name, user_name))
+
+        self.ip = ip
+        self.port = port
+        self.db_name = db_name
+        self.user_name = user_name
+
+    &#47&#47 def save_bulk_data(self, data=None, filename=&quotfilename&quot):
+    &#47&#47      Put bulk data into TensorDB.datafs, return file ID.
+    &#47&#47     When you have a very large data, you may like to save it into GridFS Buckets
+    &#47&#47     instead of Collections, then when you want to load it, XXXX
+    &#47&#47
+    &#47&#47     Parameters
+    &#47&#47     -----------
+    &#47&#47     data : serialized data.
+    &#47&#47     filename : string, GridFS Buckets.
+    &#47&#47
+    &#47&#47     References
+    &#47&#47     -----------
+    &#47&#47     - MongoDB find, xxxxx
+    &#47&#47     
+    &#47&#47     s = time.time()
+    &#47&#47     f_id = self.datafs.put(data, filename=filename)
+    &#47&#47     print("[TensorDB] save_bulk_data: {} took: {}s".format(filename, round(time.time()-s, 2)))
+    &#47&#47     return f_id
+    &#47&#47
+    &#47&#47 def save_collection(self, data=None, collect_name=&quotcollect_name&quot):
+    &#47&#47      Insert data into MongoDB Collections, return xx.
+    &#47&#47
+    &#47&#47     Parameters
+    &#47&#47     -----------
+    &#47&#47     data : serialized data.
+    &#47&#47     collect_name : string, MongoDB collection name.
+    &#47&#47
+    &#47&#47     References
+    &#47&#47     -----------
+    &#47&#47     - MongoDB find, xxxxx
+    &#47&#47     
+    &#47&#47     s = time.time()
+    &#47&#47     rl = self.db[collect_name].insert_many(data)
+    &#47&#47     print("[TensorDB] save_collection: {} took: {}s".format(collect_name, round(time.time()-s, 2)))
+    &#47&#47     return rl
+    &#47&#47
+    &#47&#47 def find(self, args={}, collect_name=&quotcollect_name&quot):
+    &#47&#47      Find data from MongoDB Collections.
+    &#47&#47
+    &#47&#47     Parameters
+    &#47&#47     -----------
+    &#47&#47     args : dictionary, arguments for finding.
+    &#47&#47     collect_name : string, MongoDB collection name.
+    &#47&#47
+    &#47&#47     References
+    &#47&#47     -----------
+    &#47&#47     - MongoDB find, xxxxx
+    &#47&#47     
+    &#47&#47     s = time.time()
+    &#47&#47
+    &#47&#47     pc = self.db[collect_name].find(args)  &#47&#47 pymongo.cursor.Cursor object
+    &#47&#47     flist = pc.distinct(&quotf_id&quot)
+    &#47&#47     fldict = {}
+    &#47&#47     for f in flist: &#47&#47 you may have multiple Buckets files
+    &#47&#47         &#47&#47 fldict[f] = pickle.loads(self.datafs.get(f).read())
+    &#47&#47         &#47&#47 s2 = time.time()
+    &#47&#47         tmp = self.datafs.get(f).read()
+    &#47&#47         &#47&#47 print(time.time()-s2)
+    &#47&#47         fldict[f] = pickle.loads(tmp)
+    &#47&#47         &#47&#47 print(time.time()-s2)
+    &#47&#47         &#47&#47 exit()
+    &#47&#47     &#47&#47 print(round(time.time()-s, 2))
+    &#47&#47     data = [fldict[x[&quotf_id&quot]][x[&quotid&quot]] for x in pc]
+    &#47&#47     data = np.asarray(data)
+    &#47&#47     print("[TensorDB] find: {} get: {} took: {}s".format(collect_name, pc.count(), round(time.time()-s, 2)))
+    &#47&#47     return data
+
+    &#47&#47 def del_data(self, data, args={}):
+    &#47&#47     pass
+    &#47&#47
+    &#47&#47 def save_model(self):
+    &#47&#47     pass
+    &#47&#47
+    &#47&#47 def load_model(self):
+    &#47&#47     pass
+    &#47&#47
+    &#47&#47 def del_model(self):
+    &#47&#47     pass
+
+    def save_params(self, params=[], args={}):&#47&#47, file_name=&quotparameters&quot):
+         Save parameters into MongoDB Buckets, and save the file ID into Params Collections.
+
+        Parameters
+        ----------
+        params : a list of parameters
+        args : dictionary, item meta data.
+
+        Returns
+        ---------
+        f_id : the Buckets ID of the parameters.
+        
+        s = time.time()
+        f_id = self.paramsfs.put(pickle.dumps(params, protocol=2))&#47&#47, file_name=file_name)
+        args.update({&quotf_id&quot: f_id, &quottime&quot: datetime.utcnow()})
+        self.db.Params.insert_one(args)
+        &#47&#47 print("[TensorDB] Save params: {} SUCCESS, took: {}s".format(file_name, round(time.time()-s, 2)))
+        print("[TensorDB] Save params: SUCCESS, took: {}s".format(round(time.time()-s, 2)))
+        return f_id
+
+    def find_one_params(self, args={}):
+         Find one parameter from MongoDB Buckets.
+
+        Parameters
+        ----------
+        args : dictionary, find items.
+
+        Returns
+        --------
+        params : the parameters, return False if nothing found.
+        f_id : the Buckets ID of the parameters, return False if nothing found.
+        
+        s = time.time()
+        d = self.db.Params.find_one(args)
+
+        if d is not None:
+            f_id = d[&quotf_id&quot]
+        else:
+            print("[TensorDB] FAIL! Cannot find: {}".format(args))
+            return False, False
+        try:
+            params = pickle.loads(self.paramsfs.get(f_id).read())
+            print("[TensorDB] Find one params SUCCESS, {} took: {}s".format(args, round(time.time()-s, 2)))
+            return params, f_id
+        except:
+            return False, False
+
+    def find_all_params(self, args={}):
+         Find all parameter from MongoDB Buckets
+
+        Parameters
+        ----------
+        args : dictionary, find items
+
+        Returns
+        --------
+        params : the parameters, return False if nothing found.
+        
+        s = time.time()
+        pc = self.db.Params.find(args)
+
+        if pc is not None:
+            f_id_list = pc.distinct(&quotf_id&quot)
+            params = []
+            for f_id in f_id_list: &#47&#47 you may have multiple Buckets files
+                tmp = self.paramsfs.get(f_id).read()
+                params.append(pickle.loads(tmp))
+        else:
+            print("[TensorDB] FAIL! Cannot find any: {}".format(args))
+            return False
+
+        print("[TensorDB] Find all params SUCCESS, took: {}s".format(round(time.time()-s, 2)))
+        return params
+
+    def del_params(self, args={}):
+         Delete params in MongoDB uckets.
+
+        Parameters
+        -----------
+        args : dictionary, find items to delete, leave it empty to delete all parameters.
+        
+        pc = self.db.Params.find(args)
+        f_id_list = pc.distinct(&quotf_id&quot)
+        &#47&#47 remove from Buckets
+        for f in f_id_list:
+            self.paramsfs.delete(f)
+        &#47&#47 remove from Collections
+        self.db.Params.remove(args)
+
+        print("[TensorDB] Delete params SUCCESS: {}".format(args))
+
+    def _print_dict(self, args):
+        &#47&#47 return " / ".join(str(key) + ": "+ str(value) for key, value in args.items())
+        string = &quot&quot
+        for key, value in args.items():
+            if key is not &quot_id&quot:
+                string += str(key) + ": "+ str(value) + " / "
+        return string
+
+    def save_job(self, script=None, args={}):
+        Save the job.
+
+        Parameters
+        -----------
+        script : a script file name or None.
+        args : dictionary, items to save.
+
+        Examples
+        ---------
+        &gt;&gt;&gt; &#47&#47 Save your job
+        &gt;&gt;&gt; db.save_job(&quotyour_script.py&quot, {&quotjob_id&quot: 1, &quotlearning_rate&quot: 0.01, &quotn_units&quot: 100})
+        &gt;&gt;&gt; &#47&#47 Run your job
+        &gt;&gt;&gt; temp = db.find_one_job(args={&quotjob_id&quot: 1})
+        &gt;&gt;&gt; print(temp[&quotlearning_rate&quot])
+        ... 0.01
+        &gt;&gt;&gt; import _your_script
+        ... running your script
+        
+        if script is None:
+            _script = open(script, &quotrb&quot).read()
+            args.update({&quotscript&quot: _script, &quotscript_name&quot: script})
+        _result = self.db.Job.insert_one(args)
+        _log = self._print_dict(args)
+        print("[TensorDB] Save Job: {}".format(script))
+        return _result
+
+    def find_one_job(<a id="change">self</a>, <a id="change">args</a>={}):
+         Find one job from MongoDB Job Collections.
+
+        Parameters
+        ----------
+        args : dictionary, find items.
+
+        Returns
+        --------
+        dictionary : contains all meta data and script.
+        
+        <a id="change">temp = self.db.Job.find_one(args)</a>
+
+        if &quotscript_name&quot in temp.keys():
+            <a id="change">f = open(&quot_&quot + temp[&quotscript_name&quot], &quotwb&quot)</a>
+            f.write(temp[&quotscript&quot])
+            <a id="change">f</a><a id="change">.close()</a>
+        print("[TensorDB] Find Job: {}".format(args))
+        return temp
+
+    def train_log(self, args={}):
+        Save the training log.
+
+        Parameters
+        -----------
+        args : dictionary, items to save.
+
+        Examples
+        ---------
+        &gt;&gt;&gt; db.train_log(time=time.time(), {&quotloss&quot: loss, &quotacc&quot: acc})
+        
+        _result = self.db.TrainLog.insert_one(args)
+        _log = self._print_dict(args)
+        print("[TensorDB] TrainLog: " +_log)
+        return _result
+
+    def del_train_log(self, args={}):
+         Delete train log.
+
+        Parameters
+        -----------
+        args : dictionary, find items to delete, leave it empty to delete all log.
+        
+        self.db.TrainLog.delete_many(args)
+        print("[TensorDB] Delete TrainLog SUCCESS")
+
+    def valid_log(self, args={}):
+        Save the validating log.
+
+        Parameters
+        -----------
+        args : dictionary, items to save.
+
+        Examples
+        ---------
+        &gt;&gt;&gt; db.valid_log(time=time.time(), {&quotloss&quot: loss, &quotacc&quot: acc})
+        
+        _result = self.db.ValidLog.insert_one(args)
+        &#47&#47 _log = "".join(str(key) + ": " + str(value) for key, value in args.items())
+        _log = self._print_dict(args)
+        print("[TensorDB] ValidLog: " +_log)
+        return _result
+
+    def del_valid_log(self, args={}):
+         Delete validation log.
+
+        Parameters
+        -----------
+        args : dictionary, find items to delete, leave it empty to delete all log.
+        
+        self.db.ValidLog.delete_many(args)
+        print("[TensorDB] Delete ValidLog SUCCESS")
+
+    def test_log(self, args={}):
+        Save the testing log.
+
+        Parameters
+        -----------
+        args : dictionary, items to save.
+
+        Examples
+        ---------
+        &gt;&gt;&gt; db.test_log(time=time.time(), {&quotloss&quot: loss, &quotacc&quot: acc})
+        
+        _result = self.db.TestLog.insert_one(args)
+        &#47&#47 _log = "".join(str(key) + str(value) for key, value in args.items())
+        _log = self._print_dict(args)
+        print("[TensorDB] TestLog: " +_log)
+        return _result
+
+    def del_test_log(self, args={}):
+         Delete test log.
+
+        Parameters
+        -----------
+        args : dictionary, find items to delete, leave it empty to delete all log.
+        
+        self.db.TestLog.delete_many(args)
+        print("[TensorDB] Delete TestLog SUCCESS")
+
+    def __str__(self):
+        _s = "[TensorDB] Info:\n"
+        _t = _s + "    " + str(self.db)
+        return _t
+
+
+
+
+
+if __name__ == &quot__main__&quot:
+
+    db = TensorDB(ip=&quotlocalhost&quot, port=27017, db_name=&quotmnist&quot, user_name=None, password=None)
+
+    db.save_job(&quotyour_script.py&quot, {&quotjob_id&quot: 1, &quotlearning_rate&quot: 0.01, &quotn_units&quot: 100})
+    temp = db.find_one_job(args={&quotjob_id&quot: 1})
+
+    print(temp[&quotlearning_rate&quot])
+
+    import _your_script
+    print("import _your_script SUCCESS")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+&#47&#47
+</code></pre>

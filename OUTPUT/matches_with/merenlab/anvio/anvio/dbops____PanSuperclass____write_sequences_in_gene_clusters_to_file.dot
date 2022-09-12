@@ -1,0 +1,371 @@
+digraph G {
+1 [label="(49800116)empty" shape=box style=dashed]
+2 [label="(49800176)number(1)" shape=ellipse style=dashed]
+3 [label="(49800194)If" shape=diamond style=dashed]
+4 [label="(49800154)TextIO(output_file)" shape=ellipse style=dashed]
+5 [label="(49800206)String(lit(Gene cluster name))" shape=ellipse style=dashed]
+6 [label="(49800141)Any(genome_name)" shape=ellipse style=dashed]
+7 [label="(49800162)()" shape=box style=dashed]
+8 [label="(49800219)=" shape=box style=dashed]
+9 [label="(49800144)empty" shape=box style=dashed]
+10 [label="(49800232)END" style=dashed]
+11 [label="(49800149)Any(genome_name)" shape=ellipse style=dashed]
+12 [label="(49800178)=" shape=box style=dashed]
+13 [label="(49800220)boolean(dummy_)" shape=ellipse style=dashed]
+14 [label="(49800098)bool(skip_alignments)" shape=ellipse style=dashed]
+15 [label="(49800091)(null)" shape=ellipse style=dashed]
+16 [label="(49800202)=" shape=box style=dashed]
+17 [label="(49800209)DBClassFactory(self)" shape=ellipse style=dashed]
+18 [label="(49800147)Any(gene_cluster_name)" shape=ellipse style=dashed]
+19 [label="(49800195)empty" shape=box style=dashed]
+20 [label="(49800165)write" shape=box style=dashed]
+21 [label="(49800168)Any(Subscript)" shape=ellipse style=dashed]
+22 [label="(49800100)=" shape=box style=dashed]
+23 [label="(49800163)Mod" shape=box style=dashed]
+24 [label="(49800167)Dict[Any, Dict[Any, Dict[Any, Any]]](sequences_dict)" shape=ellipse style=dashed]
+25 [label="(49800118)open" shape=box style=dashed color=blue fontcolor=blue]
+26 [label="(49800108)=" shape=box style=dashed]
+27 [label="(49800099)(null)" shape=ellipse style=dashed]
+28 [label="(49800182)String(lit(processing '%s' ...))" shape=ellipse style=dashed]
+29 [label="(49800188)TextIO(output_file)" shape=ellipse style=dashed color=blue fontcolor=blue]
+30 [label="(49800192)number(1)" shape=ellipse style=dashed]
+31 [label="(49800153)empty" shape=box style=dashed]
+32 [label="(49800107)(null)" shape=ellipse style=dashed]
+33 [label="(49800190)len" shape=box style=dashed]
+34 [label="(49800224)info" shape=box style=dashed]
+35 [label="(49800120)String(lit(w))" shape=ellipse style=dashed color=blue fontcolor=blue]
+36 [label="(49800197)list" shape=box style=dashed]
+37 [label="(49800208)empty" shape=box style=dashed]
+38 [label="(49800148)Any[.](Subscript)" shape=ellipse style=dashed]
+39 [label="(49800142)Any(genome_name)" shape=ellipse style=dashed]
+40 [label="(49800110)None(output_file_path)" shape=ellipse style=dashed]
+41 [label="(49800103)(null)" shape=ellipse style=dashed]
+42 [label="(49800106)bool(report_DNA_sequences)" shape=ellipse style=dashed]
+43 [label="(49800212)String(lit(Sequence type))" shape=ellipse style=dashed]
+44 [label="(49800226)int(sequence_counter)" shape=ellipse style=dashed]
+45 [label="(49800137)empty" shape=box style=dashed]
+46 [label="(49800117)TextIO(output_file)" shape=ellipse style=dashed color=blue fontcolor=blue]
+47 [label="(49800225)String(lit(Num sequences reported))" shape=ellipse style=dashed]
+48 [label="(49800140)Any(gene_cluster_name)" shape=ellipse style=dashed]
+49 [label="(49800151)Any(gene_callers_id)" shape=ellipse style=dashed]
+50 [label="(49800104)=" shape=box style=dashed]
+51 [label="(49800170)Any[.](Subscript)" shape=ellipse style=dashed]
+52 [label="(49800115)None(output_file_path)" shape=ellipse style=dashed]
+53 [label="(49800199)keys" shape=box style=dashed]
+54 [label="(49800229)info" shape=box style=dashed]
+55 [label="(49800204)DBClassFactory.run(run)" shape=ellipse style=dashed]
+56 [label="(49800156)String(lit(>%08d|gene_cluster:%s|genome_name:%s|gene_callers_id:%d
+))" shape=ellipse style=dashed]
+57 [label="(49800138)Dict[Any, Dict[Any, Dict[Any, Any]]](sequences_dict)" shape=ellipse style=dashed]
+58 [label="(49800130)int(sequence_counter)" shape=ellipse style=dashed]
+59 [label="(49800150)Any(gene_callers_id)" shape=ellipse style=dashed]
+60 [label="(49800114)is_output_file_writable" shape=box style=dashed]
+61 [label="(49800210)DBClassFactory.run(run)" shape=ellipse style=dashed]
+62 [label="(49800127)DBClassFactory.progress(progress)" shape=ellipse style=dashed]
+63 [label="(49800143)For" shape=diamond style=dashed]
+64 [label="(49800181)update" shape=box style=dashed]
+65 [label="(49800205)info" shape=box style=dashed]
+66 [label="(49800175)int(sequence_counter)" shape=ellipse style=dashed]
+67 [label="(49800112)empty" shape=box style=dashed]
+68 [label="(49800159)Any(gene_cluster_name)" shape=ellipse style=dashed]
+69 [label="(49800111)If" shape=diamond style=dashed]
+70 [label="(49800129)String(lit(Writing gene cluster sequences to file))" shape=ellipse style=dashed]
+71 [label="(49800230)String(lit(Output FASTA file))" shape=ellipse style=dashed]
+72 [label="(49800221)boolean(dummy_)" shape=ellipse style=dashed]
+73 [label="(49800155)write" shape=box style=dashed]
+74 [label="(49800179)DBClassFactory(self)" shape=ellipse style=dashed]
+75 [label="(49800095)(null)" shape=ellipse style=dashed]
+76 [label="(49800158)int(sequence_counter)" shape=ellipse style=dashed]
+77 [label="(49800085)START" style=dashed]
+78 [label="(49800113)anvio.filesnpaths(filesnpaths)" shape=ellipse style=dashed]
+79 [label="(49800124)get_sequences_for_gene_clusters" shape=box style=dashed]
+80 [label="(49800161)Any(gene_callers_id)" shape=ellipse style=dashed]
+81 [label="(49800189)close" shape=box style=dashed color=blue fontcolor=blue]
+82 [label="(49800201)number(0)" shape=ellipse style=dashed]
+83 [label="(49800183)Any(gene_cluster_name)" shape=ellipse style=dashed]
+84 [label="(49800135)Any(gene_cluster_name)" shape=ellipse style=dashed]
+85 [label="(49800196)Any(gene_cluster_name)" shape=ellipse style=dashed]
+86 [label="(49800152)For" shape=diamond style=dashed]
+87 [label="(49800132)=" shape=box style=dashed]
+88 [label="(49800173)Any(gene_callers_id)" shape=ellipse style=dashed]
+89 [label="(49800186)DBClassFactory.progress(progress)" shape=ellipse style=dashed]
+90 [label="(49800222)DBClassFactory(self)" shape=ellipse style=dashed]
+91 [label="(49800119)None(output_file_path)" shape=ellipse style=dashed]
+92 [label="(49800121)=" shape=box style=dashed color=blue fontcolor=blue]
+93 [label="(49800087)(null)" shape=ellipse style=dashed]
+94 [label="(49800145)Dict[Any, Dict[Any, Dict[Any, Any]]](sequences_dict)" shape=ellipse style=dashed]
+95 [label="(49800193)Eq" shape=box style=dashed]
+96 [label="(49800227)DBClassFactory(self)" shape=ellipse style=dashed]
+97 [label="(49800136)For" shape=diamond style=dashed]
+98 [label="(49800088)=" shape=box style=dashed]
+99 [label="(49800139)Any(Subscript)" shape=ellipse style=dashed]
+100 [label="(49800126)DBClassFactory(self)" shape=ellipse style=dashed]
+101 [label="(49800187)end" shape=box style=dashed]
+102 [label="(49800203)DBClassFactory(self)" shape=ellipse style=dashed]
+103 [label="(49800123)DBClassFactory(self)" shape=ellipse style=dashed]
+104 [label="(49800086)DBClassFactory(self)" shape=ellipse style=dashed]
+105 [label="(49800218)String(lit(Amino acid))" shape=ellipse style=dashed]
+106 [label="(49800169)Any(gene_cluster_name)" shape=ellipse style=dashed]
+107 [label="(49800128)new" shape=box style=dashed]
+108 [label="(49800215)IfExp" shape=diamond style=dashed]
+109 [label="(49800216)String(lit(DNA))" shape=ellipse style=dashed]
+110 [label="(49800166)String(lit(%s
+))" shape=ellipse style=dashed]
+111 [label="(49800211)info" shape=box style=dashed]
+112 [label="(49800228)DBClassFactory.run(run)" shape=ellipse style=dashed]
+113 [label="(49800146)Any(Subscript)" shape=ellipse style=dashed]
+114 [label="(49800214)bool(report_DNA_sequences)" shape=ellipse style=dashed]
+115 [label="(49800217)=" shape=box style=dashed]
+116 [label="(49800231)None(output_file_path)" shape=ellipse style=dashed]
+117 [label="(49800180)DBClassFactory.progress(progress)" shape=ellipse style=dashed]
+118 [label="(49800191)Dict[Any, Dict[Any, List[Any]]](gene_clusters_dict)" shape=ellipse style=dashed]
+119 [label="(49800102)None(output_file_path)" shape=ellipse style=dashed]
+120 [label="(49800094)Union[Set[Any], Any](gene_cluster_names)" shape=ellipse style=dashed]
+121 [label="(49800125)=" shape=box style=dashed]
+122 [label="(49800096)=" shape=box style=dashed]
+123 [label="(49800185)DBClassFactory(self)" shape=ellipse style=dashed]
+124 [label="(49800160)Any(genome_name)" shape=ellipse style=dashed]
+125 [label="(49800177)=Add" shape=box style=dashed]
+126 [label="(49800223)DBClassFactory.run(run)" shape=ellipse style=dashed]
+127 [label="(49800172)Any(Subscript)" shape=ellipse style=dashed]
+128 [label="(49800133)Dict[Any, Dict[Any, Dict[Any, Any]]](sequences_dict)" shape=ellipse style=dashed]
+129 [label="(49800134)Any(gene_cluster_name)" shape=ellipse style=dashed]
+130 [label="(49800092)=" shape=box style=dashed]
+131 [label="(49800090)Dict[Any, Dict[Any, List[Any]]](gene_clusters_dict)" shape=ellipse style=dashed]
+132 [label="(49800171)Any(genome_name)" shape=ellipse style=dashed]
+133 [label="(49800198)Dict[Any, Dict[Any, List[Any]]](gene_clusters_dict)" shape=ellipse style=dashed]
+134 [label="(49800184)Mod" shape=box style=dashed]
+135 [label="(49800131)number(0)" shape=ellipse style=dashed]
+136 [label="(49800174)Mod" shape=box style=dashed]
+137 [label="(49800164)TextIO(output_file)" shape=ellipse style=dashed]
+138 [label="(49800122)Dict[Any, Dict[Any, Dict[Any, Any]]](sequences_dict)" shape=ellipse style=dashed]
+139 [label="(49800207)Any(gene_cluster_name)" shape=ellipse style=dashed]
+140 [label="(49800200)function.list()[.](Subscript)" shape=ellipse style=dashed]
+69 -> 1 [label="F"];
+77 -> 3 [label="" style=solid];
+95 -> 3 [label="dep" style=dotted];
+95 -> 3 [label="cond" style=dotted];
+46 -> 4 [label="ref" style=dotted];
+99 -> 6 [label="def" style=dotted];
+86 -> 7 [label="" style=solid];
+76 -> 7 [label="para" style=dotted];
+68 -> 7 [label="para" style=dotted];
+124 -> 7 [label="para" style=dotted];
+80 -> 7 [label="para" style=dotted];
+31 -> 7 [label="dep" style=dotted];
+108 -> 8 [label="F"];
+105 -> 8 [label="para" style=dotted];
+63 -> 9 [label="" style=solid];
+54 -> 10 [label="dep" style=dotted];
+6 -> 11 [label="ref" style=dotted];
+86 -> 12 [label="" style=solid];
+125 -> 12 [label="dep" style=dotted];
+125 -> 12 [label="para" style=dotted];
+8 -> 13 [label="def" style=dotted];
+22 -> 14 [label="def" style=dotted];
+3 -> 16 [label="T"];
+140 -> 16 [label="para" style=dotted];
+129 -> 18 [label="ref" style=dotted];
+3 -> 19 [label="T"];
+86 -> 20 [label="" style=solid];
+137 -> 20 [label="recv" style=dotted];
+136 -> 20 [label="dep" style=dotted];
+136 -> 20 [label="para" style=dotted];
+73 -> 20 [label="dep" style=dotted];
+24 -> 21 [label="qual" style=dotted];
+106 -> 21 [label="para" style=dotted];
+138 -> 21 [label="ref" style=dotted];
+77 -> 22 [label="" style=solid];
+27 -> 22 [label="para" style=dotted];
+122 -> 22 [label="dep" style=dotted];
+86 -> 23 [label="" style=solid];
+56 -> 23 [label="para" style=dotted];
+7 -> 23 [label="dep" style=dotted];
+7 -> 23 [label="para" style=dotted];
+31 -> 23 [label="dep" style=dotted];
+138 -> 24 [label="ref" style=dotted];
+77 -> 25 [label="" style=solid];
+91 -> 25 [label="para" style=dotted];
+35 -> 25 [label="para" style=dotted];
+1 -> 25 [label="dep" style=dotted];
+60 -> 25 [label="dep" style=dotted];
+77 -> 26 [label="" style=solid];
+32 -> 26 [label="para" style=dotted];
+50 -> 26 [label="dep" style=dotted];
+46 -> 29 [label="ref" style=dotted];
+86 -> 31 [label="" style=solid];
+77 -> 33 [label="" style=solid];
+118 -> 33 [label="para" style=dotted];
+81 -> 33 [label="dep" style=dotted];
+77 -> 34 [label="" style=solid];
+126 -> 34 [label="recv" style=dotted];
+47 -> 34 [label="para" style=dotted];
+44 -> 34 [label="para" style=dotted];
+111 -> 34 [label="dep" style=dotted];
+3 -> 36 [label="T"];
+53 -> 36 [label="dep" style=dotted];
+53 -> 36 [label="para" style=dotted];
+19 -> 36 [label="dep" style=dotted];
+3 -> 37 [label="F"];
+113 -> 38 [label="qual" style=dotted];
+11 -> 38 [label="para" style=dotted];
+138 -> 38 [label="ref" style=dotted];
+6 -> 39 [label="ref" style=dotted];
+26 -> 42 [label="def" style=dotted];
+58 -> 44 [label="ref" style=dotted];
+97 -> 45 [label="" style=solid];
+92 -> 46 [label="def" style=dotted];
+129 -> 48 [label="ref" style=dotted];
+59 -> 49 [label="ref" style=dotted];
+77 -> 50 [label="" style=solid];
+41 -> 50 [label="para" style=dotted];
+22 -> 50 [label="dep" style=dotted];
+21 -> 51 [label="qual" style=dotted];
+132 -> 51 [label="para" style=dotted];
+138 -> 51 [label="ref" style=dotted];
+3 -> 53 [label="T"];
+133 -> 53 [label="recv" style=dotted];
+19 -> 53 [label="dep" style=dotted];
+77 -> 54 [label="" style=solid];
+112 -> 54 [label="recv" style=dotted];
+71 -> 54 [label="para" style=dotted];
+116 -> 54 [label="para" style=dotted];
+34 -> 54 [label="dep" style=dotted];
+102 -> 55 [label="qual" style=dotted];
+138 -> 57 [label="ref" style=dotted];
+87 -> 58 [label="def" style=dotted];
+38 -> 59 [label="def" style=dotted];
+69 -> 60 [label="T"];
+78 -> 60 [label="recv" style=dotted];
+52 -> 60 [label="para" style=dotted];
+67 -> 60 [label="dep" style=dotted];
+17 -> 61 [label="qual" style=dotted];
+100 -> 62 [label="qual" style=dotted];
+97 -> 63 [label="" style=solid];
+39 -> 63 [label="cond" style=dotted];
+45 -> 63 [label="dep" style=dotted];
+86 -> 64 [label="" style=solid];
+117 -> 64 [label="recv" style=dotted];
+134 -> 64 [label="dep" style=dotted];
+134 -> 64 [label="para" style=dotted];
+12 -> 64 [label="dep" style=dotted];
+3 -> 65 [label="T"];
+55 -> 65 [label="recv" style=dotted];
+5 -> 65 [label="para" style=dotted];
+139 -> 65 [label="para" style=dotted];
+16 -> 65 [label="dep" style=dotted];
+58 -> 66 [label="ref" style=dotted];
+69 -> 67 [label="T"];
+129 -> 68 [label="ref" style=dotted];
+77 -> 69 [label="" style=solid];
+40 -> 69 [label="cond" style=dotted];
+26 -> 69 [label="dep" style=dotted];
+115 -> 72 [label="ref" style=dotted];
+13 -> 72 [label="ref" style=dotted];
+86 -> 73 [label="" style=solid];
+4 -> 73 [label="recv" style=dotted];
+23 -> 73 [label="dep" style=dotted];
+23 -> 73 [label="para" style=dotted];
+31 -> 73 [label="dep" style=dotted];
+58 -> 76 [label="ref" style=dotted];
+77 -> 79 [label="" style=solid];
+103 -> 79 [label="recv" style=dotted];
+92 -> 79 [label="dep" style=dotted];
+59 -> 80 [label="ref" style=dotted];
+77 -> 81 [label="" style=solid];
+29 -> 81 [label="recv" style=dotted];
+101 -> 81 [label="dep" style=dotted];
+129 -> 83 [label="ref" style=dotted];
+129 -> 84 [label="ref" style=dotted];
+16 -> 85 [label="def" style=dotted];
+63 -> 86 [label="" style=solid];
+49 -> 86 [label="cond" style=dotted];
+9 -> 86 [label="dep" style=dotted];
+77 -> 87 [label="" style=solid];
+135 -> 87 [label="para" style=dotted];
+107 -> 87 [label="dep" style=dotted];
+59 -> 88 [label="ref" style=dotted];
+123 -> 89 [label="qual" style=dotted];
+77 -> 92 [label="" style=solid];
+25 -> 92 [label="dep" style=dotted];
+25 -> 92 [label="para" style=dotted];
+138 -> 94 [label="ref" style=dotted];
+77 -> 95 [label="" style=solid];
+33 -> 95 [label="dep" style=dotted];
+33 -> 95 [label="para" style=dotted];
+30 -> 95 [label="para" style=dotted];
+81 -> 95 [label="dep" style=dotted];
+77 -> 97 [label="" style=solid];
+84 -> 97 [label="cond" style=dotted];
+87 -> 97 [label="dep" style=dotted];
+77 -> 98 [label="" style=solid];
+93 -> 98 [label="para" style=dotted];
+57 -> 99 [label="qual" style=dotted];
+48 -> 99 [label="para" style=dotted];
+138 -> 99 [label="ref" style=dotted];
+77 -> 101 [label="" style=solid];
+89 -> 101 [label="recv" style=dotted];
+64 -> 101 [label="dep" style=dotted];
+98 -> 104 [label="def" style=dotted];
+129 -> 106 [label="ref" style=dotted];
+77 -> 107 [label="" style=solid];
+62 -> 107 [label="recv" style=dotted];
+70 -> 107 [label="para" style=dotted];
+121 -> 107 [label="dep" style=dotted];
+77 -> 108 [label="" style=solid];
+114 -> 108 [label="cond" style=dotted];
+37 -> 108 [label="dep" style=dotted];
+65 -> 108 [label="dep" style=dotted];
+77 -> 111 [label="" style=solid];
+61 -> 111 [label="recv" style=dotted];
+43 -> 111 [label="para" style=dotted];
+115 -> 111 [label="dep" style=dotted];
+8 -> 111 [label="dep" style=dotted];
+72 -> 111 [label="para" style=dotted];
+37 -> 111 [label="dep" style=dotted];
+65 -> 111 [label="dep" style=dotted];
+96 -> 112 [label="qual" style=dotted];
+94 -> 113 [label="qual" style=dotted];
+18 -> 113 [label="para" style=dotted];
+138 -> 113 [label="ref" style=dotted];
+108 -> 115 [label="T"];
+109 -> 115 [label="para" style=dotted];
+74 -> 117 [label="qual" style=dotted];
+50 -> 119 [label="def" style=dotted];
+122 -> 120 [label="def" style=dotted];
+77 -> 121 [label="" style=solid];
+79 -> 121 [label="dep" style=dotted];
+79 -> 121 [label="para" style=dotted];
+77 -> 122 [label="" style=solid];
+75 -> 122 [label="para" style=dotted];
+130 -> 122 [label="dep" style=dotted];
+6 -> 124 [label="ref" style=dotted];
+86 -> 125 [label="" style=solid];
+66 -> 125 [label="para" style=dotted];
+2 -> 125 [label="para" style=dotted];
+20 -> 125 [label="dep" style=dotted];
+90 -> 126 [label="qual" style=dotted];
+51 -> 127 [label="qual" style=dotted];
+88 -> 127 [label="para" style=dotted];
+138 -> 127 [label="ref" style=dotted];
+138 -> 128 [label="ref" style=dotted];
+128 -> 129 [label="def" style=dotted];
+77 -> 130 [label="" style=solid];
+15 -> 130 [label="para" style=dotted];
+98 -> 130 [label="dep" style=dotted];
+130 -> 131 [label="def" style=dotted];
+6 -> 132 [label="ref" style=dotted];
+86 -> 134 [label="" style=solid];
+28 -> 134 [label="para" style=dotted];
+83 -> 134 [label="para" style=dotted];
+12 -> 134 [label="dep" style=dotted];
+86 -> 136 [label="" style=solid];
+110 -> 136 [label="para" style=dotted];
+127 -> 136 [label="para" style=dotted];
+73 -> 136 [label="dep" style=dotted];
+46 -> 137 [label="ref" style=dotted];
+121 -> 138 [label="def" style=dotted];
+85 -> 139 [label="ref" style=dotted];
+36 -> 140 [label="qual" style=dotted];
+82 -> 140 [label="para" style=dotted];
+}

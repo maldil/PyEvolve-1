@@ -1,0 +1,62 @@
+digraph G {
+1 [label="(199079628)=" shape=box style=dashed color=blue fontcolor=blue]
+2 [label="(199079633)String(lit(r))" shape=ellipse style=dashed color=red fontcolor=red]
+3 [label="(199079632)Any(fracas_filename)" shape=ellipse style=dashed]
+4 [label="(199079625)START" style=dashed]
+5 [label="(199079626)Any(fracas_filename)" shape=ellipse style=dashed]
+6 [label="(199079643)fromstring" shape=box style=dashed]
+7 [label="(199079631)open" shape=box style=dashed color=red fontcolor=red]
+8 [label="(199079642)lxml.etree(etree)" shape=ellipse style=dashed]
+9 [label="(199079639)TextIO(finput)" shape=ellipse style=dashed color=red fontcolor=red]
+10 [label="(199079640)close" shape=box style=dashed color=red fontcolor=red]
+11 [label="(199079634)=" shape=box style=dashed color=red fontcolor=red]
+12 [label="(199079630)TextIO(finput)" shape=ellipse style=dashed color=red fontcolor=red]
+13 [label="(199079638)=" shape=box style=dashed color=red fontcolor=red]
+14 [label="(199079627)(null)" shape=ellipse style=dashed]
+15 [label="(199079646)Any(tree)" shape=ellipse style=dashed]
+16 [label="(199079644)str(tree_string)" shape=ellipse style=dashed]
+17 [label="(199079637)read" shape=box style=dashed]
+18 [label="(199079645)=" shape=box style=dashed color=black fontcolor=black]
+19 [label="(199079641)Any(tree)" shape=ellipse style=dashed]
+20 [label="(199079647)return" shape=box style=dashed]
+21 [label="(199079636)TextIO(finput)" shape=ellipse style=dashed]
+22 [label="(199079635)str(tree_string)" shape=ellipse style=dashed]
+23 [label="(199079648)END" style=dashed]
+4 -> 1 [label="" style=solid];
+14 -> 1 [label="para" style=dotted];
+1 -> 5 [label="def" style=dotted];
+4 -> 6 [label="" style=solid];
+8 -> 6 [label="recv" style=dotted];
+16 -> 6 [label="para" style=dotted];
+10 -> 6 [label="dep" style=dotted];
+4 -> 7 [label="" style=solid];
+3 -> 7 [label="para" style=dotted];
+2 -> 7 [label="para" style=dotted];
+1 -> 7 [label="dep" style=dotted];
+12 -> 9 [label="ref" style=dotted];
+4 -> 10 [label="" style=solid];
+9 -> 10 [label="recv" style=dotted];
+13 -> 10 [label="dep" style=dotted];
+4 -> 11 [label="" style=solid];
+7 -> 11 [label="dep" style=dotted];
+7 -> 11 [label="para" style=dotted];
+11 -> 12 [label="def" style=dotted];
+4 -> 13 [label="" style=solid];
+17 -> 13 [label="dep" style=dotted];
+17 -> 13 [label="para" style=dotted];
+19 -> 15 [label="ref" style=dotted];
+22 -> 16 [label="ref" style=dotted];
+4 -> 17 [label="" style=solid];
+21 -> 17 [label="recv" style=dotted];
+11 -> 17 [label="dep" style=dotted];
+4 -> 18 [label="" style=solid];
+6 -> 18 [label="dep" style=dotted];
+6 -> 18 [label="para" style=dotted];
+18 -> 19 [label="def" style=dotted];
+4 -> 20 [label="" style=solid];
+15 -> 20 [label="para" style=dotted];
+18 -> 20 [label="dep" style=dotted];
+12 -> 21 [label="ref" style=dotted];
+13 -> 22 [label="def" style=dotted];
+20 -> 23 [label="dep" style=dotted];
+}

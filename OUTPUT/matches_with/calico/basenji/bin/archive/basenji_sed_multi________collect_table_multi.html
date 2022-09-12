@@ -1,0 +1,301 @@
+<link rel="stylesheet" href="../../../..//default.css">
+<script src="../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/calico/basenji/blob/master/bin/archive/basenji_sed_multi.py#L207">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/basenji/blob/master/bin/archive/basenji_sed_multi.py#L207">GitMyHubLink</a>
+
+&#47&#47!/usr/bin/env python
+&#47&#47 Copyright 2017 Calico LLC
+
+&#47&#47 Licensed under the Apache License, Version 2.0 (the "License");
+&#47&#47 you may not use this file except in compliance with the License.
+&#47&#47 You may obtain a copy of the License at
+
+&#47&#47     https://www.apache.org/licenses/LICENSE-2.0
+
+&#47&#47 Unless required by applicable law or agreed to in writing, software
+&#47&#47 distributed under the License is distributed on an "AS IS" BASIS,
+&#47&#47 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+&#47&#47 See the License for the specific language governing permissions and
+&#47&#47 limitations under the License.
+&#47&#47 =========================================================================
+from __future__ import print_function
+
+from optparse import OptionParser
+import gc
+import glob
+import os
+import pickle
+import shutil
+import subprocess
+
+import numpy as np
+
+import slurm
+
+&quot&quot&quot
+basenji_sed_multi.py
+
+Compute SNP expression difference scores for variants in a VCF file,
+using multiple processes.
+&quot&quot&quot
+
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+&#47&#47 main
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+def main():
+  usage = (&quotusage: %prog [options] &lt;params_file&gt; &lt;model_file&gt; &lt;genes_hdf5_file&gt;&quot
+           &quot &lt;vcf_file&gt;&quot)
+  parser = OptionParser(usage)
+  parser.add_option(
+      &quot-a&quot,
+      dest=&quotall_sed&quot,
+      default=False,
+      action=&quotstore_true&quot,
+      help=
+      &quotPrint all variant-gene pairs, as opposed to only nonzero [Default: %default]&quot
+  )
+  parser.add_option(
+      &quot-b&quot,
+      dest=&quotbatch_size&quot,
+      default=None,
+      type=&quotint&quot,
+      help=&quotBatch size [Default: %default]&quot)
+  parser.add_option(
+      &quot-c&quot,
+      dest=&quotcsv&quot,
+      default=False,
+      action=&quotstore_true&quot,
+      help=&quotPrint table as CSV [Default: %default]&quot)
+  parser.add_option(
+      &quot-g&quot,
+      dest=&quotgenome_file&quot,
+      default=&quot%s/data/human.hg19.genome&quot % os.environ[&quotBASENJIDIR&quot],
+      help=&quotChromosome lengths file [Default: %default]&quot)
+  parser.add_option(
+      &quot-o&quot,
+      dest=&quotout_dir&quot,
+      default=&quotsed&quot,
+      help=&quotOutput directory for tables and plots [Default: %default]&quot)
+  parser.add_option(
+      &quot-p&quot,
+      dest=&quotprocesses&quot,
+      default=2,
+      type=&quotint&quot,
+      help=&quotNumber of parallel processes to run [Default: %default]&quot)
+  parser.add_option(
+      &quot--pseudo&quot,
+      dest=&quotlog_pseudo&quot,
+      default=0.125,
+      type=&quotfloat&quot,
+      help=&quotLog2 pseudocount [Default: %default]&quot)
+  parser.add_option(
+      &quot-q&quot,
+      dest=&quotqueue&quot,
+      default=&quotk80&quot,
+      help=&quotSLURM queue on which to run the jobs [Default: %default]&quot)
+  parser.add_option(
+      &quot-r&quot,
+      dest=&quottss_radius&quot,
+      default=0,
+      type=&quotint&quot,
+      help=&quotRadius of bins considered to quantify TSS transcription [Default: %default]&quot)
+  parser.add_option(
+      &quot--rc&quot,
+      dest=&quotrc&quot,
+      default=False,
+      action=&quotstore_true&quot,
+      help=
+      &quotAverage the forward and reverse complement predictions when testing [Default: %default]&quot
+  )
+  parser.add_option(
+      &quot--shifts&quot,
+      dest=&quotshifts&quot,
+      default=&quot0&quot,
+      help=&quotEnsemble prediction shifts [Default: %default]&quot)
+  parser.add_option(
+      &quot-t&quot,
+      dest=&quottargets_file&quot,
+      default=None,
+      help=&quotFile specifying target indexes and labels in table format.&quot)
+  parser.add_option(
+      &quot--ti&quot,
+      dest=&quottrack_indexes&quot,
+      help=&quotComma-separated list of target indexes to output BigWig tracks&quot)
+  parser.add_option(
+      &quot-u&quot,
+      dest=&quotpenultimate&quot,
+      default=False,
+      action=&quotstore_true&quot,
+      help=&quotCompute SED in the penultimate layer [Default: %default]&quot)
+  parser.add_option(
+      &quot-x&quot,
+      dest=&quottss_table&quot,
+      default=False,
+      action=&quotstore_true&quot,
+      help=&quotPrint TSS table in addition to gene [Default: %default]&quot)
+  (options, args) = parser.parse_args()
+
+  if len(args) != 4:
+    parser.error(
+        &quotMust provide parameters and model files, genes HDF5 file, and QTL VCF&quot
+        &quot file&quot)
+  else:
+    params_file = args[0]
+    model_file = args[1]
+    genes_hdf5_file = args[2]
+    vcf_file = args[3]
+
+  &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+  &#47&#47 prep work
+
+  &#47&#47 output directory
+  if os.path.isdir(options.out_dir):
+    shutil.rmtree(options.out_dir)
+  os.mkdir(options.out_dir)
+
+  &#47&#47 pickle options
+  options_pkl_file = &quot%s/options.pkl&quot % options.out_dir
+  options_pkl = open(options_pkl_file, &quotwb&quot)
+  pickle.dump(options, options_pkl)
+  options_pkl.close()
+
+  &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+  &#47&#47 launch worker threads
+  jobs = []
+  for pi in range(options.processes):
+    cmd = &quotsource activate py3_gpu; basenji_sed.py %s %s %d&quot % (
+        options_pkl_file, &quot &quot.join(args), pi)
+    name = &quotsed_p%d&quot % pi
+    outf = &quot%s/job%d.out&quot % (options.out_dir, pi)
+    errf = &quot%s/job%d.err&quot % (options.out_dir, pi)
+    j = slurm.Job(
+        cmd,
+        name,
+        outf,
+        errf,
+        queue=options.queue,
+        mem=30000,
+        time=&quot4:0:0&quot,
+        gpu=1)
+    jobs.append(j)
+
+  slurm.multi_run(jobs, max_proc=options.processes, verbose=True, sleep_time=60)
+
+  &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+  &#47&#47 collect output
+
+  collect_table_multi(&quotsed_gene.txt&quot, options.out_dir, options.processes, options.log_pseudo)
+  if options.tss_table:
+    collect_table(&quotsed_tss.txt&quot, options.out_dir, options.processes)
+
+  if options.track_indexes is not None:
+    if not os.path.isdir(&quot%s/tracks&quot % options.out_dir):
+      os.mkdir(&quot%s/tracks&quot % options.out_dir)
+
+    for track_file in glob.glob(&quot%s/job*/tracks/*&quot):
+      track_base = os.path.split(track_file)[1]
+      os.rename(track_file, &quot%s/tracks/%s&quot % (options.out_dir, track_base))
+
+  for pi in range(options.processes):
+    shutil.rmtree(&quot%s/job%d&quot % (options.out_dir, pi))
+
+
+def collect_table(file_name, out_dir, num_procs):
+  os.rename(&quot%s/job0/%s&quot % (out_dir, file_name), &quot%s/%s&quot % (out_dir, file_name))
+  for pi in range(1, num_procs):
+    subprocess.call(
+        &quottail -n +2 %s/job%d/%s &gt;&gt; %s/%s&quot % (out_dir, pi, file_name, out_dir,
+                                             file_name),
+        shell=True)
+
+
+def collect_table_multi(<a id="change">file_name</a>, <a id="change">out_dir</a>, <a id="change">num_procs</a>, <a id="change">log_pseudo</a>):
+  <a id="change">collect_out = open(&quot%s/%s&quot % (out_dir, file_name), &quotw&quot)</a>
+
+  <a id="change">header = open(&quot%s/job0/%s&quot % (out_dir, file_name)).readline().rstrip()</a>
+  print(header, file=collect_out)
+
+  <a id="change">multi_lines = {}</a>
+
+  for pi in range(num_procs):
+    print(<a id="change">&quotReading job%d&quot</a> % pi, flush=True)
+
+    <a id="change">table_in = open(&quot%s/job%d/%s&quot % (out_dir, pi, file_name))</a>
+    table_in.readline()
+
+    for line in table_in:
+      <a id="change">a = line.split()</a>
+      if a[3][-6:] == &quot_multi&quot:
+        multi_key = (a[0], a[3][:-6])
+        if multi_key in multi_lines:
+          multi_lines[multi_key].add(a)
+        else:
+          <a id="change">multi_lines[multi_key] = MultiLine(a)</a>
+      else:
+        print(line, end=&quot&quot, file=collect_out)
+
+    <a id="change">table_in</a><a id="change">.close()</a>
+    gc.collect()
+
+  for multi_key in multi_lines:
+    multi_lines[multi_key].print_lines(collect_out, log_pseudo)
+
+  <a id="change">collect_out</a><a id="change">.close()</a>
+
+
+class MultiLine:
+  __slots__ = (&quotrsid&quot, &quota1&quot, &quota2&quot, &quotgene&quot, &quotsnp_dist_gene&quot, &quotpreds&quot, &quotids&quot,&quotlabels&quot)
+
+  def __init__(self, a):
+    self.rsid = a[0]
+    self.a1 = a[1]
+    self.a2 = a[2]
+    self.gene = a[3][:-6]  &#47&#47 trim multi designation
+    self.snp_dist_gene = int(a[4])
+
+    ti = int(a[9])
+    self.preds = {ti:([float(a[5])], [float(a[6])])}
+    self.ids = {ti: a[10]}
+    self.labels = {ti: &quot &quot.join(a[11:])}
+
+  def add(self, a):
+    self.snp_dist_gene = min(self.snp_dist_gene, int(a[4]))
+
+    ti = int(a[9])
+    if ti in self.preds:
+      ref_preds, alt_preds = self.preds[ti]
+
+      ref_preds.append(float(a[5]))
+      alt_preds.append(float(a[6]))
+
+    else:
+      self.preds[ti] = ([float(a[5])], [float(a[6])])
+      self.ids[ti] = a[10]
+      self.labels[ti] = &quot &quot.join(a[11:])
+
+
+  def print_lines(self, out_open, log_pseudo):
+    for ti in self.preds:
+      ref_preds, alt_preds = self.preds[ti]
+      ref_pred = np.sum(ref_preds)
+      alt_pred = np.sum(alt_preds)
+      sed = alt_pred - ref_pred
+      ser = np.log2(alt_pred + log_pseudo) - np.log2(ref_pred + log_pseudo)
+
+      cols = (self.rsid, self.a1, self.a2, self.gene, self.snp_dist_gene,
+              ref_pred, alt_pred, sed, ser, ti, self.ids[ti], self.labels[ti])
+      print(
+          &quot%-13s %s %5s %16s %5d %7.4f %7.4f %7.4f %7.4f %4d %12s %s&quot % tuple(cols),
+          file=out_open)
+
+
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+&#47&#47 __main__
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+if __name__ == &quot__main__&quot:
+  main()
+</code></pre>

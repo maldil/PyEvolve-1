@@ -1,0 +1,31 @@
+<link rel="stylesheet" href="../../../..//default.css">
+<script src="../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/p4-team/ctf/blob/master/2017-08-28-rhme3/whitebox/trace_it.py#L6">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/ctf/blob/master/2017-08-28-rhme3/whitebox/trace_it.py#L6">GitMyHubLink</a>
+
+&#47&#47!/usr/bin/env python
+
+import sys
+from deadpool_dca import *
+
+def processinput(iblock, blocksize):
+    <a id="change">p</a>=&quot%0*x&quot % (2*blocksize, iblock)
+    <a id="change">f</a><a id="change">=open("/tmp/xd", "wb")</a>
+    f.write(p.decode("hex"))
+    <a id="change">f</a><a id="change">.close()</a>
+    return ["--stdin &lt;/tmp/xd"]
+
+def processoutput(output, blocksize):
+    o=output.replace(" ","")
+    return int(o, 16)
+    return int(&quot&quot.join([x for x in output.split(&quot\n&quot) if x.find(&quotOUTPUT&quot)==0][0][10:].split(&quot &quot)), 16)
+
+T=TracerPIN(&quot./whitebox&quot, processinput, processoutput, ARCH.amd64, 16, shell=True)
+T.run(2000)
+bin2daredevil(configs={&quotattack_sbox&quot:   {&quotalgorithm&quot:&quotAES&quot, &quotposition&quot:&quotLUT/AES_AFTER_SBOX&quot},
+                       &quotattack_multinv&quot:{&quotalgorithm&quot:&quotAES&quot, &quotposition&quot:&quotLUT/AES_AFTER_MULTINV&quot}})
+</code></pre>

@@ -1,0 +1,270 @@
+<link rel="stylesheet" href="../../..//default.css">
+<script src="../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/merenlab/anvio/blob/master/anvio/sge.py#L160">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/anvio/blob/master/anvio/sge.py#L160">GitMyHubLink</a>
+
+&#47&#47 -*- coding: utf-8
+&#47&#47 pylint: disable=line-too-long
+Module to submit/track jobs for SUN Grid Engine
+
+import os
+import time
+import glob
+import random
+import string
+import subprocess
+
+import anvio
+import anvio.fastalib as u
+import anvio.utils as utils
+import anvio.filesnpaths as filesnpaths
+
+from anvio.errors import ConfigError
+from anvio.terminal import pretty_print as pp
+
+
+__author__ = "Developers of anvi&quoto (see AUTHORS.txt)"
+__copyright__ = "Copyleft 2015-2018, the Meren Lab (http://merenlab.org/)"
+__credits__ = []
+__license__ = "GPL 3.0"
+__version__ = anvio.__version__
+__maintainer__ = "A. Murat Eren"
+__email__ = "a.murat.eren@gmail.com"
+__status__ = "Development"
+
+
+QSUB_SCRIPT = &#47&#47!/bin/sh
+&#47&#47$ -j y
+&#47&#47$ -o %(log)s
+&#47&#47$ -e %(log)s
+&#47&#47$ -N %(identifier)s
+&#47&#47$ -V
+
+%(command)s
+
+
+class Progress:
+    def update(self, str):
+        print(str)
+
+
+class Run:
+    def info(self, str_1, str_2):
+        print("%s: %s" % (str(str_1), str(str_2)))
+
+
+class SGE:
+    def __init__(self):
+        
+        This is a simple class to send jobs to Sun Grid Engine and to merge partial
+        results. This runs well for me, but hasn&quott been really tested well with
+        different versions of SGE. An example usage is follows:
+
+            ----8&lt;-----8&lt;-----8&lt;-----8&lt;-----8&lt;-----8&lt;-----8&lt;-----8&lt;-----8&lt;-----8&lt;-----
+                import os
+                import utils
+                from anvio.sge import SGE
+                sge = SGE()
+                sge.check_sge_binaries()
+                sge.input_file_path = ...
+                sge.tmp_dir = ...
+                sge.input_is_fasta = True
+                sge.merged_results_file_path = ...
+                sge.binary = ... (full path to the binary file)
+                sge.command = &quotperl %(binary)s %(part)s&quot
+                sge.wild_card_for_partial_results = "results.01.phymm*part-*.txt"
+
+                try:
+                    sge._run()
+                except ConfigError, e:
+                    print e
+                    sys.exit(-1)
+
+                os.deltree(sge.tmp_dir)
+
+                &#47&#47 at this point the merged results file must be found here:
+                print &quot%s&quot % sge.merged_results_file_path
+            ----8&lt;-----8&lt;-----8&lt;-----8&lt;-----8&lt;-----8&lt;-----8&lt;-----8&lt;-----8&lt;-----8&lt;-----
+
+        So that&quots that. Here are some critical variables before calling sge._run:
+
+            * `self.tmp_dir` is the directory to store all parts.
+            * `sge.command` is the command template that has to have %(binary) and %(part)s;
+               here is an example:
+
+                    sge.command = &quotperl %(binary)s %(part)s&quot
+
+            * `sge.wild_card_for_partial_results`. so everything is split into parts, sent to
+               the cluster, and followed until all processes are done. output files expected to
+               be found in the self.tmp_dir directory, and it is the user&quots responsibility to
+               format sge.command in a proper way to make sure that is happening. this property
+               is a wildcard to look for in self.tmp_dir to merge partial results into one
+               results file. here is an example:
+
+                    sge.wild_card_for_partial_results = "results.01.phymm*part-*.txt"
+
+            * `self.merged_results_file_path` is the file all partial results will be merged into one
+               file for downstream analyses.
+        
+
+        self.input_file_path = None
+        self.merged_results_file_path = None
+        self.num_entries_per_file = 10
+        self.tmp_dir = None
+        self.wild_card_for_partial_results = None
+
+        self.progress = Progress()
+        self.run = Run()
+
+        self.input_is_fasta = True
+
+        self.binary = None
+        self.command = None
+
+
+    def _run(self):
+        self.check_sge_binaries()
+
+        if not self.binary:
+            raise ConfigError(&quotA binary has to be declared.&quot)
+        if not self.command:
+            raise ConfigError(&quotSGE module cannot run without a command.&quot)
+        if not self.tmp_dir:
+            raise ConfigError(&quotSGE module needs a tmp dir.&quot)
+
+        filesnpaths.is_file_exists(self.input_file_path)
+        filesnpaths.is_output_file_writable(self.merged_results_file_path)
+
+        self.run.info(&quottemp_directory&quot, self.tmp_dir)
+
+        parts = self.split_input_file()
+
+        old_workdir = os.getcwd()
+        os.chdir(os.path.dirname(self.tmp_dir))
+        self.clusterize(parts)
+
+        if self.wild_card_for_partial_results:
+            self.merge_partial_results()
+        os.chdir(old_workdir)
+
+
+    def merge_partial_results(self):
+        self.progress.update(&quotPartial results file are being concatenated ...&quot)
+        files_to_concat = glob.glob(os.path.join(self.tmp_dir, self.wild_card_for_partial_results))
+        if not files_to_concat:
+            raise ConfigError("Wild card &quot%s&quot didn&quott return any files to concatenate." % self.wild_card_for_partial_results)
+
+        utils.concatenate_files(self.merged_results_file_path, files_to_concat)
+
+
+    def check_sge_binaries(self):
+        filesnpaths.is_program_exists(&quotqsub&quot)
+        filesnpaths.is_program_exists(&quotqstat&quot)
+
+
+    def split_input_file(self):
+        parts = []
+        next_part = 1
+        <a id="change">part_obj</a> = None
+
+        if self.input_is_fasta:
+            fasta = u.SequenceSource(self.input_file_path)
+
+            while next(fasta):
+                if (fasta.pos - 1) % self.num_entries_per_file == 0:
+                    self.progress.update(&quotCreating part: ~ %s&quot % (pp(next_part)))
+
+                    if part_obj:
+                        part_obj.close()
+
+                    file_path = os.path.join(self.tmp_dir, &quotpart-%08d.fa&quot % next_part)
+                    parts.append(file_path)
+                    next_part += 1
+                    <a id="change">part_obj = open(file_path, &quotw&quot)</a>
+
+                part_obj.write(&quot&gt;%s\n&quot % fasta.id)
+                part_obj.write(&quot%s\n&quot % fasta.seq)
+
+            if part_obj:
+                <a id="change">part_obj</a><a id="change">.close()</a>
+
+        return parts
+
+
+    def clusterize(self, parts):
+        &#47&#47 create a 8 digits random identifier for cluster jobs:
+        identifier = &quot&quot.join(random.choice(string.ascii_uppercase) for x in range(10))
+
+        for part in parts:
+            command = self.command % {&quotbinary&quot: self.binary, &quotpart&quot: part}
+
+            &#47&#47 create sh file
+            shell_script = part + &quot.sh&quot
+            open(shell_script, &quotw&quot).write(QSUB_SCRIPT % {&quotlog&quot: part + &quot.log&quot,
+                                                         &quotidentifier&quot: identifier,
+                                                         &quotcommand&quot: command})
+
+            &#47&#47 submit script to cluster
+            utils.run_command(&quotqsub %s&quot % shell_script)
+
+
+        while True:
+            qstat_info = self.get_qstat_info(identifier)
+            total_processes = sum(qstat_info.values())
+            if total_processes == 0:
+                break
+
+            self.progress.update(&quotQstat Info :: Total Jobs: %s, %s&quot % (pp(total_processes),
+                       &quot, &quot.join([&quot%s: %s&quot % (x, pp(qstat_info[x])) for x in qstat_info])))
+
+            time.sleep(5)
+
+        return True
+
+
+    def get_qstat_info(self, job_identifier):
+        try:
+            proc = subprocess.Popen([&quotqstat&quot], stdout=subprocess.PIPE)
+        except OSError as e:
+            raise ConfigError("qstat command was failed for the following reason: &quot%s&quot" % (e))
+
+        qstat_state_codes = {&quotPending&quot: [&quotqw&quot, &quothqw&quot, &quothRwq&quot],
+                             &quotRunning&quot: [&quotr&quot, &quott&quot, &quotRr&quot, &quotRt&quot],
+                             &quotSuspended&quot: [&quots&quot, &quotts&quot, &quotS&quot, &quottS&quot, &quotT&quot, &quottT&quot],
+                             &quotError&quot: [&quotEqw&quot, &quotEhqw&quot, &quotEhRqw&quot],
+                             &quotDeleted&quot: [&quotdr&quot, &quotdt&quot, &quotdRr&quot, &quotdRt&quot, &quotds&quot, &quotdS&quot, &quotdT&quot, &quotdRs&quot, &quotdRS&quot, &quotdRT&quot]}
+
+        info_dict = {&quotPending&quot: 0, &quotRunning&quot: 0, &quotSuspended&quot: 0, &quotError&quot: 0, &quotDeleted&quot: 0}
+        line_no = 0
+
+        while True:
+            line = proc.stdout.readline()
+
+            &#47&#47 skip the first two lines
+            if line_no &lt; 2:
+                line_no += 1
+                continue
+
+            if line != &quot&quot:
+                id, priority, name, user, state = line.strip().split()[0:5]
+                if name == job_identifier:
+                    found = False
+                    for s in qstat_state_codes:
+                        if state in qstat_state_codes[s]:
+                            found = True
+                            info_dict[s] += 1
+                    if not found:
+                        raise ConfigError("Unknown state for qstat: &quot%s&quot (known states: &quot%s&quot)"\
+                                 % (state, &quot, &quot.join(list(info_dict.keys()))))
+
+                line_no += 1
+            else:
+                break
+
+        return info_dict
+
+</code></pre>

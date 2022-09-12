@@ -1,0 +1,170 @@
+<link rel="stylesheet" href="../../..//default.css">
+<script src="../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/aquaskyline/Clairvoyante/blob/rbDev/dataPrepScripts/PairWithNonVariants.py#L33">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/Clairvoyante/blob/rbDev/dataPrepScripts/PairWithNonVariants.py#L33">GitMyHubLink</a>
+
+import os
+import sys
+import intervaltree
+import argparse
+import logging
+import random
+import subprocess
+import shlex
+
+logging.basicConfig(format=&quot%(message)s&quot, level=logging.INFO)
+
+
+def Run(args):
+    Pair(args)
+
+
+def bufcount(filename):
+    f = subprocess.Popen(shlex.split("gzip -fdc %s" % (filename) ), stdout=subprocess.PIPE, bufsize=8388608)
+    lines = 0
+    buf_size = 1024 * 1024
+    read_f = f.stdout.read
+
+    buf = read_f(buf_size)
+    while buf:
+        lines += buf.count(&quot\n&quot)
+        buf = read_f(buf_size)
+    f.stdout.close()
+    f.wait()
+
+    return lines
+
+
+def Pair(<a id="change">args</a>):
+    <a id="change">tree = {}</a>
+    if args.bed_fn != None:
+        logging.info("Loading BED file ...")
+        <a id="change">f = subprocess.Popen(shlex.split("gzip -fdc %s" % (args.bed_fn) ), stdout=subprocess.PIPE, bufsize=8388608)</a>
+        for row in f.stdout:
+            <a id="change">row = row.strip().split()</a>
+            <a id="change">name = row[0]</a>
+            if name not in tree:
+                <a id="change">tree[name] = intervaltree.IntervalTree()</a>
+            <a id="change">begin = int(row[1])</a>
+            <a id="change">end = int(row[2])-1</a>
+            if end == begin: end += 1
+            tree[name].addi(begin, end)
+        f.stdout.close()
+        f.wait()
+
+    logging.info("Counting the number of Truth Variants in %s ..." % args.tensor_var_fn)
+    <a id="change">v = 0</a>
+    <a id="change">d = {}</a>
+    <a id="change">f = subprocess.Popen(shlex.split("gzip -fdc %s" % (args.tensor_var_fn) ), stdout=subprocess.PIPE, bufsize=8388608)</a>
+    for row in f.stdout:
+        <a id="change">row = row.strip().split()</a>
+        <a id="change">ctgName = row[0]</a>
+        <a id="change">pos = int(row[1])</a>
+        <a id="change">key = "-".join([ctgName, str(pos)])</a>
+        v += 1
+        <a id="change">d[key] = 1</a>
+    f.stdout.close()
+    f.wait()
+
+    logging.info("%d Truth Variants" % v)
+    <a id="change">t = v * args.amp</a>
+    logging.info("%d non-variants to be picked" % t)
+
+    logging.info("Counting the number of usable non-variants in %s ..." % args.tensor_can_fn)
+    <a id="change">c = 0</a>
+    <a id="change">f = subprocess.Popen(shlex.split("gzip -fdc %s" % (args.tensor_can_fn) ), stdout=subprocess.PIPE, bufsize=8388608)</a>
+    for row in f.stdout:
+        <a id="change">row = row.strip().split()</a>
+        <a id="change">ctgName = row[0]</a>
+        <a id="change">pos = int(row[1])</a>
+        if args.bed_fn != None:
+            if ctgName not in tree:
+                continue
+            if len(tree[ctgName].search(pos)) == 0:
+                continue
+        <a id="change">key = "-".join([ctgName, str(pos)])</a>
+        if key in d:
+            continue
+        c += 1
+    f.stdout.close()
+    f.wait()
+    logging.info("%d usable non-variant" % c)
+
+    <a id="change">r = float(t) / c</a>
+    r = r if r &lt;= 1 else 1
+    logging.info("%.2f of all non-variants are selected" % r)
+
+
+    <a id="change">o1 = 0</a>
+    <a id="change">o2 = 0</a>
+    <a id="change">output_fpo = open(args.output_fn, "wb")</a>
+    <a id="change">output_fh = subprocess.Popen(shlex.split("gzip -c"), stdin=subprocess.PIPE, stdout=output_fpo, stderr=sys.stderr, bufsize=8388608)</a>
+    <a id="change">f = subprocess.Popen(shlex.split("gzip -fdc %s" % (args.tensor_var_fn) ), stdout=subprocess.PIPE, bufsize=8388608)</a>
+    for row in f.stdout:
+        <a id="change">row = row.strip()</a>
+        output_fh.stdin.write(row)
+        output_fh.stdin.write("\n")
+        o1 += 1
+    f.stdout.close()
+    f.wait()
+    <a id="change">f = subprocess.Popen(shlex.split("gzip -fdc %s" % (args.tensor_can_fn) ), stdout=subprocess.PIPE, bufsize=8388608)</a>
+    for row in f.stdout:
+        <a id="change">rawRow = row.strip()</a>
+        <a id="change">row = rawRow.split()</a>
+        <a id="change">ctgName = row[0]</a>
+        <a id="change">pos = int(row[1])</a>
+        if args.bed_fn != None:
+            if ctgName not in tree:
+                continue
+            if len(tree[ctgName].search(pos)) == 0:
+                continue
+        <a id="change">key = "-".join([ctgName, str(pos)])</a>
+        if key in d:
+            continue
+        if random.random() &lt; r:
+            output_fh.stdin.write(rawRow)
+            output_fh.stdin.write("\n")
+            o2 += 1
+    f.stdout.close()
+    f.wait()
+    output_fh.stdin.close()
+    output_fh.wait()
+    <a id="change">output_fpo</a><a id="change">.close()</a>
+    logging.info("%.2f/%.2f Truth Variants/Non-variants outputed" % (o1, o2))
+
+
+def main():
+    parser = argparse.ArgumentParser(
+            description="Predict and compare using Clairvoyante" )
+
+    parser.add_argument(&quot--tensor_can_fn&quot, type=str, default = None,
+            help="Tensors generated at randome genome positions by ExtractVariantCandidates.py+CreateTensor.py")
+
+    parser.add_argument(&quot--tensor_var_fn&quot, type=str, default = None,
+            help="Variant tensors generated by GetTruth.py+CreateTensor.py")
+
+    parser.add_argument(&quot--bed_fn&quot, type=str, default = None,
+            help="Usable genome regions input in BED format")
+
+    parser.add_argument(&quot--output_fn&quot, type=str, default = None,
+            help="Tensors output filename")
+
+    parser.add_argument(&quot--amp&quot, type=float, default = 2,
+        help="Pick ((&#47&#47 of the Truth Variants)*amp) non-variants to pair with the Truth Variants, default: 2")
+
+    args = parser.parse_args()
+
+    if len(sys.argv[1:]) == 0:
+        parser.print_help()
+        sys.exit(1)
+
+    Run(args)
+
+
+if __name__ == "__main__":
+    main()
+</code></pre>

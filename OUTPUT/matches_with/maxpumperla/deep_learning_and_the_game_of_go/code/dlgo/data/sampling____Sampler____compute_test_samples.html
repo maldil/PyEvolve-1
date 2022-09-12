@@ -1,0 +1,147 @@
+<link rel="stylesheet" href="../../../../..//default.css">
+<script src="../../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/maxpumperla/deep_learning_and_the_game_of_go/blob/master/code/dlgo/data/sampling.py#L75">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/deep_learning_and_the_game_of_go/blob/master/code/dlgo/data/sampling.py#L75">GitMyHubLink</a>
+
+&#47&#47 This Source Code Form is subject to the terms of the Mozilla Public License,
+&#47&#47 v. 2.0. If a copy of the MPL was not distributed with this file, You can
+&#47&#47 obtain one at http://mozilla.org/MPL/2.0/.
+from __future__ import print_function
+from __future__ import absolute_import
+import os
+import random
+from dlgo.data.index_processor import KGSIndex
+from six.moves import range
+
+
+class Sampler:
+    Sample training and test data from zipped sgf files such that test data is kept stable.
+    def __init__(self, data_dir=&quotdata&quot, num_test_games=100, cap_year=2015, seed=1337):
+        self.data_dir = data_dir
+        self.num_test_games = num_test_games
+        self.test_games = []
+        self.train_games = []
+        self.test_folder = &quottest_samples.py&quot
+        self.cap_year = cap_year
+
+        random.seed(seed)
+        self.compute_test_samples()
+
+    def draw_data(self, data_type, num_samples):
+        if data_type == &quottest&quot:
+            return self.test_games
+        elif data_type == &quottrain&quot and num_samples is not None:
+            return self.draw_training_samples(num_samples)
+        elif data_type == &quottrain&quot and num_samples is None:
+            return self.draw_all_training()
+        else:
+            raise ValueError(data_type + " is not a valid data type, choose from &quottrain&quot or &quottest&quot")
+
+    def draw_samples(self, num_sample_games):
+        Draw num_sample_games many training games from index.
+        available_games = []
+        index = KGSIndex(data_directory=self.data_dir)
+
+        for fileinfo in index.file_info:
+            filename = fileinfo[&quotfilename&quot]
+            year = int(filename.split(&quot-&quot)[1].split(&quot_&quot)[0])
+            if year &gt; self.cap_year:
+                continue
+            num_games = fileinfo[&quotnum_games&quot]
+            for i in range(num_games):
+                available_games.append((filename, i))
+        print(&quot&gt;&gt;&gt; Total number of games used: &quot + str(len(available_games)))
+
+        sample_set = set()
+        while len(sample_set) &lt; num_sample_games:
+            sample = random.choice(available_games)
+            if sample not in sample_set:
+                sample_set.add(sample)
+        print(&quotDrawn &quot + str(num_sample_games) + &quot samples:&quot)
+        return list(sample_set)
+
+    def draw_training_games(self):
+        Get list of all non-test games, that are no later than dec 2014
+        Ignore games after cap_year to keep training data stable
+        
+        index = KGSIndex(data_directory=self.data_dir)
+        for file_info in index.file_info:
+            filename = file_info[&quotfilename&quot]
+            year = int(filename.split(&quot-&quot)[1].split(&quot_&quot)[0])
+            if year &gt; self.cap_year:
+                continue
+            num_games = file_info[&quotnum_games&quot]
+            for i in range(num_games):
+                sample = (filename, i)
+                if sample not in self.test_games:
+                    self.train_games.append(sample)
+        print(&quottotal num training games: &quot + str(len(self.train_games)))
+
+    def compute_test_samples(<a id="change">self</a>):
+        If not already existing, create local file to store fixed set of test samples
+        if not os.path.isfile(self.test_folder):
+            <a id="change">test_games = self.draw_samples(self.num_test_games)</a>
+            <a id="change">test_sample_file = open(self.test_folder, &quotw&quot)</a>
+            for sample in test_games:
+                test_sample_file.write(str(sample) + "\n")
+            <a id="change">test_sample_file</a><a id="change">.close()</a>
+
+        <a id="change">test_sample_file = open(self.test_folder, &quotr&quot)</a>
+        <a id="change">sample_contents = test_sample_file.read()</a>
+        <a id="change">test_sample_file</a><a id="change">.close()</a>
+        for line in sample_contents.split(&quot\n&quot):
+            if line != "":
+                <a id="change">(filename, index) = eval(line)</a>
+                self.test_games.append((filename, index))
+
+    def draw_training_samples(self, num_sample_games):
+        Draw training games, not overlapping with any of the test games.
+        available_games = []
+        index = KGSIndex(data_directory=self.data_dir)
+        for fileinfo in index.file_info:
+            filename = fileinfo[&quotfilename&quot]
+            year = int(filename.split(&quot-&quot)[1].split(&quot_&quot)[0])
+            if year &gt; self.cap_year:
+                continue
+            num_games = fileinfo[&quotnum_games&quot]
+            for i in range(num_games):
+                available_games.append((filename, i))
+        print(&quottotal num games: &quot + str(len(available_games)))
+
+        sample_set = set()
+        while len(sample_set) &lt; num_sample_games:
+            sample = random.choice(available_games)
+            if sample not in self.test_games:
+                sample_set.add(sample)
+        print(&quotDrawn &quot + str(num_sample_games) + &quot samples:&quot)
+        return list(sample_set)
+
+    def draw_all_training(self):
+        Draw all available training games.
+        available_games = []
+        index = KGSIndex(data_directory=self.data_dir)
+
+        for fileinfo in index.file_info:
+            filename = fileinfo[&quotfilename&quot]
+            year = int(filename.split(&quot-&quot)[1].split(&quot_&quot)[0])
+            if year &gt; self.cap_year:
+                continue
+            if &quotnum_games&quot in fileinfo.keys():
+                num_games = fileinfo[&quotnum_games&quot]
+            else:
+                continue
+            for i in range(num_games):
+                available_games.append((filename, i))
+        print(&quottotal num games: &quot + str(len(available_games)))
+
+        sample_set = set()
+        for sample in available_games:
+            if sample not in self.test_games:
+                sample_set.add(sample)
+        print(&quotDrawn all samples, ie &quot + str(len(sample_set)) + &quot samples:&quot)
+        return list(sample_set)
+</code></pre>

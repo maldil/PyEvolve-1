@@ -1,0 +1,212 @@
+<link rel="stylesheet" href="../../../../..//default.css">
+<script src="../../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/tensorpack/tensorpack/blob/master/tensorpack/dataflow/dataset/cifar.py#L40">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/tensorpack/blob/master/tensorpack/dataflow/dataset/cifar.py#L40">GitMyHubLink</a>
+
+&#47&#47 -*- coding: utf-8 -*-
+&#47&#47 File: cifar.py
+
+&#47&#47         Yukun Chen &lt;cykustc@gmail.com&gt;
+
+import numpy as np
+import os
+import pickle
+import tarfile
+
+from ...utils import logger
+from ...utils.fs import download, get_dataset_path
+from ..base import RNGDataFlow
+
+__all__ = [&quotCifarBase&quot, &quotCifar10&quot, &quotCifar100&quot]
+
+
+DATA_URL_CIFAR_10 = (&quothttp://www.cs.toronto.edu/~kriz/cifar-10-python.tar.gz&quot, 170498071)
+DATA_URL_CIFAR_100 = (&quothttp://www.cs.toronto.edu/~kriz/cifar-100-python.tar.gz&quot, 169001437)
+
+
+def maybe_download_and_extract(dest_directory, cifar_classnum):
+    Download and extract the tarball from Alex&quots website. Copied from tensorflow example 
+    assert cifar_classnum == 10 or cifar_classnum == 100
+    if cifar_classnum == 10:
+        cifar_foldername = &quotcifar-10-batches-py&quot
+    else:
+        cifar_foldername = &quotcifar-100-python&quot
+    if os.path.isdir(os.path.join(dest_directory, cifar_foldername)):
+        logger.info("Found cifar{} data in {}.".format(cifar_classnum, dest_directory))
+        return
+    else:
+        DATA_URL = DATA_URL_CIFAR_10 if cifar_classnum == 10 else DATA_URL_CIFAR_100
+        filename = DATA_URL[0].split(&quot/&quot)[-1]
+        filepath = os.path.join(dest_directory, filename)
+        download(DATA_URL[0], dest_directory, expect_size=DATA_URL[1])
+        tarfile.open(filepath, &quotr:gz&quot).extractall(dest_directory)
+
+
+def read_cifar(<a id="change">filenames</a>, <a id="change">cifar_classnum</a>):
+    assert cifar_classnum == 10 or cifar_classnum == 100
+    <a id="change">ret = []</a>
+    for fname in filenames:
+        <a id="change">fo = open(fname, &quotrb&quot)</a>
+        <a id="change">dic = pickle.load(fo, encoding=&quotbytes&quot)</a>
+        <a id="change">data = dic[b&quotdata&quot]</a>
+        if cifar_classnum == 10:
+            <a id="change">label = dic[b&quotlabels&quot]</a>
+            <a id="change">IMG_NUM = 10000</a>  &#47&#47 cifar10 data are split into blocks of 10000
+        else:
+            <a id="change">label = dic[b&quotfine_labels&quot]</a>
+            IMG_NUM = 50000 if &quottrain&quot in fname else 10000
+        <a id="change">fo</a><a id="change">.close()</a>
+        for k in range(IMG_NUM):
+            <a id="change">img = data[k].reshape(3, 32, 32)</a>
+            <a id="change">img = np.transpose(img, [1, 2, 0])</a>
+            ret.append([img, label[k]])
+    return ret
+
+
+def get_filenames(dir, cifar_classnum):
+    assert cifar_classnum == 10 or cifar_classnum == 100
+    if cifar_classnum == 10:
+        train_files = [os.path.join(
+            dir, &quotcifar-10-batches-py&quot, &quotdata_batch_%d&quot % i) for i in range(1, 6)]
+        test_files = [os.path.join(
+            dir, &quotcifar-10-batches-py&quot, &quottest_batch&quot)]
+        meta_file = os.path.join(dir, &quotcifar-10-batches-py&quot, &quotbatches.meta&quot)
+    elif cifar_classnum == 100:
+        train_files = [os.path.join(dir, &quotcifar-100-python&quot, &quottrain&quot)]
+        test_files = [os.path.join(dir, &quotcifar-100-python&quot, &quottest&quot)]
+        meta_file = os.path.join(dir, &quotcifar-100-python&quot, &quotmeta&quot)
+    return train_files, test_files, meta_file
+
+
+def _parse_meta(filename, cifar_classnum):
+    with open(filename, &quotrb&quot) as f:
+        obj = pickle.load(f)
+        return obj[&quotlabel_names&quot if cifar_classnum == 10 else &quotfine_label_names&quot]
+
+
+class CifarBase(RNGDataFlow):
+    
+    Produces [image, label] in Cifar10/100 dataset,
+    image is 32x32x3 in the range [0,255].
+    label is an int.
+    
+    def __init__(self, train_or_test, shuffle=None, dir=None, cifar_classnum=10):
+        
+        Args:
+            train_or_test (str): &quottrain&quot or &quottest&quot
+            shuffle (bool): defaults to True for training set.
+            dir (str): path to the dataset directory
+            cifar_classnum (int): 10 or 100
+        
+        assert train_or_test in [&quottrain&quot, &quottest&quot]
+        assert cifar_classnum == 10 or cifar_classnum == 100
+        self.cifar_classnum = cifar_classnum
+        if dir is None:
+            dir = get_dataset_path(&quotcifar{}_data&quot.format(cifar_classnum))
+        maybe_download_and_extract(dir, self.cifar_classnum)
+        train_files, test_files, meta_file = get_filenames(dir, cifar_classnum)
+        if train_or_test == &quottrain&quot:
+            self.fs = train_files
+        else:
+            self.fs = test_files
+        for f in self.fs:
+            if not os.path.isfile(f):
+                raise ValueError(&quotFailed to find file: &quot + f)
+        self._label_names = _parse_meta(meta_file, cifar_classnum)
+        self.train_or_test = train_or_test
+        self.data = read_cifar(self.fs, cifar_classnum)
+        self.dir = dir
+
+        if shuffle is None:
+            shuffle = train_or_test == &quottrain&quot
+        self.shuffle = shuffle
+
+    def __len__(self):
+        return 50000 if self.train_or_test == &quottrain&quot else 10000
+
+    def __iter__(self):
+        idxs = np.arange(len(self.data))
+        if self.shuffle:
+            self.rng.shuffle(idxs)
+        for k in idxs:
+            &#47&#47 since cifar is quite small, just do it for safety
+            yield self.data[k]
+
+    def get_per_pixel_mean(self, names=(&quottrain&quot, &quottest&quot)):
+        
+        Args:
+            names (tuple[str]): the names (&quottrain&quot or &quottest&quot) of the datasets
+
+        Returns:
+            a mean image of all images in the given datasets, with size 32x32x3
+        
+        for name in names:
+            assert name in [&quottrain&quot, &quottest&quot], name
+        train_files, test_files, _ = get_filenames(self.dir, self.cifar_classnum)
+        all_files = []
+        if &quottrain&quot in names:
+            all_files.extend(train_files)
+        if &quottest&quot in names:
+            all_files.extend(test_files)
+        all_imgs = [x[0] for x in read_cifar(all_files, self.cifar_classnum)]
+        arr = np.array(all_imgs, dtype=&quotfloat32&quot)
+        mean = np.mean(arr, axis=0)
+        return mean
+
+    def get_label_names(self):
+        
+        Returns:
+            [str]: name of each class.
+        
+        return self._label_names
+
+    def get_per_channel_mean(self, names=(&quottrain&quot, &quottest&quot)):
+        
+        Args:
+            names (tuple[str]): the names (&quottrain&quot or &quottest&quot) of the datasets
+
+        Returns:
+            An array of three values as mean of each channel, for all images in the given datasets.
+        
+        mean = self.get_per_pixel_mean(names)
+        return np.mean(mean, axis=(0, 1))
+
+
+class Cifar10(CifarBase):
+    
+    Produces [image, label] in Cifar10 dataset,
+    image is 32x32x3 in the range [0,255].
+    label is an int.
+    
+    def __init__(self, train_or_test, shuffle=None, dir=None):
+        
+        Args:
+            train_or_test (str): either &quottrain&quot or &quottest&quot.
+            shuffle (bool): shuffle the dataset, default to shuffle in training
+        
+        super(Cifar10, self).__init__(train_or_test, shuffle, dir, 10)
+
+
+class Cifar100(CifarBase):
+     Similar to Cifar10
+    def __init__(self, train_or_test, shuffle=None, dir=None):
+        super(Cifar100, self).__init__(train_or_test, shuffle, dir, 100)
+
+
+if __name__ == &quot__main__&quot:
+    ds = Cifar10(&quottrain&quot)
+    mean = ds.get_per_channel_mean()
+    print(mean)
+
+    import cv2
+    ds.reset_state()
+    for i, dp in enumerate(ds):
+        if i == 100:
+            break
+        img = dp[0]
+        cv2.imwrite("{:04d}.jpg".format(i), img)
+</code></pre>

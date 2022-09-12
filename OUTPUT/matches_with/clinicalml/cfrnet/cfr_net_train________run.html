@@ -1,0 +1,438 @@
+<link rel="stylesheet" href="../..//default.css">
+<script src="../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/clinicalml/cfrnet/blob/master/cfr_net_train.py#L205">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/cfrnet/blob/master/cfr_net_train.py#L205">GitMyHubLink</a>
+
+import tensorflow as tf
+import numpy as np
+import sys, os
+import getopt
+import random
+import datetime
+import traceback
+
+import cfr.cfr_net as cfr
+from cfr.util import *
+
+&quot&quot&quot Define parameter flags &quot&quot&quot
+FLAGS = tf.app.flags.FLAGS
+tf.app.flags.DEFINE_string(&quotloss&quot, &quotl2&quot, Which loss function to use (l1/l2/log))
+tf.app.flags.DEFINE_integer(&quotn_in&quot, 2, Number of representation layers. )
+tf.app.flags.DEFINE_integer(&quotn_out&quot, 2, Number of regression layers. )
+tf.app.flags.DEFINE_float(&quotp_alpha&quot, 1e-4, Imbalance regularization param. )
+tf.app.flags.DEFINE_float(&quotp_lambda&quot, 0.0, Weight decay regularization parameter. )
+tf.app.flags.DEFINE_integer(&quotrep_weight_decay&quot, 1, Whether to penalize representation layers with weight decay)
+tf.app.flags.DEFINE_float(&quotdropout_in&quot, 0.9, Input layers dropout keep rate. )
+tf.app.flags.DEFINE_float(&quotdropout_out&quot, 0.9, Output layers dropout keep rate. )
+tf.app.flags.DEFINE_string(&quotnonlin&quot, &quotrelu&quot, Kind of non-linearity. Default relu. )
+tf.app.flags.DEFINE_float(&quotlrate&quot, 0.05, Learning rate. )
+tf.app.flags.DEFINE_float(&quotdecay&quot, 0.5, RMSProp decay. )
+tf.app.flags.DEFINE_integer(&quotbatch_size&quot, 100, Batch size. )
+tf.app.flags.DEFINE_integer(&quotdim_in&quot, 100, Pre-representation layer dimensions. )
+tf.app.flags.DEFINE_integer(&quotdim_out&quot, 100, Post-representation layer dimensions. )
+tf.app.flags.DEFINE_integer(&quotbatch_norm&quot, 0, Whether to use batch normalization. )
+tf.app.flags.DEFINE_string(&quotnormalization&quot, &quotnone&quot, How to normalize representation (after batch norm). none/bn_fixed/divide/project )
+tf.app.flags.DEFINE_float(&quotrbf_sigma&quot, 0.1, RBF MMD sigma )
+tf.app.flags.DEFINE_integer(&quotexperiments&quot, 1, Number of experiments. )
+tf.app.flags.DEFINE_integer(&quotiterations&quot, 2000, Number of iterations. )
+tf.app.flags.DEFINE_float(&quotweight_init&quot, 0.01, Weight initialization scale. )
+tf.app.flags.DEFINE_float(&quotlrate_decay&quot, 0.95, Decay of learning rate every 100 iterations )
+tf.app.flags.DEFINE_integer(&quotwass_iterations&quot, 20, Number of iterations in Wasserstein computation. )
+tf.app.flags.DEFINE_float(&quotwass_lambda&quot, 1, Wasserstein lambda. )
+tf.app.flags.DEFINE_integer(&quotwass_bpt&quot, 0, Backprop through T matrix? )
+tf.app.flags.DEFINE_integer(&quotvarsel&quot, 0, Whether the first layer performs variable selection. )
+tf.app.flags.DEFINE_string(&quotoutdir&quot, &quot../results/tfnet_topic/alpha_sweep_22_d100/&quot, Output directory. )
+tf.app.flags.DEFINE_string(&quotdatadir&quot, &quot../data/topic/csv/&quot, Data directory. )
+tf.app.flags.DEFINE_string(&quotdataform&quot, &quottopic_dmean_seed_%d.csv&quot, Training data filename form. )
+tf.app.flags.DEFINE_string(&quotdata_test&quot, &quot&quot, Test data filename form. )
+tf.app.flags.DEFINE_integer(&quotsparse&quot, 0, Whether data is stored in sparse format (.x, .y). )
+tf.app.flags.DEFINE_integer(&quotseed&quot, 1, Seed. )
+tf.app.flags.DEFINE_integer(&quotrepetitions&quot, 1, Repetitions with different seed.)
+tf.app.flags.DEFINE_integer(&quotuse_p_correction&quot, 1, Whether to use population size p(t) in mmd/disc/wass.)
+tf.app.flags.DEFINE_string(&quotoptimizer&quot, &quotRMSProp&quot, Which optimizer to use. (RMSProp/Adagrad/GradientDescent/Adam))
+tf.app.flags.DEFINE_string(&quotimb_fun&quot, &quotmmd_lin&quot, Which imbalance penalty to use (mmd_lin/mmd_rbf/mmd2_lin/mmd2_rbf/lindisc/wass). )
+tf.app.flags.DEFINE_integer(&quotoutput_csv&quot,0,Whether to save a CSV file with the results)
+tf.app.flags.DEFINE_integer(&quotoutput_delay&quot, 100, Number of iterations between log/loss outputs. )
+tf.app.flags.DEFINE_integer(&quotpred_output_delay&quot, -1, Number of iterations between prediction outputs. (-1 gives no intermediate output). )
+tf.app.flags.DEFINE_integer(&quotdebug&quot, 0, Debug mode. )
+tf.app.flags.DEFINE_integer(&quotsave_rep&quot, 0, Save representations after training. )
+tf.app.flags.DEFINE_float(&quotval_part&quot, 0, Validation part. )
+tf.app.flags.DEFINE_boolean(&quotsplit_output&quot, 0, Whether to split output layers between treated and control. )
+tf.app.flags.DEFINE_boolean(&quotreweight_sample&quot, 1, Whether to reweight sample for prediction loss with average treatment probability. )
+
+if FLAGS.sparse:
+    import scipy.sparse as sparse
+
+NUM_ITERATIONS_PER_DECAY = 100
+
+__DEBUG__ = False
+if FLAGS.debug:
+    __DEBUG__ = True
+
+def train(CFR, sess, train_step, D, I_valid, D_test, logfile, i_exp):
+     Trains a CFR model on supplied data 
+
+    &quot&quot&quot Train/validation split &quot&quot&quot
+    n = D[&quotx&quot].shape[0]
+    I = range(n); I_train = list(set(I)-set(I_valid))
+    n_train = len(I_train)
+
+    &quot&quot&quot Compute treatment probability&quot&quot&quot
+    p_treated = np.mean(D[&quott&quot][I_train,:])
+
+    &quot&quot&quot Set up loss feed_dicts&quot&quot&quot
+    dict_factual = {CFR.x: D[&quotx&quot][I_train,:], CFR.t: D[&quott&quot][I_train,:], CFR.y_: D[&quotyf&quot][I_train,:], \
+      CFR.do_in: 1.0, CFR.do_out: 1.0, CFR.r_alpha: FLAGS.p_alpha, \
+      CFR.r_lambda: FLAGS.p_lambda, CFR.p_t: p_treated}
+
+    if FLAGS.val_part &gt; 0:
+        dict_valid = {CFR.x: D[&quotx&quot][I_valid,:], CFR.t: D[&quott&quot][I_valid,:], CFR.y_: D[&quotyf&quot][I_valid,:], \
+          CFR.do_in: 1.0, CFR.do_out: 1.0, CFR.r_alpha: FLAGS.p_alpha, \
+          CFR.r_lambda: FLAGS.p_lambda, CFR.p_t: p_treated}
+
+    if D[&quotHAVE_TRUTH&quot]:
+        dict_cfactual = {CFR.x: D[&quotx&quot][I_train,:], CFR.t: 1-D[&quott&quot][I_train,:], CFR.y_: D[&quotycf&quot][I_train,:], \
+          CFR.do_in: 1.0, CFR.do_out: 1.0}
+
+    &quot&quot&quot Initialize TensorFlow variables &quot&quot&quot
+    sess.run(tf.global_variables_initializer())
+
+    &quot&quot&quot Set up for storing predictions &quot&quot&quot
+    preds_train = []
+    preds_test = []
+
+    &quot&quot&quot Compute losses &quot&quot&quot
+    losses = []
+    obj_loss, f_error, imb_err = sess.run([CFR.tot_loss, CFR.pred_loss, CFR.imb_dist],\
+      feed_dict=dict_factual)
+
+    cf_error = np.nan
+    if D[&quotHAVE_TRUTH&quot]:
+        cf_error = sess.run(CFR.pred_loss, feed_dict=dict_cfactual)
+
+    valid_obj = np.nan; valid_imb = np.nan; valid_f_error = np.nan;
+    if FLAGS.val_part &gt; 0:
+        valid_obj, valid_f_error, valid_imb = sess.run([CFR.tot_loss, CFR.pred_loss, CFR.imb_dist],\
+          feed_dict=dict_valid)
+
+    losses.append([obj_loss, f_error, cf_error, imb_err, valid_f_error, valid_imb, valid_obj])
+
+    objnan = False
+
+    reps = []
+    reps_test = []
+
+    &quot&quot&quot Train for multiple iterations &quot&quot&quot
+    for i in range(FLAGS.iterations):
+
+        &quot&quot&quot Fetch sample &quot&quot&quot
+        I = random.sample(range(0, n_train), FLAGS.batch_size)
+        x_batch = D[&quotx&quot][I_train,:][I,:]
+        t_batch = D[&quott&quot][I_train,:][I]
+        y_batch = D[&quotyf&quot][I_train,:][I]
+
+        if __DEBUG__:
+            M = sess.run(cfr.pop_dist(CFR.x, CFR.t), feed_dict={CFR.x: x_batch, CFR.t: t_batch})
+            log(logfile, &quotMedian: %.4g, Mean: %.4f, Max: %.4f&quot % (np.median(M.tolist()), np.mean(M.tolist()), np.amax(M.tolist())))
+
+        &quot&quot&quot Do one step of gradient descent &quot&quot&quot
+        if not objnan:
+            sess.run(train_step, feed_dict={CFR.x: x_batch, CFR.t: t_batch, \
+                CFR.y_: y_batch, CFR.do_in: FLAGS.dropout_in, CFR.do_out: FLAGS.dropout_out, \
+                CFR.r_alpha: FLAGS.p_alpha, CFR.r_lambda: FLAGS.p_lambda, CFR.p_t: p_treated})
+
+        &quot&quot&quot Project variable selection weights &quot&quot&quot
+        if FLAGS.varsel:
+            wip = simplex_project(sess.run(CFR.weights_in[0]), 1)
+            sess.run(CFR.projection, feed_dict={CFR.w_proj: wip})
+
+        &quot&quot&quot Compute loss every N iterations &quot&quot&quot
+        if i % FLAGS.output_delay == 0 or i==FLAGS.iterations-1:
+            obj_loss,f_error,imb_err = sess.run([CFR.tot_loss, CFR.pred_loss, CFR.imb_dist],
+                feed_dict=dict_factual)
+
+            rep = sess.run(CFR.h_rep_norm, feed_dict={CFR.x: D[&quotx&quot], CFR.do_in: 1.0})
+            rep_norm = np.mean(np.sqrt(np.sum(np.square(rep), 1)))
+
+            cf_error = np.nan
+            if D[&quotHAVE_TRUTH&quot]:
+                cf_error = sess.run(CFR.pred_loss, feed_dict=dict_cfactual)
+
+            valid_obj = np.nan; valid_imb = np.nan; valid_f_error = np.nan;
+            if FLAGS.val_part &gt; 0:
+                valid_obj, valid_f_error, valid_imb = sess.run([CFR.tot_loss, CFR.pred_loss, CFR.imb_dist], feed_dict=dict_valid)
+
+            losses.append([obj_loss, f_error, cf_error, imb_err, valid_f_error, valid_imb, valid_obj])
+            loss_str = str(i) + &quot\tObj: %.3f,\tF: %.3f,\tCf: %.3f,\tImb: %.2g,\tVal: %.3f,\tValImb: %.2g,\tValObj: %.2f&quot \
+                        % (obj_loss, f_error, cf_error, imb_err, valid_f_error, valid_imb, valid_obj)
+
+            if FLAGS.loss == &quotlog&quot:
+                y_pred = sess.run(CFR.output, feed_dict={CFR.x: x_batch, \
+                    CFR.t: t_batch, CFR.do_in: 1.0, CFR.do_out: 1.0})
+                y_pred = 1.0*(y_pred &gt; 0.5)
+                acc = 100*(1 - np.mean(np.abs(y_batch - y_pred)))
+                loss_str += &quot,\tAcc: %.2f%%&quot % acc
+
+            log(logfile, loss_str)
+
+            if np.isnan(obj_loss):
+                log(logfile,&quotExperiment %d: Objective is NaN. Skipping.&quot % i_exp)
+                objnan = True
+
+        &quot&quot&quot Compute predictions every M iterations &quot&quot&quot
+        if (FLAGS.pred_output_delay &gt; 0 and i % FLAGS.pred_output_delay == 0) or i==FLAGS.iterations-1:
+
+            y_pred_f = sess.run(CFR.output, feed_dict={CFR.x: D[&quotx&quot], \
+                CFR.t: D[&quott&quot], CFR.do_in: 1.0, CFR.do_out: 1.0})
+            y_pred_cf = sess.run(CFR.output, feed_dict={CFR.x: D[&quotx&quot], \
+                CFR.t: 1-D[&quott&quot], CFR.do_in: 1.0, CFR.do_out: 1.0})
+            preds_train.append(np.concatenate((y_pred_f, y_pred_cf),axis=1))
+
+            if D_test is not None:
+                y_pred_f_test = sess.run(CFR.output, feed_dict={CFR.x: D_test[&quotx&quot], \
+                    CFR.t: D_test[&quott&quot], CFR.do_in: 1.0, CFR.do_out: 1.0})
+                y_pred_cf_test = sess.run(CFR.output, feed_dict={CFR.x: D_test[&quotx&quot], \
+                    CFR.t: 1-D_test[&quott&quot], CFR.do_in: 1.0, CFR.do_out: 1.0})
+                preds_test.append(np.concatenate((y_pred_f_test, y_pred_cf_test),axis=1))
+
+            if FLAGS.save_rep and i_exp == 1:
+                reps_i = sess.run([CFR.h_rep], feed_dict={CFR.x: D[&quotx&quot], \
+                    CFR.do_in: 1.0, CFR.do_out: 0.0})
+                reps.append(reps_i)
+
+                if D_test is not None:
+                    reps_test_i = sess.run([CFR.h_rep], feed_dict={CFR.x: D_test[&quotx&quot], \
+                        CFR.do_in: 1.0, CFR.do_out: 0.0})
+                    reps_test.append(reps_test_i)
+
+    return losses, preds_train, preds_test, reps, reps_test
+
+def run(<a id="change">outdir</a>):
+     Runs an experiment and stores result in outdir 
+
+    &quot&quot&quot Set up paths and start log &quot&quot&quot
+    <a id="change">npzfile = outdir+&quotresult&quot</a>
+    <a id="change">npzfile_test = outdir+&quotresult.test&quot</a>
+    <a id="change">repfile = outdir+&quotreps&quot</a>
+    <a id="change">repfile_test = outdir+&quotreps.test&quot</a>
+    <a id="change">outform = outdir+&quoty_pred&quot</a>
+    <a id="change">outform_test = outdir+&quoty_pred.test&quot</a>
+    <a id="change">lossform = outdir+&quotloss&quot</a>
+    <a id="change">logfile = outdir+&quotlog.txt&quot</a>
+    <a id="change">f = open(logfile,&quotw&quot)</a>
+    <a id="change">f</a><a id="change">.close()</a>
+    <a id="change">dataform = FLAGS.datadir + FLAGS.dataform</a>
+
+    <a id="change">has_test = False</a>
+    if not FLAGS.data_test == &quot&quot: &#47&#47 if test set supplied
+        <a id="change">has_test = True</a>
+        <a id="change">dataform_test = FLAGS.datadir + FLAGS.data_test</a>
+
+    &quot&quot&quot Set random seeds &quot&quot&quot
+    random.seed(FLAGS.seed)
+    tf.set_random_seed(FLAGS.seed)
+    np.random.seed(FLAGS.seed)
+
+    &quot&quot&quot Save parameters &quot&quot&quot
+    save_config(outdir+&quotconfig.txt&quot)
+
+    log(logfile, &quotTraining with hyperparameters: alpha=%.2g, lambda=%.2g&quot % (FLAGS.p_alpha,FLAGS.p_lambda))
+
+    &quot&quot&quot Load Data &quot&quot&quot
+    <a id="change">npz_input = False</a>
+    if dataform[-3:] == &quotnpz&quot:
+        <a id="change">npz_input = True</a>
+    if npz_input:
+        <a id="change">datapath = dataform</a>
+        if has_test:
+            <a id="change">datapath_test = dataform_test</a>
+    else:
+        <a id="change">datapath = dataform % 1</a>
+        if has_test:
+            <a id="change">datapath_test = dataform_test % 1</a>
+
+    log(logfile,     &quotTraining data: &quot + datapath)
+    if has_test:
+        log(logfile, &quotTest data:     &quot + datapath_test)
+    <a id="change">D = load_data(datapath)</a>
+    <a id="change">D_test = None</a>
+    if has_test:
+        <a id="change">D_test = load_data(datapath_test)</a>
+
+    log(logfile, &quotLoaded data with shape [%d,%d]&quot % (D[&quotn&quot], D[&quotdim&quot]))
+
+    &quot&quot&quot Start Session &quot&quot&quot
+    <a id="change">sess = tf.Session()</a>
+
+    &quot&quot&quot Initialize input placeholders &quot&quot&quot
+    <a id="change">x  = tf.placeholder("float", shape=[None, D[&quotdim&quot]], name=&quotx&quot)</a> &#47&#47 Features
+    <a id="change">t  = tf.placeholder("float", shape=[None, 1], name=&quott&quot)</a>   &#47&#47 Treatent
+    <a id="change">y_ = tf.placeholder("float", shape=[None, 1], name=&quoty_&quot)</a>  &#47&#47 Outcome
+
+    &quot&quot&quot Parameter placeholders &quot&quot&quot
+    <a id="change">r_alpha = tf.placeholder("float", name=&quotr_alpha&quot)</a>
+    <a id="change">r_lambda = tf.placeholder("float", name=&quotr_lambda&quot)</a>
+    <a id="change">do_in = tf.placeholder("float", name=&quotdropout_in&quot)</a>
+    <a id="change">do_out = tf.placeholder("float", name=&quotdropout_out&quot)</a>
+    <a id="change">p = tf.placeholder("float", name=&quotp_treated&quot)</a>
+
+    &quot&quot&quot Define model graph &quot&quot&quot
+    log(logfile, &quotDefining graph...\n&quot)
+    <a id="change">dims = [D[&quotdim&quot], FLAGS.dim_in, FLAGS.dim_out]</a>
+    <a id="change">CFR = cfr.cfr_net(x, t, y_, p, FLAGS, r_alpha, r_lambda, do_in, do_out, dims)</a>
+
+    &quot&quot&quot Set up optimizer &quot&quot&quot
+    <a id="change">global_step = tf.Variable(0, trainable=False)</a>
+    <a id="change">lr = tf.train.exponential_decay(FLAGS.lrate, global_step, \
+        NUM_ITERATIONS_PER_DECAY, FLAGS.lrate_decay, staircase=True)</a>
+
+    <a id="change">opt = None</a>
+    if FLAGS.optimizer == &quotAdagrad&quot:
+        <a id="change">opt = tf.train.AdagradOptimizer(lr)</a>
+    elif FLAGS.optimizer == &quotGradientDescent&quot:
+        <a id="change">opt = tf.train.GradientDescentOptimizer(lr)</a>
+    elif FLAGS.optimizer == &quotAdam&quot:
+        <a id="change">opt = tf.train.AdamOptimizer(lr)</a>
+    else:
+        <a id="change">opt = tf.train.RMSPropOptimizer(lr, FLAGS.decay)</a>
+
+    &quot&quot&quot Unused gradient clipping &quot&quot&quot
+    &#47&#47gvs = opt.compute_gradients(CFR.tot_loss)
+    &#47&#47capped_gvs = [(tf.clip_by_value(grad, -1.0, 1.0), var) for grad, var in gvs]
+    &#47&#47train_step = opt.apply_gradients(capped_gvs, global_step=global_step)
+
+    <a id="change">train_step = opt.minimize(CFR.tot_loss,global_step=global_step)</a>
+
+    &quot&quot&quot Set up for saving variables &quot&quot&quot
+    <a id="change">all_losses = []</a>
+    <a id="change">all_preds_train = []</a>
+    <a id="change">all_preds_test = []</a>
+    <a id="change">all_valid = []</a>
+    if FLAGS.varsel:
+        <a id="change">all_weights = None</a>
+        <a id="change">all_beta = None</a>
+
+    <a id="change">all_preds_test = []</a>
+
+    &quot&quot&quot Handle repetitions &quot&quot&quot
+    <a id="change">n_experiments = FLAGS.experiments</a>
+    if FLAGS.repetitions&gt;1:
+        if FLAGS.experiments&gt;1:
+            log(logfile, &quotERROR: Use of both repetitions and multiple experiments is currently not supported.&quot)
+            sys.exit(1)
+        <a id="change">n_experiments = FLAGS.repetitions</a>
+
+    &quot&quot&quot Run for all repeated experiments &quot&quot&quot
+    for i_exp in range(1,n_experiments+1):
+
+        if FLAGS.repetitions&gt;1:
+            log(logfile, &quotTraining on repeated initialization %d/%d...&quot % (i_exp, FLAGS.repetitions))
+        else:
+            log(logfile, &quotTraining on experiment %d/%d...&quot % (i_exp, n_experiments))
+
+        &quot&quot&quot Load Data (if multiple repetitions, reuse first set)&quot&quot&quot
+
+        if i_exp==1 or FLAGS.experiments&gt;1:
+            <a id="change">D_exp_test = None</a>
+            if npz_input:
+                <a id="change">D_exp = {}</a>
+                <a id="change">D_exp[&quotx&quot]  = D[&quotx&quot][:,:,i_exp-1]</a>
+                <a id="change">D_exp[&quott&quot]  = D[&quott&quot][:,i_exp-1:i_exp]</a>
+                <a id="change">D_exp[&quotyf&quot] = D[&quotyf&quot][:,i_exp-1:i_exp]</a>
+                if D[&quotHAVE_TRUTH&quot]:
+                    <a id="change">D_exp[&quotycf&quot] = D[&quotycf&quot][:,i_exp-1:i_exp]</a>
+                else:
+                    <a id="change">D_exp[&quotycf&quot] = None</a>
+
+                if has_test:
+                    <a id="change">D_exp_test = {}</a>
+                    <a id="change">D_exp_test[&quotx&quot]  = D_test[&quotx&quot][:,:,i_exp-1]</a>
+                    <a id="change">D_exp_test[&quott&quot]  = D_test[&quott&quot][:,i_exp-1:i_exp]</a>
+                    <a id="change">D_exp_test[&quotyf&quot] = D_test[&quotyf&quot][:,i_exp-1:i_exp]</a>
+                    if D_test[&quotHAVE_TRUTH&quot]:
+                        <a id="change">D_exp_test[&quotycf&quot] = D_test[&quotycf&quot][:,i_exp-1:i_exp]</a>
+                    else:
+                        <a id="change">D_exp_test[&quotycf&quot] = None</a>
+            else:
+                <a id="change">datapath = dataform % i_exp</a>
+                <a id="change">D_exp = load_data(datapath)</a>
+                if has_test:
+                    <a id="change">datapath_test = dataform_test % i_exp</a>
+                    <a id="change">D_exp_test = load_data(datapath_test)</a>
+
+            <a id="change">D_exp[&quotHAVE_TRUTH&quot] = D[&quotHAVE_TRUTH&quot]</a>
+            if has_test:
+                <a id="change">D_exp_test[&quotHAVE_TRUTH&quot] = D_test[&quotHAVE_TRUTH&quot]</a>
+
+        &quot&quot&quot Split into training and validation sets &quot&quot&quot
+        <a id="change">I_train, I_valid = validation_split(D_exp, FLAGS.val_part)</a>
+
+        &quot&quot&quot Run training loop &quot&quot&quot
+        <a id="change">losses, preds_train, preds_test, reps, reps_test = \
+            train(CFR, sess, train_step, D_exp, I_valid, \
+                D_exp_test, logfile, i_exp)</a>
+
+        &quot&quot&quot Collect all reps &quot&quot&quot
+        all_preds_train.append(preds_train)
+        all_preds_test.append(preds_test)
+        all_losses.append(losses)
+
+        &quot&quot&quot Fix shape for output (n_units, dim, n_reps, n_outputs) &quot&quot&quot
+        <a id="change">out_preds_train = np.swapaxes(np.swapaxes(all_preds_train,1,3),0,2)</a>
+        if  has_test:
+            <a id="change">out_preds_test = np.swapaxes(np.swapaxes(all_preds_test,1,3),0,2)</a>
+        <a id="change">out_losses = np.swapaxes(np.swapaxes(all_losses,0,2),0,1)</a>
+
+        &quot&quot&quot Store predictions &quot&quot&quot
+        log(logfile, &quotSaving result to %s...\n&quot % outdir)
+        if FLAGS.output_csv:
+            np.savetxt(&quot%s_%d.csv&quot % (outform,i_exp), preds_train[-1], delimiter=&quot,&quot)
+            np.savetxt(&quot%s_%d.csv&quot % (outform_test,i_exp), preds_test[-1], delimiter=&quot,&quot)
+            np.savetxt(&quot%s_%d.csv&quot % (lossform,i_exp), losses, delimiter=&quot,&quot)
+
+        &quot&quot&quot Compute weights if doing variable selection &quot&quot&quot
+        if FLAGS.varsel:
+            if i_exp == 1:
+                <a id="change">all_weights = sess.run(CFR.weights_in[0])</a>
+                <a id="change">all_beta = sess.run(CFR.weights_pred)</a>
+            else:
+                <a id="change">all_weights = np.dstack((all_weights, sess.run(CFR.weights_in[0])))</a>
+                <a id="change">all_beta = np.dstack((all_beta, sess.run(CFR.weights_pred)))</a>
+
+        &quot&quot&quot Save results and predictions &quot&quot&quot
+        all_valid.append(I_valid)
+        if FLAGS.varsel:
+            np.savez(npzfile, pred=out_preds_train, loss=out_losses, w=all_weights, beta=all_beta, val=np.array(all_valid))
+        else:
+            np.savez(npzfile, pred=out_preds_train, loss=out_losses, val=np.array(all_valid))
+
+        if has_test:
+            np.savez(npzfile_test, pred=out_preds_test)
+
+        &quot&quot&quot Save representations &quot&quot&quot
+        if FLAGS.save_rep and i_exp == 1:
+            np.savez(repfile, rep=reps)
+
+            if has_test:
+                np.savez(repfile_test, rep=reps_test)
+
+def main(argv=None):  &#47&#47 pylint: disable=unused-argument
+     Main entry point 
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S-%f")
+    outdir = FLAGS.outdir+&quot/results_&quot+timestamp+&quot/&quot
+    os.mkdir(outdir)
+
+    try:
+        run(outdir)
+    except Exception as e:
+        with open(outdir+&quoterror.txt&quot,&quotw&quot) as errfile:
+            errfile.write(&quot&quot.join(traceback.format_exception(*sys.exc_info())))
+        raise
+
+if __name__ == &quot__main__&quot:
+    tf.app.run()
+</code></pre>

@@ -1,0 +1,132 @@
+<link rel="stylesheet" href="../../../../..//default.css">
+<script src="../../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/palash1992/DynamicGEM/blob/master/dynamicgem/dynamictriad/core/mygraph_utils.py#L61">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/DynamicGEM/blob/master/dynamicgem/dynamictriad/core/mygraph_utils.py#L61">GitMyHubLink</a>
+
+from __future__ import print_function
+import itertools
+import math
+import os
+import ctypes
+&#47&#47 mygraph=ctypes.cdll.LoadLibrary(os.path.realpath(&quot&quot)+&quot/dynamicgem/dynamictriad/core/mygraph.so&quot)
+import dynamicgem.dynamictriad.core.mygraph as mygraph
+
+
+def type2python(tp):
+    if tp == &quotstring&quot:
+        return str
+    elif tp in [&quotshort&quot, &quotint&quot, &quotlong&quot, &quotlong long&quot, &quotint16_t&quot, &quotint32_t&quot, &quotint64_t&quot]:
+        return int
+    elif tp in [&quotdouble&quot, &quotfloat&quot]:
+        return float
+    else:
+        raise TypeError("Unknown type {}".format(tp))
+
+
+def python2type(tp):
+    if tp == int:
+        return &quotint&quot  &#47&#47 TODO: long is better, however, mygraph supports only int curretnly
+    elif tp == str:
+        return &quotstring&quot
+    elif tp == float:
+        return &quotfloat&quot
+    else:
+        raise TypeError("Unsupported python type {}".format(tp))
+
+
+&#47&#47 translate some typical type aliases
+def format_type(tp):
+    if tp in [&quotshort&quot, &quotint16&quot, &quotint16_t&quot]:
+        return &quotint16&quot
+    elif tp in [&quotint&quot, &quotint32&quot, &quotint32_t&quot]:
+        return &quotint32&quot
+    elif tp in [&quotlong&quot, &quotlong long&quot, &quotint64&quot, &quotint64_t&quot]:
+        return &quotint64&quot
+    elif tp in [&quotfloat&quot, &quotreal&quot]:
+        return &quotfloat32&quot
+    elif tp in [&quotdouble&quot]:
+        return &quotfloat64&quot
+    else:
+        raise ValueError("Unknown Type {}".format(tp))
+
+
+&#47&#47 TODO: add undirected mode
+def save_graph(g, fn, fmt=&quotadjlist&quot):
+    if fmt == &quotadjlist&quot:
+        save_adjlist(g, fn)
+    &#47&#47 elif fmt == &quotedgelist&quot:
+    &#47&#47     save_edgelist(g, fn, weight=weight)
+    &#47&#47 elif fmt == &quotTNE&quot:
+    &#47&#47     save_TNE(g, fn, weight=weight)
+    else:
+        raise RuntimeError("Unknown graph format {}".format(fmt))
+
+
+&#47&#47 graph is directed and weighted by default
+def save_adjlist(g, fn):
+    <a id="change">fh</a><a id="change"> = open(fn, &quotw&quot)</a>
+
+    nodes = g.vertices()
+    for i in range(len(nodes) - 1):
+        assert nodes[i] &lt; nodes[i + 1], (nodes[i], nodes[i + 1])
+
+    for i in nodes:
+        nbrs = g.get(i)  &#47&#47 [(nbr, w), ...]
+        strnbr = &quot &quot.join([str(e) for e in itertools.chain.from_iterable(nbrs)])
+        print("{} {}".format(i, strnbr), file=fh)
+    <a id="change">fh</a><a id="change">.close()</a>
+
+
+def load_adjlist(fn, node_type=&quotstring&quot, weight_type=&quotfloat&quot):
+    
+    loads only undirected graph, if multiple instances of the same edge is detected,
+    their weights are summed up
+    :param fn:
+    :param node_type:
+    :param weight_type:
+    :return:
+    
+    py_node_type = type2python(node_type)
+    py_weight_type = type2python(weight_type)
+
+    edgeset = set()  &#47&#47 check if the graph is undirected
+    g = mygraph.Graph(node_type, weight_type)
+    for line in open(fn, &quotr&quot):
+        fields = line.split()
+
+        n = py_node_type(fields[0])
+        if not g.exists(n):
+            g.add_vertex(n)
+
+        for v, w in zip(fields[1::2], fields[2::2]):
+            v = py_node_type(v)
+            w = py_weight_type(w)
+
+            if v == n:
+                print("[warning] loopback edge ({}, {}) detected".format(v, n))
+                continue
+
+            if not g.exists(v):
+                g.add_vertex(v)
+            
+            if g.exists(n, v):
+                raise RuntimeError("Multiple edges ({}, {}) found in {}".format(n, v, fn))
+
+            if g.exists(v, n):  &#47&#47 check if the graph is undirected
+                assert math.fabs(w - g.edge(v, n)) &lt; 1e-6, \
+                    "Inconsistent edge weight on ({}, {}), the graph is not undirected?" \
+                    .format(v, n)
+                edgeset.remove((v, n))
+            else:
+                edgeset.add((n, v))
+
+            g.inc_edge(n, v, w)
+    if len(edgeset) &gt; 0:
+        raise RuntimeError("One-sided edges detected".format(edgeset))
+    return g
+
+</code></pre>

@@ -1,0 +1,477 @@
+<link rel="stylesheet" href="../../../..//default.css">
+<script src="../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/calico/basenji/blob/master/bin/archive/basenji_sed.py#L49">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/basenji/blob/master/bin/archive/basenji_sed.py#L49">GitMyHubLink</a>
+
+&#47&#47!/usr/bin/env python
+&#47&#47 Copyright 2017 Calico LLC
+&#47&#47
+&#47&#47 Licensed under the Apache License, Version 2.0 (the "License");
+&#47&#47 you may not use this file except in compliance with the License.
+&#47&#47 You may obtain a copy of the License at
+&#47&#47
+&#47&#47     https://www.apache.org/licenses/LICENSE-2.0
+&#47&#47
+&#47&#47 Unless required by applicable law or agreed to in writing, software
+&#47&#47 distributed under the License is distributed on an "AS IS" BASIS,
+&#47&#47 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+&#47&#47 See the License for the specific language governing permissions and
+&#47&#47 limitations under the License.
+&#47&#47 =========================================================================
+from __future__ import print_function
+
+from optparse import OptionParser
+import gc
+import os
+import pdb
+import pickle
+import subprocess
+import sys
+
+import h5py
+import numpy as np
+import pyBigWig
+
+from basenji import batcher
+from basenji import dna_io
+from basenji import gene
+from basenji import genedata
+from basenji import params
+from basenji import seqnn
+from basenji import vcf as bvcf
+from basenji_test import bigwig_open
+
+import tensorflow as tf
+
+basenji_sed.py
+
+Compute SNP expression difference (SED) scores for SNPs in a VCF file.
+
+
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+&#47&#47 main
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+def main():
+  <a id="change">usage = (&quotusage: %prog [options] &lt;params_file&gt; &lt;model_file&gt; &lt;genes_hdf5_file&gt;&quot
+           &quot &lt;vcf_file&gt;&quot)</a>
+  <a id="change">parser = OptionParser(usage)</a>
+  parser.add_option(
+      &quot-a&quot,
+      dest=&quotall_sed&quot,
+      default=False,
+      action=&quotstore_true&quot,
+      help=
+      &quotPrint all variant-gene pairs, as opposed to only nonzero [Default: %default]&quot)
+  parser.add_option(
+      &quot-b&quot,
+      dest=&quotbatch_size&quot,
+      default=None,
+      type=&quotint&quot,
+      help=&quotBatch size [Default: %default]&quot)
+  parser.add_option(
+      &quot-c&quot,
+      dest=&quotcsv&quot,
+      default=False,
+      action=&quotstore_true&quot,
+      help=&quotPrint table as CSV [Default: %default]&quot)
+  parser.add_option(
+      &quot-g&quot,
+      dest=&quotgenome_file&quot,
+      default=&quot%s/data/human.hg19.genome&quot % os.environ[&quotBASENJIDIR&quot],
+      help=&quotChromosome lengths file [Default: %default]&quot)
+  parser.add_option(
+      &quot-o&quot,
+      dest=&quotout_dir&quot,
+      default=&quotsed&quot,
+      help=&quotOutput directory for tables and plots [Default: %default]&quot)
+  parser.add_option(
+      &quot-p&quot,
+      dest=&quotprocesses&quot,
+      default=None,
+      type=&quotint&quot,
+      help=&quotNumber of processes, passed by multi script&quot)
+  parser.add_option(
+      &quot--pseudo&quot,
+      dest=&quotlog_pseudo&quot,
+      default=0.125,
+      type=&quotfloat&quot,
+      help=&quotLog2 pseudocount [Default: %default]&quot)
+  parser.add_option(
+      &quot-r&quot,
+      dest=&quottss_radius&quot,
+      default=0,
+      type=&quotint&quot,
+      help=&quotRadius of bins considered to quantify TSS transcription [Default: %default]&quot)
+  parser.add_option(
+      &quot--rc&quot,
+      dest=&quotrc&quot,
+      default=False,
+      action=&quotstore_true&quot,
+      help=
+      &quotAverage the forward and reverse complement predictions when testing [Default: %default]&quot)
+  parser.add_option(
+      &quot--shifts&quot,
+      dest=&quotshifts&quot,
+      default=&quot0&quot,
+      help=&quotEnsemble prediction shifts [Default: %default]&quot)
+  parser.add_option(
+      &quot-t&quot,
+      dest=&quottargets_file&quot,
+      default=None,
+      help=&quotFile specifying target indexes and labels in table format&quot)
+  parser.add_option(
+      &quot-u&quot,
+      dest=&quotpenultimate&quot,
+      default=False,
+      action=&quotstore_true&quot,
+      help=&quotCompute SED in the penultimate layer [Default: %default]&quot)
+  parser.add_option(
+      &quot-x&quot,
+      dest=&quottss_table&quot,
+      default=False,
+      action=&quotstore_true&quot,
+      help=&quotPrint TSS table in addition to gene [Default: %default]&quot)
+  <a id="change">(options, args) = parser.parse_args()</a>
+
+  if len(args) == 4:
+    &#47&#47 single worker
+    <a id="change">params_file = args[0]</a>
+    <a id="change">model_file = args[1]</a>
+    <a id="change">genes_hdf5_file = args[2]</a>
+    <a id="change">vcf_file = args[3]</a>
+
+  elif len(args) == 6:
+    &#47&#47 multi worker
+    <a id="change">options_pkl_file = args[0]</a>
+    <a id="change">params_file = args[1]</a>
+    <a id="change">model_file = args[2]</a>
+    <a id="change">genes_hdf5_file = args[3]</a>
+    <a id="change">vcf_file = args[4]</a>
+    <a id="change">worker_index = int(args[5])</a>
+
+    &#47&#47 load options
+    <a id="change">options_pkl = open(options_pkl_file, &quotrb&quot)</a>
+    <a id="change">options = pickle.load(options_pkl)</a>
+    <a id="change">options_pkl</a><a id="change">.close()</a>
+
+    &#47&#47 update output directory
+    <a id="change">options.out_dir = &quot%s/job%d&quot % (options.out_dir, worker_index)</a>
+
+  else:
+    parser.error(
+        &quotMust provide parameters and model files, genes HDF5 file, and QTL VCF&quot
+        &quot file&quot)
+
+  if not os.path.isdir(options.out_dir):
+    os.mkdir(options.out_dir)
+
+  <a id="change">options.shifts = [int(shift) for shift in options.shifts.split(&quot,&quot)]</a>
+
+  &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+  &#47&#47 reads in genes HDF5
+
+  <a id="change">gene_data = genedata.GeneData(genes_hdf5_file)</a>
+
+  &#47&#47 filter for worker sequences
+  if options.processes is not None:
+    gene_data.worker(worker_index, options.processes)
+
+  &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+  &#47&#47 prep SNPs
+
+  &#47&#47 load SNPs
+  <a id="change">snps = bvcf.vcf_snps(vcf_file)</a>
+
+  &#47&#47 intersect w/ segments
+  print(&quotIntersecting gene sequences with SNPs...&quot, end=&quot&quot)
+  sys.stdout.flush()
+  <a id="change">seqs_snps = bvcf.intersect_seqs_snps(
+      vcf_file, gene_data.gene_seqs, vision_p=0.5)</a>
+  print(&quot%d sequences w/ SNPs&quot % len(seqs_snps))
+
+
+  &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+  &#47&#47 setup model
+
+  <a id="change">job = params.read_job_params(params_file)</a>
+
+  <a id="change">job[&quotseq_length&quot] = gene_data.seq_length</a>
+  <a id="change">job[&quotseq_depth&quot] = gene_data.seq_depth</a>
+  <a id="change">job[&quottarget_pool&quot] = gene_data.pool_width</a>
+
+  if &quotnum_targets&quot not in job and gene_data.num_targets is not None:
+    <a id="change">job[&quotnum_targets&quot] = gene_data.num_targets</a>
+
+  if &quotnum_targets&quot not in job:
+    print("Must specify number of targets (num_targets) in the \
+            parameters file.", file=sys.stderr)
+    exit(1)
+
+  if options.targets_file is None:
+    <a id="change">target_labels = gene_data.target_labels</a>
+    <a id="change">target_subset = None</a>
+    <a id="change">target_ids = gene_data.target_ids</a>
+    if target_ids is None:
+      <a id="change">target_ids = [&quott%d&quot%ti for ti in range(job[&quotnum_targets&quot])]</a>
+      <a id="change">target_labels = [&quot&quot]*len(target_ids)</a>
+
+  else:
+    &#47&#47 Unfortunately, this target file differs from some others
+    &#47&#47 in that it needs to specify the indexes from the original
+    &#47&#47 set. In the future, I should standardize to this version.
+
+    <a id="change">target_ids = []</a>
+    <a id="change">target_labels = []</a>
+    <a id="change">target_subset = []</a>
+
+    for line in open(options.targets_file):
+      <a id="change">a = line.strip().split(&quot\t&quot)</a>
+      target_subset.append(int(a[0]))
+      target_ids.append(a[1])
+      target_labels.append(a[3])
+
+      if len(target_subset) == job[&quotnum_targets&quot]:
+        <a id="change">target_subset = None</a>
+
+  &#47&#47 build model
+  <a id="change">model = seqnn.SeqNN()</a>
+  model.build_feed(job, target_subset=target_subset)
+
+  if options.penultimate:
+    &#47&#47 labels become inappropriate
+    <a id="change">target_ids = [&quot&quot]*model.hp.cnn_filters[-1]</a>
+    <a id="change">target_labels = target_ids</a>
+
+  &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+  &#47&#47 compute, collect, and print SEDs
+
+  header_cols = (&quotrsid&quot, &quotref&quot, &quotalt&quot, &quotgene&quot, &quottss_dist&quot, &quotref_pred&quot,
+                 &quotalt_pred&quot, &quotsed&quot, &quotser&quot, &quottarget_index&quot, &quottarget_id&quot,
+                 &quottarget_label&quot)
+  if options.csv:
+    <a id="change">sed_gene_out = open(&quot%s/sed_gene.csv&quot % options.out_dir, &quotw&quot)</a>
+    print(&quot,&quot.join(header_cols), file=sed_gene_out)
+    if options.tss_table:
+      <a id="change">sed_tss_out = open(&quot%s/sed_tss.csv&quot % options.out_dir, &quotw&quot)</a>
+      print(&quot,&quot.join(header_cols), file=sed_tss_out)
+
+  else:
+    <a id="change">sed_gene_out = open(&quot%s/sed_gene.txt&quot % options.out_dir, &quotw&quot)</a>
+    print(&quot &quot.join(header_cols), file=sed_gene_out)
+    if options.tss_table:
+      <a id="change">sed_tss_out = open(&quot%s/sed_tss.txt&quot % options.out_dir, &quotw&quot)</a>
+      print(&quot &quot.join(header_cols), file=sed_tss_out)
+
+  &#47&#47 helper variables
+  <a id="change">pred_buffer = model.hp.batch_buffer // model.hp.target_pool</a>
+
+  &#47&#47 initialize saver
+  <a id="change">saver = tf.train.Saver()</a>
+
+  with tf.Session() as sess:
+    &#47&#47 load variables into session
+    saver.restore(sess, model_file)
+
+    &#47&#47 for each gene sequence
+    for seq_i in range(gene_data.num_seqs):
+      <a id="change">gene_seq = gene_data.gene_seqs[seq_i]</a>
+      print(gene_seq)
+
+      &#47&#47 if it contains SNPs
+      <a id="change">seq_snps = [snps[snp_i] for snp_i in seqs_snps[seq_i]]</a>
+      if len(seq_snps) &gt; 0:
+
+        &#47&#47 one hot code allele sequences
+        <a id="change">aseqs_1hot = alleles_1hot(gene_seq, gene_data.seqs_1hot[seq_i], seq_snps)</a>
+
+        &#47&#47 initialize batcher
+        <a id="change">batcher_gene = batcher.Batcher(aseqs_1hot, batch_size=model.hp.batch_size)</a>
+
+        &#47&#47 construct allele gene_seq&quots
+        <a id="change">allele_gene_seqs = [gene_seq] * aseqs_1hot.shape[0]</a>
+
+        &#47&#47 predict alleles
+        <a id="change">allele_tss_preds = model.predict_genes(sess, batcher_gene, allele_gene_seqs,
+                                                rc=options.rc, shifts=options.shifts,
+                                                embed_penultimate=options.penultimate,
+                                                tss_radius=options.tss_radius)</a>
+
+        &#47&#47 reshape (Alleles x TSSs) x Targets to Alleles x TSSs x Targets
+        <a id="change">allele_tss_preds = allele_tss_preds.reshape((aseqs_1hot.shape[0], gene_seq.num_tss, -1))</a>
+
+        &#47&#47 extract reference and SNP alt predictions
+        <a id="change">ref_tss_preds = allele_tss_preds[0]</a> &#47&#47 TSSs x Targets
+        <a id="change">alt_tss_preds = allele_tss_preds[1:]</a> &#47&#47 SNPs x TSSs x Targets
+
+        &#47&#47 compute TSS SED scores
+        <a id="change">snp_tss_sed = alt_tss_preds - ref_tss_preds</a>
+        <a id="change">snp_tss_ser = np.log2(alt_tss_preds + options.log_pseudo) \
+                        - np.log2(ref_tss_preds + options.log_pseudo)</a>
+
+        &#47&#47 compute gene-level predictions
+        <a id="change">ref_gene_preds, gene_ids = gene.map_tss_genes(ref_tss_preds, gene_seq.tss_list, options.tss_radius)</a>
+        <a id="change">alt_gene_preds = []</a>
+        for snp_i in range(len(seq_snps)):
+          <a id="change">agp, _ = gene.map_tss_genes(alt_tss_preds[snp_i], gene_seq.tss_list, options.tss_radius)</a>
+          alt_gene_preds.append(agp)
+        <a id="change">alt_gene_preds = np.array(alt_gene_preds)</a>
+
+        &#47&#47 compute gene SED scores
+        <a id="change">gene_sed = alt_gene_preds - ref_gene_preds</a>
+        <a id="change">gene_ser = np.log2(alt_gene_preds + options.log_pseudo) \
+                    - np.log2(ref_gene_preds + options.log_pseudo)</a>
+
+        &#47&#47 for each SNP
+        for snp_i in range(len(seq_snps)):
+          <a id="change">snp = seq_snps[snp_i]</a>
+
+          &#47&#47 initialize gene data structures
+          <a id="change">snp_dist_gene = {}</a>
+
+          &#47&#47 for each TSS
+          for tss_i in range(gene_seq.num_tss):
+            <a id="change">tss = gene_seq.tss_list[tss_i]</a>
+
+            &#47&#47 SNP distance to TSS
+            <a id="change">snp_dist = abs(snp.pos - tss.pos)</a>
+            if tss.gene_id in snp_dist_gene:
+              <a id="change">snp_dist_gene[tss.gene_id] = min(snp_dist_gene[tss.gene_id], snp_dist)</a>
+            else:
+              <a id="change">snp_dist_gene[tss.gene_id] = snp_dist</a>
+
+            &#47&#47 for each target
+            if options.tss_table:
+              for ti in range(ref_tss_preds.shape[1]):
+
+                &#47&#47 check if nonzero
+                if options.all_sed or not np.isclose(tss_sed[snp_i,tss_i,ti], 0, atol=1e-4):
+
+                  &#47&#47 print
+                  cols = (snp.rsid, bvcf.cap_allele(snp.ref_allele),
+                          bvcf.cap_allele(snp.alt_alleles[0]),
+                          tss.identifier, snp_dist, ref_tss_preds[tss_i,ti], alt_tss_preds[snp_i,tss_i,ti],
+                          tss_sed[snp_i,tss_i,ti], tss_ser[snp_i,tss_i,ti], ti, target_ids[ti], target_labels[ti])
+                  if options.csv:
+                    print(&quot,&quot.join([str(c) for c in cols]), file=sed_tss_out)
+                  else:
+                    print(
+                        &quot%-13s %s %5s %16s %5d %7.4f %7.4f %7.4f %7.4f %4d %12s %s&quot
+                        % cols,
+                        file=sed_tss_out)
+
+          &#47&#47 for each gene
+          for gi in range(len(gene_ids)):
+            <a id="change">gene_str = gene_ids[gi]</a>
+            if gene_ids[gi] in gene_data.multi_seq_genes:
+              <a id="change">gene_str = &quot%s_multi&quot % gene_ids[gi]</a>
+
+            &#47&#47 print rows to gene table
+            for ti in range(ref_gene_preds.shape[1]):
+
+              &#47&#47 check if nonzero
+              if options.all_sed or not np.isclose(gene_sed[snp_i,gi,ti], 0, atol=1e-4):
+
+                &#47&#47 print
+                <a id="change">cols = [
+                    snp.rsid,
+                    bvcf.cap_allele(snp.ref_allele),
+                    bvcf.cap_allele(snp.alt_alleles[0]), gene_str,
+                    snp_dist_gene[gene_ids[gi]], ref_gene_preds[gi,ti], alt_gene_preds[snp_i,gi,ti],
+                    gene_sed[snp_i,gi,ti], gene_ser[snp_i,gi,ti], ti, target_ids[ti], target_labels[ti]
+                ]</a>
+                if options.csv:
+                  print(&quot,&quot.join([str(c) for c in cols]), file=sed_gene_out)
+                else:
+                  print(
+                      &quot%-13s %s %5s %16s %5d %7.4f %7.4f %7.4f %7.4f %4d %12s %s&quot
+                      % tuple(cols),
+                      file=sed_gene_out)
+
+        &#47&#47 clean up
+        gc.collect()
+
+  sed_gene_out.close()
+  if options.tss_table:
+    sed_tss_out.close()
+
+
+def alleles_1hot(gene_seq, seq_1hot, seq_snps):
+  &quot&quot&quot One hot code for gene sequence alleles. &quot&quot&quot
+
+  &#47&#47 initialize one hot coding
+  aseqs_1hot = []
+
+  &#47&#47 add reference allele sequence
+  aseqs_1hot.append(np.copy(seq_1hot))
+
+  &#47&#47 set all reference alleles
+  for snp in seq_snps:
+
+    &#47&#47 determine SNP position wrt sequence
+    snp_seq_pos = snp.pos - 1 - gene_seq.start
+
+    &#47&#47 verify that the reference allele matches the reference
+    seq_ref = dna_io.hot1_dna(aseqs_1hot[0][
+      snp_seq_pos:snp_seq_pos + len(snp.ref_allele), :])
+    if seq_ref != snp.ref_allele:
+      print(&quotWARNING: %s - ref allele %s does not match reference genome %s; changing reference genome to match.&quot % (snp.rsid, snp.ref_allele, seq_ref), file=sys.stderr)
+
+      if len(seq_ref) == len(snp.ref_allele):
+        &#47&#47 SNP
+        dna_io.hot1_set(aseqs_1hot[0], snp_seq_pos, snp.ref_allele)
+
+      &#47&#47 not confident in these operations
+
+      &#47&#47 elif len(seq_ref) &gt; len(snp.ref_allele):
+      &#47&#47   &#47&#47 deletion
+      &#47&#47   delete_len = len(seq_ref) - len(snp.ref_allele)
+      &#47&#47   dna_io.hot1_delete(aseqs_1hot[0], snp_seq_pos + 1, delete_len)
+
+      &#47&#47 else:
+      &#47&#47   &#47&#47 insertion
+      &#47&#47   dna_io.hot1_insert(aseqs_1hot[0], snp_seq_pos + 1, snp.ref_allele[1:])
+
+      else:
+        raise Exception(&quotERROR: reference mismatch indels cannot yet be handled.&quot)
+
+
+  &#47&#47 for each SNP
+  for snp in seq_snps:
+
+    &#47&#47 determine SNP position wrt sequence
+    snp_seq_pos = snp.pos - 1 - gene_seq.start
+
+    &#47&#47 add minor allele sequence
+    aseqs_1hot.append(np.copy(aseqs_1hot[0]))
+    if len(snp.ref_allele) == len(snp.alt_alleles[0]):
+      &#47&#47 SNP
+      dna_io.hot1_set(aseqs_1hot[-1], snp_seq_pos, snp.alt_alleles[0])
+
+    elif len(snp.ref_allele) &gt; len(snp.alt_alleles[0]):
+      &#47&#47 deletion
+      delete_len = len(snp.ref_allele) - len(snp.alt_alleles[0])
+      assert (snp.ref_allele[0] == snp.alt_alleles[0][0])
+      dna_io.hot1_delete(aseqs_1hot[-1], snp_seq_pos + 1, delete_len)
+
+    else:
+      &#47&#47 insertion
+      assert (snp.ref_allele[0] == snp.alt_alleles[0][0])
+      dna_io.hot1_insert(aseqs_1hot[-1], snp_seq_pos + 1, snp.alt_alleles[0][1:])
+
+  &#47&#47 finalize
+  aseqs_1hot = np.array(aseqs_1hot)
+
+  return aseqs_1hot
+
+
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+&#47&#47 __main__
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+if __name__ == &quot__main__&quot:
+  main()
+  &#47&#47 pdb.runcall(main)
+</code></pre>

@@ -1,0 +1,122 @@
+digraph G {
+1 [label="(49401910)TensorDB(self)" shape=ellipse style=dashed]
+2 [label="(49401939)String(lit(wb))" shape=ellipse style=dashed color=red fontcolor=red]
+3 [label="(49401911)(null)" shape=ellipse style=dashed]
+4 [label="(49401938)Add" shape=box style=dashed]
+5 [label="(49401954)return" shape=box style=dashed]
+6 [label="(49401952)Any(args)" shape=ellipse style=dashed]
+7 [label="(49401912)=" shape=box style=dashed color=blue fontcolor=blue]
+8 [label="(49401935)Any(temp)" shape=ellipse style=dashed]
+9 [label="(49401941)BinaryIO(f)" shape=ellipse style=dashed]
+10 [label="(49401948)empty" shape=box style=dashed]
+11 [label="(49401944)Any[.](Subscript)" shape=ellipse style=dashed]
+12 [label="(49401916)=" shape=box style=dashed color=red fontcolor=red]
+13 [label="(49401928)keys" shape=box style=dashed]
+14 [label="(49401926)String(lit(script_name))" shape=ellipse style=dashed]
+15 [label="(49401933)open" shape=box style=dashed color=red fontcolor=red]
+16 [label="(49401915)(null)" shape=ellipse style=dashed]
+17 [label="(49401950)String(lit([TensorDB] Find Job: {}))" shape=ellipse style=dashed]
+18 [label="(49401942)write" shape=box style=dashed]
+19 [label="(49401909)START" style=dashed]
+20 [label="(49401940)=" shape=box style=dashed color=red fontcolor=red]
+21 [label="(49401927)Any(temp)" shape=ellipse style=dashed]
+22 [label="(49401946)BinaryIO(f)" shape=ellipse style=dashed color=red fontcolor=red]
+23 [label="(49401951)format" shape=box style=dashed]
+24 [label="(49401936)Any[.](Subscript)" shape=ellipse style=dashed]
+25 [label="(49401923)find_one" shape=box style=dashed]
+26 [label="(49401931)empty" shape=box style=dashed]
+27 [label="(49401922)TensorDB.db.Job(Job)" shape=ellipse style=dashed]
+28 [label="(49401919)Any(temp)" shape=ellipse style=dashed]
+29 [label="(49401937)String(lit(script_name))" shape=ellipse style=dashed]
+30 [label="(49401924)Any(args)" shape=ellipse style=dashed]
+31 [label="(49401949)print" shape=box style=dashed]
+32 [label="(49401925)=" shape=box style=dashed color=black fontcolor=black]
+33 [label="(49401947)close" shape=box style=dashed color=red fontcolor=red]
+34 [label="(49401943)Any(temp)" shape=ellipse style=dashed]
+35 [label="(49401953)Any(temp)" shape=ellipse style=dashed]
+36 [label="(49401955)END" style=dashed]
+37 [label="(49401930)If" shape=diamond style=dashed]
+38 [label="(49401914)Any(args)" shape=ellipse style=dashed]
+39 [label="(49401934)String(lit(_))" shape=ellipse style=dashed]
+40 [label="(49401920)TensorDB(self)" shape=ellipse style=dashed]
+41 [label="(49401945)String(lit(script))" shape=ellipse style=dashed]
+42 [label="(49401932)BinaryIO(f)" shape=ellipse style=dashed color=red fontcolor=red]
+43 [label="(49401921)TensorDB.db(db)" shape=ellipse style=dashed]
+44 [label="(49401929)In" shape=box style=dashed]
+7 -> 1 [label="def" style=dotted];
+37 -> 4 [label="T"];
+39 -> 4 [label="para" style=dotted];
+24 -> 4 [label="para" style=dotted];
+26 -> 4 [label="dep" style=dotted];
+19 -> 5 [label="" style=solid];
+35 -> 5 [label="para" style=dotted];
+31 -> 5 [label="dep" style=dotted];
+19 -> 7 [label="" style=solid];
+3 -> 7 [label="para" style=dotted];
+28 -> 8 [label="ref" style=dotted];
+42 -> 9 [label="ref" style=dotted];
+37 -> 10 [label="F"];
+34 -> 11 [label="qual" style=dotted];
+41 -> 11 [label="para" style=dotted];
+28 -> 11 [label="ref" style=dotted];
+19 -> 12 [label="" style=solid];
+16 -> 12 [label="para" style=dotted];
+7 -> 12 [label="dep" style=dotted];
+19 -> 13 [label="" style=solid];
+21 -> 13 [label="recv" style=dotted];
+32 -> 13 [label="dep" style=dotted];
+37 -> 15 [label="T"];
+4 -> 15 [label="dep" style=dotted];
+4 -> 15 [label="para" style=dotted];
+2 -> 15 [label="para" style=dotted];
+26 -> 15 [label="dep" style=dotted];
+37 -> 18 [label="T"];
+9 -> 18 [label="recv" style=dotted];
+11 -> 18 [label="para" style=dotted];
+20 -> 18 [label="dep" style=dotted];
+37 -> 20 [label="T"];
+15 -> 20 [label="dep" style=dotted];
+15 -> 20 [label="para" style=dotted];
+28 -> 21 [label="ref" style=dotted];
+42 -> 22 [label="ref" style=dotted];
+19 -> 23 [label="" style=solid];
+17 -> 23 [label="recv" style=dotted];
+6 -> 23 [label="para" style=dotted];
+10 -> 23 [label="dep" style=dotted];
+33 -> 23 [label="dep" style=dotted];
+8 -> 24 [label="qual" style=dotted];
+29 -> 24 [label="para" style=dotted];
+28 -> 24 [label="ref" style=dotted];
+19 -> 25 [label="" style=solid];
+27 -> 25 [label="recv" style=dotted];
+30 -> 25 [label="para" style=dotted];
+12 -> 25 [label="dep" style=dotted];
+37 -> 26 [label="T"];
+43 -> 27 [label="qual" style=dotted];
+32 -> 28 [label="def" style=dotted];
+19 -> 31 [label="" style=solid];
+23 -> 31 [label="dep" style=dotted];
+23 -> 31 [label="para" style=dotted];
+10 -> 31 [label="dep" style=dotted];
+33 -> 31 [label="dep" style=dotted];
+19 -> 32 [label="" style=solid];
+25 -> 32 [label="dep" style=dotted];
+25 -> 32 [label="para" style=dotted];
+37 -> 33 [label="T"];
+22 -> 33 [label="recv" style=dotted];
+18 -> 33 [label="dep" style=dotted];
+28 -> 34 [label="ref" style=dotted];
+28 -> 35 [label="ref" style=dotted];
+5 -> 36 [label="dep" style=dotted];
+19 -> 37 [label="" style=solid];
+44 -> 37 [label="dep" style=dotted];
+44 -> 37 [label="cond" style=dotted];
+12 -> 38 [label="def" style=dotted];
+20 -> 42 [label="def" style=dotted];
+40 -> 43 [label="qual" style=dotted];
+19 -> 44 [label="" style=solid];
+14 -> 44 [label="para" style=dotted];
+13 -> 44 [label="dep" style=dotted];
+13 -> 44 [label="para" style=dotted];
+32 -> 44 [label="dep" style=dotted];
+}

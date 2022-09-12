@@ -1,0 +1,101 @@
+<link rel="stylesheet" href="../../..//default.css">
+<script src="../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/PacktPublishing/TensorFlow-Machine-Learning-Cookbook/blob/master/Chapter 08/download_cifar10.py#L54">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/TensorFlow-Machine-Learning-Cookbook/blob/master/Chapter 08/download_cifar10.py#L54">GitMyHubLink</a>
+
+&#47&#47 Download/Saving CIFAR-10 images in Inception format
+&#47&#47---------------------------------------
+&#47&#47
+&#47&#47 In this script, we download the CIFAR-10 images and
+&#47&#47 transform/save them in the Inception Retrianing Format
+&#47&#47
+&#47&#47 The end purpose of the files is for retrianing the
+&#47&#47 Google Inception tensorflow model to work on the CIFAR-10.
+
+import os
+import tarfile
+import _pickle as cPickle
+import numpy as np
+import urllib.request
+import scipy.misc
+
+cifar_link = &quothttps://www.cs.toronto.edu/~kriz/cifar-10-python.tar.gz&quot
+data_dir = &quottemp&quot
+if not os.path.isdir(data_dir):
+    os.makedirs(data_dir)
+
+&#47&#47 Download tar file
+target_file = os.path.join(data_dir, &quotcifar-10-python.tar.gz&quot)
+if not os.path.isfile(target_file):
+    print(&quotCIFAR-10 file not found. Downloading CIFAR data (Size = 163MB)&quot)
+    print(&quotThis may take a few minutes, please wait.&quot)
+    filename, headers = urllib.request.urlretrieve(cifar_link, target_file)
+
+&#47&#47 Extract into memory
+tar = tarfile.open(target_file)
+tar.extractall(path=data_dir)
+tar.close()
+objects = [&quotairplane&quot, &quotautomobile&quot, &quotbird&quot, &quotcat&quot, &quotdeer&quot, &quotdog&quot, &quotfrog&quot, &quothorse&quot, &quotship&quot, &quottruck&quot]
+
+&#47&#47 Create train image folders
+train_folder = &quottrain_dir&quot
+if not os.path.isdir(os.path.join(data_dir, train_folder)):
+    for i in range(10):
+        folder = os.path.join(data_dir, train_folder, objects[i])
+        os.makedirs(folder)
+&#47&#47 Create test image folders
+test_folder = &quotvalidation_dir&quot
+if not os.path.isdir(os.path.join(data_dir, test_folder)):
+    for i in range(10):
+        folder = os.path.join(data_dir, test_folder, objects[i])
+        os.makedirs(folder)
+
+&#47&#47 Extract images accordingly
+data_location = os.path.join(data_dir, &quotcifar-10-batches-py&quot)
+train_names = [&quotdata_batch_&quot + str(x) for x in range(1,6)]
+test_names = [&quottest_batch&quot]
+
+
+def load_batch_from_file(file):
+    <a id="change">file_conn = open(file, &quotrb&quot)</a>
+    image_dictionary = cPickle.load(file_conn, encoding=&quotlatin1&quot)
+    <a id="change">file_conn</a><a id="change">.close()</a>
+    return(image_dictionary)
+
+
+def save_images_from_dict(image_dict, folder=&quotdata_dir&quot):
+    &#47&#47 image_dict.keys() = &quotlabels&quot, &quotfilenames&quot, &quotdata&quot, &quotbatch_label&quot
+    for ix, label in enumerate(image_dict[&quotlabels&quot]):
+        folder_path = os.path.join(data_dir, folder, objects[label])
+        filename = image_dict[&quotfilenames&quot][ix]
+        &#47&#47Transform image data
+        image_array = image_dict[&quotdata&quot][ix]
+        image_array.resize([3, 32, 32])
+        &#47&#47 Save image
+        output_location = os.path.join(folder_path, filename)
+        scipy.misc.imsave(output_location,image_array.transpose())
+
+&#47&#47 Sort train images
+for file in train_names:
+    print(&quotSaving images from file: {}&quot.format(file))
+    file_location = os.path.join(data_dir, &quotcifar-10-batches-py&quot, file)
+    image_dict = load_batch_from_file(file_location)
+    save_images_from_dict(image_dict, folder=train_folder)
+
+&#47&#47 Sort test images
+for file in test_names:
+    print(&quotSaving images from file: {}&quot.format(file))
+    file_location = os.path.join(data_dir, &quotcifar-10-batches-py&quot, file)
+    image_dict = load_batch_from_file(file_location)
+    save_images_from_dict(image_dict, folder=test_folder)
+    
+&#47&#47 Create labels file
+cifar_labels_file = os.path.join(data_dir,&quotcifar10_labels.txt&quot)
+print(&quotWriting labels file, {}&quot.format(cifar_labels_file))
+with open(cifar_labels_file, &quotw&quot) as labels_file:
+    for item in objects:
+        labels_file.write("{}\n".format(item))</code></pre>

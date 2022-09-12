@@ -1,0 +1,644 @@
+<link rel="stylesheet" href="../../../../../..//default.css">
+<script src="../../../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/Microsoft/MMdnn/blob/master/mmdnn/conversion/examples/coreml/test_tfcoreml.py#L15">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/MMdnn/blob/master/mmdnn/conversion/examples/coreml/test_tfcoreml.py#L15">GitMyHubLink</a>
+
+import unittest
+import urllib
+import os
+import tarfile
+import zipfile
+import numpy as np
+import PIL.Image
+import tensorflow as tf
+from tensorflow.core.framework import graph_pb2
+import tfcoreml as tf_converter
+
+TMP_MODEL_DIR = &quottmp/tfcoreml&quot
+TEST_IMAGE = &quotmmdnn/conversion/examples/data/seagull.jpg&quot
+
+def _download_file(url):
+  Download the file.
+  url - The URL address of the frozen file
+  fname - Filename of the frozen TF graph in the url.
+  
+  dir_path = TMP_MODEL_DIR
+  if not os.path.exists(dir_path):
+      os.makedirs(dir_path)
+
+  k = url.rfind(<a id="change">&quot/&quot</a>)
+  fname = url[k+1:]
+  fpath = os.path.join(dir_path, fname)
+
+  ftype = None
+  if url.endswith(".tar.gz") or url.endswith(".tgz"):
+    ftype = &quottgz&quot
+  elif url.endswith(&quot.zip&quot):
+    ftype = &quotzip&quot
+
+  if not os.path.exists(fpath):
+    urllib.urlretrieve(url, fpath)
+  if ftype == &quottgz&quot:
+    <a id="change">tar = tarfile.open(fpath)</a>
+    tar.extractall(dir_path)
+    <a id="change">tar</a><a id="change">.close()</a>
+  elif ftype == &quotzip&quot:
+    zip_ref = zipfile.ZipFile(fpath, &quotr&quot)
+    zip_ref.extractall(dir_path)
+    zip_ref.close()
+
+def _compute_max_relative_error(x,y):
+  rerror = 0
+  index = 0
+  for i in range(len(x)):
+    den = max(1.0, np.abs(x[i]), np.abs(y[i]))
+    if np.abs(x[i]/den - y[i]/den) &gt; rerror:
+      rerror = np.abs(x[i]/den - y[i]/den)
+      index = i
+  return rerror, index
+
+def _compute_SNR(x,y):
+  noise = x - y
+  noise_var = np.sum(noise ** 2)/len(noise) + 1e-7
+  signal_energy = np.sum(y ** 2)/len(y)
+  max_signal_energy = np.amax(y ** 2)
+  SNR = 10 * np.log10(signal_energy/noise_var)
+  PSNR = 10 * np.log10(max_signal_energy/noise_var)
+  return SNR, PSNR
+
+def _load_image(path, resize_to=None):
+  img = PIL.Image.open(path)
+  if resize_to is not None:
+    img = img.resize(resize_to, PIL.Image.ANTIALIAS)
+  img_np = np.array(img).astype(np.float32)
+  return img_np, img
+
+def _generate_data(input_shape, mode = &quotrandom&quot,
+                   scale = 2.0/255, bias = -1,
+                   img_size = 256):
+  
+  Generate some random data according to a shape.
+  
+  if input_shape is None or len(input_shape) == 0:
+    return 0.5
+  if mode == &quotzeros&quot:
+    X = np.zeros(input_shape)
+  elif mode == &quotones&quot:
+    X = np.ones(input_shape)
+  elif mode == &quotlinear&quot:
+    X = np.array(range(np.product(input_shape))).reshape(input_shape)*1.0
+  elif mode == &quotrandom&quot:
+    X = np.random.rand(*input_shape)
+  elif mode == &quotrandom_zero_mean&quot:
+    X = np.random.rand(*input_shape)-0.5
+  elif mode == &quotimage&quot:
+    &#47&#47 Load a real image and do default tf imageNet preprocessing
+    img_np, _ = _load_image(TEST_IMAGE ,resize_to=(img_size, img_size))
+    img_tf = np.expand_dims(img_np, axis = 0)
+    X = img_tf * scale + bias
+  elif mode == &quotonehot_0&quot:
+    X = np.zeros(input_shape)
+    X[0] = 1
+  return X
+
+def _tf_transpose(x, is_sequence=False):
+  if not hasattr(x, "shape"):
+    return x
+  if len(x.shape) == 4:
+    &#47&#47 [Batch, Height, Width, Channels] --&gt; [Batch, Channels, Height, Width]
+    x = np.transpose(x, [0,3,1,2])
+    return np.expand_dims(x, axis=0)
+  elif len(x.shape) == 3:
+    &#47&#47 We only deal with non-recurrent networks for now
+    &#47&#47 (H,W,C) --&gt; (C,H,W)
+    return np.transpose(x, [2,0,1])
+  elif len(x.shape) == 2:
+    if is_sequence:  &#47&#47 (N,S) --&gt; (S,N,1,)
+      return x.reshape(x.shape[::-1] + (1,))
+    else:  &#47&#47 (N,C) --&gt; (N,C,1,1)
+      return x.reshape((1, ) + x.shape) &#47&#47 Dense
+  elif len(x.shape) == 1:
+    if is_sequence: &#47&#47 (S) --&gt; (S,N,1,1,1)
+      return x.reshape((x.shape[0], 1, 1, 1, 1))
+    else:
+      return x
+  else:
+    return x
+
+class CorrectnessTest(unittest.TestCase):
+
+  @classmethod
+  def setUpClass(self):
+     Set up the unit test by loading common utilities.
+    
+    self.err_thresh = 0.15
+    self.snr_thresh = 12
+    self.psnr_thresh = 30
+    self.red_bias = -1
+    self.blue_bias = -1
+    self.green_bias = -1
+    self.image_scale = 2.0/255
+
+  def _compare_tf_coreml_outputs(self, tf_out, coreml_out):
+    self.assertEquals(len(tf_out), len(coreml_out))
+    error, ind = _compute_max_relative_error(coreml_out, tf_out)
+    SNR, PSNR = _compute_SNR(coreml_out, tf_out)
+    self.assertGreater(SNR, self.snr_thresh)
+    self.assertGreater(PSNR, self.psnr_thresh)
+    self.assertLess(error, self.err_thresh)
+
+
+  def _test_tf_model(self, tf_model_path, coreml_model, input_tensors,
+      output_tensor_names, data_modes = &quotrandom&quot, delta = 1e-2,
+      use_cpu_only = False, scale = 2.0/255, bias = -1,
+      img_size = None, sequence_inputs = None):
+     Common entry to testing routine (Tensors in, tensors out).
+    tf_model_path - frozen TF model path
+    coreml_model - MLModel object
+    input_tensors -  list of (name,shape) for each input (placeholder)
+    output_tensor_names - output_tensor_names, a list of strings
+    sequence_inputs - dict of input names that are sequences for CoreML input
+    
+    &#47&#47 Load TensorFlow model
+    tf.reset_default_graph()
+    graph_def = graph_pb2.GraphDef()
+    with open(tf_model_path, "rb") as f:
+        graph_def.ParseFromString(f.read())
+    g = tf.import_graph_def(graph_def)
+
+    if type(data_modes) is str:
+      data_modes = [data_modes] * len(input_tensors)
+
+    with tf.Session(graph = g) as sess:
+      &#47&#47 Prepare inputs
+      feed_dict = {}
+      for idx, in_tensor in enumerate(input_tensors):
+        ts_name, ts_shape = in_tensor
+        ts_name = &quotimport/&quot + ts_name
+        feed_dict[ts_name] = _generate_data(ts_shape,
+                                  mode = data_modes[idx],
+                                  scale = scale, bias = bias,
+                                  img_size = img_size)
+      &#47&#47 Run TF session
+      out_tf_names = []
+      for out_name in output_tensor_names:
+        out_tf_names.append(&quotimport/&quot + out_name)
+      result = sess.run(out_tf_names, feed_dict=feed_dict)
+
+    &#47&#47 Evaluate coreml model
+    coreml_inputs = {}
+    for idx, in_tensor in enumerate(input_tensors):
+      in_tensor_name, in_shape = in_tensor
+      coreml_in_name = in_tensor_name.replace(&quot:&quot, &quot__&quot).replace(&quot/&quot, &quot__&quot)
+      if in_tensor_name in sequence_inputs:
+        coreml_inputs[coreml_in_name] = _tf_transpose(
+            feed_dict[&quotimport/&quot+in_tensor_name], is_sequence=True).copy()
+      else:
+        coreml_inputs[coreml_in_name] = _tf_transpose(
+          feed_dict[&quotimport/&quot+in_tensor_name]).copy()
+
+    coreml_output = coreml_model.predict(coreml_inputs, useCPUOnly=use_cpu_only)
+
+    for idx, out_name in enumerate(output_tensor_names):
+      out_tensor_name = out_name.replace(&quot:&quot, &quot__&quot).replace(&quot/&quot, &quot__&quot)
+      tp = _tf_transpose(result[idx]).flatten()
+      cp = coreml_output[out_tensor_name].flatten()
+      error, index = _compute_max_relative_error(tp, cp)
+      snr, psnr = _compute_SNR(tp, cp)
+      self._compare_tf_coreml_outputs(tp, cp)
+
+
+  def _test_coreml_model_image_input(self, tf_model_path, coreml_model,
+      input_tensor_name, output_tensor_name, img_size, useCPUOnly = False):
+    Test single image input conversions.
+    tf_model_path - the TF model
+    coreml_model - converted CoreML model
+    input_tensor_name - the input image tensor name
+    output_tensor_name - the output tensor name
+    img_size - size of the image
+    
+
+    img_np, img = _load_image(TEST_IMAGE ,resize_to=(img_size, img_size))
+    img_tf = np.expand_dims(img_np, axis = 0)
+    img_tf[:,:,:,0] = self.image_scale * img_tf[:,:,:,0] + self.red_bias
+    img_tf[:,:,:,1] = self.image_scale * img_tf[:,:,:,1] + self.green_bias
+    img_tf[:,:,:,2] = self.image_scale * img_tf[:,:,:,2] + self.blue_bias
+
+    &#47&#47evaluate the TF model
+    tf.reset_default_graph()
+    graph_def = graph_pb2.GraphDef()
+    with open(tf_model_path, "rb") as f:
+        graph_def.ParseFromString(f.read())
+    g = tf.import_graph_def(graph_def)
+    with tf.Session(graph=g) as sess:
+      image_input_tensor = sess.graph.get_tensor_by_name(&quotimport/&quot + input_tensor_name)
+      output = sess.graph.get_tensor_by_name(&quotimport/&quot + output_tensor_name)
+      tf_out = sess.run(output,feed_dict={image_input_tensor: img_tf})
+    if len(tf_out.shape) == 4:
+      tf_out = np.transpose(tf_out, (0,3,1,2))
+    tf_out_flatten = tf_out.flatten()
+
+    &#47&#47evaluate CoreML
+    coreml_input_name = input_tensor_name.replace(&quot:&quot, &quot__&quot).replace(&quot/&quot, &quot__&quot)
+    coreml_output_name = output_tensor_name.replace(&quot:&quot, &quot__&quot).replace(&quot/&quot, &quot__&quot)
+    coreml_input = {coreml_input_name: img}
+
+    &#47&#47Test the default CoreML evaluation
+    coreml_out = coreml_model.predict(coreml_input, useCPUOnly = useCPUOnly)[coreml_output_name]
+    coreml_out_flatten = coreml_out.flatten()
+    self._compare_tf_coreml_outputs(tf_out_flatten, coreml_out_flatten)
+
+class TestModels(CorrectnessTest):
+
+  def test_inception_v3_slim(self):
+    &#47&#47Download model
+    url = &quothttps://storage.googleapis.com/download.tensorflow.org/models/inception_v3_2016_08_28_frozen.pb.tar.gz&quot
+    tf_model_dir = _download_file(url = url)
+    tf_model_path = os.path.join(TMP_MODEL_DIR, &quotinception_v3_2016_08_28_frozen.pb&quot)
+
+    &#47&#47Convert to coreml
+    mlmodel_path = os.path.join(TMP_MODEL_DIR, &quotinception_v3_2016_08_28.mlmodel&quot)
+    mlmodel = tf_converter.convert(
+        tf_model_path = tf_model_path,
+        mlmodel_path = mlmodel_path,
+        output_feature_names = [&quotInceptionV3/Predictions/Softmax:0&quot],
+        input_name_shape_dict = {&quotinput:0&quot:[1,299,299,3]},
+        image_input_names = [&quotinput:0&quot],
+        red_bias = -1,
+        green_bias = -1,
+        blue_bias = -1,
+        image_scale = 2.0/255.0)
+
+    &#47&#47Test predictions on an image
+    self._test_coreml_model_image_input(
+        tf_model_path = tf_model_path,
+        coreml_model = mlmodel,
+        input_tensor_name = &quotinput:0&quot,
+        output_tensor_name = &quotInceptionV3/Predictions/Softmax:0&quot,
+        img_size = 299)
+
+  def test_googlenet_v1_nonslim(self):
+    &#47&#47Download model
+    url = &quothttps://storage.googleapis.com/download.tensorflow.org/models/inception5h.zip&quot
+    tf_model_dir = _download_file(url = url)
+    tf_model_path = os.path.join(TMP_MODEL_DIR, &quottensorflow_inception_graph.pb&quot)
+
+    &#47&#47Convert to coreml
+    mlmodel_path = os.path.join(TMP_MODEL_DIR, &quotgooglenet_v1_nonslim.mlmodel&quot)
+    mlmodel = tf_converter.convert(
+        tf_model_path = tf_model_path,
+        mlmodel_path = mlmodel_path,
+        output_feature_names = [&quotsoftmax2:0&quot],
+        input_name_shape_dict = {&quotinput:0&quot:[1,224,224,3]},
+        image_input_names = [&quotinput:0&quot],
+        red_bias = -1,
+        green_bias = -1,
+        blue_bias = -1,
+        image_scale = 2.0/255.0)
+
+    &#47&#47Test predictions on an image
+    self._test_coreml_model_image_input(
+        tf_model_path = tf_model_path,
+        coreml_model = mlmodel,
+        input_tensor_name = &quotinput:0&quot,
+        output_tensor_name = &quotsoftmax2:0&quot,
+        img_size = 224)
+
+  def test_googlenet_resnet_v2(self):
+    url = &quothttps://storage.googleapis.com/download.tensorflow.org/models/inception_resnet_v2_2016_08_30_frozen.pb.tar.gz&quot
+    tf_model_dir = _download_file(url = url)
+    tf_model_path = os.path.join(TMP_MODEL_DIR, &quotinception_resnet_v2_2016_08_30_frozen.pb&quot)
+
+    mlmodel_path = os.path.join(TMP_MODEL_DIR, &quotinception_resnet_v2_2016_08_30_frozen.mlmodel&quot)
+    mlmodel = tf_converter.convert(
+        tf_model_path = tf_model_path,
+        mlmodel_path = mlmodel_path,
+        output_feature_names = [&quotInceptionResnetV2/Logits/Predictions:0&quot],
+        input_name_shape_dict = {&quotinput:0&quot:[1,299,299,3]},
+        image_input_names = [&quotinput:0&quot],
+        red_bias = -1,
+        green_bias = -1,
+        blue_bias = -1,
+        image_scale = 2.0/255.0)
+
+    &#47&#47Test predictions on an image
+    self._test_coreml_model_image_input(
+        tf_model_path = tf_model_path,
+        coreml_model = mlmodel,
+        input_tensor_name = &quotinput:0&quot,
+        output_tensor_name = &quotInceptionResnetV2/Logits/Predictions:0&quot,
+        img_size = 299)
+
+  def test_googlenet_v1_slim(self):
+    url = &quothttps://storage.googleapis.com/download.tensorflow.org/models/inception_v1_2016_08_28_frozen.pb.tar.gz&quot
+    tf_model_dir = _download_file(url = url)
+    tf_model_path = os.path.join(TMP_MODEL_DIR, &quotinception_v1_2016_08_28_frozen.pb&quot)
+
+    mlmodel_path = os.path.join(TMP_MODEL_DIR, &quotinception_v1_2016_08_28_frozen.mlmodel&quot)
+    mlmodel = tf_converter.convert(
+        tf_model_path = tf_model_path,
+        mlmodel_path = mlmodel_path,
+        output_feature_names = [&quotInceptionV1/Logits/Predictions/Softmax:0&quot],
+        input_name_shape_dict = {&quotinput:0&quot:[1,244,224,3]},
+        image_input_names = [&quotinput:0&quot],
+        red_bias = -1,
+        green_bias = -1,
+        blue_bias = -1,
+        image_scale = 2.0/255.0)
+
+    &#47&#47Test predictions on an image
+    self._test_coreml_model_image_input(
+        tf_model_path = tf_model_path,
+        coreml_model = mlmodel,
+        input_tensor_name = &quotinput:0&quot,
+        output_tensor_name = &quotInceptionV1/Logits/Predictions/Softmax:0&quot,
+        img_size = 224)
+
+  def test_googlenet_v2_slim(self):
+    url = &quothttps://storage.googleapis.com/download.tensorflow.org/models/inception_v2_2016_08_28_frozen.pb.tar.gz&quot
+    tf_model_dir = _download_file(url = url)
+    tf_model_path = os.path.join(TMP_MODEL_DIR, &quotinception_v2_2016_08_28_frozen.pb&quot)
+
+    mlmodel_path = os.path.join(TMP_MODEL_DIR, &quotinception_v2_2016_08_28_frozen.mlmodel&quot)
+    mlmodel = tf_converter.convert(
+        tf_model_path = tf_model_path,
+        mlmodel_path = mlmodel_path,
+        output_feature_names = [&quotInceptionV2/Predictions/Softmax:0&quot],
+        input_name_shape_dict = {&quotinput:0&quot:[1,244,224,3]},
+        image_input_names = [&quotinput:0&quot],
+        red_bias = -1,
+        green_bias = -1,
+        blue_bias = -1,
+        image_scale = 2.0/255.0)
+
+    &#47&#47Test predictions on an image
+    self._test_coreml_model_image_input(
+        tf_model_path = tf_model_path,
+        coreml_model = mlmodel,
+        input_tensor_name = &quotinput:0&quot,
+        output_tensor_name = &quotInceptionV2/Predictions/Softmax:0&quot,
+        img_size = 224)
+
+  def test_googlenet_v4_slim(self):
+    url = &quothttps://storage.googleapis.com/download.tensorflow.org/models/inception_v4_2016_09_09_frozen.pb.tar.gz&quot
+    tf_model_dir = _download_file(url = url)
+    tf_model_path = os.path.join(TMP_MODEL_DIR, &quotinception_v4_2016_09_09_frozen.pb&quot)
+
+    mlmodel_path = os.path.join(TMP_MODEL_DIR, &quotinception_v4_2016_09_09_frozen.mlmodel&quot)
+    mlmodel = tf_converter.convert(
+        tf_model_path = tf_model_path,
+        mlmodel_path = mlmodel_path,
+        output_feature_names = [&quotInceptionV4/Logits/Predictions:0&quot],
+        input_name_shape_dict = {&quotinput:0&quot:[1,299,299,3]},
+        image_input_names = [&quotinput:0&quot],
+        red_bias = -1,
+        green_bias = -1,
+        blue_bias = -1,
+        image_scale = 2.0/255.0)
+
+    &#47&#47Test predictions on an image
+    self._test_coreml_model_image_input(
+        tf_model_path = tf_model_path,
+        coreml_model = mlmodel,
+        input_tensor_name = &quotinput:0&quot,
+        output_tensor_name = &quotInceptionV4/Logits/Predictions:0&quot,
+        img_size = 299)
+
+
+  def test_mobilenet_v1_100_224(self):
+    url = &quothttps://storage.googleapis.com/download.tensorflow.org/models/mobilenet_v1_1.0_224_frozen.tgz&quot
+    tf_model_dir = _download_file(url = url)
+    tf_model_path = os.path.join(TMP_MODEL_DIR, &quotmobilenet_v1_1.0_224/frozen_graph.pb&quot)
+
+    mlmodel_path = os.path.join(TMP_MODEL_DIR, &quotmobilenet_v1_1.0_224.mlmodel&quot)
+    mlmodel = tf_converter.convert(
+        tf_model_path = tf_model_path,
+        mlmodel_path = mlmodel_path,
+        output_feature_names = [&quotMobilenetV1/Predictions/Softmax:0&quot],
+        input_name_shape_dict = {&quotinput:0&quot:[1,224,224,3]},
+        image_input_names = [&quotinput:0&quot],
+        red_bias = -1,
+        green_bias = -1,
+        blue_bias = -1,
+        image_scale = 2.0/255.0)
+
+    &#47&#47Test predictions on an image
+    self._test_coreml_model_image_input(
+        tf_model_path = tf_model_path,
+        coreml_model = mlmodel,
+        input_tensor_name = &quotinput:0&quot,
+        output_tensor_name = &quotMobilenetV1/Predictions/Softmax:0&quot,
+        img_size = 224)
+
+  def test_mobilenet_v2_100_224(self):
+    url = &quothttps://storage.googleapis.com/download.tensorflow.org/models/mobilenet_v1_1.0_224_frozen.tgz&quot
+    tf_model_dir = _download_file(url = url)
+    tf_model_path = os.path.join(TMP_MODEL_DIR, &quotmobilenet_v1_1.0_224/frozen_graph.pb&quot)
+
+    mlmodel_path = os.path.join(TMP_MODEL_DIR, &quotmobilenet_v1_1.0_224.mlmodel&quot)
+    mlmodel = tf_converter.convert(
+        tf_model_path = tf_model_path,
+        mlmodel_path = mlmodel_path,
+        output_feature_names = [&quotMobilenetV1/Predictions/Softmax:0&quot],
+        input_name_shape_dict = {&quotinput:0&quot:[1,224,224,3]},
+        image_input_names = [&quotinput:0&quot],
+        red_bias = -1,
+        green_bias = -1,
+        blue_bias = -1,
+        image_scale = 2.0/255.0)
+
+    &#47&#47Test predictions on an image
+    self._test_coreml_model_image_input(
+        tf_model_path = tf_model_path,
+        coreml_model = mlmodel,
+        input_tensor_name = &quotinput:0&quot,
+        output_tensor_name = &quotMobilenetV1/Predictions/Softmax:0&quot,
+        img_size = 224)
+
+
+  def test_mobilenet_v1_75_192(self):
+    url = &quothttps://storage.googleapis.com/download.tensorflow.org/models/mobilenet_v1_0.75_192_frozen.tgz&quot
+    tf_model_dir = _download_file(url = url)
+    tf_model_path = os.path.join(TMP_MODEL_DIR, &quotmobilenet_v1_0.75_192/frozen_graph.pb&quot)
+
+    mlmodel_path = os.path.join(TMP_MODEL_DIR, &quotmobilenet_v1_0.75_192.mlmodel&quot)
+    mlmodel = tf_converter.convert(
+        tf_model_path = tf_model_path,
+        mlmodel_path = mlmodel_path,
+        output_feature_names = [&quotMobilenetV1/Predictions/Softmax:0&quot],
+        input_name_shape_dict = {&quotinput:0&quot:[1,192,192,3]},
+        image_input_names = [&quotinput:0&quot],
+        red_bias = -1,
+        green_bias = -1,
+        blue_bias = -1,
+        image_scale = 2.0/255.0)
+
+    &#47&#47Test predictions on an image
+    self._test_coreml_model_image_input(
+        tf_model_path = tf_model_path,
+        coreml_model = mlmodel,
+        input_tensor_name = &quotinput:0&quot,
+        output_tensor_name = &quotMobilenetV1/Predictions/Softmax:0&quot,
+        img_size = 192)
+
+  def test_mobilenet_v1_50_160(self):
+    url = &quothttps://storage.googleapis.com/download.tensorflow.org/models/mobilenet_v1_0.50_160_frozen.tgz&quot
+    tf_model_dir = _download_file(url = url)
+    tf_model_path = os.path.join(TMP_MODEL_DIR, &quotmobilenet_v1_0.50_160/frozen_graph.pb&quot)
+
+    mlmodel_path = os.path.join(TMP_MODEL_DIR, &quotmobilenet_v1_0.50_160.mlmodel&quot)
+    mlmodel = tf_converter.convert(
+        tf_model_path = tf_model_path,
+        mlmodel_path = mlmodel_path,
+        output_feature_names = [&quotMobilenetV1/Predictions/Softmax:0&quot],
+        input_name_shape_dict = {&quotinput:0&quot:[1,160,160,3]},
+        image_input_names = [&quotinput:0&quot],
+        red_bias = -1,
+        green_bias = -1,
+        blue_bias = -1,
+        image_scale = 2.0/255.0)
+
+    &#47&#47Test predictions on an image
+    self._test_coreml_model_image_input(
+        tf_model_path = tf_model_path,
+        coreml_model = mlmodel,
+        input_tensor_name = &quotinput:0&quot,
+        output_tensor_name = &quotMobilenetV1/Predictions/Softmax:0&quot,
+        img_size = 160)
+
+  &#47&#47@unittest.skip("Failing GPU backend: related to https://github.com/tf-coreml/tf-coreml/issues/26")
+  def test_style_transfer(self):
+    url = &quothttps://storage.googleapis.com/download.tensorflow.org/models/stylize_v1.zip&quot
+    tf_model_dir = _download_file(url = url)
+    tf_model_path = os.path.join(TMP_MODEL_DIR, &quotstylize_quantized.pb&quot)
+    mlmodel_path = os.path.join(TMP_MODEL_DIR, &quotstylize_quantized.mlmodel&quot)
+    &#47&#47 ? style transfer image size and style number?
+    mlmodel = tf_converter.convert(
+        tf_model_path = tf_model_path,
+        mlmodel_path = mlmodel_path,
+        output_feature_names = [&quotSqueeze:0&quot],
+        input_name_shape_dict = {&quotinput:0&quot:[1,256,256,3], &quotstyle_num:0&quot:[26]})
+
+    &#47&#47 Test predictions on an image
+    input_tensors = [(&quotinput:0&quot,[1,256,256,3]),
+                     (&quotstyle_num:0&quot,[26])]
+
+    self.err_thresh = 0.5
+    self._test_tf_model(
+        tf_model_path = tf_model_path,
+        coreml_model = mlmodel,
+        input_tensors = input_tensors,
+        output_tensor_names = [&quotSqueeze:0&quot],
+        data_modes = [&quotimage&quot, &quotonehot_0&quot],
+        delta = 1e-2,
+        use_cpu_only = True,
+        scale = 1,
+        bias = 0,
+        img_size = 256,
+        sequence_inputs = {&quotstyle_num:0&quot})
+
+def _test_coreml_model_image_input(tf_model_path, coreml_model,
+      input_tensor_name, output_tensor_name, img_size, useCPUOnly = False):
+    Test single image input conversions.
+    tf_model_path - the TF model
+    coreml_model - converted CoreML model
+    input_tensor_name - the input image tensor name
+    output_tensor_name - the output tensor name
+    img_size - size of the image
+    
+
+    img_np, img = _load_image(TEST_IMAGE ,resize_to=(img_size, img_size))
+    img_tf = np.expand_dims(img_np, axis = 0)
+    img_tf[:,:,:,0] = 2.0/255 * img_tf[:,:,:,0] - 1
+    img_tf[:,:,:,1] = 2.0/255 * img_tf[:,:,:,1] - 1
+    img_tf[:,:,:,2] = 2.0/255 * img_tf[:,:,:,2] - 1
+
+    &#47&#47evaluate the TF model
+    tf.reset_default_graph()
+    graph_def = graph_pb2.GraphDef()
+    with open(tf_model_path, "rb") as f:
+        graph_def.ParseFromString(f.read())
+    g = tf.import_graph_def(graph_def)
+    with tf.Session(graph=g) as sess:
+      image_input_tensor = sess.graph.get_tensor_by_name(&quotimport/&quot + input_tensor_name)
+      output = sess.graph.get_tensor_by_name(&quotimport/&quot + output_tensor_name)
+      tf_out = sess.run(output,feed_dict={image_input_tensor: img_tf})
+    if len(tf_out.shape) == 4:
+      tf_out = np.transpose(tf_out, (0,3,1,2))
+    tf_out_flatten = tf_out.flatten()
+
+    &#47&#47evaluate CoreML
+    coreml_input_name = input_tensor_name.replace(&quot:&quot, &quot__&quot).replace(&quot/&quot, &quot__&quot)
+    coreml_output_name = output_tensor_name.replace(&quot:&quot, &quot__&quot).replace(&quot/&quot, &quot__&quot)
+    coreml_input = {coreml_input_name: img}
+
+    &#47&#47Test the default CoreML evaluation
+    coreml_out = coreml_model.predict(coreml_input, useCPUOnly = useCPUOnly)[coreml_output_name]
+    coreml_out_flatten = coreml_out.flatten()
+    print (coreml_out_flatten)
+    &#47&#47 compare_tf_coreml_outputs(tf_out_flatten, coreml_out_flatten)
+
+
+
+
+
+if __name__==&quot__main__&quot:
+    &#47&#47 &#47&#47Download model
+    &#47&#47 url = &quothttps://storage.googleapis.com/download.tensorflow.org/models/inception_v3_2016_08_28_frozen.pb.tar.gz&quot
+    &#47&#47 tf_model_dir = _download_file(url = url)
+    &#47&#47 tf_model_path = os.path.join(TMP_MODEL_DIR, &quotinception_v3_2016_08_28_frozen.pb&quot)
+
+    &#47&#47 &#47&#47Convert to coreml
+    &#47&#47 mlmodel_path = os.path.join(TMP_MODEL_DIR, &quotinception_v3_2016_08_28.mlmodel&quot)
+    &#47&#47 mlmodel = tf_converter.convert(
+    &#47&#47     tf_model_path = tf_model_path,
+    &#47&#47     mlmodel_path = mlmodel_path,
+    &#47&#47     output_feature_names = [&quotInceptionV3/Predictions/Softmax:0&quot],
+    &#47&#47     input_name_shape_dict = {&quotinput:0&quot:[1,299,299,3]},
+    &#47&#47     image_input_names = [&quotinput:0&quot],
+    &#47&#47     red_bias = -1,
+    &#47&#47     green_bias = -1,
+    &#47&#47     blue_bias = -1,
+    &#47&#47     image_scale = 2.0/255.0)
+
+    &#47&#47 &#47&#47Test predictions on an image
+    &#47&#47 _test_coreml_model_image_input(
+    &#47&#47     tf_model_path = tf_model_path,
+    &#47&#47     coreml_model = mlmodel,
+    &#47&#47     input_tensor_name = &quotinput:0&quot,
+    &#47&#47     output_tensor_name = &quotInceptionV3/Predictions/Softmax:0&quot,
+    &#47&#47     img_size = 299)
+
+    &#47&#47Download model
+    url = &quothttps://storage.googleapis.com/download.tensorflow.org/models/inception5h.zip&quot
+    tf_model_dir = _download_file(url = url)
+    tf_model_path = os.path.join(TMP_MODEL_DIR, &quottensorflow_inception_graph.pb&quot)
+
+    &#47&#47Convert to coreml
+    mlmodel_path = os.path.join(TMP_MODEL_DIR, &quotgooglenet_v1_nonslim.mlmodel&quot)
+    mlmodel = tf_converter.convert(
+        tf_model_path = tf_model_path,
+        mlmodel_path = mlmodel_path,
+        output_feature_names = [&quotsoftmax2:0&quot],
+        input_name_shape_dict = {&quotinput:0&quot:[1,224,224,3]},
+        image_input_names = [&quotinput:0&quot],
+        red_bias = -1,
+        green_bias = -1,
+        blue_bias = -1,
+        image_scale = 2.0/255.0)
+
+    &#47&#47Test predictions on an image
+    _test_coreml_model_image_input(
+        tf_model_path = tf_model_path,
+        coreml_model = mlmodel,
+        input_tensor_name = &quotinput:0&quot,
+        output_tensor_name = &quotsoftmax2:0&quot,
+        img_size = 224)
+
+
+    print("convert ok!")
+</code></pre>

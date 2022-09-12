@@ -1,0 +1,70 @@
+<link rel="stylesheet" href="../../../../..//default.css">
+<script src="../../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/ActiveState/code/blob/master/recipes/Python/578055_Random_user_generator/recipe-578055.py#L5">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/code/blob/master/recipes/Python/578055_Random_user_generator/recipe-578055.py#L5">GitMyHubLink</a>
+
+&quot&quot&quotProgram to generate a random member from a list of users,
+the members of the  default list can be removed or added to your convenience&quot&quot&quot
+import random,pickle,os&#47&#47three of the modules used in the below code
+g=os.getlogin()&#47&#47gets the name of the computer
+def adduser():&#47&#47function definition for adding users to the list
+    while 1==1:
+        print(a)
+        <a id="change">k=input(&quotenter the name of the user(leave blank if none):&quot)</a>
+        if k==&quot&quot:
+            break
+        else:			
+            a.append(k)
+            <a id="change">f=open(&quotrandom_members.data&quot,&quotwb&quot)</a>
+            pickle.dump(a,f)
+            <a id="change">f</a><a id="change">.close()</a>
+def deluser():&#47&#47function definition for deleting users from the list
+    while 1==1:
+        print(a)
+        k=input(&quotenter the name of the user(leave blank if none):&quot)
+        if k==&quot&quot:
+            break
+        else:
+            for l in range(0,len(a)):
+                if k==a[l-1]:
+                    del a[l-1]
+                    f=open(&quotrandom_members.data&quot,&quotwb&quot)
+                    pickle.dump(a,f)
+                    f.close
+if os.path.isfile(&quotC:\\Users&quot+os.sep+g+os.sep+&quotrandom_members.data&quot) != True:&#47&#47checking if the data file is already present in the computer, will make one if it is being run for the first time
+    a=[&quotwarun&quot,&quotMorpheus3000&quot,&quotcoolpcguy&quot,&quotDavid_007&quot,&quotfatalevolution&quot,&quoterif&quot,&quot[xubz]&quot,&quotGTX OC&quot]&#47&#47default list of members
+    f=open(&quotrandom_members.data&quot,&quotwb&quot)
+    pickle.dump(a,f)&#47&#47dumps the default list
+    f.close()
+else:&#47&#47this block grabs the list from the data file 
+    f=open(&quotrandom_members.data&quot,&quotrb&quot)
+    a=pickle.load(f)
+    f.close()
+y=input(&quotwould you like to add more users to the list y/n or press d to delete users:&quot)
+if y==&quoty&quot:&#47&#47block for adding users
+    adduser()
+    print(a)
+    t=input(&quotdo you want to delete some users(y/n):&quot)&#47&#47provides one chance to remove some users
+    if t==&quoty&quot:
+        deluser()&#47&#47function call to delete users
+        print(&quotand the random member is&quot,random.choice(a))
+    else:
+        print(&quotand the random member is&quot,random.choice(a))
+elif y==&quotn&quot:&#47&#47quickest way to get an output
+    print(&quotand the random member is&quot,random.choice(a))
+elif y==&quotd&quot:
+    deluser()
+    print(a)
+    t=input(&quotdo you want to add new users(y/n):&quot)&#47&#47provides one chance to add some users
+    if t==&quoty&quot:
+        adduser()&#47&#47function call to add users
+        print(&quotand the random member is&quot,random.choice(a))
+    else:
+        print(&quotand the random member is&quot,random.choice(a))
+else:&#47&#47this block is used if the input taken is unrecognisable however, I need to figure out a way to get it back to the beginning
+    print(&quotunrecognisable command&quot)
+</code></pre>

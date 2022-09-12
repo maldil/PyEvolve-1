@@ -1,0 +1,144 @@
+<link rel="stylesheet" href="../../../../../..//default.css">
+<script src="../../../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/suavecode/SUAVE/blob/develop/trunk/SUAVE/Input_Output/SUAVE/archive.py#L21">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/SUAVE/blob/develop/trunk/SUAVE/Input_Output/SUAVE/archive.py#L21">GitMyHubLink</a>
+
+&#47&#47&#47&#47 @ingroup Input_Output-SUAVE
+&#47&#47 archive.py
+&#47&#47
+&#47&#47 Created:  Jan 2015, T. Lukaczyk
+&#47&#47 Modified: Nov 2016, T. MacDonald
+
+&#47&#47 ----------------------------------------------------------------------
+&#47&#47  Imports
+&#47&#47 ----------------------------------------------------------------------
+
+from SUAVE.Core import Data
+import numpy as np
+import types
+import json
+from collections import OrderedDict
+
+&#47&#47 ----------------------------------------------------------------------
+&#47&#47  Method
+&#47&#47 ----------------------------------------------------------------------
+&#47&#47&#47&#47 @ingroup Input_Output-SUAVE
+def archive(data,filename):
+    Converts a SUAVE data structure to a JSON file for storage. 
+
+    Assumptions:
+    Data must be numpy arrays, strings, booleans, floats, ints, or lists.
+    Functions are ignored and all other data raises an error.
+
+    Source:
+    N/A
+
+    Inputs:
+    data       SUAVE data structure
+    filename   &lt;string&gt; - file to be output
+
+    Outputs:
+    filename   File as specified in JSON format
+
+    Properties Used:
+    N/A
+         
+    
+    &#47&#47 Create a dictionary structure with the results
+    <a id="change">res_dict</a> = build_dict_base(data)
+    
+    &#47&#47 Convert the dictionary to a JSON string
+    <a id="change">res_string</a> = json.dumps(res_dict)
+    
+    &#47&#47 Write results to a file
+    <a id="change">f</a><a id="change"> = open(filename,&quotw&quot)</a>   
+    f.write(res_string)
+    <a id="change">f</a><a id="change">.close()</a>  
+       
+&#47&#47&#47&#47 @ingroup Input_Output-SUAVE
+def build_dict_base(base):
+    Builds a dictionary based on a SUAVE data structure. This is initial case.
+
+    Assumptions:
+    Data must be numpy arrays, strings, booleans, floats, ints, or lists.
+    Functions are ignored and all other data raises an error.
+
+    Source:
+    N/A
+
+    Inputs:
+    data       SUAVE data structure
+
+    Outputs:
+    base_dict  Dictionary built on the data structure.
+
+    Properties Used:
+    N/A
+          
+    
+    keys = base.keys() &#47&#47 keys from top level
+    base_dict = OrderedDict() &#47&#47 initialize dictionary
+    &#47&#47 Ordered is used because some post processing currently
+    &#47&#47 relies on the segments being in order
+    
+    &#47&#47 Assign all values
+    for k in keys:
+        v = base[k]
+        base_dict[k] = build_dict_r(v) &#47&#47 recursive function
+    return base_dict
+    
+&#47&#47&#47&#47 @ingroup Input_Output-SUAVE
+def build_dict_r(v):
+    Builds a dictionary based on a SUAVE data structure. This the recursive step.
+
+    Assumptions:
+    Data must be numpy arrays, strings, booleans, floats, ints, or lists.
+    Functions are ignored and all other data raises an error.
+
+    Source:
+    N/A
+
+    Inputs:
+    v       value in a data structure
+
+    Outputs:
+    ret     value based on type of v
+
+    Properties Used:
+    N/A
+          
+    tv = type(v) &#47&#47 Get value type
+    
+    &#47&#47 Transform to basic python data type as appropriate
+    if (tv == np.ndarray) or (tv == np.float64):
+        ret = v.tolist()
+    elif (tv == str) or (tv == bool):
+        ret = v
+    elif tv == type(None):
+        ret = None
+    elif (tv == float) or (tv == int):
+        ret = v
+    elif tv == types.FunctionType: &#47&#47 Functions cannot be stored
+        ret = None        
+    elif tv == list:
+        ret = v    
+
+    else:
+        &#47&#47 Assume other data types are SUAVE data types and check
+        try:
+            keys = v.keys()
+        except:
+            if callable(tv):
+                return None
+            else:
+                raise TypeError(&quotUnexpected data type in SUAVE data structure&quot)
+        &#47&#47 Recursively assign values
+        ret = OrderedDict()
+        for k in keys:
+            ret[k] = build_dict_r(v[k])        
+    
+    return ret</code></pre>

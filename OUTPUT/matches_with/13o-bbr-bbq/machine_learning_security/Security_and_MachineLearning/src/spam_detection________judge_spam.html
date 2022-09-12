@@ -1,0 +1,138 @@
+<link rel="stylesheet" href="../../../..//default.css">
+<script src="../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/13o-bbr-bbq/machine_learning_security/blob/master/Security_and_MachineLearning/src/spam_detection.py#L32">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/machine_learning_security/blob/master/Security_and_MachineLearning/src/spam_detection.py#L32">GitMyHubLink</a>
+
+&#47&#47!/bin/env python
+&#47&#47 -*- coding: utf-8 -*-
+import os
+import codecs
+import urllib.request
+import nltk
+import mailbox
+import numpy as np
+import pandas as pd
+from email.header import decode_header
+from nltk.corpus.reader import *
+from nltk.corpus.reader.util import *
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.feature_extraction.text import CountVectorizer
+
+&#47&#47 Max target mail number.
+MAX_COUNT = 5
+
+
+&#47&#47 Get stopwords (Japanese and symbols).
+def get_stopwords():
+    url = &quothttp://svn.sourceforge.jp/svnroot/slothlib/CSharp/Version1/SlothLib/NLP/Filter/StopWord/word/Japanese.txt&quot
+    slothlib_file = urllib.request.urlopen(url)
+    slothlib_stopwords = [line.decode(&quotutf-8&quot).strip() for line in slothlib_file]
+    jpn_stopwords = [ss for ss in slothlib_stopwords if not ss == u&quot&quot]
+    jpn_symbols = [&quot’&quot, &quot”&quot, &quot‘&quot, &quot。&quot, &quot、&quot, &quotー&quot, &quot！&quot, &quot？&quot, &quot：&quot, &quot；&quot, &quot（&quot, &quot）&quot, &quot＊&quot, &quot￥&quot]
+    eng_symbols = ["&quot", &quot"&quot, &quot`&quot, &quot.&quot, &quot,&quot, &quot-&quot, &quot!&quot, &quot?&quot, &quot:&quot, &quot;&quot, &quot(&quot, &quot)&quot, &quot*&quot, &quot--&quot, &quot\\&quot]
+    return jpn_stopwords + jpn_symbols + eng_symbols
+
+
+&#47&#47 Judge Spam.
+def judge_spam(<a id="change">X_train</a>, <a id="change">y_train</a>, <a id="change">stop_words</a>, <a id="change">message</a>, <a id="change">jp_sent_tokenizer</a>, <a id="change">jp_chartype_tokenizer</a>):
+    <a id="change">fout = codecs.open(os.path.join(&quot../dataset&quot, &quottemp.txt&quot), &quotw&quot, &quotutf-8&quot)</a>
+    fout.write(message)
+    <a id="change">fout</a><a id="change">.close()</a>
+    <a id="change">spam = PlaintextCorpusReader(&quot../dataset/&quot, &quottemp.txt&quot, encoding=&quotutf-8&quot,
+                                 para_block_reader=read_line_block,
+                                 sent_tokenizer=jp_sent_tokenizer,
+                                 word_tokenizer=jp_chartype_tokenizer)</a>
+
+    &#47&#47 Tokenize.
+    <a id="change">tokenize_message = &quot|&quot.join(spam.words())</a>
+    <a id="change">lst_bow = tokenize_message.replace(&quot\n&quot, &quot&quot).replace(&quot\r&quot, &quot&quot).split(&quot|&quot)</a>
+    while lst_bow.count(&quot&quot) &gt; 0:
+        lst_bow.remove(&quot&quot)
+
+    &#47&#47 Remove stop words.
+    <a id="change">vectorizer = CountVectorizer(stop_words=stop_words)</a>
+
+    &#47&#47 Fit (Train).
+    vectorizer.fit(X_train)
+    <a id="change">X_train = vectorizer.transform(X_train)</a>
+    <a id="change">clf = MultinomialNB(alpha=1.0)</a>
+    clf.fit(X_train, y_train)
+
+    &#47&#47 Test.
+    <a id="change">X_test = vectorizer.transform(lst_bow)</a>
+    <a id="change">y_preds = clf.predict_proba(X_test)</a>
+
+    &#47&#47 Classify using Naive Bayes (MultinomialNB).
+    <a id="change">result = &quot&quot</a>
+    if np.sum(y_preds[:, 0]) &gt; np.sum(y_preds[:, 1]):
+        <a id="change">result = clf.classes_[0]</a>
+    else:
+        <a id="change">result = clf.classes_[1]</a>
+
+    print(&quot[Judgement]\nThis mail is &lt;{}&gt;.\n{}: {}%, {}: {}%\n&quot.format(result,
+                                                                       clf.classes_[0],
+                                                                       str(round(np.mean(y_preds[:, 0])*100, 2)),
+                                                                       clf.classes_[1],
+                                                                       str(round(np.mean(y_preds[:, 1])*100, 2))))
+
+
+if __name__ == &quot__main__&quot:
+    &#47&#47 Load train data.
+    df_data = pd.read_csv(os.path.join(&quot../dataset&quot, &quottrain_spam.csv&quot), header=None)
+    X = [i[0] for i in df_data.iloc[:, [0]].values.tolist()]
+    y = [i[0] for i in df_data.iloc[:, [1]].values.tolist()]
+
+    &#47&#47 Setting NLTK
+    jp_sent_tokenizer = nltk.RegexpTokenizer(u&quot[^　「」！？。]*[！？。]&quot)
+    jp_chartype_tokenizer = nltk.RegexpTokenizer(u&quot([ぁ-んー]&quot
+                                                 u&quot+|[ァ-ンー]&quot
+                                                 u&quot+|[\u4e00-\u9FFF]&quot
+                                                 u&quot+|[^ぁ-んァ-ンー\u4e00-\u9FFF]+)&quot)
+
+    &#47&#47 Get stop words.
+    stop_words = get_stopwords()
+
+    &#47&#47 Get inbox data (This example uses Mozilla Thunderbird).
+    mail_box = mailbox.mbox(&quotYour mail box path&quot)
+    for idx, key in enumerate(mail_box.keys()[::-1]):
+        if idx + 1 &gt; MAX_COUNT:
+            break
+
+        &#47&#47 Get message data and receive date.
+        msg_item = mail_box.get(key)
+        recv_date = msg_item.get_from()
+
+        &#47&#47 Get subject from message data.
+        subject = &quot&quot
+        for msg_subject, enc in decode_header(msg_item[&quotSubject&quot]):
+            if enc is None:
+                subject += msg_subject
+            else:
+                subject += msg_subject.decode(enc, &quotignore&quot)
+
+        &#47&#47 Get message body from message data.
+        content = &quot&quot
+        for msg_body in msg_item.walk():
+            if &quottext&quot not in msg_body.get_content_type():
+                continue
+            if msg_body.get_content_charset():
+                content = msg_body.get_payload(decode=True).decode(msg_body.get_content_charset(), &quotignore&quot)
+            else:
+                if &quotcharset=shift_jis&quot in str(msg_body.get_payload(decode=True)):
+                    content = msg_body.get_payload(decode=True).decode(&quotcp932&quot, &quotignore&quot)
+                else:
+                    print(&quotCannot decode : message key={}.&quot.format(key))
+                continue
+
+        &#47&#47 Judge Spam.
+        if subject != &quot&quot or content != &quot&quot:
+            print(&quot-&quot*50)
+            print(&quot[Received date]\n{}\n\n[Message]\n件名: {}\n{}&quot.format(recv_date, subject, content))
+            judge_spam(X, y, stop_words, subject + &quot。&quot + content, jp_sent_tokenizer, jp_chartype_tokenizer)
+        else:
+            print(&quotThis message is empty : message key={}.&quot.format(key))
+</code></pre>

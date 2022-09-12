@@ -1,0 +1,3912 @@
+<link rel="stylesheet" href="../../..//default.css">
+<script src="../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/idaholab/raven/blob/devel/ravenframework/Distributions.py#L2769">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/raven/blob/devel/ravenframework/Distributions.py#L2769">GitMyHubLink</a>
+
+&#47&#47 Copyright 2017 Battelle Energy Alliance, LLC
+&#47&#47
+&#47&#47 Licensed under the Apache License, Version 2.0 (the "License");
+&#47&#47 you may not use this file except in compliance with the License.
+&#47&#47 You may obtain a copy of the License at
+&#47&#47
+&#47&#47 http://www.apache.org/licenses/LICENSE-2.0
+&#47&#47
+&#47&#47 Unless required by applicable law or agreed to in writing, software
+&#47&#47 distributed under the License is distributed on an "AS IS" BASIS,
+&#47&#47 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+&#47&#47 See the License for the specific language governing permissions and
+&#47&#47 limitations under the License.
+
+Created on Mar 7, 2013
+@author: crisr
+
+import sys
+import numpy as np
+import scipy
+from math import gamma
+import os
+import operator
+import csv
+from scipy.interpolate import UnivariateSpline
+from numpy import linalg as LA
+import copy
+import math as math
+
+from .EntityFactoryBase import EntityFactory
+from .BaseClasses import BaseEntity, InputDataUser
+from .utils import utils
+from .utils.randomUtils import random
+from .utils import randomUtils
+distribution1D = utils.findCrowModule(&quotdistribution1D&quot)
+from .utils import mathUtils, InputData, InputTypes
+&#47&#47Internal Modules End--------------------------------------------------------------------------------
+
+def factorial(x):
+  
+    Compute factorial
+    @ In, x, float, the value
+    @ Out, fact, float, the factorial
+  
+  fact = gamma(x+1)
+  return fact
+
+
+  Mapping between internal framework and Crow distribution name
+
+_FrameworkToCrowDistNames = { &quotUniform&quot:&quotUniformDistribution&quot,
+                              &quotNormal&quot:&quotNormalDistribution&quot,
+                              &quotGamma&quot:&quotGammaDistribution&quot,
+                              &quotBeta&quot:&quotBetaDistribution&quot,
+                              &quotTriangular&quot:&quotTriangularDistribution&quot,
+                              &quotPoisson&quot:&quotPoissonDistribution&quot,
+                              &quotBinomial&quot:&quotBinomialDistribution&quot,
+                              &quotBernoulli&quot:&quotBernoulliDistribution&quot,
+                              &quotLogistic&quot:&quotLogisticDistribution&quot,
+                              &quotCustom1D&quot:&quotCustom1DDistribution&quot,
+                              &quotExponential&quot:&quotExponentialDistribution&quot,
+                              &quotCategorical&quot:&quotCategorical&quot,
+                              &quotMarkovCategorical&quot:&quotMarkovCategorical&quot,
+                              &quotLogNormal&quot:&quotLogNormalDistribution&quot,
+                              &quotWeibull&quot:&quotWeibullDistribution&quot,
+                              &quotNDInverseWeight&quot: &quotNDInverseWeightDistribution&quot,
+                              &quotNDCartesianSpline&quot: &quotNDCartesianSplineDistribution&quot,
+                              &quotMultivariateNormal&quot : &quotMultivariateNormalDistribution&quot,
+                              &quotLaplace&quot : &quotLaplaceDistribution&quot,
+                              &quotGeometric&quot : &quotGeometricDistribution&quot,
+                              &quotLogUniform&quot : &quotLogUniformDistribution&quot,
+                              &quotUniformDiscrete&quot : &quotUniformDiscreteDistribution&quot
+}
+
+class DistributionsCollection(InputData.ParameterInput):
+  
+    Class for reading in a collection of distributions
+  
+
+DistributionsCollection.createClass("Distributions")
+
+
+class Distribution(BaseEntity, InputDataUser):
+  
+    A general class containing the distributions
+  
+
+  @classmethod
+  def getInputSpecification(cls):
+    
+      Method to get a reference to a class that specifies the input data for
+      class cls.
+      @ In, cls, the class for which we are retrieving the specification
+      @ Out, inputSpecification, InputData.ParameterInput, class to use for
+        specifying input of cls.
+    
+    inputSpecification = super().getInputSpecification()
+    inputSpecification.addSub(InputData.parameterInputFactory(&quotupperBound&quot, contentType=InputTypes.FloatType))
+    inputSpecification.addSub(InputData.parameterInputFactory(&quotlowerBound&quot, contentType=InputTypes.FloatType))
+    return inputSpecification
+
+  def __init__(self):
+    
+      Constructor
+      @ In, None
+      @ Out, None
+    
+    super().__init__()
+    self.upperBoundUsed       = False  &#47&#47 True if the distribution is right truncated
+    self.lowerBoundUsed       = False  &#47&#47 True if the distribution is left truncated
+    self.hasInfiniteBound     = False  &#47&#47 True if the untruncated distribution has bounds of +- system max
+    self.upperBound           = None   &#47&#47 Right bound
+    self.lowerBound           = None   &#47&#47 Left bound
+    self.__adjustmentType     = &quot&quot &#47&#47 this describe how the re-normalization to preserve the probability should be done for truncated distributions
+    self.dimensionality       = None   &#47&#47 Dimensionality of the distribution (1D or ND)
+    self.distType             = None   &#47&#47 Distribution type (continuous or discrete)
+    self.memory               = False  &#47&#47 This variable flags if the distribution has history dependence in the sampling process (True) or not (False)
+    self.printTag             = &quotDISTRIBUTIONS&quot
+    self.preferredPolynomials = None  &#47&#47 best polynomial for probability-weighted norm of error
+    self.preferredQuadrature  = None  &#47&#47 best quadrature for probability-weighted norm of error
+    self.compatibleQuadrature = [] &#47&#47list of compatible quadratures
+    self.convertToDistrDict   = {} &#47&#47dict of methods keyed on quadrature types to convert points from quadrature measure and domain to distribution measure and domain
+    self.convertToQuadDict    = {} &#47&#47dict of methods keyed on quadrature types to convert points from distribution measure and domain to quadrature measure and domain
+    self.measureNormDict      = {} &#47&#47dict of methods keyed on quadrature types to provide scalar adjustment for measure transformation (from quad to distr)
+    self.convertToDistrDict[&quotCDFLegendre&quot] = self.CDFconvertToDistr
+    self.convertToQuadDict [&quotCDFLegendre&quot] = self.CDFconvertToQuad
+    self.measureNormDict   [&quotCDFLegendre&quot] = self.CDFMeasureNorm
+    self.convertToDistrDict[&quotCDFClenshawCurtis&quot] = self.CDFconvertToDistr
+    self.convertToQuadDict [&quotCDFClenshawCurtis&quot] = self.CDFconvertToQuad
+    self.measureNormDict   [&quotCDFClenshawCurtis&quot] = self.CDFMeasureNorm
+
+  def __getstate__(self):
+    
+      Get the pickling state
+      @ In, None
+      @ Out, pdict, dict, the namespace state
+    
+    pdict = self.getInitParams()
+    pdict[&quottype&quot] = self.type
+    return pdict
+
+  def __setstate__(self,pdict):
+    
+      Set the pickling state
+      @ In, pdict, dict, the namespace state
+      @ Out, None
+    
+    self.__init__()
+    self.upperBoundUsed   = pdict.pop(&quotupperBoundUsed&quot  )
+    self.lowerBoundUsed   = pdict.pop(&quotlowerBoundUsed&quot  )
+    self.hasInfiniteBound = pdict.pop(&quothasInfiniteBound&quot)
+    self.upperBound       = pdict.pop(&quotupperBound&quot      )
+    self.lowerBound       = pdict.pop(&quotlowerBound&quot      )
+    self.__adjustmentType = pdict.pop(&quotadjustmentType&quot  )
+    self.dimensionality   = pdict.pop(&quotdimensionality&quot  )
+    self.type             = pdict.pop(&quottype&quot            )
+    self._localSetState(pdict)
+    self.initializeDistribution()
+
+  def _localSetState(self,pdict):
+    
+      Set the pickling state (local)
+      Default implementation, do nothing special
+      @ In, pdict, dict, the namespace state
+      @ Out, None
+    
+    pass
+
+  def _handleInput(self, paramInput):
+    
+      Function to handle the common parts of the distribution parameter input.
+      @ In, paramInput, ParameterInput, the already parsed input.
+      @ Out, None
+    
+    upperBound = paramInput.findFirst(&quotupperBound&quot)
+    if upperBound !=None:
+      self.upperBound = upperBound.value
+      self.upperBoundUsed = True
+    lowerBound = paramInput.findFirst(&quotlowerBound&quot)
+    if lowerBound !=None:
+      self.lowerBound = lowerBound.value
+      self.lowerBoundUsed = True
+    if self.lowerBoundUsed and self.upperBoundUsed:
+      if self.lowerBound == self.upperBound:
+        self.raiseAnError(IOError, &quotLower bound for Distribution "&quot+self.name+&quot" is equal to the upper bound!&quot)
+      if self.lowerBound &gt; self.upperBound:
+        self.raiseAnError(IOError, &quotLower bound for Distribution "&quot+self.name+&quot" is greater than the upper bound!&quot)
+
+  def getCrowDistDict(self):
+    
+      Returns a dictionary of the keys and values that would be
+      used to create the distribution for a Crow input file.
+      @ In, None
+      @ Out, retDict, dict, the dictionary of crow distributions
+    
+    retDict = {}
+    retDict[&quottype&quot] = _FrameworkToCrowDistNames[self.type]
+    if self.lowerBoundUsed:
+      retDict[&quotxMin&quot] = self.lowerBound
+    if self.upperBoundUsed:
+      retDict[&quotxMax&quot] = self.upperBound
+    return retDict
+
+  def getInitParams(self):
+    
+      Function to get the initial values of the input parameters that belong to
+      this class
+      @ In, None
+      @ Out, paramDict, dict, dictionary containing the parameter names as keys
+        and each parameter&quots initial value as the dictionary values
+    
+    paramDict = {}
+    paramDict[&quotupperBoundUsed&quot  ] = self.upperBoundUsed
+    paramDict[&quotlowerBoundUsed&quot  ] = self.lowerBoundUsed
+    paramDict[&quothasInfiniteBound&quot] = self.hasInfiniteBound
+    paramDict[&quotupperBound&quot      ] = self.upperBound
+    paramDict[&quotlowerBound&quot      ] = self.lowerBound
+    paramDict[&quotadjustmentType&quot  ] = self.__adjustmentType
+    paramDict[&quotdimensionality&quot  ] = self.dimensionality
+    return paramDict
+
+  def rvsWithinCDFbounds(self,lowerBound,upperBound):
+    
+      Function to get a random number from a truncated distribution
+      @ In, lowerBound, float, lower bound
+      @ In, upperBound, float, upper bound
+      @ Out,randResult, float, random number
+    
+    randResult = self._distribution.inverseCdf(float(random(1))*(upperBound-lowerBound)+lowerBound)
+    return randResult
+
+  def rvsWithinbounds(self,lowerBound,upperBound):
+    
+      Function to get a random number from a truncated distribution
+      @ In, lowerBound, float, lower bound
+      @ In, upperBound, float, upper bound
+      @ Out,randResult, float, random number
+    
+    CDFupper = self._distribution.cdf(upperBound)
+    CDFlower = self._distribution.cdf(lowerBound)
+    randResult = self.rvsWithinCDFbounds(CDFlower,CDFupper)
+    return randResult
+
+  def convertToDistr(self,qtype,pts):
+    
+      Converts points from the quadrature "qtype" standard domain to the distribution domain.
+      @ In, qtype, string, type of quadrature to convert from
+      @ In, pts, np.array, points to convert
+      @ Out, convertToDistrDict, np.array, converted points
+    
+    return self.convertToDistrDict[qtype](pts)
+
+  def convertToQuad(self,qtype,pts):
+    
+      Converts points from the distribution domain to the quadrature "qtype" standard domain.
+      @ In, qtype, string, type of quadrature to convert to
+      @ In, pts, np.array, points to convert
+      @ Out, convertToQuadDict, np.array, converted points
+    
+    return self.convertToQuadDict[qtype](pts)
+
+  def measureNorm(self,qtype):
+    
+      Provides the integral/jacobian conversion factor between the distribution domain and the quadrature domain.
+      @ In,  qtype, string, type of quadrature to convert to
+      @ Out, measureNormDict, float, conversion factor
+    
+    return self.measureNormDict[qtype]()
+
+  def _convertDistrPointsToCdf(self,pts):
+    
+      Converts points in the distribution domain to [0,1].
+      @ In, pts, array of floats, points to convert
+      @ Out, cdfPoints, float/array of floats, converted points
+    
+    try:
+      return self.cdf(pts.real)
+    except TypeError:
+      return list(self.cdf(x) for x in pts)
+
+  def _convertCdfPointsToDistr(self,pts):
+    
+      Converts points in [0,1] to the distribution domain.
+      @ In, pts, array of floats, points to convert
+      @ Out, dist, float/array of floats, converted points
+    
+    try:
+      return self.ppf(pts.real)
+    except TypeError:
+      return list(self.ppf(x) for x in pts)
+
+  def _convertCdfPointsToStd(self,pts):
+    
+      Converts points in [0,1] to [-1,1], the uniform distribution&quots STANDARD domain.
+      @ In, pts, array of floats, points to convert
+      @ Out, stds, float/array of floats, converted points
+    
+    try:
+      return 2.0*pts.real-1.0
+    except TypeError:
+      return list(2.0*x-1.0 for x in pts)
+
+  def _convertStdPointsToCdf(self,pts):
+    
+      Converts points in [-1,1] to [0,1] (CDF domain).
+      @ In, pts, array of floats, points to convert
+      @ Out, cdfPoints, float/array of floats, converted points
+    
+    try:
+      return 0.5*(pts.real+1.0)
+    except TypeError:
+      return list(0.5*(x+1.0) for x in pts)
+
+  def CDFconvertToQuad(self,pts):
+    
+      Converts all the way from distribution domain to [-1,1] quadrature domain.
+      @ In, pts, array of floats, points to convert
+      @ Out, quads, float/array of floats, converted points
+    
+    return self._convertCdfPointsToStd(self._convertDistrPointsToCdf(pts))
+
+  def CDFconvertToDistr(self,pts):
+    
+      Converts all the way from [-1,1] quadrature domain to distribution domain.
+      @ In, pts, array of floats, points to convert
+      @ Out, distr, float/array of floats, converted points
+    
+    return self._convertCdfPointsToDistr(self._convertStdPointsToCdf(pts))
+
+  def CDFMeasureNorm(self):
+    
+      Integral norm/jacobian for [-1,1] Legendre quadrature.
+      @ In, None
+      @ Out, norm, float, normalization factor
+    
+    norm = 1.0/2.0
+    return norm
+
+  def getDimensionality(self):
+    
+      Function return the dimensionality of the distribution
+      @ In, None
+      @ Out, dimensionality, int, the dimensionality of the distribution
+    
+    return self.dimensionality
+
+  def getDistType(self):
+    
+      Function return distribution type
+      @ In, None
+      @ Out, distType, string,  (&quotContinuous&quot or &quotDiscrete&quot)
+    
+    return self.distType
+
+  def getMemory(self):
+    
+      Function return the value of the memory variable
+      @ In, None
+      @ Out, memory, boolean, value which indicates if distribution has memory
+    
+    return self.memory
+
+  def reset(self):
+    
+      Function that reset the distribution
+      @ In, None
+      @ Out, None
+    
+    pass
+
+  def initializeFromDict(self, inputDict):
+    
+      Function which initializes the distribution given a the information contained in inputDict
+      @ In, inputDict, dict, dictionary containing the values required to initialize the distribution
+      @ Out, None
+    
+    pass
+
+class BoostDistribution(Distribution):
+  
+    Base distribution class based on boost
+  
+
+  def __init__(self):
+    
+      Constructor
+      @ In, None
+      @ Out, None
+    
+    super().__init__()
+    self.dimensionality  = 1
+    self.distType        = &quotContinuous&quot
+
+  def cdf(self,x):
+    
+      Function to get the cdf at a provided coordinate
+      @ In, x, float, value to get the cdf at
+      @ Out, retunrCdf, float, requested cdf
+    
+    if hasattr(x,&quot__len__&quot):
+      returnCdf = np.array([self.cdf(i) for i in x])
+    else:
+      returnCdf = self._distribution.cdf(x)
+    return returnCdf
+
+  def ppf(self,x):
+    
+      Function to get the inverse cdf at a provided coordinate
+      @ In, x, float, value to get the inverse cdf at
+      @ Out, retunrPpf, float, requested inverse cdf
+    
+    &#47&#47 TODO speed this up by doing it in Crow, not in python
+    if hasattr(x,&quot__len__&quot):
+      returnPpf = np.array([self.ppf(i) for i in x])
+    else:
+      returnPpf = self._distribution.inverseCdf(x)
+    return returnPpf
+
+  def pdf(self,x):
+    
+      Function to get the pdf at a provided coordinate
+      @ In, x, float, value to get the pdf at
+      @ Out, returnPdf, float, requested pdf
+    
+    returnPdf = self._distribution.pdf(x)
+    return returnPdf
+
+  def logPdf(self,x):
+    
+      Function to get the log pdf at a provided coordinate
+      @ In, x, float, value to get the pdf at
+      @ Out, logPdf, float, requested log pdf
+    
+    logPdf = np.log(self.pdf(x))
+    return logPdf
+
+  def untruncatedCdfComplement(self, x):
+    
+      Function to get the untruncated  cdf complement at a provided coordinate
+      @ In, x, float, value to get the untruncated  cdf complement  at
+      @ Out, float, requested untruncated  cdf complement
+    
+    return self._distribution.untrCdfComplement(x)
+
+  def untruncatedHazard(self, x):
+    
+      Function to get the untruncated  Hazard  at a provided coordinate
+      @ In, x, float, value to get the untruncated  Hazard   at
+      @ Out, float, requested untruncated  Hazard
+    
+    return self._distribution.untrHazard(x)
+
+  def untruncatedMean(self):
+    
+      Function to get the untruncated  Mean
+      @ In, None
+      @ Out, float, requested Mean
+    
+    return self._distribution.untrMean()
+
+  def untruncatedStdDev(self):
+    
+      Function to get the untruncated Standard Deviation
+      @ In, None
+      @ Out, float, requested Standard Deviation
+    
+    return self._distribution.untrStdDev()
+
+  def untruncatedMedian(self):
+    
+      Function to get the untruncated  Median
+      @ In, None
+      @ Out, float, requested Median
+    
+    return self._distribution.untrMedian()
+
+  def untruncatedMode(self):
+    
+      Function to get the untruncated  Mode
+      @ In, None
+      @ Out, untrMode, float, requested Mode
+    
+    untrMode = self._distribution.untrMode()
+    return untrMode
+
+
+  def rvs(self, size=None):
+    
+      Function to get random numbers
+      @ In, size, int, optional, number of entries to return (one if None)
+      @ Out, rvsValue, float or list, requested random number or numbers
+    
+    if size is None:
+      rvsValue = self.ppf(random())
+    else:
+      &#47&#47 TODO to speed up, do this on the C side instead of in python
+      rvsValue = np.array([self.rvs() for _ in range(size)])
+    return rvsValue
+
+  def selectedRvs(self, discardedElems):
+    
+      Function to get random numbers for discrete distribution which exclude discardedElems
+      @ In, discardedElems, list, list of values to be discarded
+      @ Out, rvsValue, float, requested random number
+    
+    if not self.memory:
+      self.raiseAnError(IOError,&quot The distribution &quot+ str(self.name) + &quot does not support the method selectedRVS.&quot)
+    else:
+      rvsValue = self.selectedPpf(random(),discardedElems)
+    return rvsValue
+
+class Uniform(BoostDistribution):
+  
+    Uniform univariate distribution
+  
+
+  def __init__(self, lowerBound=None, upperBound=None):
+    
+      Constructor
+      @ In, None
+      @ Out, None
+    
+    super().__init__()
+    self.range = 0.0
+    self.type = &quotUniform&quot
+    self.distType = &quotContinuous&quot
+    self.compatibleQuadrature.append(&quotLegendre&quot)
+    self.compatibleQuadrature.append(&quotClenshawCurtis&quot)
+    self.compatibleQuadrature.append(&quotCDF&quot)
+    self.preferredQuadrature = &quotLegendre&quot
+    self.preferredPolynomials = &quotLegendre&quot
+    if upperBound is not None:
+      self.upperBound = upperBound
+      self.upperBoundUsed = True
+    if lowerBound is not None:
+      self.lowerBound = lowerBound
+      self.lowerBoundUsed = True
+    if self.lowerBoundUsed and self.upperBoundUsed:
+      self.range = self.upperBound - self.lowerBound
+
+  def _localSetState(self,pdict):
+    
+      Set the pickling state (local)
+      @ In, pdict, dict, the namespace state
+      @ Out, None
+    
+    &#47&#47self.lowerBound   = pdict.pop(&quotlowerBound&quot  )
+    &#47&#47self.upperBound   = pdict.pop(&quotupperBound&quot   )
+    self.range        = pdict.pop(&quotrange&quot)
+
+  def getCrowDistDict(self):
+    
+      Returns a dictionary of the keys and values that would be
+      used to create the distribution for a Crow input file.
+      @ In, None
+      @ Out, retDict, dict, the dictionary of crow distributions
+    
+    retDict = Distribution.getCrowDistDict(self)
+    retDict[&quotxMin&quot] = self.lowerBound
+    retDict[&quotxMax&quot] = self.upperBound
+    return retDict
+
+  def _handleInput(self, paramInput):
+    
+      Function to handle the common parts of the distribution parameter input.
+      @ In, paramInput, ParameterInput, the already parsed input.
+      @ Out, None
+    
+    BoostDistribution._handleInput(self, paramInput)
+    if not self.upperBoundUsed or not self.lowerBoundUsed:
+      self.raiseAnError(IOError,&quotthe Uniform distribution needs both upperBound and lowerBound attributes. Got upperBound? &quot+ str(self.upperBoundUsed) + &quot. Got lowerBound? &quot+str(self.lowerBoundUsed))
+    self.range = self.upperBound - self.lowerBound
+    self.initializeDistribution()
+
+  def stdProbabilityNorm(self):
+    Returns the factor to scale error norm by so that norm(probability)=1.
+    @ In, None, None
+    @ Out float, norm
+    
+    return 0.5
+
+  def getInitParams(self):
+    
+      Function to get the initial values of the input parameters that belong to
+      this class
+      @ In, None
+      @ Out, paramDict, dict, dictionary containing the parameter names as keys
+        and each parameter&quots initial value as the dictionary values
+    
+    paramDict = BoostDistribution.getInitParams(self)
+    paramDict[&quotrange&quot] = self.range
+    return paramDict
+    &#47&#47 no other additional parameters required
+
+  def initializeDistribution(self):
+    
+      Method to initialize the distribution
+      @ In, None
+      @ Out, None
+    
+    self.convertToDistrDict[&quotLegendre&quot]       = self.convertLegendreToUniform
+    self.convertToQuadDict [&quotLegendre&quot]       = self.convertUniformToLegendre
+    self.measureNormDict   [&quotLegendre&quot]       = self.stdProbabilityNorm
+    self.convertToDistrDict[&quotClenshawCurtis&quot] = self.convertLegendreToUniform
+    self.convertToQuadDict [&quotClenshawCurtis&quot] = self.convertUniformToLegendre
+    self.measureNormDict   [&quotClenshawCurtis&quot] = self.stdProbabilityNorm
+    self._distribution = distribution1D.BasicUniformDistribution(self.lowerBound,self.lowerBound+self.range)
+
+  def convertUniformToLegendre(self,y):
+    Converts from distribution domain to standard Legendre [-1,1].
+      @ In, y, float/array of floats, points to convert
+      @ Out float/array of floats, converted points
+    
+    return (y-self.untruncatedMean())/(self.range/2.)
+
+  def convertLegendreToUniform(self,x):
+    Converts from standard Legendre [-1,1] to distribution domain.
+      @ In, y, float/array of floats, points to convert
+      @ Out float/array of floats, converted points
+    
+    return self.range/2.*x+self.untruncatedMean()
+
+DistributionsCollection.addSub(Uniform.getInputSpecification())
+
+class Normal(BoostDistribution):
+  
+    Normal univariate distribution
+  
+  @classmethod
+  def getInputSpecification(cls):
+    
+      Method to get a reference to a class that specifies the input data for
+      class cls.
+      @ In, cls, the class for which we are retrieving the specification
+      @ Out, inputSpecification, InputData.ParameterInput, class to use for
+        specifying input of cls.
+    
+    inputSpecification = super(Normal, cls).getInputSpecification()
+    inputSpecification.addSub(InputData.parameterInputFactory("mean", contentType=InputTypes.FloatType))
+    inputSpecification.addSub(InputData.parameterInputFactory("sigma", contentType=InputTypes.FloatType))
+
+    return inputSpecification
+
+  def __init__(self, mean=0.0, sigma=1.0):
+    
+      Constructor
+      @ In, None
+      @ Out, None
+    
+    super().__init__()
+    self.mean  = mean
+    self.sigma = sigma
+    self.hasInfiniteBound = True
+    self.type = &quotNormal&quot
+    self.distType = &quotContinuous&quot
+    self.compatibleQuadrature.append(&quotHermite&quot)
+    self.compatibleQuadrature.append(&quotCDF&quot)
+    &#47&#47THESE get set in initializeDistribution, since it depends on truncation
+    &#47&#47self.preferredQuadrature  = &quotHermite&quot
+    &#47&#47self.preferredPolynomials = &quotHermite&quot
+
+  def _localSetState(self,pdict):
+    
+      Set the pickling state (local)
+      @ In, pdict, dict, the namespace state
+      @ Out, None
+    
+    self.mean  = pdict.pop(&quotmean&quot )
+    self.sigma = pdict.pop(&quotsigma&quot)
+
+  def getCrowDistDict(self):
+    
+      Returns a dictionary of the keys and values that would be
+      used to create the distribution for a Crow input file.
+      @ In, None
+      @ Out, retDict, dict, the dictionary of crow distributions
+    
+    retDict = Distribution.getCrowDistDict(self)
+    retDict[&quotmu&quot] = self.mean
+    retDict[&quotsigma&quot] = self.sigma
+    return retDict
+
+  def _handleInput(self, paramInput):
+    
+      Function to handle the common parts of the distribution parameter input.
+      @ In, paramInput, ParameterInput, the already parsed input.
+      @ Out, None
+    
+    BoostDistribution._handleInput(self, paramInput)
+    meanFind = paramInput.findFirst(&quotmean&quot )
+    if meanFind is not None:
+      self.mean  = meanFind.value
+    else:
+      self.raiseAnError(IOError,&quotmean value needed for normal distribution&quot)
+    sigmaFind = paramInput.findFirst(&quotsigma&quot)
+    if sigmaFind is not None:
+      self.sigma = sigmaFind.value
+    else:
+      self.raiseAnError(IOError,&quotsigma value needed for normal distribution&quot)
+    self.initializeDistribution() &#47&#47FIXME no other distros have this...needed?
+
+  def getInitParams(self):
+    
+      Function to get the initial values of the input parameters that belong to
+      this class
+      @ In, None
+      @ Out, paramDict, dict, dictionary containing the parameter names as keys
+        and each parameter&quots initial value as the dictionary values
+    
+    paramDict = BoostDistribution.getInitParams(self)
+    paramDict[&quotmean&quot ] = self.mean
+    paramDict[&quotsigma&quot] = self.sigma
+    return paramDict
+
+  def initializeDistribution(self):
+    
+      Method to initialize the distribution
+      @ In, None
+      @ Out, None
+    
+    self.convertToDistrDict[&quotHermite&quot] = self.convertHermiteToNormal
+    self.convertToQuadDict [&quotHermite&quot] = self.convertNormalToHermite
+    self.measureNormDict   [&quotHermite&quot] = self.stdProbabilityNorm
+    if (not self.upperBoundUsed) and (not self.lowerBoundUsed):
+      self._distribution = distribution1D.BasicNormalDistribution(self.mean,
+                                                                  self.sigma)
+      self.lowerBound = -sys.float_info.max
+      self.upperBound =  sys.float_info.max
+      self.preferredQuadrature  = &quotHermite&quot
+      self.preferredPolynomials = &quotHermite&quot
+    else:
+      self.preferredQuadrature  = &quotCDF&quot
+      self.preferredPolynomials = &quotLegendre&quot
+      if self.lowerBoundUsed == False:
+        a = -sys.float_info.max
+        self.lowerBound = a
+      else:
+        a = self.lowerBound
+      if self.upperBoundUsed == False:
+        b = sys.float_info.max
+        self.upperBound = b
+      else:
+        b = self.upperBound
+      self._distribution = distribution1D.BasicNormalDistribution(self.mean,
+                                                                  self.sigma,
+                                                                  a,b)
+
+  def stdProbabilityNorm(self,std=False):
+    Returns the factor to scale error norm by so that norm(probability)=1.
+    @ In, None, None
+    @ Out float, norm
+    
+    sv = str(scipy.__version__).split(&quot.&quot)
+    if int(sv[0])==0 and int(sv[1])==15:
+      self.raiseAWarning(&quotSciPy 0.15 detected!  In this version, the normalization factor for normal distributions was modified.&quot)
+      self.raiseAWarning(&quotUsing modified value...&quot)
+      return 1.0/np.sqrt(np.pi/2.)
+    else:
+      return 1.0/np.sqrt(2.*np.pi)
+
+  def convertNormalToHermite(self,y):
+    Converts from distribution domain to standard Hermite [-inf,inf].
+    @ In, y, float/array of floats, points to convert
+    @ Out float/array of floats, converted points
+    
+    return (y-self.untruncatedMean())/(self.sigma)
+
+  def convertHermiteToNormal(self,x):
+    Converts from standard Hermite [-inf,inf] to distribution domain.
+    @ In, y, float/array of floats, points to convert
+    @ Out float/array of floats, converted points
+    
+    return self.sigma*x+self.untruncatedMean()
+
+DistributionsCollection.addSub(Normal.getInputSpecification())
+
+class Gamma(BoostDistribution):
+  
+    Gamma univariate distribution
+  
+
+  @classmethod
+  def getInputSpecification(cls):
+    
+      Method to get a reference to a class that specifies the input data for
+      class cls.
+      @ In, cls, the class for which we are retrieving the specification
+      @ Out, inputSpecification, InputData.ParameterInput, class to use for
+        specifying input of cls.
+    
+    inputSpecification = super(Gamma, cls).getInputSpecification()
+    inputSpecification.addSub(InputData.parameterInputFactory("low", contentType=InputTypes.FloatType))
+    inputSpecification.addSub(InputData.parameterInputFactory("alpha", contentType=InputTypes.FloatType))
+    inputSpecification.addSub(InputData.parameterInputFactory("beta", contentType=InputTypes.FloatType))
+
+    return inputSpecification
+
+  def __init__(self, low=0.0, alpha=0.0, beta=1.0):
+    
+      Constructor
+      @ In, low, float, lower domain boundary
+      @ In, alpha, float, shape parameter
+      @ In, beta, float, 1/scale or the inverse scale parameter
+      @ Out, None
+    
+    super().__init__()
+    self.low = low
+    self.alpha = alpha
+    self.beta = beta
+    self.type = &quotGamma&quot
+    self.distType = &quotContinuous&quot
+    self.hasInfiniteBound = True
+    self.compatibleQuadrature.append(&quotLaguerre&quot)
+    self.compatibleQuadrature.append(&quotCDF&quot)
+    self.preferredQuadrature  = &quotLaguerre&quot
+    self.preferredPolynomials = &quotLaguerre&quot
+
+  def _localSetState(self,pdict):
+    
+      Set the pickling state (local)
+      @ In, pdict, dict, the namespace state
+      @ Out, None
+    
+    self.low   = pdict.pop(&quotlow&quot  )
+    self.alpha = pdict.pop(&quotalpha&quot)
+    self.beta  = pdict.pop(&quotbeta&quot )
+
+  def getCrowDistDict(self):
+    
+      Returns a dictionary of the keys and values that would be
+      used to create the distribution for a Crow input file.
+      @ In, None
+      @ Out, retDict, dict, the dictionary of crow distributions
+    
+    retDict = Distribution.getCrowDistDict(self)
+    retDict[&quotk&quot] = self.alpha
+    retDict[&quottheta&quot] = 1.0/self.beta
+    retDict[&quotlow&quot] = self.low
+    return retDict
+
+  def _handleInput(self, paramInput):
+    
+      Function to handle the common parts of the distribution parameter input.
+      @ In, paramInput, ParameterInput, the already parsed input.
+      @ Out, None
+    
+    BoostDistribution._handleInput(self, paramInput)
+    lowFind = paramInput.findFirst(&quotlow&quot)
+    if lowFind != None:
+      self.low = lowFind.value
+    alphaFind = paramInput.findFirst(&quotalpha&quot)
+    if alphaFind != None:
+      self.alpha = alphaFind.value
+    else:
+      self.raiseAnError(IOError,&quotalpha value needed for Gamma distribution&quot)
+    betaFind = paramInput.findFirst(&quotbeta&quot)
+    if betaFind != None:
+      self.beta = betaFind.value
+    &#47&#47 check if lower bound are set, otherwise default
+    if not self.lowerBoundUsed:
+      self.lowerBoundUsed = True
+      self.lowerBound     = self.low
+    self.initializeDistribution() &#47&#47TODO this exists in a couple classes; does it really need to be here and not in Simulation? - No. - Andrea
+
+  def getInitParams(self):
+    
+      Function to get the initial values of the input parameters that belong to
+      this class
+      @ In, None
+      @ Out, paramDict, dict, dictionary containing the parameter names as keys
+        and each parameter&quots initial value as the dictionary values
+    
+    paramDict = BoostDistribution.getInitParams(self)
+    paramDict[&quotlow&quot] = self.low
+    paramDict[&quotalpha&quot] = self.alpha
+    paramDict[&quotbeta&quot] = self.beta
+    return paramDict
+
+  def initializeDistribution(self):
+    
+      Method to initialize the distribution
+      @ In, None
+      @ Out, None
+    
+    self.convertToDistrDict[&quotLaguerre&quot] = self.convertLaguerreToGamma
+    self.convertToQuadDict [&quotLaguerre&quot] = self.convertGammaToLaguerre
+    self.measureNormDict   [&quotLaguerre&quot] = self.stdProbabilityNorm
+    if (not self.upperBoundUsed):
+      &#47&#47 and (not self.lowerBoundUsed):
+      self._distribution = distribution1D.BasicGammaDistribution(self.alpha,1.0/self.beta,self.low)
+      &#47&#47self.lowerBoundUsed = 0.0
+      self.upperBound     = sys.float_info.max
+      self.preferredQuadrature  = &quotLaguerre&quot
+      self.preferredPolynomials = &quotLaguerre&quot
+    else:
+      self.preferredQuadrature  = &quotCDF&quot
+      self.preferredPolynomials = &quotLegendre&quot
+      if self.lowerBoundUsed == False:
+        a = 0.0
+        self.lowerBound = a
+      else:
+        a = self.lowerBound
+      if self.upperBoundUsed == False:
+        b = sys.float_info.max
+        self.upperBound = b
+      else:
+        b = self.upperBound
+      self._distribution = distribution1D.BasicGammaDistribution(self.alpha,1.0/self.beta,self.low,a,b)
+
+  def convertGammaToLaguerre(self,y):
+    Converts from distribution domain to standard Laguerre [0,inf].
+    @ In, y, float/array of floats, points to convert
+    @ Out float/array of floats, converted points
+    
+    return (y-self.low)*(self.beta)
+
+  def convertLaguerreToGamma(self,x):
+    Converts from standard Laguerre [0,inf] to distribution domain.
+    @ In, y, float/array of floats, points to convert
+    @ Out float/array of floats, converted points
+    
+    return x/self.beta+self.low
+
+  def stdProbabilityNorm(self):
+    Returns the factor to scale error norm by so that norm(probability)=1.
+    @ In, None, None
+    @ Out float, norm
+    
+    return 1./factorial(self.alpha-1)
+
+DistributionsCollection.addSub(Gamma.getInputSpecification())
+
+class Beta(BoostDistribution):
+  
+    Beta univariate distribution
+  
+
+  @classmethod
+  def getInputSpecification(cls):
+    
+      Method to get a reference to a class that specifies the input data for
+      class cls.
+      @ In, cls, the class for which we are retrieving the specification
+      @ Out, inputSpecification, InputData.ParameterInput, class to use for
+        specifying input of cls.
+    
+    inputSpecification = super(Beta, cls).getInputSpecification()
+    inputSpecification.addSub(InputData.parameterInputFactory("low", contentType=InputTypes.FloatType))
+    inputSpecification.addSub(InputData.parameterInputFactory("alpha", contentType=InputTypes.FloatType))
+    inputSpecification.addSub(InputData.parameterInputFactory("beta", contentType=InputTypes.FloatType))
+    inputSpecification.addSub(InputData.parameterInputFactory("high", contentType=InputTypes.FloatType))
+    inputSpecification.addSub(InputData.parameterInputFactory("peakFactor", contentType=InputTypes.FloatType))
+
+    return inputSpecification
+
+  def __init__(self):
+    
+      Constructor
+      @ In, None
+      @ Out, None
+    
+    super().__init__()
+    self.low = 0.0
+    self.high = 1.0
+    self.alpha = 0.0
+    self.beta = 0.0
+    self.type = &quotBeta&quot
+    self.distType = &quotContinuous&quot
+    self.hasInfiniteBound = True
+    self.compatibleQuadrature.append(&quotJacobi&quot)
+    self.compatibleQuadrature.append(&quotCDF&quot)
+    self.preferredQuadrature  = &quotJacobi&quot
+    self.preferredPolynomials = &quotJacobi&quot
+
+  def _localSetState(self,pdict):
+    
+      Set the pickling state (local)
+      @ In, pdict, dict, the namespace state
+      @ Out, None
+    
+    self.low   = pdict.pop(&quotlow&quot  )
+    self.high  = pdict.pop(&quothigh&quot )
+    self.alpha = pdict.pop(&quotalpha&quot)
+    self.beta  = pdict.pop(&quotbeta&quot )
+
+  def getCrowDistDict(self):
+    
+      Returns a dictionary of the keys and values that would be
+      used to create the distribution for a Crow input file.
+      @ In, None
+      @ Out, retDict, dict, the dictionary of crow distributions
+    
+    retDict = Distribution.getCrowDistDict(self)
+    retDict[&quotalpha&quot] = self.alpha
+    retDict[&quotbeta&quot] = self.beta
+    retDict[&quotscale&quot] = self.high-self.low
+    retDict[&quotlow&quot] = self.low
+    return retDict
+
+  def _handleInput(self, paramInput):
+    
+      Function to handle the common parts of the distribution parameter input.
+      @ In, paramInput, ParameterInput, the already parsed input.
+      @ Out, None
+    
+    BoostDistribution._handleInput(self, paramInput)
+    lowFind = paramInput.findFirst(&quotlow&quot)
+    if lowFind != None:
+      self.low = lowFind.value
+    hiFind = paramInput.findFirst(&quothigh&quot)
+    if hiFind != None:
+      self.high = hiFind.value
+    alphaFind = paramInput.findFirst(&quotalpha&quot)
+    betaFind = paramInput.findFirst(&quotbeta&quot)
+    peakFind = paramInput.findFirst(&quotpeakFactor&quot)
+    if alphaFind != None and betaFind != None and peakFind == None:
+      self.alpha = alphaFind.value
+      self.beta  = betaFind.value
+    elif (alphaFind == None and betaFind == None) and peakFind != None:
+      peakFactor = peakFind.value
+      if not 0 &lt;= peakFactor &lt;= 1:
+        self.raiseAnError(IOError,&quotpeakFactor must be from 0 to 1, inclusive!&quot)
+      &#47&#47this empirical formula is used to make it so factor-&gt;alpha: 0-&gt;1, 0.5~7.5, 1-&gt;99
+      self.alpha = 0.5*23.818**(5.*peakFactor/3.) + 0.5
+      self.beta = self.alpha
+    else:
+      self.raiseAnError(IOError,&quotEither provide (alpha and beta) or peakFactor!&quot)
+    &#47&#47 check if lower or upper bounds are set, otherwise default
+    if not self.upperBoundUsed:
+      self.upperBoundUsed = True
+      self.upperBound     = self.high
+    if not self.lowerBoundUsed:
+      self.lowerBoundUsed = True
+      self.lowerBound     = self.low
+    self.initializeDistribution()
+
+  def getInitParams(self):
+    
+      Function to get the initial values of the input parameters that belong to
+      this class
+      @ In, None
+      @ Out, paramDict, dict, dictionary containing the parameter names as keys
+        and each parameter&quots initial value as the dictionary values
+    
+    paramDict = BoostDistribution.getInitParams(self)
+    paramDict[&quotlow&quot  ] = self.low
+    paramDict[&quothigh&quot ] = self.high
+    paramDict[&quotalpha&quot] = self.alpha
+    paramDict[&quotbeta&quot ] = self.beta
+    return paramDict
+
+  def initializeDistribution(self):
+    
+      Method to initialize the distribution
+      @ In, None
+      @ Out, None
+    
+    self.convertToDistrDict[&quotJacobi&quot] = self.convertJacobiToBeta
+    self.convertToQuadDict [&quotJacobi&quot] = self.convertBetaToJacobi
+    self.measureNormDict   [&quotJacobi&quot] = self.stdProbabilityNorm
+    &#47&#47this "if" section can only be called if distribution not generated using readMoreXML
+    if (not self.upperBoundUsed) and (not self.lowerBoundUsed):
+      self._distribution = distribution1D.BasicBetaDistribution(self.alpha,self.beta,self.high-self.low,self.low)
+    else:
+      if self.lowerBoundUsed == False:
+        a = 0.0
+      else:
+        a = self.lowerBound
+      if self.upperBoundUsed == False:
+        b = sys.float_info.max
+      else:
+        b = self.upperBound
+      self._distribution = distribution1D.BasicBetaDistribution(self.alpha,self.beta,self.high-self.low,a,b,self.low)
+    self.preferredPolynomials = &quotJacobi&quot
+    self.compatibleQuadrature.append(&quotJacobi&quot)
+    self.compatibleQuadrature.append(&quotClenshawCurtis&quot)
+
+  def convertBetaToJacobi(self,y):
+    
+      Converts from distribution domain to standard Beta [0,1].
+      @ In, y, float/array of floats, points to convert
+      @ Out, convertBetaToJacobi, float/array of floats, converted points
+    
+    u = 0.5*(self.high+self.low)
+    s = 0.5*(self.high-self.low)
+    return (y-u)/(s)
+
+  def convertJacobiToBeta(self,x):
+    
+      Converts from standard Jacobi [0,1] to distribution domain.
+      @ In, y, float/array of floats, points to convert
+      @ Out, convertJacobiToBeta, float/array of floats, converted points
+    
+    u = 0.5*(self.high+self.low)
+    s = 0.5*(self.high-self.low)
+    return s*x+u
+
+  def stdProbabilityNorm(self):
+    
+      Returns the factor to scale error norm by so that norm(probability)=1.
+      @ In, None
+      @ Out, norm, float, norm
+    
+    B = factorial(self.alpha-1)*factorial(self.beta-1)/factorial(self.alpha+self.beta-1)
+    norm = 1.0/(2**(self.alpha+self.beta-1)*B)
+    return norm
+
+DistributionsCollection.addSub(Beta.getInputSpecification())
+
+class Triangular(BoostDistribution):
+  
+    Triangular univariate distribution
+  
+
+  @classmethod
+  def getInputSpecification(cls):
+    
+      Method to get a reference to a class that specifies the input data for
+      class cls.
+      @ In, cls, the class for which we are retrieving the specification
+      @ Out, inputSpecification, InputData.ParameterInput, class to use for
+        specifying input of cls.
+    
+    inputSpecification = super(Triangular, cls).getInputSpecification()
+    inputSpecification.addSub(InputData.parameterInputFactory("apex", contentType=InputTypes.FloatType))
+    inputSpecification.addSub(InputData.parameterInputFactory("min", contentType=InputTypes.FloatType))
+    inputSpecification.addSub(InputData.parameterInputFactory("max", contentType=InputTypes.FloatType))
+
+    return inputSpecification
+
+  def __init__(self):
+    
+      Constructor
+      @ In, None
+      @ Out, None
+    
+    super().__init__()
+    self.apex = 0.0   &#47&#47 peak location
+    self.min  = None  &#47&#47 domain lower boundary
+    self.max  = None  &#47&#47 domain upper boundary
+    self.type = &quotTriangular&quot
+    self.distType = &quotContinuous&quot
+    self.compatibleQuadrature.append(&quotCDF&quot)
+    self.preferredQuadrature  = &quotCDF&quot
+    self.preferredPolynomials = &quotCDF&quot
+
+  def _localSetState(self,pdict):
+    
+      Set the pickling state (local)
+      @ In, pdict, dict, the namespace state
+      @ Out, None
+    
+    self.apex = pdict.pop(&quotapex&quot)
+    self.min  = pdict.pop(&quotmin&quot )
+    self.max  = pdict.pop(&quotmax&quot )
+
+  def getCrowDistDict(self):
+    
+      Returns a dictionary of the keys and values that would be
+      used to create the distribution for a Crow input file.
+      @ In, None
+      @ Out, retDict, dict, the dictionary of crow distributions
+    
+    retDict = Distribution.getCrowDistDict(self)
+    retDict[&quotxPeak&quot] = self.apex
+    retDict[&quotlowerBound&quot] = self.min
+    retDict[&quotupperBound&quot] = self.max
+    return retDict
+
+  def _handleInput(self, paramInput):
+    
+      Function to handle the common parts of the distribution parameter input.
+      @ In, paramInput, ParameterInput, the already parsed input.
+      @ Out, None
+    
+    BoostDistribution._handleInput(self, paramInput)
+    apexFind = paramInput.findFirst(&quotapex&quot)
+    if apexFind != None:
+      self.apex = apexFind.value
+    else:
+      self.raiseAnError(IOError,&quotapex value needed for Triangular  distribution&quot)
+    minFind = paramInput.findFirst(&quotmin&quot)
+    if minFind != None:
+      self.min = minFind.value
+    else:
+      self.raiseAnError(IOError,&quotmin value needed for Triangular distribution&quot)
+    maxFind = paramInput.findFirst(&quotmax&quot)
+    if maxFind != None:
+      self.max = maxFind.value
+    else:
+      self.raiseAnError(IOError,&quotmax value needed for Triangular distribution&quot)
+    &#47&#47 check if lower or upper bounds are set, otherwise default
+    if not self.upperBoundUsed:
+      self.upperBoundUsed = True
+      self.upperBound     = self.max
+    if not self.lowerBoundUsed:
+      self.lowerBoundUsed = True
+      self.lowerBound     = self.min
+    self.initializeDistribution()
+
+  def getInitParams(self):
+    
+      Function to get the initial values of the input parameters that belong to
+      this class
+      @ In, None
+      @ Out, paramDict, dict, dictionary containing the parameter names as keys
+        and each parameter&quots initial value as the dictionary values
+    
+    paramDict = BoostDistribution.getInitParams(self)
+    paramDict[&quotapex&quot ] = self.apex
+    paramDict[&quotmin&quot  ] = self.min
+    paramDict[&quotmax&quot  ] = self.max
+    return paramDict
+
+  def initializeDistribution(self):
+    
+      Method to initialize the distribution
+      @ In, None
+      @ Out, None
+    
+    if (self.lowerBoundUsed == False and self.upperBoundUsed == False) or (self.min == self.lowerBound and self.max == self.upperBound):
+      self._distribution = distribution1D.BasicTriangularDistribution(self.apex,self.min,self.max)
+    else:
+      self.raiseAnError(IOError,&quotTruncated triangular not yet implemented&quot)
+
+DistributionsCollection.addSub(Triangular.getInputSpecification())
+
+class Poisson(BoostDistribution):
+  
+    Poisson univariate distribution
+  
+
+  @classmethod
+  def getInputSpecification(cls):
+    
+      Method to get a reference to a class that specifies the input data for
+      class cls.
+      @ In, cls, the class for which we are retrieving the specification
+      @ Out, inputSpecification, InputData.ParameterInput, class to use for
+        specifying input of cls.
+    
+    inputSpecification = super(Poisson, cls).getInputSpecification()
+    inputSpecification.addSub(InputData.parameterInputFactory("mu", contentType=InputTypes.FloatType))
+
+    return inputSpecification
+
+  def __init__(self):
+    
+      Constructor
+      @ In, None
+      @ Out, None
+    
+    super().__init__()
+    self.mu  = 0.0
+    self.type = &quotPoisson&quot
+    self.hasInfiniteBound = True
+    self.distType = &quotDiscrete&quot
+    self.compatibleQuadrature.append(&quotCDF&quot)
+    self.preferredQuadrature  = &quotCDF&quot
+    self.preferredPolynomials = &quotCDF&quot
+
+  def _localSetState(self,pdict):
+    
+      Set the pickling state (local)
+      @ In, pdict, dict, the namespace state
+      @ Out, None
+    
+    self.mu = pdict.pop(&quotmu&quot)
+
+  def getCrowDistDict(self):
+    
+      Returns a dictionary of the keys and values that would be
+      used to create the distribution for a Crow input file.
+      @ In, None
+      @ Out, retDict, dict, the dictionary of crow distributions
+    
+    retDict = Distribution.getCrowDistDict(self)
+    retDict[&quotmu&quot] = self.mu
+    return retDict
+
+  def _handleInput(self, paramInput):
+    
+      Function to handle the common parts of the distribution parameter input.
+      @ In, paramInput, ParameterInput, the already parsed input.
+      @ Out, None
+    
+    BoostDistribution._handleInput(self, paramInput)
+    muFind = paramInput.findFirst(&quotmu&quot)
+    if muFind != None:
+      self.mu = muFind.value
+    else:
+      self.raiseAnError(IOError,&quotmu value needed for poisson distribution&quot)
+    self.initializeDistribution()
+
+  def getInitParams(self):
+    
+      Function to get the initial values of the input parameters that belong to
+      this class
+      @ In, None
+      @ Out, paramDict, dict, dictionary containing the parameter names as keys
+        and each parameter&quots initial value as the dictionary values
+    
+    paramDict = BoostDistribution.getInitParams(self)
+    paramDict[&quotmu&quot  ] = self.mu
+    return paramDict
+
+  def initializeDistribution(self):
+    
+      Method to initialize the distribution
+      @ In, None
+      @ Out, None
+    
+    if self.lowerBoundUsed == False and self.upperBoundUsed == False:
+      self._distribution = distribution1D.BasicPoissonDistribution(self.mu)
+      self.lowerBound = 0.0
+      self.upperBound = sys.float_info.max
+    else:
+      self.raiseAnError(IOError,&quotTruncated poisson not yet implemented&quot)
+
+DistributionsCollection.addSub(Poisson.getInputSpecification())
+
+class Binomial(BoostDistribution):
+  
+    Binomial univariate distribution
+  
+
+  @classmethod
+  def getInputSpecification(cls):
+    
+      Method to get a reference to a class that specifies the input data for
+      class cls.
+      @ In, cls, the class for which we are retrieving the specification
+      @ Out, inputSpecification, InputData.ParameterInput, class to use for
+        specifying input of cls.
+    
+    inputSpecification = super(Binomial, cls).getInputSpecification()
+    inputSpecification.addSub(InputData.parameterInputFactory("n", contentType=InputTypes.IntegerType))
+    inputSpecification.addSub(InputData.parameterInputFactory("p", contentType=InputTypes.FloatType))
+
+    return inputSpecification
+
+  def __init__(self):
+    
+      Constructor
+      @ In, None
+      @ Out, None
+    
+    super().__init__()
+    self.n       = 0.0
+    self.p       = 0.0
+    self.type     = &quotBinomial&quot
+    self.hasInfiniteBound = True
+    self.distType = &quotDiscrete&quot
+    self.compatibleQuadrature.append(&quotCDF&quot)
+    self.preferredQuadrature  = &quotCDF&quot
+    self.preferredPolynomials = &quotCDF&quot
+
+  def _localSetState(self,pdict):
+    
+      Set the pickling state (local)
+      @ In, pdict, dict, the namespace state
+      @ Out, None
+    
+    self.n = pdict.pop(&quotn&quot)
+    self.p = pdict.pop(&quotp&quot)
+
+  def getCrowDistDict(self):
+    
+      Returns a dictionary of the keys and values that would be
+      used to create the distribution for a Crow input file.
+      @ In, None
+      @ Out, retDict, dict, the dictionary of crow distributions
+    
+    retDict = Distribution.getCrowDistDict(self)
+    retDict[&quotn&quot] = self.n
+    retDict[&quotp&quot] = self.p
+    return retDict
+
+  def _handleInput(self, paramInput):
+    
+      Function to handle the common parts of the distribution parameter input.
+      @ In, paramInput, ParameterInput, the already parsed input.
+      @ Out, None
+    
+    BoostDistribution._handleInput(self, paramInput)
+    nFind = paramInput.findFirst(&quotn&quot)
+    if nFind != None:
+      self.n = nFind.value
+    else:
+      self.raiseAnError(IOError,&quotn value needed for Binomial distribution&quot)
+    pFind = paramInput.findFirst(&quotp&quot)
+    if pFind != None:
+      self.p = pFind.value
+    else:
+      self.raiseAnError(IOError,&quotp value needed for Binomial distribution&quot)
+    self.initializeDistribution()
+
+  def getInitParams(self):
+    
+      Function to get the initial values of the input parameters that belong to
+      this class
+      @ In, None
+      @ Out, paramDict, dict, dictionary containing the parameter names as keys
+        and each parameter&quots initial value as the dictionary values
+    
+    paramDict = BoostDistribution.getInitParams(self)
+    paramDict[&quotn&quot  ] = self.n
+    paramDict[&quotp&quot  ] = self.p
+    return paramDict
+
+  def initializeDistribution(self):
+    
+      Method to initialize the distribution
+      @ In, None
+      @ Out, None
+    
+    if self.lowerBoundUsed == False and self.upperBoundUsed == False:
+      self._distribution = distribution1D.BasicBinomialDistribution(self.n,self.p)
+    else:
+      self.raiseAnError(IOError,&quotTruncated Binomial not yet implemented&quot)
+
+DistributionsCollection.addSub(Binomial.getInputSpecification())
+
+class Bernoulli(BoostDistribution):
+  
+    Bernoulli univariate distribution
+  
+
+  @classmethod
+  def getInputSpecification(cls):
+    
+      Method to get a reference to a class that specifies the input data for
+      class cls.
+      @ In, cls, the class for which we are retrieving the specification
+      @ Out, inputSpecification, InputData.ParameterInput, class to use for
+        specifying input of cls.
+    
+    inputSpecification = super(Bernoulli, cls).getInputSpecification()
+    inputSpecification.addSub(InputData.parameterInputFactory("p", contentType=InputTypes.FloatType))
+
+    return inputSpecification
+
+  def __init__(self):
+    
+      Constructor
+      @ In, None
+      @ Out, None
+    
+    super().__init__()
+    self.p        = 0.0
+    self.type     = &quotBernoulli&quot
+    self.distType = &quotDiscrete&quot
+    self.lowerBound = 0.0
+    self.upperBound = 1.0
+    self.compatibleQuadrature.append(&quotCDF&quot)
+    self.preferredQuadrature  = &quotCDF&quot
+    self.preferredPolynomials = &quotCDF&quot
+
+  def _localSetState(self,pdict):
+    
+      Set the pickling state (local)
+      @ In, pdict, dict, the namespace state
+      @ Out, None
+    
+    self.p = pdict.pop(&quotp&quot)
+
+  def getCrowDistDict(self):
+    
+      Returns a dictionary of the keys and values that would be
+      used to create the distribution for a Crow input file.
+      @ In, None
+      @ Out, retDict, dict, the dictionary of crow distributions
+    
+    retDict = Distribution.getCrowDistDict(self)
+    retDict[&quotp&quot] = self.p
+    return retDict
+
+  def _handleInput(self, paramInput):
+    
+      Function to handle the common parts of the distribution parameter input.
+      @ In, paramInput, ParameterInput, the already parsed input.
+      @ Out, None
+    
+    BoostDistribution._handleInput(self, paramInput)
+    pFind = paramInput.findFirst(&quotp&quot)
+    if pFind != None:
+      self.p = pFind.value
+    else:
+      self.raiseAnError(IOError,&quotp value needed for Bernoulli distribution&quot)
+    self.initializeDistribution()
+
+  def getInitParams(self):
+    
+      Function to get the initial values of the input parameters that belong to
+      this class
+      @ In, None
+      @ Out, paramDict, dict, dictionary containing the parameter names as keys
+        and each parameter&quots initial value as the dictionary values
+    
+    paramDict = BoostDistribution.getInitParams(self)
+    paramDict[&quotp&quot] = self.p
+    return paramDict
+
+  def initializeDistribution(self):
+    
+      Method to initialize the distribution
+      @ In, None
+      @ Out, None
+    
+    if self.lowerBoundUsed == False and self.upperBoundUsed == False:
+      self._distribution = distribution1D.BasicBernoulliDistribution(self.p)
+    else:
+      self.raiseAnError(IOError,&quotTruncated Bernoulli not yet implemented&quot)
+
+DistributionsCollection.addSub(Bernoulli.getInputSpecification())
+
+class Geometric(BoostDistribution):
+  
+    Geometric univariate distribution
+  
+
+  @classmethod
+  def getInputSpecification(cls):
+    
+      Method to get a reference to a class that specifies the input data for
+      class cls.
+      @ In, cls, the class for which we are retrieving the specification
+      @ Out, inputSpecification, InputData.ParameterInput, class to use for
+        specifying input of cls.
+    
+    inputSpecification = super(Geometric, cls).getInputSpecification()
+    inputSpecification.addSub(InputData.parameterInputFactory("p", contentType=InputTypes.FloatType))
+
+    return inputSpecification
+
+  def __init__(self):
+    
+      Constructor
+      @ In, None
+      @ Out, None
+    
+    super().__init__()
+    self.p        = 0.0
+    self.type     = &quotGeometric&quot
+    self.distType = &quotDiscrete&quot
+    self.lowerBound = 0.0
+    self.upperBound = 1.0
+    self.compatibleQuadrature.append(&quotCDF&quot)
+    self.preferredQuadrature  = &quotCDF&quot
+    self.preferredPolynomials = &quotCDF&quot
+
+  def _localSetState(self,pdict):
+    
+      Set the pickling state (local)
+      @ In, pdict, dict, the namespace state
+      @ Out, None
+    
+    self.p = pdict.pop(&quotp&quot)
+
+  def getCrowDistDict(self):
+    
+      Returns a dictionary of the keys and values that would be
+      used to create the distribution for a Crow input file.
+      @ In, None
+      @ Out, retDict, dict, the dictionary of crow distributions
+    
+    retDict = Distribution.getCrowDistDict(self)
+    retDict[&quotp&quot] = self.p
+    return retDict
+
+  def _handleInput(self, paramInput):
+    
+      Function to handle the common parts of the distribution parameter input.
+      @ In, paramInput, ParameterInput, the already parsed input.
+      @ Out, None
+    
+    BoostDistribution._handleInput(self, paramInput)
+    pFind = paramInput.findFirst(&quotp&quot)
+    if pFind != None:
+      self.p = pFind.value
+    else: self.raiseAnError(IOError,&quotp value needed for Geometric distribution&quot)
+    self.initializeDistribution()
+
+  def getInitParams(self):
+    
+      Function to get the initial values of the input parameters that belong to
+      this class
+      @ In, None
+      @ Out, paramDict, dict, dictionary containing the parameter names as keys
+        and each parameter&quots initial value as the dictionary values
+    
+    paramDict = BoostDistribution.getInitParams(self)
+    paramDict[&quotp&quot] = self.p
+    return paramDict
+
+  def initializeDistribution(self):
+    
+      Method to initialize the distribution
+      @ In, None
+      @ Out, None
+    
+    if self.lowerBoundUsed == False and self.upperBoundUsed == False:
+      self._distribution = distribution1D.BasicGeometricDistribution(self.p)
+    else:  self.raiseAnError(IOError,&quotTruncated Geometric not yet implemented&quot)
+
+DistributionsCollection.addSub(Geometric.getInputSpecification())
+
+class Categorical(Distribution):
+  
+    Class for the categorical distribution also called "generalized Bernoulli distribution"
+    Note: this distribution can have only numerical (float) outcome; in the future we might want to include also the possibility to give symbolic outcome
+  
+
+  @classmethod
+  def getInputSpecification(cls):
+    
+      Method to get a reference to a class that specifies the input data for class cls.
+      @ In, cls, the class for which we are retrieving the specification
+      @ Out, inputSpecification, InputData.ParameterInput, class to use for
+        specifying input of cls.
+    
+    inputSpecification = InputData.parameterInputFactory(cls.__name__, ordered=True, baseNode=None)
+
+    StatePartInput = InputData.parameterInputFactory("state", contentType=InputTypes.FloatType)
+    StatePartInput.addParam("outcome", InputTypes.FloatType, True)
+    inputSpecification.addSub(StatePartInput, InputData.Quantity.one_to_infinity)
+
+    &#47&#47&#47&#47 Because we do not inherit from the base class, we need to manually
+    &#47&#47&#47&#47 add the name back in.
+    inputSpecification.addParam("name", InputTypes.StringType, True)
+
+    return inputSpecification
+
+  def __init__(self):
+    
+      Function that initializes the categorical distribution
+      @ In, None
+      @ Out, none
+    
+    super().__init__()
+    self.mapping        = {}
+    self.values         = set()
+    self.type           = &quotCategorical&quot
+    self.dimensionality = 1
+    self.distType       = &quotDiscrete&quot
+
+  def _handleInput(self, paramInput):
+    
+      Function to handle the common parts of the distribution parameter input.
+      @ In, paramInput, ParameterInput, the already parsed input.
+      @ Out, None
+    
+    for child in paramInput.subparts:
+      if child.getName() == "state":
+        outcome = child.parameterValues["outcome"]
+        value = child.value
+        self.mapping[outcome] = value
+        if float(outcome) in self.values:
+          self.raiseAnError(IOError,&quotCategorical distribution has identical outcomes&quot)
+        else:
+          self.values.add(float(outcome))
+      else:
+        self.raiseAnError(IOError,&quotInvalid xml node for Categorical distribution; only "state" is allowed&quot)
+    self.initializeDistribution()
+
+  def getInitParams(self):
+    
+      Function to get the initial values of the input parameters that belong to
+      this class
+      @ In, None
+      @ Out, paramDict, dict, dictionary containing the parameter names as keys
+        and each parameter&quots initial value as the dictionary values
+    
+    paramDict = Distribution.getInitParams(self)
+    paramDict[&quotmapping&quot] = self.mapping
+    paramDict[&quotvalues&quot] = self.values
+    return paramDict
+
+  def initializeFromDict(self, inputDict):
+    
+      Function that initializes the distribution provided a dictionary
+      @ In, inputDict, dict, dictionary containing the np.arrays for xAxis and pAxis
+      @ Out, None
+    
+    for idx, val in enumerate(inputDict[&quotoutcome&quot]):
+      self.mapping[val] = inputDict[&quotstate&quot][idx]
+      self.values.add(val)
+
+    self.checkDistParams()
+
+  def initializeDistribution(self):
+    
+      Function that initializes the distribution
+      @ In, None
+      @ Out, None
+    
+    self.checkDistParams()
+
+    self.lowerBound = min(self.mapping.keys())
+    self.upperBound = max(self.mapping.keys())
+
+  def checkDistParams(self):
+    
+      Function that checks that the sum of all state probabilities is equal to 1 and perform pdf value normalization
+      @ In, None
+      @ Out, None
+    
+    &#47&#47 check all probability values are between 0.0 and 1.0
+    for element in self.mapping:
+      if self.mapping[element] &lt; 0.0:
+        self.raiseAnError(IOError,&quotCategorical distribution cannot be initialized with negative probabilities&quot)
+      if self.mapping[element] &gt; 1.0:
+        self.raiseAnError(IOError,&quotCategorical distribution cannot be initialized with probabilities greater than 1&quot)
+
+    localSum = sum(self.mapping.values())
+    if not mathUtils.compareFloats(localSum,1.0):
+      self.raiseAnError(&quotCategorical distribution cannot be initialized: sum of probabilities is &quot,
+                         repr(localSum), &quot, not 1.0!&quot, &quotPlease re-normalize it to 1!&quot)
+
+    &#47&#47 Probability values normalization
+    for key in self.mapping.keys():
+      self.mapping[key] = self.mapping[key]/localSum
+
+  def pdf(self,x):
+    
+      Function that calculates the pdf value of x
+      @ In, x, float/string, value to get the pdf at
+      @ Out, pdfValue, float, requested pdf
+    
+    if x in self.values:
+      pdfValue = self.mapping[x]
+    else:
+      self.raiseAnError(IOError,&quotCategorical distribution cannot calculate pdf for &quot + str(x))
+    return pdfValue
+
+  def cdf(self,x):
+    
+      Function to get the cdf value of x
+      @ In, x, float/string, value to get the cdf at
+      @ Out, cumulative, float, requested cdf
+    
+    sortedMapping = sorted(self.mapping.items(), key=operator.itemgetter(0))
+    if x == sortedMapping[-1][0]:
+      return 1.0
+    if x in self.values:
+      cumulative=0.0
+      for element in sortedMapping:
+        cumulative += element[1]
+        if x == float(element[0]):
+          return cumulative
+    else:
+      self.raiseAnError(IOError,&quotCategorical distribution cannot calculate cdf for &quot + str(x))
+
+  def ppf(self,x):
+    
+      Function that calculates the inverse of the cdf given 0 =&lt; x =&lt; 1
+      @ In, x, float, value to get the ppf at
+      @ Out, element[0], float/string, requested inverse cdf
+    
+    if x &gt; 1.0 or x &lt; 0:
+      self.raiseAnError(IOError,&quotCategorical distribution cannot calculate ppf for&quot, str(x), &quot! Valid value should within [0,1]!&quot)
+    sortedMapping = sorted(self.mapping.items(), key=operator.itemgetter(0))
+    if x == 1.0:
+      return float(sortedMapping[-1][0])
+    else:
+      cumulative=0.0
+      for element in sortedMapping:
+        cumulative += element[1]
+        if cumulative &gt;= x:
+          return float(element[0])
+
+  def rvs(self):
+    
+      Return a random state of the categorical distribution
+      @ In, None
+      @ Out, rvsValue, float, the random state
+    
+    rvsValue = self.ppf(random())
+    return rvsValue
+
+DistributionsCollection.addSub(Categorical.getInputSpecification())
+
+class UniformDiscrete(Distribution):
+  
+    Class for the uniform discrete distribution
+  
+  @classmethod
+  def getInputSpecification(cls):
+    
+      Method to get a reference to a class that specifies the input data for class cls.
+      @ In, cls, the class for which we are retrieving the specification
+      @ Out, inputSpecification, InputData.ParameterInput, class to use for
+        specifying input of cls.
+    
+    BaseInputType = InputTypes.makeEnumType("base", "baseType", ["withReplacement","withoutReplacement"])
+
+    specs = super(UniformDiscrete, cls).getInputSpecification()
+    specs.description = rThe UniformDiscrete distribution is a discrete distribution which describes a random variable
+                            that can have $N$ values having equal probability value. This distribution allows the user to
+                            choose two kinds of sampling strategies: with or without replacement.
+                            In case the ``without replacement&quot&quot strategy is used, the distribution samples from the set of
+                            specified $N$ values reduced by the previously sampled values. After, the sampler has generated
+                            values for all variables, the distribution is resetted (i.e., the set of values that can be sampled
+                            is returned to $N$). In case the ``with replacement&quot&quot strategy is used, the distribution samples
+                            always from the complete set of specified $N$ values.
+                            
+
+    np = InputData.parameterInputFactory(&quotnPoints&quot, contentType=InputTypes.IntegerType, printPriority=109,
+    descr=r Number of points between lower and upper bound. )
+    specs.addSub(np)
+
+    strategy = InputData.parameterInputFactory(&quotstrategy&quot, BaseInputType, printPriority=109,
+    descr=r Type of sampling strategy. )
+    specs.addSub(strategy)
+
+    return specs
+
+  def __init__(self):
+    
+      Function that initializes the Uniform Discrete distribution
+      @ In, None
+      @ Out, none
+    
+    super().__init__()
+    self.type           = &quotUniformDiscrete&quot
+    self.dimensionality = 1
+    self.distType       = &quotDiscrete&quot
+    self.memory         = True
+
+  def _handleInput(self, paramInput):
+    
+      Function to handle the common parts of the distribution parameter input.
+      @ In, paramInput, ParameterInput, the already parsed input.
+      @ Out, None
+    
+    Distribution._handleInput(self, paramInput)
+    if self.lowerBound is None:
+      self.raiseAnError(IOError,&quotlowerBound value needed for UniformDiscrete distribution&quot)
+
+    if self.upperBound is None:
+      self.raiseAnError(IOError,&quotupperBound value needed for UniformDiscrete distribution&quot)
+
+    strategy = paramInput.findFirst(&quotstrategy&quot)
+    if strategy != None:
+      self.strategy = strategy.value
+    else:
+      self.raiseAnError(IOError,&quotstrategy specification needed for UniformDiscrete distribution&quot)
+
+    nPoints = paramInput.findFirst(&quotnPoints&quot)
+    if nPoints != None:
+      self.nPoints = nPoints.value
+    else:
+      self.nPoints = None
+
+    self.initializeDistribution()
+
+  def getInitParams(self):
+    
+      Function to get the initial values of the input parameters that belong to
+      this class
+      @ In, None
+      @ Out, paramDict, dict, dictionary containing the parameter names as keys
+        and each parameter&quots initial value as the dictionary values
+    
+    paramDict = Distribution.getInitParams(self)
+    paramDict[&quotstrategy&quot] = self.strategy
+    paramDict[&quotnPoints&quot] = self.nPoints
+    return paramDict
+
+  def initializeDistribution(self):
+    
+      Function that initializes the distribution
+      @ In, None
+      @ Out, None
+    
+    if self.nPoints is None:
+      self.xArray   = np.arange(self.lowerBound,self.upperBound+1)
+    else:
+      self.xArray   = np.linspace(self.lowerBound,self.upperBound,self.nPoints)
+
+    &#47&#47 Here the actual calculation of discrete distribution parameters is performed
+    self.pdfArray = 1.0/self.xArray.size * np.ones(self.xArray.size)
+    paramsDict={}
+    paramsDict[&quotoutcome&quot] = self.xArray
+    paramsDict[&quotstate&quot] = self.pdfArray
+
+    self.categoricalDist = Categorical()
+    self.categoricalDist.initializeFromDict(paramsDict)
+    initialPerm = randomUtils.randomPermutation(self.xArray.tolist(),self)
+    self.pot = np.asarray(initialPerm)
+
+  def initializeFromDict(self, inputDict):
+    
+      Function that initializes the distribution provided a dictionary
+      @ In, inputDict, dict, dictionary containing the np.arrays for xAxis and pAxis
+      @ Out, None
+    
+    self.strategy = inputDict[&quotstrategy&quot]
+    self.categoricalDist = Categorical()
+    self.categoricalDist.initializeFromDict(inputDict)
+    initialPerm = randomUtils.randomPermutation(inputDict[&quotoutcome&quot].tolist(),self)
+    self.pot = np.asarray(initialPerm)
+
+  def pdf(self,x):
+    
+      Function that calculates the pdf value of x
+      @ In, x, float/string, value to get the pdf at
+      @ Out, pdfValue, float, requested pdf
+    
+    return self.categoricalDist.pdf(x)
+
+  def cdf(self,x):
+    
+      Function to get the cdf value of x
+      @ In, x, float/string, value to get the cdf at
+      @ Out, cumulative, float, requested cdf
+    
+    return self.categoricalDist.cdf(x)
+
+  def ppf(self,x):
+    
+      Function that calculates the inverse of the cdf given 0 =&lt; x =&lt; 1
+      @ In, x, float, value to get the ppf at
+      @ Out, element[0], float/string, requested inverse cdf
+    
+    return self.categoricalDist.ppf(x)
+
+  def rvs(self):
+    
+      Return a random state of the distribution
+      @ In, None
+      @ Out, rvsValue, float, the random state
+    
+    if self.strategy == &quotwithReplacement&quot:
+      return self.categoricalDist.rvs()
+    else:
+      if self.pot.size == 0:
+        &#47&#47 re-initialize the distribution
+        self.reset()
+        self.raiseAWarning("The Uniform Discrete distribution " + str(self.name) + " has been internally reset outside the sampler.")
+      rvsValue = self.pot[-1]
+      self.pot = np.resize(self.pot, self.pot.size - 1)
+    return rvsValue
+
+  def selectedRvs(self,discardedElems):
+    
+      Return a random state of the distribution without discardedElems
+      @ In, discardedElems, np array, list of discarded elements
+      @ Out, rvsValue, float, the random state
+    
+    if self.nPoints is None:
+      self.xArray   = np.arange(self.lowerBound,self.upperBound+1)
+    else:
+      self.xArray   = np.linspace(self.lowerBound,self.upperBound,self.nPoints)
+
+    self.xArray = np.setdiff1d(self.xArray,discardedElems)
+
+    self.pdfArray = 1/self.xArray.size * np.ones(self.xArray.size)
+    paramsDict={}
+    paramsDict[&quotoutcome&quot] = self.xArray
+    paramsDict[&quotstate&quot] = self.pdfArray
+    paramsDict[&quotstrategy&quot] = self.strategy
+
+    self.tempUniformDiscrete = UniformDiscrete()
+    self.tempUniformDiscrete.initializeFromDict(paramsDict)
+
+    rvsValue = self.tempUniformDiscrete.rvs()
+    return rvsValue
+
+  def reset(self):
+    
+      Reset the distribution
+      @ In, None
+      @ Out, None
+    
+    newPerm = randomUtils.randomPermutation(self.xArray.tolist(),self)
+    self.pot = np.asarray(newPerm)
+
+DistributionsCollection.addSub(UniformDiscrete.getInputSpecification())
+
+class MarkovCategorical(Categorical):
+  
+    Class for the Markov categorical distribution based on "Markov Model"
+    Note: this distribution can have only numerical (float) outcome; in the future we might want to include also the possibility to give symbolic outcome
+  
+
+  @classmethod
+  def getInputSpecification(cls):
+    
+      Method to get a reference to a class that specifies the input data for
+      class cls.
+      @ In, cls, the class for which we are retrieving the specification
+      @ Out, inputSpecification, InputData.ParameterInput, class to use for
+        specifying input of cls.
+    
+    inputSpecification = InputData.parameterInputFactory(cls.__name__, ordered=True, baseNode=None)
+
+    StatePartInput = InputData.parameterInputFactory("state", contentType=InputTypes.StringType)
+    StatePartInput.addParam("outcome", InputTypes.FloatType, True)
+    StatePartInput.addParam("index", InputTypes.IntegerType, True)
+    TransitionInput = InputData.parameterInputFactory("transition", contentType=InputTypes.StringType)
+    inputSpecification.addSub(StatePartInput, InputData.Quantity.one_to_infinity)
+    inputSpecification.addSub(TransitionInput, InputData.Quantity.zero_to_one)
+    inputSpecification.addSub(InputData.parameterInputFactory("workingDir", contentType=InputTypes.StringType))
+    &#47&#47&#47&#47 Because we do not inherit from the base class, we need to manually
+    &#47&#47&#47&#47 add the name back in.
+    inputSpecification.addParam("name", InputTypes.StringType, True)
+
+    return inputSpecification
+
+  def __init__(self):
+    
+      Function that initializes the categorical distribution
+      @ In, None
+      @ Out, none
+    
+    super().__init__()
+    self.dimensionality = 1
+    self.distType       = &quotDiscrete&quot
+    self.type           = &quotMarkovCategorical&quot
+    self.steadyStatePb  = None &#47&#47 variable containing the steady state probabilities of the Markov Model
+    self.transition     = None &#47&#47 transition matrix of a continuous time Markov Model
+
+  def _handleInput(self, paramInput):
+    
+      Function to handle the common parts of the distribution parameter input.
+      @ In, paramInput, ParameterInput, the already parsed input.
+      @ Out, None
+    
+    workingDir = paramInput.findFirst(&quotworkingDir&quot)
+    if workingDir is not None:
+      self.workingDir = workingDir.value
+    else:
+      self.workingDir = os.getcwd()
+
+    for child in paramInput.subparts:
+      if child.getName() == "state":
+        outcome = child.parameterValues["outcome"]
+        markovIndex = child.parameterValues["index"]
+        self.mapping[outcome] = markovIndex
+        if outcome in self.values:
+          self.raiseAnError(IOError,&quotMarkov Categorical distribution has identical outcomes&quot)
+        else:
+          self.values.add(outcome)
+      elif child.getName() == "transition":
+        transition = [float(value) for value in child.value.split()]
+        dim = int(np.sqrt(len(transition)))
+        if dim == 1:
+          self.raiseAnError(IOError, "The dimension of transition matrix should be greater than 1!")
+        elif dim**2 != len(transition):
+          self.raiseAnError(IOError, "The transition matrix is not a square matrix!")
+        self.transition = np.asarray(transition).reshape((-1,dim))
+    &#47&#47Check the correctness of user inputs
+    invalid = self.transition is None
+    if invalid:
+      self.raiseAnError(IOError, "Transition matrix is not provided, please use &quottransition&quot node to provide the transition matrix!")
+    if len(self.mapping.values()) != len(set(self.mapping.values())):
+      self.raiseAnError(IOError, "The states of Markov Categorical distribution have identifcal indices!")
+
+    self.initializeDistribution()
+
+  def getInitParams(self):
+    
+      Function to get the initial values of the input parameters that belong to
+      this class
+      @ In, None
+      @ Out, paramDict, dict, dictionary containing the parameter names as keys
+        and each parameter&quots initial value as the dictionary values
+    
+    paramDict = Distribution.getInitParams(self)
+    paramDict[&quotmapping&quot] = self.mapping
+    paramDict[&quotvalues&quot] = self.values
+    paramDict[&quottransition&quot] = self.transition
+    paramDict[&quotsteadyStatePb&quot] = self.steadyStatePb
+    return paramDict
+
+  def initializeDistribution(self):
+    
+      Function that initializes the distribution and checks that the sum of all state probabilities is equal to 1
+      @ In, None
+      @ Out, None
+    
+    self.steadyStatePb = self.computeSteadyStatePb(self.transition)
+    for key, value in self.mapping.items():
+      try:
+        self.mapping[key] = self.steadyStatePb[value - 1]
+      except IndexError:
+        self.raiseAnError(IOError, "Index ",value, " for outcome ", key, " is out of bounds! Maximum index should be ", len(self.steadyStatePb))
+    Categorical.initializeDistribution(self)
+
+  def computeSteadyStatePb(self, transition):
+    
+      Function that compute the steady state probabilities for given transition matrix
+      @ In, transition, numpy.array, transition matrix for Markov model
+      @ Out, steadyStatePb, numpy.array, 1-D array of steady state probabilities
+    
+    dim = transition.shape[0]
+    perturbTransition = copy.copy(transition)
+    perturbTransition[0] = 1
+    q = np.zeros(dim)
+    q[0] = 1
+    steadyStatePb = np.dot(LA.inv(perturbTransition),q)
+
+    return steadyStatePb
+
+DistributionsCollection.addSub(MarkovCategorical.getInputSpecification())
+
+class Logistic(BoostDistribution):
+  
+    Logistic univariate distribution
+  
+
+  @classmethod
+  def getInputSpecification(cls):
+    
+      Method to get a reference to a class that specifies the input data for
+      class cls.
+      @ In, cls, the class for which we are retrieving the specification
+      @ Out, inputSpecification, InputData.ParameterInput, class to use for
+        specifying input of cls.
+    
+    inputSpecification = super(Logistic, cls).getInputSpecification()
+    inputSpecification.addSub(InputData.parameterInputFactory("location", contentType=InputTypes.FloatType))
+    inputSpecification.addSub(InputData.parameterInputFactory("scale", contentType=InputTypes.FloatType))
+
+    return inputSpecification
+
+  def __init__(self):
+    
+      Constructor
+      @ In, None
+      @ Out, None
+    
+    super().__init__()
+    self.location  = 0.0
+    self.scale = 1.0
+    self.type = &quotLogistic&quot
+    self.distType = &quotContinuous&quot
+    self.hasInfiniteBound = True
+    self.compatibleQuadrature.append(&quotCDF&quot)
+    self.preferredQuadrature  = &quotCDF&quot
+    self.preferredPolynomials = &quotCDF&quot
+
+  def _localSetState(self,pdict):
+    
+      Set the pickling state (local)
+      @ In, pdict, dict, the namespace state
+      @ Out, None
+    
+    self.location = pdict.pop(&quotlocation&quot)
+    self.scale    = pdict.pop(&quotscale&quot   )
+
+  def getCrowDistDict(self):
+    
+      Returns a dictionary of the keys and values that would be
+      used to create the distribution for a Crow input file.
+      @ In, None
+      @ Out, retDict, dict, the dictionary of crow distributions
+    
+    retDict = Distribution.getCrowDistDict(self)
+    retDict[&quotscale&quot] = self.scale
+    retDict[&quotlocation&quot] = self.location
+    return retDict
+
+  def _handleInput(self, paramInput):
+    
+      Function to handle the common parts of the distribution parameter input.
+      @ In, paramInput, ParameterInput, the already parsed input.
+      @ Out, None
+    
+    BoostDistribution._handleInput(self, paramInput)
+    locationFind = paramInput.findFirst(&quotlocation&quot)
+    if locationFind != None:
+      self.location = locationFind.value
+    else:
+      self.raiseAnError(IOError,&quotlocation value needed for Logistic distribution&quot)
+    scaleFind = paramInput.findFirst(&quotscale&quot)
+    if scaleFind != None:
+      self.scale = scaleFind.value
+    else:
+      self.raiseAnError(IOError,&quotscale value needed for Logistic distribution&quot)
+    self.initializeDistribution()
+
+  def getInitParams(self):
+    
+      Function to get the initial values of the input parameters that belong to
+      this class
+      @ In, None
+      @ Out, paramDict, dict, dictionary containing the parameter names as keys
+        and each parameter&quots initial value as the dictionary values
+    
+    paramDict = BoostDistribution.getInitParams(self)
+    paramDict[&quotlocation&quot] = self.location
+    paramDict[&quotscale&quot   ] = self.scale
+    return paramDict
+
+  def initializeDistribution(self):
+    
+      Method to initialize the distribution
+      @ In, None
+      @ Out, None
+    
+    if self.lowerBoundUsed == False and self.upperBoundUsed == False:
+      self._distribution = distribution1D.BasicLogisticDistribution(self.location,self.scale)
+    else:
+      if self.lowerBoundUsed == False:
+        a = -sys.float_info.max
+      else:
+        a = self.lowerBound
+      if self.upperBoundUsed == False:
+        b = sys.float_info.max
+      else:
+        b = self.upperBound
+      self._distribution = distribution1D.BasicLogisticDistribution(self.location,self.scale,a,b)
+
+DistributionsCollection.addSub(Logistic.getInputSpecification())
+
+class Laplace(BoostDistribution):
+  
+    Laplace univariate distribution
+  
+
+  @classmethod
+  def getInputSpecification(cls):
+    
+      Method to get a reference to a class that specifies the input data for
+      class cls.
+      @ In, cls, the class for which we are retrieving the specification
+      @ Out, inputSpecification, InputData.ParameterInput, class to use for
+        specifying input of cls.
+    
+    inputSpecification = super(Laplace, cls).getInputSpecification()
+    inputSpecification.addSub(InputData.parameterInputFactory("location", contentType=InputTypes.FloatType))
+    inputSpecification.addSub(InputData.parameterInputFactory("scale", contentType=InputTypes.FloatType))
+
+    return inputSpecification
+
+  def __init__(self):
+    
+      Constructor
+      @ In, None
+      @ Out, None
+    
+    super().__init__()
+    self.location  = 0.0
+    self.scale = 1.0
+    self.type = &quotLaplace&quot
+    self.distType = &quotContinuous&quot
+    self.hasInfiniteBound = True
+    self.compatibleQuadrature.append(&quotCDF&quot)
+    self.preferredQuadrature  = &quotCDF&quot
+    self.preferredPolynomials = &quotCDF&quot
+
+  def _localSetState(self,pdict):
+    
+      Set the pickling state (local)
+      @ In, pdict, dict, the namespace state
+      @ Out, None
+    
+    self.location = pdict.pop(&quotlocation&quot)
+    self.scale    = pdict.pop(&quotscale&quot   )
+
+  def getCrowDistDict(self):
+    
+      Returns a dictionary of the keys and values that would be
+      used to create the distribution for a Crow input file.
+      @ In, None
+      @ Out, retDict, dict, the dictionary of crow distributions
+    
+    retDict = Distribution.getCrowDistDict(self)
+    retDict[&quotscale&quot] = self.scale
+    retDict[&quotlocation&quot] = self.location
+    return retDict
+
+  def _handleInput(self, paramInput):
+    
+      Function to handle the common parts of the distribution parameter input.
+      @ In, paramInput, ParameterInput, the already parsed input.
+      @ Out, None
+    
+    BoostDistribution._handleInput(self, paramInput)
+    locationFind = paramInput.findFirst(&quotlocation&quot)
+    if locationFind != None:
+      self.location = locationFind.value
+    else:
+      self.raiseAnError(IOError,&quotlocation value needed for Laplace distribution&quot)
+    scaleFind = paramInput.findFirst(&quotscale&quot)
+    if scaleFind != None:
+      self.scale = scaleFind.value
+    else:
+      self.raiseAnError(IOError,&quotscale value needed for Laplace distribution&quot)
+    self.initializeDistribution()
+
+  def getInitParams(self):
+    
+      Function to get the initial values of the input parameters that belong to
+      this class
+      @ In, None
+      @ Out, paramDict, dict, dictionary containing the parameter names as keys
+        and each parameter&quots initial value as the dictionary values
+    
+    paramDict = BoostDistribution.getInitParams(self)
+    paramDict[&quotlocation&quot] = self.location
+    paramDict[&quotscale&quot   ] = self.scale
+    return paramDict
+
+  def initializeDistribution(self):
+    
+      Method to initialize the distribution
+      @ In, None
+      @ Out, None
+    
+    if self.lowerBoundUsed == False:
+      self.lowerBound = -sys.float_info.max
+    if self.upperBoundUsed == False:
+      self.upperBound = sys.float_info.max
+    self._distribution = distribution1D.BasicLaplaceDistribution(self.location,self.scale,self.lowerBound,self.upperBound)
+
+DistributionsCollection.addSub(Laplace.getInputSpecification())
+
+class Exponential(BoostDistribution):
+  
+    Exponential univariate distribution
+  
+
+  @classmethod
+  def getInputSpecification(cls):
+    
+      Method to get a reference to a class that specifies the input data for
+      class cls.
+      @ In, cls, the class for which we are retrieving the specification
+      @ Out, inputSpecification, InputData.ParameterInput, class to use for
+        specifying input of cls.
+    
+    inputSpecification = super(Exponential, cls).getInputSpecification()
+    inputSpecification.addSub(InputData.parameterInputFactory("low", contentType=InputTypes.FloatType))
+    inputSpecification.addSub(InputData.parameterInputFactory("lambda", contentType=InputTypes.FloatType))
+
+    return inputSpecification
+
+  def __init__(self):
+    
+      Constructor
+      @ In, None
+      @ Out, None
+    
+    super().__init__()
+    self.lambdaVar = 1.0
+    self.low        = 0.0
+    self.type = &quotExponential&quot
+    self.distType = &quotContinuous&quot
+    self.hasInfiniteBound = True
+    self.compatibleQuadrature.append(&quotCDF&quot)
+    self.preferredQuadrature  = &quotCDF&quot
+    self.preferredPolynomials = &quotCDF&quot
+
+  def _localSetState(self,pdict):
+    
+      Set the pickling state (local)
+      @ In, pdict, dict, the namespace state
+      @ Out, None
+    
+    self.lambdaVar = pdict.pop(&quotlambda&quot)
+    self.low        = pdict.pop(&quotlow&quot   )
+
+  def getCrowDistDict(self):
+    
+      Returns a dictionary of the keys and values that would be
+      used to create the distribution for a Crow input file.
+      @ In, None
+      @ Out, retDict, dict, the dictionary of crow distributions
+    
+    retDict = Distribution.getCrowDistDict(self)
+    retDict[&quotlambda&quot] = self.lambdaVar
+    retDict[&quotlow&quot] = self.low
+    return retDict
+
+  def _handleInput(self, paramInput):
+    
+      Function to handle the common parts of the distribution parameter input.
+      @ In, paramInput, ParameterInput, the already parsed input.
+      @ Out, None
+    
+    BoostDistribution._handleInput(self, paramInput)
+    lambdaFind = paramInput.findFirst(&quotlambda&quot)
+    if lambdaFind != None:
+      self.lambdaVar = lambdaFind.value
+    else:
+      self.raiseAnError(IOError,&quotlambda value needed for Exponential distribution&quot)
+    low  = paramInput.findFirst(&quotlow&quot)
+    if low != None:
+      self.low = low.value
+    else:
+      self.low = 0.0
+    &#47&#47 check if lower bound is set, otherwise default
+    if not self.lowerBoundUsed:
+      self.lowerBoundUsed = True
+      self.lowerBound     = self.low
+    self.initializeDistribution()
+
+  def getInitParams(self):
+    
+      Function to get the initial values of the input parameters that belong to
+      this class
+      @ In, None
+      @ Out, paramDict, dict, dictionary containing the parameter names as keys
+        and each parameter&quots initial value as the dictionary values
+    
+    paramDict = BoostDistribution.getInitParams(self)
+    paramDict[&quotlambda&quot] = self.lambdaVar  &#47&#47 rate parameter
+    paramDict[&quotlow&quot   ] = self.low        &#47&#47 lower domain boundary
+    return paramDict
+
+  def initializeDistribution(self):
+    
+      Method to initialize the distribution
+      @ In, None
+      @ Out, None
+    
+    if (self.lowerBoundUsed == False and self.upperBoundUsed == False):
+      self._distribution = distribution1D.BasicExponentialDistribution(self.lambdaVar,self.low)
+      self.lowerBound = self.low
+      self.upperBound = sys.float_info.max
+    else:
+      if self.lowerBoundUsed == False:
+        self.lowerBound = self.low
+      if self.upperBoundUsed == False:
+        self.upperBound = sys.float_info.max
+      self._distribution = distribution1D.BasicExponentialDistribution(self.lambdaVar,self.lowerBound,self.upperBound,self.low)
+
+  def convertDistrPointsToStd(self,y):
+    
+      Convert Distribution point to Std Point
+      @ In, y, float, the point that needs to be converted
+      @ Out, converted, float, the converted point
+    
+    quad=self.quadratureSet()
+    if quad.type==&quotLaguerre&quot:
+      converted = (y-self.low)*(self.lambdaVar)
+    else:
+      converted = Distribution.convertDistrPointsToStd(self,y)
+    return converted
+
+  def convertStdPointsToDistr(self,x):
+    
+      Convert Std Point to Distribution point
+      @ In, x, float, the point that needs to be converted
+      @ Out, converted, float, the converted point
+    
+    quad=self.quadratureSet()
+    if quad.type==&quotLaguerre&quot:
+      converted = x/self.lambdaVar+self.low
+    else:
+      converted = Distribution.convertStdPointsToDistr(self,x)
+    return converted
+
+DistributionsCollection.addSub(Exponential.getInputSpecification())
+
+class LogNormal(BoostDistribution):
+  
+    LogNormal univariate distribution
+  
+
+  @classmethod
+  def getInputSpecification(cls):
+    
+      Method to get a reference to a class that specifies the input data for
+      class cls.
+      @ In, cls, the class for which we are retrieving the specification
+      @ Out, inputSpecification, InputData.ParameterInput, class to use for
+        specifying input of cls.
+    
+    inputSpecification = super(LogNormal, cls).getInputSpecification()
+    inputSpecification.addSub(InputData.parameterInputFactory("mean", contentType=InputTypes.FloatType))
+    inputSpecification.addSub(InputData.parameterInputFactory("sigma", contentType=InputTypes.FloatType))
+    inputSpecification.addSub(InputData.parameterInputFactory("low", contentType=InputTypes.FloatType))
+
+    return inputSpecification
+
+  def __init__(self):
+    
+      Constructor
+      @ In, None
+      @ Out, None
+    
+    super().__init__()
+    self.mean = 1.0
+    self.sigma = 1.0
+    self.low = 0.0
+    self.type = &quotLogNormal&quot
+    self.distType = &quotContinuous&quot
+    self.hasInfiniteBound = True
+    self.compatibleQuadrature.append(&quotCDF&quot)
+    self.preferredQuadrature  = &quotCDF&quot
+    self.preferredPolynomials = &quotCDF&quot
+
+  def _localSetState(self,pdict):
+    
+      Set the pickling state (local)
+      @ In, pdict, dict, the namespace state
+      @ Out, None
+    
+    self.mean  = pdict.pop(&quotmean&quot )
+    self.sigma = pdict.pop(&quotsigma&quot)
+
+  def getCrowDistDict(self):
+    
+      Returns a dictionary of the keys and values that would be
+      used to create the distribution for a Crow input file.
+      @ In, None
+      @ Out, retDict, dict, the dictionary of crow distributions
+    
+    retDict = Distribution.getCrowDistDict(self)
+    retDict[&quotmu&quot] = self.mean
+    retDict[&quotsigma&quot] = self.sigma
+    retDict[&quotlow&quot] = self.low
+    return retDict
+
+  def _handleInput(self, paramInput):
+    
+      Function to handle the common parts of the distribution parameter input.
+      @ In, paramInput, ParameterInput, the already parsed input.
+      @ Out, None
+    
+    BoostDistribution._handleInput(self, paramInput)
+    meanFind = paramInput.findFirst(&quotmean&quot)
+    if meanFind != None:
+      self.mean = meanFind.value
+    else:
+      self.raiseAnError(IOError,&quotmean value needed for LogNormal distribution&quot)
+    sigmaFind = paramInput.findFirst(&quotsigma&quot)
+    if sigmaFind != None:
+      self.sigma = sigmaFind.value
+    else:
+      self.raiseAnError(IOError,&quotsigma value needed for LogNormal distribution&quot)
+    lowFind = paramInput.findFirst(&quotlow&quot)
+    if lowFind != None:
+      self.low = lowFind.value
+    else:
+      self.low = 0.0
+    self.initializeDistribution()
+
+  def getInitParams(self):
+    
+      Function to get the initial values of the input parameters that belong to
+      this class
+      @ In, None
+      @ Out, paramDict, dict, dictionary containing the parameter names as keys
+        and each parameter&quots initial value as the dictionary values
+    
+    paramDict = BoostDistribution.getInitParams(self)
+    paramDict[&quotmean&quot ] = self.mean
+    paramDict[&quotsigma&quot] = self.sigma
+    paramDict[&quotlow&quot] = self.low
+    return paramDict
+
+  def initializeDistribution(self):
+    
+      Method to initialize the distribution
+      @ In, None
+      @ Out, None
+    
+    if self.lowerBoundUsed == False and self.upperBoundUsed == False:
+      self._distribution = distribution1D.BasicLogNormalDistribution(self.mean,self.sigma,self.low)
+      self.lowerBound = 0.0
+      self.upperBound =  sys.float_info.max
+    else:
+      if self.lowerBoundUsed == False:
+        self.lowerBound = self.low
+      if self.upperBoundUsed == False:
+        self.upperBound = sys.float_info.max
+      self._distribution = distribution1D.BasicLogNormalDistribution(self.mean,self.sigma,self.lowerBound,self.upperBound, self.low)
+
+DistributionsCollection.addSub(LogNormal.getInputSpecification())
+
+class Weibull(BoostDistribution):
+  
+    Weibull univariate distribution
+  
+
+  @classmethod
+  def getInputSpecification(cls):
+    
+      Method to get a reference to a class that specifies the input data for
+      class cls.
+      @ In, cls, the class for which we are retrieving the specification
+      @ Out, inputSpecification, InputData.ParameterInput, class to use for
+        specifying input of cls.
+    
+    inputSpecification = super(Weibull, cls).getInputSpecification()
+    inputSpecification.addSub(InputData.parameterInputFactory("low", contentType=InputTypes.FloatType))
+    inputSpecification.addSub(InputData.parameterInputFactory("k", contentType=InputTypes.FloatType))
+    inputSpecification.addSub(InputData.parameterInputFactory("lambda", contentType=InputTypes.FloatType))
+
+    return inputSpecification
+
+  def __init__(self):
+    
+      Constructor
+      @ In, None
+      @ Out, None
+    
+    super().__init__()
+    self.lambdaVar = 1.0
+    self.k = 1.0
+    self.type = &quotWeibull&quot
+    self.distType = &quotContinuous&quot
+    self.low = 0.0
+    self.hasInfiniteBound = True
+    self.compatibleQuadrature.append(&quotCDF&quot)
+    self.preferredQuadrature  = &quotCDF&quot
+    self.preferredPolynomials = &quotCDF&quot
+
+  def _localSetState(self,pdict):
+    
+      Set the pickling state (local)
+      @ In, pdict, dict, the namespace state
+      @ Out, None
+    
+    self.lambdaVar = pdict.pop(&quotlambda&quot)
+    self.k          = pdict.pop(&quotk&quot     )
+
+  def getCrowDistDict(self):
+    
+      Returns a dictionary of the keys and values that would be
+      used to create the distribution for a Crow input file.
+      @ In, None
+      @ Out, retDict, dict, the dictionary of crow distributions
+    
+    retDict = Distribution.getCrowDistDict(self)
+    retDict[&quotlambda&quot] = self.lambdaVar
+    retDict[&quotk&quot] = self.k
+    retDict[&quotlow&quot] = self.low
+    return retDict
+
+  def _handleInput(self, paramInput):
+    
+      Function to handle the common parts of the distribution parameter input.
+      @ In, paramInput, ParameterInput, the already parsed input.
+      @ Out, None
+    
+    BoostDistribution._handleInput(self, paramInput)
+    lambdaFind = paramInput.findFirst(&quotlambda&quot)
+    if lambdaFind != None:
+      self.lambdaVar = lambdaFind.value
+    else:
+      self.raiseAnError(IOError,&quotlambda (scale) value needed for Weibull distribution&quot)
+    kFind = paramInput.findFirst(&quotk&quot)
+    if kFind != None:
+      self.k = kFind.value
+    else:
+      self.raiseAnError(IOError,&quotk (shape) value needed for Weibull distribution&quot)
+    lowFind = paramInput.findFirst(&quotlow&quot)
+    if lowFind != None:
+      self.low = lowFind.value
+    else:
+      self.low = 0.0
+    self.initializeDistribution()
+
+  def getInitParams(self):
+    
+      Function to get the initial values of the input parameters that belong to
+      this class
+      @ In, None
+      @ Out, paramDict, dict, dictionary containing the parameter names as keys
+        and each parameter&quots initial value as the dictionary values
+    
+    paramDict = BoostDistribution.getInitParams(self)
+    paramDict[&quotlambda&quot] = self.lambdaVar
+    paramDict[&quotk&quot     ] = self.k
+    paramDict[&quotlow&quot   ] = self.low
+    return paramDict
+
+  def initializeDistribution(self):
+    
+      Method to initialize the distribution
+      @ In, None
+      @ Out, None
+    
+    if (self.lowerBoundUsed == False and self.upperBoundUsed == False):
+      self._distribution = distribution1D.BasicWeibullDistribution(self.k,self.lambdaVar,self.low)
+      self.lowerBound = self.low
+      self.upperBound = sys.float_info.max
+    else:
+      if self.lowerBoundUsed == False:
+        self.lowerBound = self.low
+      if self.upperBoundUsed == False:
+        self.upperBound = sys.float_info.max
+      self._distribution = distribution1D.BasicWeibullDistribution(self.k,self.lambdaVar,self.lowerBound,self.upperBound,self.low)
+
+DistributionsCollection.addSub(Weibull.getInputSpecification())
+
+class Custom1D(Distribution):
+  
+    Custom1D univariate distribution which is initialized by a dataObject compatible .csv file
+  
+
+  @classmethod
+  def getInputSpecification(cls):
+    
+      Method to get a reference to a class that specifies the input data for
+      class cls.
+      @ In, cls, the class for which we are retrieving the specification
+      @ Out, inputSpecification, InputData.ParameterInput, class to use for
+        specifying input of cls.
+    
+    inputSpecification = super(Custom1D, cls).getInputSpecification()
+    inputSpecification.addSub(InputData.parameterInputFactory("workingDir", contentType=InputTypes.StringType))
+    inputSpecification.addSub(InputData.parameterInputFactory("functionType", contentType=InputTypes.StringType))
+    inputSpecification.addSub(InputData.parameterInputFactory("dataFilename", contentType=InputTypes.StringType))
+    inputSpecification.addSub(InputData.parameterInputFactory("functionID", contentType=InputTypes.StringType))
+    inputSpecification.addSub(InputData.parameterInputFactory("variableID", contentType=InputTypes.StringType))
+
+    return inputSpecification
+
+  def __init__(self):
+    
+      Constructor
+      @ In, None
+      @ Out, None
+    
+    super().__init__()
+    self.dataFilename    = None
+    self.functionType    = None
+    self.type            = &quotCustom1D&quot
+    self.functionID      = None
+    self.variableID      = None
+    self.dimensionality  = 1
+    self.distType        = &quotContinuous&quot
+    &#47&#47 Scipy.interpolate.UnivariateSpline is used
+    self.k               = 4 &#47&#47 Degree of the smoothing spline, Must be &lt;=5
+    self.s               = 0 &#47&#47 Positive smoothing factor used to choose the number of knots
+                             &#47&#47 Default 0, indicates spline will interpolate through all data points
+
+  def _handleInput(self, paramInput):
+    
+      Function to handle the common parts of the distribution parameter input.
+      @ In, paramInput, ParameterInput, the already parsed input.
+      @ Out, None
+    
+    &#47&#47BoostDistribution._handleInput(self, paramInput)
+    workingDir = paramInput.findFirst(&quotworkingDir&quot)
+    if workingDir != None:
+      self.workingDir = workingDir.value
+
+    self.functionType = paramInput.findFirst(&quotfunctionType&quot).value.lower()
+    if self.functionType == None:
+      self.raiseAnError(IOError,&quot functionType parameter is needed for custom1Ddistribution distribution&quot)
+    if not self.functionType in [&quotcdf&quot,&quotpdf&quot]:
+      self.raiseAnError(IOError,&quot wrong functionType parameter specified for custom1Ddistribution distribution (pdf or cdf)&quot)
+
+    dataFilename = paramInput.findFirst(&quotdataFilename&quot)
+    if dataFilename != None:
+      self.dataFilename = os.path.join(self.workingDir,dataFilename.value)
+    else:
+      self.raiseAnError(IOError,&quot&lt;dataFilename&gt; parameter needed for custom1Ddistribution distribution&quot)
+
+    self.functionID = paramInput.findFirst(&quotfunctionID&quot).value
+    if self.functionID == None:
+      self.raiseAnError(IOError,&quot functionID parameter is needed for custom1Ddistribution distribution&quot)
+
+    self.variableID = paramInput.findFirst(&quotvariableID&quot).value
+    if self.variableID == None:
+      self.raiseAnError(IOError,&quot variableID parameter is needed for custom1Ddistribution distribution&quot)
+
+    self.initializeDistribution()
+
+
+  def initializeDistribution(self):
+    
+      Method to initialize the distribution
+      @ In, None
+      @ Out, None
+    
+
+    <a id="change">f = open(self.dataFilename, &quotr&quot)</a>
+    reader = csv.reader(f)
+    headers = next(reader)
+    indexFunctionID = headers.index(self.functionID)
+    indexVariableID = headers.index(self.variableID)
+    <a id="change">f</a><a id="change">.close()</a>
+    rawData = np.genfromtxt(self.dataFilename, delimiter="," , skip_header=1, usecols=(indexVariableID,indexFunctionID))
+
+    self.data = rawData[rawData[:,0].argsort()]
+    self.lowerBound = self.data[0,0]
+    self.upperBound = self.data[-1,0]
+
+    if self.functionType == &quotcdf&quot:
+      self.cdfFunc = UnivariateSpline(self.data[:,0], self.data[:,1], k=self.k, s=self.s)
+      self.pdfFunc = self.cdfFunc.derivative()
+      self.invCDF  = UnivariateSpline(self.data[:,1], self.data[:,0], k=self.k, s=self.s)
+    else:
+      self.pdfFunc = UnivariateSpline(self.data[:,0], self.data[:,1], k=self.k, s=self.s)
+      cdfValues = np.zeros(self.data[:,0].size)
+      for i in range(self.data[:,0].size):
+        cdfValues[i] = self.pdfFunc.integral(self.data[0][0],self.data[i,0])
+      self.invCDF = UnivariateSpline(cdfValues, self.data[:,0] , k=self.k, s=self.s)
+
+    &#47&#47 Note that self.invCDF is creating a new spline where I switch its term.
+    &#47&#47 Instead of doing spline(x,f(x)) I am creating its inverse spline(f(x),x)
+    &#47&#47 This can be done if f(x) is monothonic increasing with x (which is true for cdf)
+  def pdf(self,x):
+    
+      Function that calculates the pdf value of x
+      @ In, x, scalar , coordinates to get the pdf at
+      @ Out, pdfValue, scalar, requested pdf
+    
+    pdfValue = self.pdfFunc(x)
+    return pdfValue
+
+  def cdf(self,x):
+    
+      Function that calculates the cdf value of x
+      @ In, x, scalar , coordinates to get the cdf at
+      @ Out, pdfValue, scalar, requested pdf
+    
+    if self.functionType == &quotcdf&quot:
+      cdfValue = self.cdfFunc(x)
+    else:
+      cdfValue = self.pdfFunc.integral(self.data[0][0],x)
+    return cdfValue
+
+  def ppf(self,x):
+    
+      Return the ppf of given coordinate
+      @ In, x, float, the x coordinates
+      @ Out, ppfValue, float, ppf values
+    
+    ppfValue = self.invCDF(x)
+    return ppfValue
+
+  def rvs(self):
+    
+      Return a random state of the custom1D distribution
+      @ In, None
+      @ Out, rvsValue, float/string, the random state
+    
+    rvsValue = self.ppf(random())
+    return rvsValue
+
+DistributionsCollection.addSub(Custom1D.getInputSpecification())
+
+class LogUniform(Distribution):
+  
+    Log Uniform univariate distribution
+    If x~LogUnif(a,b) then log(x)~Unif(log(a),log(b))
+  
+  @classmethod
+  def getInputSpecification(cls):
+    
+      Method to get a reference to a class that specifies the input data for
+      class cls.
+      @ In, cls, the class for which we are retrieving the specification
+      @ Out, inputSpecification, InputData.ParameterInput, class to use for
+        specifying input of cls.
+    
+    inputSpecification = super(LogUniform, cls).getInputSpecification()
+
+    BaseInputType = InputTypes.makeEnumType("base", "baseType", ["natural","decimal"])
+    inputSpecification.addSub(InputData.parameterInputFactory("base"      , BaseInputType))
+
+    return inputSpecification
+
+  def __init__(self):
+    
+      Constructor
+      @ In, None
+      @ Out, None
+    
+    super().__init__()
+    self.base = None
+
+  def initializeDistribution(self):
+    
+      Method to initialize the distribution
+      @ In, None
+      @ Out, None
+    
+    self.minVal = min(math.exp(self.upperBound),math.exp(self.lowerBound))
+    self.maxVal = max(math.exp(self.upperBound),math.exp(self.lowerBound))
+
+  def _handleInput(self, paramInput):
+    
+      Function to handle the common parts of the distribution parameter input.
+      @ In, paramInput, ParameterInput, the already parsed input.
+      @ Out, None
+    
+    self.lowerBound = paramInput.findFirst(&quotlowerBound&quot).value
+    if self.lowerBound is None:
+      self.raiseAnError(IOError,&quot lowerBound parameter is needed for LogUniform distribution&quot)
+
+    self.upperBound = paramInput.findFirst(&quotupperBound&quot).value
+    if self.upperBound is None:
+      self.raiseAnError(IOError,&quot upperBound parameter is needed for LogUniform distribution&quot)
+
+    if self.upperBound &lt; self.lowerBound:
+      self.raiseAnError(IOError,&quot LogUniform distribution: the upperBound parameter is lower than the lowerBound parameter&quot)
+
+    self.base = paramInput.findFirst(&quotbase&quot).value
+    if self.base not in [&quotnatural&quot,&quotdecimal&quot]:
+      self.raiseAnError(IOError,&quot base parameter is needed for LogUniform distribution (either natural or decimal)&quot)
+
+  def pdf(self,x):
+    
+      Function that calculates the pdf value of x
+      @ In, x, float , coordinates to get the pdf at
+      @ Out, pdfValue, float, requested pdf
+    
+    if self.base == &quotnatural&quot:
+      pdfValue = 1./(self.upperBound-self.lowerBound) * 1./x
+    else:
+      pdfValue = 1./(self.upperBound-self.lowerBound) * 1./x * 1./math.log(10.)
+    return pdfValue
+
+  def cdf(self,x):
+    
+      Function that calculates the cdf value of x
+      @ In, x, float , coordinates to get the cdf at
+      @ Out, pdfValue, float, requested pdf
+    
+    if self.base == &quotnatural&quot:
+      cdfValue = (math.log(x)-self.lowerBound)/(self.upperBound-self.lowerBound)
+    else:
+      cdfValue = (math.log10(x)-self.lowerBound)/(self.upperBound-self.lowerBound)
+    return cdfValue
+
+  def ppf(self,x):
+    
+      Return the ppf of given coordinate
+      @ In, x, float, the x coordinates
+      @ Out, ppfValue, float, ppf values
+    
+    if self.base == &quotnatural&quot:
+      ppfValue = math.exp((self.upperBound-self.lowerBound)*x + self.lowerBound)
+    else:
+      ppfValue = 10.**((self.upperBound-self.lowerBound)*x + self.lowerBound)
+    return ppfValue
+
+  def rvs(self):
+    
+      Return a random value
+      @ In, None
+      @ Out, rvsValue, float, the random value
+    
+    rvsValue = self.ppf(random())
+    return rvsValue
+
+DistributionsCollection.addSub(LogUniform.getInputSpecification())
+
+class NDimensionalDistributions(Distribution):
+  
+    General base class for NDimensional distributions
+  
+
+  @classmethod
+  def getInputSpecification(cls):
+    
+      Method to get a reference to a class that specifies the input data for
+      class cls.
+      @ In, cls, the class for which we are retrieving the specification
+      @ Out, inputSpecification, InputData.ParameterInput, class to use for
+        specifying input of cls.
+    
+    inputSpecification = super(NDimensionalDistributions, cls).getInputSpecification()
+    inputSpecification.addSub(InputData.parameterInputFactory("workingDir", contentType=InputTypes.StringType))
+
+    return inputSpecification
+
+  def __init__(self):
+    
+      Constructor
+      @ In, None
+      @ Out, None
+    
+    super().__init__()
+    self.dataFilename = None
+    self.functionType = None
+    self.type = &quotNDimensionalDistributions&quot
+    self.dimensionality  = None
+
+    self.RNGInitDisc = 5
+    self.RNGtolerance = 0.2
+
+  def _handleInput(self, paramInput):
+    
+      Function to handle the common parts of the distribution parameter input.
+      @ In, paramInput, ParameterInput, the already parsed input.
+      @ Out, None
+    
+    Distribution._handleInput(self, paramInput)
+    workingDir = paramInput.findFirst(&quotworkingDir&quot)
+    if workingDir != None:
+      self.workingDir = workingDir.value
+
+
+  def getInitParams(self):
+    
+      Function to get the initial values of the input parameters that belong to
+      this class
+      @ In, None
+      @ Out, paramDict, dict, dictionary containing the parameter names as keys
+        and each parameter&quots initial value as the dictionary values
+    
+    paramDict = Distribution.getInitParams(self)
+    paramDict[&quotfunctionType&quot] = self.functionType
+    paramDict[&quotdataFilename&quot] = self.dataFilename
+    return paramDict
+
+  &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+  def updateRNGParam(self, dictParam):
+    
+      Updated parameters of RNG
+      @ In, dictParam, dict, dictionary of initialization parameters
+      @ Out, None
+    
+    for key in dictParam:
+      if key == &quottolerance&quot:
+        self.RNGtolerance = dictParam[&quottolerance&quot]
+      elif key == &quotinitialGridDisc&quot:
+        self.RNGInitDisc  = dictParam[&quotinitialGridDisc&quot]
+    self._distribution.updateRNGparameter(self.RNGtolerance,self.RNGInitDisc)
+  &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+
+  def getDimensionality(self):
+    
+      Function return the dimensionality of the distribution
+      @ In, None
+      @ Out, dimensionality, int, the dimensionality of the distribution
+    
+    dimensionality = self._distribution.returnDimensionality()
+    return dimensionality
+
+  def returnLowerBound(self, dimension):
+    
+      Function that return the lower bound of the distribution for a particular dimension
+      @ In, dimension, int, dimension considered
+      @ Out, value, float, lower bound of the distribution
+    
+    value = self._distribution.returnLowerBound(dimension)
+    return value
+
+  def returnUpperBound(self, dimension):
+    
+      Function that return the upper bound of the distribution for a particular dimension
+      @ In, dimension, int, dimension considered
+      @ Out, value, float, upper bound of the distribution
+    
+    value = self._distribution.returnUpperBound(dimension)
+    return value
+
+  def marginalDistribution(self, x, variable):
+    
+      Compute the cdf marginal distribution
+      @ In, x, float, the coordinate for at which the inverse marginal distribution needs to be computed
+      @ In, variable, int, the variable id dimension coordinate (e.g. 0 =&gt; 1st coordinate, 1 =&gt; 2nd coordinate)
+      @ Out, marginalDistribution, float, the marginal cdf value at coordinate x
+    
+    return self._distribution.marginal(x, variable)
+
+DistributionsCollection.addSub(NDimensionalDistributions.getInputSpecification())
+
+class NDInverseWeight(NDimensionalDistributions):
+  
+    NDInverseWeight multi-variate distribution (inverse weight interpolation)
+  
+
+  @classmethod
+  def getInputSpecification(cls):
+    
+      Method to get a reference to a class that specifies the input data for
+      class cls.
+      @ In, cls, the class for which we are retrieving the specification
+      @ Out, inputSpecification, InputData.ParameterInput, class to use for
+        specifying input of cls.
+    
+    inputSpecification = super(NDInverseWeight, cls).getInputSpecification()
+
+
+    DataFilenameParameterInput = InputData.parameterInputFactory("dataFilename", contentType=InputTypes.StringType)
+    DataFilenameParameterInput.addParam("type", InputTypes.StringType, True)
+    inputSpecification.addSub(DataFilenameParameterInput)
+
+    inputSpecification.addSub(InputData.parameterInputFactory("p", contentType=InputTypes.FloatType))
+
+    return inputSpecification
+
+  def __init__(self):
+    
+      Constructor
+      @ In, None
+      @ Out, None
+    
+    super().__init__()
+    self.p = None
+    self.type = &quotNDInverseWeight&quot
+
+  def _handleInput(self, paramInput):
+    
+      Function to handle the common parts of the distribution parameter input.
+      @ In, paramInput, ParameterInput, the already parsed input.
+      @ Out, None
+    
+    NDimensionalDistributions._handleInput(self, paramInput)
+    pFind = paramInput.findFirst(&quotp&quot)
+    if pFind != None:
+      self.p = pFind.value
+    else:
+      self.raiseAnError(IOError,&quotMinkowski distance parameter &lt;p&gt; not found in NDInverseWeight distribution&quot)
+
+    dataFilename = paramInput.findFirst(&quotdataFilename&quot)
+    if dataFilename != None:
+      self.dataFilename = os.path.join(self.workingDir,dataFilename.value)
+    else:
+      self.raiseAnError(IOError,&quot&lt;dataFilename&gt; parameter needed for MultiDimensional Distributions!!!!&quot)
+
+    functionType = dataFilename.parameterValues[&quottype&quot]
+    if functionType != None:
+      self.functionType = functionType
+    else:
+      self.raiseAnError(IOError,&quot&lt;functionType&gt; parameter needed for MultiDimensional Distributions!!!!&quot)
+
+    self.initializeDistribution()
+
+  def getInitParams(self):
+    
+      Function to get the initial values of the input parameters that belong to
+      this class
+      @ In, None
+      @ Out, paramDict, dict, dictionary containing the parameter names as keys
+        and each parameter&quots initial value as the dictionary values
+    
+    paramDict = NDimensionalDistributions.getInitParams(self)
+    paramDict[&quotp&quot] = self.p
+    return paramDict
+
+  def initializeDistribution(self):
+    
+      Method to initialize the distribution
+      @ In, None
+      @ Out, None
+    
+    if self.functionType == &quotCDF&quot:
+      self._distribution = distribution1D.BasicMultiDimensionalInverseWeight(str(self.dataFilename), self.p,True)
+    else:
+      self._distribution = distribution1D.BasicMultiDimensionalInverseWeight(str(self.dataFilename), self.p,False)
+    self.dimensionality = self._distribution.returnDimensionality()
+    self.lowerBound = [self.returnLowerBound(dim) for dim in range(self.dimensionality)]
+    self.upperBound = [self.returnUpperBound(dim) for dim in range(self.dimensionality)]
+
+  def cdf(self,x):
+    
+      calculate the cdf value for given coordinate x
+      @ In, x, list, list of variable coordinate
+      @ Out, cdfValue, float, cdf value
+    
+    coordinate = distribution1D.vectord_cxx(len(x))
+    for i in range(len(x)):
+      coordinate[i] = x[i]
+    cdfValue = self._distribution.cdf(coordinate)
+    return cdfValue
+
+  def ppf(self,x):
+    
+      Return the ppf of given coordinate
+      @ In, x, np.array, the x coordinates
+      @ Out, ppfValue, np.array, ppf values
+    
+    ppfValue = self._distribution.inverseCdf(x,random())
+    return ppfValue
+
+  def pdf(self,x):
+    
+      Function that calculates the pdf value of x
+      @ In, x, np.array , coordinates to get the pdf at
+      @ Out, pdfValue, np.array, requested pdf
+    
+    coordinate = distribution1D.vectord_cxx(len(x))
+    for i in range(len(x)):
+      coordinate[i] = x[i]
+    pdfValue = self._distribution.pdf(coordinate)
+    return pdfValue
+
+  def cellIntegral(self,x,dx):
+    
+      Compute the integral of N-D cell in this distribution
+      @ In, x, np.array, x coordinates
+      @ In, dx, np.array, discretization passes
+      @ Out, integralReturn, float, the integral
+    
+    coordinate = distribution1D.vectord_cxx(len(x))
+    dxs        = distribution1D.vectord_cxx(len(x))
+    for i in range(len(x)):
+      coordinate[i] = x[i]
+      dxs[i]=dx[i]
+    integralReturn = self._distribution.cellIntegral(coordinate,dxs)
+    return integralReturn
+
+  def inverseMarginalDistribution(self, x, variable):
+    
+      Compute the inverse of the Marginal distribution
+      @ In, x, float, the cdf for at which the inverse marginal distribution needs to be computed
+      @ In, variable, int, the variable id dimension coordinate (e.g. 0 =&gt; 1st coordinate, 1 =&gt; 2nd coordinate)
+      @ Out, inverseMarginal, float, the marginal inverse cdf value at coordinate x
+    
+    if (x&gt;=0.0) and (x&lt;=1.0):
+      inverseMarginal = self._distribution.inverseMarginal(min(1.-sys.float_info.epsilon,
+                                                           max(sys.float_info.epsilon,x)),
+                                                           variable)
+    else:
+      self.raiseAnError(ValueError,&quotNDInverseWeight: inverseMarginalDistribution(x) with x outside [0.0,1.0]&quot)
+    return inverseMarginal
+
+  def untruncatedCdfComplement(self, x):
+    
+      Function to get the untruncated  cdf complement at a provided coordinate
+      @ In, x, float, value to get the untruncated  cdf complement  at
+      @ Out, float, requested untruncated  cdf complement
+    
+    self.raiseAnError(NotImplementedError,&quotuntruncatedCdfComplement not yet implemented for &quot + self.type)
+
+  def untruncatedHazard(self, x):
+    
+      Function to get the untruncated  Hazard  at a provided coordinate
+      @ In, x, float, value to get the untruncated  Hazard   at
+      @ Out, float, requested untruncated  Hazard
+    
+    self.raiseAnError(NotImplementedError,&quotuntruncatedHazard not yet implemented for &quot + self.type)
+
+  def untruncatedMean(self):
+    
+      Function to get the untruncated  Mean
+      @ In, None
+      @ Out, float, requested Mean
+    
+    self.raiseAnError(NotImplementedError,&quotuntruncatedMean not yet implemented for &quot + self.type)
+
+  def untruncatedMedian(self):
+    
+      Function to get the untruncated  Median
+      @ In, None
+      @ Out, float, requested Median
+    
+    self.raiseAnError(NotImplementedError,&quotuntruncatedMedian not yet implemented for &quot + self.type)
+
+  def untruncatedMode(self):
+    
+      Function to get the untruncated  Mode
+      @ In, None
+      @ Out, untrMode, float, requested Mode
+    
+    self.raiseAnError(NotImplementedError,&quotuntruncatedMode not yet implemented for &quot + self.type)
+
+  def rvs(self,*args):
+    
+      Return the random coordinate
+      @ In, args, dict, arguments (for future usage)
+      @ Out, rvsValue, np.array, the random coordinate
+    
+    rvsValue = self._distribution.inverseCdf(random(),random())
+    return rvsValue
+
+DistributionsCollection.addSub(NDInverseWeight.getInputSpecification())
+
+class NDCartesianSpline(NDimensionalDistributions):
+  
+    NDCartesianSpline multi-variate distribution (cubic spline interpolation)
+  
+
+  @classmethod
+  def getInputSpecification(cls):
+    
+      Method to get a reference to a class that specifies the input data for
+      class cls.
+      @ In, cls, the class for which we are retrieving the specification
+      @ Out, inputSpecification, InputData.ParameterInput, class to use for
+        specifying input of cls.
+    
+    inputSpecification = super(NDCartesianSpline, cls).getInputSpecification()
+
+    DataFilenameParameterInput = InputData.parameterInputFactory("dataFilename", contentType=InputTypes.StringType)
+    DataFilenameParameterInput.addParam("type", InputTypes.StringType, True)
+    inputSpecification.addSub(DataFilenameParameterInput)
+
+    return inputSpecification
+
+  def __init__(self):
+    
+      Constructor
+      @ In, None
+      @ Out, None
+    
+    super().__init__()
+    self.type = &quotNDCartesianSpline&quot
+
+  def _handleInput(self, paramInput):
+    
+      Function to handle the common parts of the distribution parameter input.
+      @ In, paramInput, ParameterInput, the already parsed input.
+      @ Out, None
+    
+    NDimensionalDistributions._handleInput(self, paramInput)
+    dataFilename = paramInput.findFirst(&quotdataFilename&quot)
+    if dataFilename != None:
+      self.dataFilename = os.path.join(self.workingDir,dataFilename.value)
+    else:
+      self.raiseAnError(IOError,&quot&lt;dataFilename&gt; parameter needed for MultiDimensional Distributions!!!!&quot)
+
+    functionType = dataFilename.parameterValues[&quottype&quot]
+    if functionType != None:
+      self.functionType = functionType
+    else:
+      self.raiseAnError(IOError,&quot&lt;functionType&gt; parameter needed for MultiDimensional Distributions!!!!&quot)
+
+    self.initializeDistribution()
+
+  def getInitParams(self):
+    
+      Function to get the initial values of the input parameters that belong to
+      this class
+      @ In, None
+      @ Out, paramDict, dict, dictionary containing the parameter names as keys
+        and each parameter&quots initial value as the dictionary values
+    
+    paramDict = NDimensionalDistributions.getInitParams(self)
+    return paramDict
+
+  def initializeDistribution(self):
+    
+      Method to initialize the distribution
+      @ In, None
+      @ Out, None
+    
+    self.raiseAMessage(&quotinitialize Distribution&quot)
+    if self.functionType == &quotCDF&quot:
+      self._distribution = distribution1D.BasicMultiDimensionalCartesianSpline(str(self.dataFilename),True)
+    else:
+      self._distribution = distribution1D.BasicMultiDimensionalCartesianSpline(str(self.dataFilename),False)
+    self.dimensionality = self._distribution.returnDimensionality()
+    self.lowerBound = [self.returnLowerBound(dim) for dim in range(self.dimensionality)]
+    self.upperBound = [self.returnUpperBound(dim) for dim in range(self.dimensionality)]
+
+  def cdf(self,x):
+    
+      calculate the cdf value for given coordinate x
+      @ In, x, list, list of variable coordinate
+      @ Out, cdfValue, float, cdf value
+    
+    coordinate = distribution1D.vectord_cxx(len(x))
+    for i in range(len(x)):
+      coordinate[i] = x[i]
+    cdfValue = self._distribution.cdf(coordinate)
+    return cdfValue
+
+  def ppf(self,x):
+    
+      Return the ppf of given coordinate
+      @ In, x, np.array, the x coordinates
+      @ Out, ppfValue, np.array, ppf values
+    
+    ppfValue = self._distribution.inverseCdf(x,random())
+    return ppfValue
+
+  def pdf(self,x):
+    
+      Function that calculates the pdf value of x
+      @ In, x, np.array , coordinates to get the pdf at
+      @ Out, pdfValue, np.array, requested pdf
+    
+    coordinate = distribution1D.vectord_cxx(len(x))
+    for i in range(len(x)):
+      coordinate[i] = x[i]
+    pdfValue = self._distribution.pdf(coordinate)
+    return pdfValue
+
+  def cellIntegral(self,x,dx):
+    
+      Compute the integral of N-D cell in this distribution
+      @ In, x, np.array, x coordinates
+      @ In, dx, np.array, discretization passes
+      @ Out, integralReturn, float, the integral
+    
+    coordinate = distribution1D.vectord_cxx(len(x))
+    dxs        = distribution1D.vectord_cxx(len(x))
+    for i in range(len(x)):
+      coordinate[i] = x[i]
+      dxs[i]=dx[i]
+    integralReturn = self._distribution.cellIntegral(coordinate,dxs)
+    return integralReturn
+
+  def inverseMarginalDistribution(self, x, variable):
+    
+      Compute the inverse of the Margina distribution
+      @ In, x, float, the coordinate for at which the inverse marginal distribution needs to be computed
+      @ In, variable, int, the variable id dimension coordinate (e.g. 0 =&gt; 1st coordinate, 1 =&gt; 2nd coordinate)
+      @ Out, inverseMarginal, float, the marginal cdf value at coordinate x
+    
+    if (x&gt;=0.0) and (x&lt;=1.0):
+      inverseMarginal = self._distribution.inverseMarginal(min(1.-sys.float_info.epsilon,
+                                                           max(sys.float_info.epsilon,x)),
+                                                           variable)
+    else:
+      self.raiseAnError(ValueError,&quotNDCartesianSpline: inverseMarginalDistribution(x) with x &quot +str(x)+&quot outside [0.0,1.0]&quot)
+    return inverseMarginal
+
+  def untruncatedCdfComplement(self, x):
+    
+      Function to get the untruncated  cdf complement at a provided coordinate
+      @ In, x, float, value to get the untruncated  cdf complement  at
+      @ Out, float, requested untruncated  cdf complement
+    
+    self.raiseAnError(NotImplementedError,&quotuntruncatedCdfComplement not yet implemented for &quot + self.type)
+
+  def untruncatedHazard(self, x):
+    
+      Function to get the untruncated  Hazard  at a provided coordinate
+      @ In, x, float, value to get the untruncated  Hazard   at
+      @ Out, float, requested untruncated  Hazard
+    
+    self.raiseAnError(NotImplementedError,&quotuntruncatedHazard not yet implemented for &quot + self.type)
+
+  def untruncatedMean(self):
+    
+      Function to get the untruncated  Mean
+      @ In, None
+      @ Out, float, requested Mean
+    
+    self.raiseAnError(NotImplementedError,&quotuntruncatedMean not yet implemented for &quot + self.type)
+
+  def untruncatedMedian(self):
+    
+      Function to get the untruncated  Median
+      @ In, None
+      @ Out, float, requested Median
+    
+    self.raiseAnError(NotImplementedError,&quotuntruncatedMedian not yet implemented for &quot + self.type)
+
+  def untruncatedMode(self):
+    
+      Function to get the untruncated  Mode
+      @ In, None
+      @ Out, untrMode, float, requested Mode
+    
+    self.raiseAnError(NotImplementedError,&quotuntruncatedMode not yet implemented for &quot + self.type)
+
+  def rvs(self,*args):
+    
+      Return the random coordinate
+      @ In, args, dict, arguments (for future usage)
+      @ Out, rvsValue, np.array, the random coordinate
+    
+    rvsValue = self._distribution.inverseCdf(random(),random())
+    return rvsValue
+
+DistributionsCollection.addSub(NDCartesianSpline.getInputSpecification())
+
+class MultivariateNormal(NDimensionalDistributions):
+  
+    MultivariateNormal multi-variate distribution (analytic)
+  
+  @classmethod
+  def getInputSpecification(cls):
+    
+      Overridden method to get a reference to the class that specifies the input data for
+      the MultivariateNormal class, since it must add its own custom parameter.
+      @ In, None
+      @ Out, inputSpecification, InputData.ParameterInput, class to use for input data.
+    
+    inputSpecification = super(MultivariateNormal, cls).getInputSpecification()
+
+    MuListParameterInput = InputData.parameterInputFactory("mu", contentType=InputTypes.StringType)
+
+    CovarianceListParameterInput = InputData.parameterInputFactory("covariance", contentType=InputTypes.StringType)
+    CovarianceListParameterInput.addParam("type", InputTypes.StringType, False)
+
+    TransformationParameterInput = InputData.parameterInputFactory("transformation")
+    RankParameterInput = InputData.parameterInputFactory("rank", contentType=InputTypes.IntegerType)
+    TransformationParameterInput.addSub(RankParameterInput)
+
+    inputSpecification.addSub(MuListParameterInput)
+    inputSpecification.addSub(CovarianceListParameterInput)
+    inputSpecification.addSub(TransformationParameterInput)
+
+    MultivariateMethodType = InputTypes.makeEnumType("multivariateMethod","multivariateMethodType",["pca","spline"])
+    inputSpecification.addParam("method", MultivariateMethodType, True)
+
+    return inputSpecification
+
+  def __init__(self):
+    
+      Constructor
+      @ In, None
+      @ Out, None
+    
+    super().__init__()
+    self.type = &quotMultivariateNormal&quot
+    self.distType = &quotContinuous&quot
+    self.mu  = None
+    self.covariance = None
+    self.covarianceType = &quotabs&quot  &#47&#47 abs: absolute covariance, rel: relative covariance matrix
+    self.method = &quotpca&quot          &#47&#47 pca: using pca method to compute the pdf, and inverseCdf, another option is &quotspline&quot, i.e. using
+                                 &#47&#47 cartesian spline method to compute the pdf, cdf, inverseCdf, ...
+    self.transformMatrix = None  &#47&#47 np.array stores the transform matrix
+    self.dimension = None        &#47&#47 the dimension of given problem
+    self.rank = None             &#47&#47 the effective rank for the PCA analysis
+    self.transformation = False       &#47&#47 flag for input reduction analysis
+
+  def _handleInput(self, paramInput):
+    
+      Function to handle the common parts of the distribution parameter input.
+      @ In, paramInput, ParameterInput, the already parsed input.
+      @ Out, None
+    
+    if paramInput.parameterValues[&quotmethod&quot] == &quotpca&quot:
+      self.method = &quotpca&quot
+    elif paramInput.parameterValues[&quotmethod&quot] == &quotspline&quot:
+      self.method = &quotspline&quot
+    else:
+      self.raiseAnError(IOError,&quotThe method attribute for the MultivariateNormal Distribution is not correct, choose "pca" or "spline"&quot)
+    for child in paramInput.subparts:
+      if child.getName() == &quotmu&quot:
+        mu = [float(value) for value in child.value.split()]
+        self.dimension = len(mu)
+      elif child.getName() == &quotcovariance&quot:
+        covariance = [float(value) for value in child.value.split()]
+        if &quottype&quot in child.parameterValues:
+          self.covarianceType = child.parameterValues[&quottype&quot]
+      elif child.getName() == &quottransformation&quot:
+        self.transformation = True
+        for childChild in child.subparts:
+          if childChild.getName() == &quotrank&quot:
+            self.rank = childChild.value
+
+    if self.rank == None:
+      self.rank = self.dimension
+    self.mu = mu
+    self.covariance = covariance
+    &#47&#47check square covariance
+    rt = np.sqrt(len(self.covariance))
+    covDim = int(rt)
+    if covDim != rt:
+      self.raiseAnError(IOError,&quotCovariance matrix is not square!  Contains %i entries.&quot %len(self.covariance))
+    &#47&#47sanity check on dimensionality
+    if covDim != len(self.mu):
+      self.raiseAnError(IOError,&quotInvalid dimensions! Covariance has %i entries (%i x %i), but mu has %i entries!&quot %(len(self.covariance),covDim,covDim,len(self.mu)))
+    self.initializeDistribution()
+
+  def _localSetState(self,pdict):
+    
+      Set the pickling state (local)
+      @ In, pdict, dict, the namespace state
+      @ Out, None
+    
+    self.method = pdict.pop(&quotmethod&quot)
+    self.dimension = pdict.pop(&quotdimension&quot)
+    self.rank = pdict.pop(&quotrank&quot)
+    self.mu = pdict.pop(&quotmu&quot)
+    self.covariance = pdict.pop(&quotcovariance&quot)
+
+  def getInitParams(self):
+    
+      Function to get the initial values of the input parameters that belong to
+      this class
+      @ In, None
+      @ Out, paramDict, dict, dictionary containing the parameter names as keys
+        and each parameter&quots initial value as the dictionary values
+    
+    paramDict = NDimensionalDistributions.getInitParams(self)
+    paramDict[&quotmethod&quot] = self.method
+    paramDict[&quotdimension&quot] = self.dimension
+    paramDict[&quotrank&quot] = self.rank
+    paramDict[&quotmu&quot] = self.mu
+    paramDict[&quotcovariance&quot] = self.covariance
+    return paramDict
+
+  def initializeDistribution(self):
+    
+      Method to initialize the distribution
+      @ In, None
+      @ Out, None
+    
+    self.raiseAMessage(&quotinitialize distribution&quot)
+    mu = distribution1D.vectord_cxx(len(self.mu))
+    for i in range(len(self.mu)):
+      mu[i] = self.mu[i]
+    covariance = distribution1D.vectord_cxx(len(self.covariance))
+    for i in range(len(self.covariance)):
+      covariance[i] = self.covariance[i]
+    if self.method == &quotspline&quot:
+      if self.covarianceType != &quotabs&quot:
+        self.raiseAnError(IOError,&quotcovariance with type &quot + self.covariance + &quot is not implemented for &quot + self.method + &quot method&quot)
+      self._distribution = distribution1D.BasicMultivariateNormal(covariance, mu)
+    elif self.method == &quotpca&quot:
+      self._distribution = distribution1D.BasicMultivariateNormal(covariance, mu, str(self.covarianceType), self.rank)
+    if self.transformation:
+      self.lowerBound = [-sys.float_info.max]*self.rank
+      self.upperBound = [sys.float_info.max]*self.rank
+    else:
+      self.lowerBound = [self.returnLowerBound(dim) for dim in range(self.dimension)]
+      self.upperBound = [self.returnUpperBound(dim) for dim in range(self.dimension)]
+
+  def cdf(self,x):
+    
+      calculate the cdf value for given coordinate x
+      @ In, x, List, list of variable coordinate
+      @ Out, cdfValue, float, cdf value
+    
+    if self.method == &quotspline&quot:
+      coordinate = distribution1D.vectord_cxx(len(x))
+      for i in range(len(x)):
+        coordinate[i] = x[i]
+      cdfValue = self._distribution.cdf(coordinate)
+    else:
+      self.raiseAnError(NotImplementedError,&quotcdf not yet implemented for &quot + self.method + &quot method&quot)
+    return cdfValue
+
+  def transformationMatrix(self,index=None):
+    
+      Return the transformation matrix from Crow
+      @ In, None
+      @ In, index, list, optional, input coordinate index, list values for the index of the latent variables
+      @ Out, L, np.array, the transformation matrix
+    
+    if self.method == &quotpca&quot:
+      if index is not None:
+        coordinateIndex = distribution1D.vectori_cxx(len(index))
+        for i in range(len(index)):
+          coordinateIndex[i] = index[i]
+          matrixDim = self._distribution.getTransformationMatrixDimensions(coordinateIndex)
+          transformation = self._distribution.getTransformationMatrix(coordinateIndex)
+      else:
+        matrixDim = self._distribution.getTransformationMatrixDimensions()
+        transformation = self._distribution.getTransformationMatrix()
+      row = matrixDim[0]
+      column = matrixDim[1]
+      &#47&#47 convert 1D vector to 2D array
+      L = np.atleast_1d(transformation).reshape(row,column)
+    else:
+      self.raiseAnError(NotImplementedError,&quot transformationMatrix is not yet implemented for &quot + self.method + &quot method&quot)
+    return L
+
+  def inverseTransformationMatrix(self,index=None):
+    
+      Return the inverse transformation matrix from Crow
+      @ In, None
+      @ In, index, list, optional, input coordinate index, list values for the index of the original variables
+      @ Out, L, np.array, the inverse transformation matrix
+    
+    if self.method == &quotpca&quot:
+      if index is not None:
+        coordinateIndex = distribution1D.vectori_cxx(len(index))
+        for i in range(len(index)):
+          coordinateIndex[i] = index[i]
+          matrixDim = self._distribution.getInverseTransformationMatrixDimensions(coordinateIndex)
+          inverseTransformation = self._distribution.getInverseTransformationMatrix(coordinateIndex)
+      else:
+        matrixDim = self._distribution.getInverseTransformationMatrixDimensions()
+        inverseTransformation = self._distribution.getInverseTransformationMatrix()
+      row = matrixDim[0]
+      column = matrixDim[1]
+      &#47&#47 convert 1D vector to 2D array
+      L = np.atleast_1d(inverseTransformation).reshape(row,column)
+    else:
+      self.raiseAnError(NotImplementedError,&quot inverse transformationMatrix is not yet implemented for &quot + self.method + &quot method&quot)
+    return L
+
+  def returnSingularValues(self,index=None):
+    
+      Return the singular values from Crow
+      @ In, None
+      @ In, index, list, optional, input coordinate index, list values for the index of the input variables
+      @ Out, singularValues, np.array, the singular values vector
+    
+    if self.method == &quotpca&quot:
+      if index is not None:
+        coordinateIndex = distribution1D.vectori_cxx(len(index))
+        for i in range(len(index)):
+          coordinateIndex[i] = index[i]
+        singularValues = self._distribution.getSingularValues(coordinateIndex)
+      else:
+        singularValues = self._distribution.getSingularValues()
+      singularValues = np.atleast_1d(singularValues).tolist()
+    else:
+      self.raiseAnError(NotImplementedError,&quot returnSingularValues is not available for &quot + self.method + &quot method&quot)
+    return singularValues
+
+  def pcaInverseTransform(self,x,index=None):
+    
+      Transform latent parameters back to models&quot parameters
+      @ In, x, list, input coordinate, list values for the latent variables
+      @ In, index, list, optional, input coordinate index, list values for the index of the latent variables
+      @ Out, values, list, return the values of manifest variables with type of list
+    
+    if self.method == &quotpca&quot:
+      if len(x) &gt; self.rank:
+        self.raiseAnError(IOError,&quotThe dimension of the latent variables defined in &lt;Samples&gt; is large than the rank defined in &lt;Distributions&gt;&quot)
+      coordinate = distribution1D.vectord_cxx(len(x))
+      for i in range(len(x)):
+        coordinate[i] = x[i]
+      if index is not None:
+        coordinateIndex = distribution1D.vectori_cxx(len(index))
+        for i in range(len(index)):
+          coordinateIndex[i] = index[i]
+        originalCoordinate = self._distribution.coordinateInverseTransformed(coordinate,coordinateIndex)
+      else:
+        originalCoordinate = self._distribution.coordinateInverseTransformed(coordinate)
+      values = np.atleast_1d(originalCoordinate).tolist()
+    else:
+      self.raiseAnError(NotImplementedError,&quotppfTransformedSpace not yet implemented for &quot + self.method + &quot method&quot)
+    return values
+
+  def coordinateInTransformedSpace(self):
+    
+      Return the coordinate in the transformed space
+      @ In, None
+      @ Out, coordinateInTransformedSpace, np.array, coordinates
+    
+    if self.method == &quotpca&quot:
+      coordinateInTransformedSpace = self._distribution.coordinateInTransformedSpace(self.rank)
+    else:
+      self.raiseAnError(NotImplementedError,&quotppfTransformedSpace not yet implemented for &quot + self.method + &quot method&quot)
+    return coordinateInTransformedSpace
+
+  def ppf(self,x):
+    
+      Return the ppf of given coordinate
+      @ In, x, np.array, the x coordinates
+      @ Out, ppfValue, np.array, ppf values
+    
+    if self.method == &quotspline&quot:
+      ppfValue = self._distribution.inverseCdf(x,random())
+    else:
+      self.raiseAnError(NotImplementedError,&quotppf is not yet implemented for &quot + self.method + &quot method&quot)
+    return ppfValue
+
+  def pdf(self,x):
+    
+      Return the pdf of given coordinate
+      @ In, x, np.array, the x coordinates
+      @ Out, pdfValue, np.array, pdf values
+    
+    if self.transformation:
+      pdfValue = self.pdfInTransformedSpace(x)
+    else:
+      coordinate = distribution1D.vectord_cxx(len(x))
+      for i in range(len(x)):
+        coordinate[i] = x[i]
+      pdfValue = self._distribution.pdf(coordinate)
+    return pdfValue
+
+  def logPdf(self,x):
+    
+      Function to get the log pdf at a provided coordinate
+      @ In, x, np.array, the x coordinates
+      @ Out, logPdf, np.array, requested log pdf
+    
+    logPdf = np.log(self.pdf(x))
+    return logPdf
+
+  def pdfInTransformedSpace(self,x):
+    
+      Return the pdf of given coordinate in the transformed space
+      @ In, x, np.array, the x coordinates
+      @ Out, pdfInTransformedSpace, np.array, pdf values in the transformed space
+    
+    if self.method == &quotpca&quot:
+      coordinate = distribution1D.vectord_cxx(len(x))
+      for i in range(len(x)):
+        coordinate[i] = x[i]
+      pdfInTransformedSpace = self._distribution.pdfInTransformedSpace(coordinate)
+    else:
+      self.raiseAnError(NotImplementedError,&quotppfTransformedSpace not yet implemented for &quot + self.method + &quot method&quot)
+    return pdfInTransformedSpace
+
+  def cellIntegral(self,x,dx):
+    
+      Compute the integral of N-D cell in this distribution
+      @ In, x, np.array, x coordinates
+      @ In, dx, np.array, discretization passes
+      @ Out, integralReturn, float, the integral
+    
+    coordinate = distribution1D.vectord_cxx(len(x))
+    dxs        = distribution1D.vectord_cxx(len(x))
+    for i in range(len(x)):
+      coordinate[i] = x[i]
+      dxs[i]=dx[i]
+    if self.method == &quotpca&quot:
+      if self.transformation:
+        self.raiseAWarning("The ProbabilityWeighted is computed on the reduced transformed space")
+      else:
+        self.raiseAWarning("The ProbabilityWeighted is computed on the full transformed space")
+      integralReturn = self._distribution.cellProbabilityWeight(coordinate,dxs)
+    elif self.method == &quotspline&quot:
+      integralReturn = self._distribution.cellIntegral(coordinate,dxs)
+    else:
+      self.raiseAnError(NotImplementedError,&quotcellIntegral not yet implemented for &quot + self.method + &quot method&quot)
+    return integralReturn
+
+  def marginalCdf(self, x):
+    
+      Calculate the marginal distribution for given coordinate x
+      @ In, x, float, the coordinate for given marginal distribution
+      @ Out, marginalCdfForPCA, float, the marginal cdf value at coordinate x
+    
+    if self.method == &quotpca&quot:
+      marginalCdfForPCA = self._distribution.marginalCdfForPCA(x)
+    else:
+      self.raiseAnError(NotImplementedError,&quotmarginalCdf  not yet implemented for &quot + self.method + &quot method&quot)
+    return marginalCdfForPCA
+
+  def inverseMarginalDistribution(self, x, variable):
+    
+      Compute the inverse of the Margina distribution
+      @ In, x, float, the coordinate for at which the inverse marginal distribution needs to be computed
+      @ In, variable, int, the variable id dimension coordinate (e.g. 0 =&gt; 1st coordinate, 1 =&gt; 2nd coordinate)
+      @ Out, inverseMarginal, float, the marginal cdf value at coordinate x
+    
+    if (x &gt;= 0.0) and (x &lt;= 1.0):
+      if self.method == &quotpca&quot:
+        inverseMarginal = self._distribution.inverseMarginalForPCA(min(1.-sys.float_info.epsilon,
+                                                                   max(sys.float_info.epsilon,
+                                                                   x)))
+      elif self.method == &quotspline&quot:
+        inverseMarginal=  self._distribution.inverseMarginal(min(1.-sys.float_info.epsilon,
+                                                             max(sys.float_info.epsilon,x)),
+                                                             variable)
+    else:
+      self.raiseAnError(ValueError,&quotNDInverseWeight: inverseMarginalDistribution(x) with x &quot +str(x)+&quot outside [0.0,1.0]&quot)
+    return inverseMarginal
+
+  def untruncatedCdfComplement(self, x):
+    
+      Function to get the untruncated  cdf complement at a provided coordinate
+      @ In, x, float, value to get the untruncated  cdf complement  at
+      @ Out, float, requested untruncated  cdf complement
+    
+    self.raiseAnError(NotImplementedError,&quotuntruncatedCdfComplement not yet implemented for &quot + self.type)
+
+  def untruncatedHazard(self, x):
+    
+      Function to get the untruncated  Hazard  at a provided coordinate
+      @ In, x, float, value to get the untruncated  Hazard   at
+      @ Out, float, requested untruncated  Hazard
+    
+    self.raiseAnError(NotImplementedError,&quotuntruncatedHazard not yet implemented for &quot + self.type)
+
+  def untruncatedMean(self, x):
+    
+      Function to get the untruncated  Mean
+      @ In, x, float, the value
+      @ Out, float, requested Mean
+    
+    self.raiseAnError(NotImplementedError,&quotuntruncatedMean not yet implemented for &quot + self.type)
+
+  def untruncatedMedian(self, x):
+    
+      Function to get the untruncated  Median
+      @ In, x, float, the value
+      @ Out, float, requested Median
+    
+    self.raiseAnError(NotImplementedError,&quotuntruncatedMedian not yet implemented for &quot + self.type)
+
+  def untruncatedMode(self, x):
+    
+      Function to get the untruncated  Mode
+      @ In, x, float, the value
+      @ Out, untrMode, float, requested Mode
+    
+    self.raiseAnError(NotImplementedError,&quotuntruncatedMode not yet implemented for &quot + self.type)
+
+  def rvs(self, *args):
+    
+      Return the random coordinate
+      @ In, args, dict, arguments (for future usage)
+      @ Out, rvsValue, np.array, the random coordinate
+    
+    if self.method == &quotspline&quot:
+      rvsValue = self._distribution.inverseCdf(random(),random())
+    &#47&#47 if no transformation, then return the coordinate for the original input parameters
+    &#47&#47 if there is a transformation, then return the coordinate in the reduced space
+    elif self.method == &quotpca&quot:
+      if self.transformation:
+        rvsValue = self._distribution.coordinateInTransformedSpace(self.rank)
+      else:
+        coordinate = self._distribution.coordinateInTransformedSpace(self.rank)
+        rvsValue = self._distribution.coordinateInverseTransformed(coordinate)
+    else:
+      self.raiseAnError(NotImplementedError,&quotrvs is not yet implemented for &quot + self.method + &quot method&quot)
+    return rvsValue
+
+DistributionsCollection.addSub(MultivariateNormal.getInputSpecification())
+
+factory = EntityFactory(&quotDistribution&quot, returnInputParameter=True)
+factory.registerAllSubtypes(Distribution)
+factory.unregisterSubtype(&quotBoostDistribution&quot)
+
+def returnInputParameter():
+  
+    Function returns the InputParameterClass that can be used to parse the
+    whole collection.
+    @ Out, DistributionsCollection, DistributionsCollection, class for parsing.
+  
+  return DistributionsCollection()
+</code></pre>

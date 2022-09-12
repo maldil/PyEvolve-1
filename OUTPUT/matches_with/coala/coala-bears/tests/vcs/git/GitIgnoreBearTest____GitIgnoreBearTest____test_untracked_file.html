@@ -1,0 +1,129 @@
+<link rel="stylesheet" href="../../../../..//default.css">
+<script src="../../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/coala/coala-bears/blob/master/tests/vcs/git/GitIgnoreBearTest.py#L109">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/coala-bears/blob/master/tests/vcs/git/GitIgnoreBearTest.py#L109">GitMyHubLink</a>
+
+import os
+import platform
+import shutil
+import stat
+import unittest
+import unittest.mock
+from queue import Queue
+from tempfile import mkdtemp
+
+from bears.vcs.git.GitIgnoreBear import GitIgnoreBear
+from coalib.testing.BearTestHelper import generate_skip_decorator
+from coalib.misc.Shell import run_shell_command
+from coalib.settings.Section import Section
+
+
+@generate_skip_decorator(GitIgnoreBear)
+class GitIgnoreBearTest(unittest.TestCase):
+
+    @staticmethod
+    def run_git_command(*args, stdin=None):
+        run_shell_command(&quot &quot.join((&quotgit&quot,) + args), stdin)
+
+    def run_uut(self, *args, **kwargs):
+        
+        Runs the unit-under-test (via `self.uut.run()`) and collects the
+        messages of the yielded results as a list.
+
+        :param args:   Positional arguments to forward to the run function.
+        :param kwargs: Keyword arguments to forward to the run function.
+        :return:       A list of the message strings.
+        
+        return list(result.message for result in self.uut.run(*args, **kwargs))
+
+    def assert_no_msgs(self):
+        
+        Assert that there are no messages in the message queue of the bear, and
+        show the messages in the failure message if it is not empty.
+        
+        self.assertTrue(
+            self.msg_queue.empty(),
+            &quotExpected no messages in bear message queue, but got: &quot +
+            str(list(str(i) for i in self.msg_queue.queue)))
+
+    def setUp(self):
+        self.msg_queue = Queue()
+        self.section = Section(&quot&quot)
+        self.uut = GitIgnoreBear(None, self.section, self.msg_queue)
+
+        self._old_cwd = os.getcwd()
+        self.gitdir = mkdtemp()
+        os.chdir(self.gitdir)
+        self.run_git_command(&quotinit&quot)
+        self.run_git_command(&quotconfig&quot, &quotuser.email coala@coala.io&quot)
+        self.run_git_command(&quotconfig&quot, &quotuser.name coala&quot)
+
+    @staticmethod
+    def _windows_rmtree_remove_readonly(func, path, excinfo):
+        os.chmod(path, stat.S_IWRITE)
+        func(path)
+
+    def tearDown(self):
+        os.chdir(self._old_cwd)
+        if platform.system() == &quotWindows&quot:
+            onerror = self._windows_rmtree_remove_readonly
+        else:
+            onerror = None
+        shutil.rmtree(self.gitdir, onerror=onerror)
+
+    def test_check_prerequisites(self):
+        _shutil_which = shutil.which
+        try:
+            shutil.which = lambda *args, **kwargs: None
+            self.assertEqual(GitIgnoreBear.check_prerequisites(),
+                             &quotgit is not installed.&quot)
+
+            shutil.which = lambda *args, **kwargs: &quotpath/to/git&quot
+            self.assertTrue(GitIgnoreBear.check_prerequisites())
+        finally:
+            shutil.which = _shutil_which
+
+    def test_no_tracked_files(self):
+        self.assertEqual(self.run_uut(), [])
+        self.assert_no_msgs()
+
+    def test_no_gitignore_file(self):
+        file = open(&quottest_file.txt&quot, &quotw&quot)
+        file.close()
+        self.run_git_command(&quotadd&quot, &quottest_file.txt&quot)
+
+        self.assertEqual(self.run_uut(), [])
+        self.assert_no_msgs()
+
+    def test_already_tracked_file(self):
+        file = open(&quottest_file.txt&quot, &quotw&quot)
+        file.close()
+        self.run_git_command(&quotadd&quot, &quottest_file.txt&quot)
+
+        file = open(&quot.gitignore&quot, &quotw&quot)
+        file.write(&quottest_file.txt&quot)
+        file.close()
+
+        self.run_git_command(&quotadd&quot, &quot.gitignore&quot)
+        self.assertEqual(self.run_uut(), [
+            &quotFile test_file.txt is being tracked which was ignored in line&quot
+            &quot number 1 in file .gitignore.&quot
+        ])
+        self.assert_no_msgs()
+
+    def test_untracked_file(self):
+        <a id="change">file</a><a id="change"> = open(&quottest_file.txt&quot, &quotw&quot)</a>
+        <a id="change">file</a><a id="change">.close()</a>
+
+        <a id="change">file</a><a id="change"> = open(&quot.gitignore&quot, &quotw&quot)</a>
+        file.write(&quottest_file.txt&quot)
+        <a id="change">file</a><a id="change">.close()</a>
+
+        self.run_git_command(&quotadd&quot, &quot.gitignore&quot)
+        self.assertEqual(self.run_uut(), [])
+        self.assert_no_msgs()
+</code></pre>

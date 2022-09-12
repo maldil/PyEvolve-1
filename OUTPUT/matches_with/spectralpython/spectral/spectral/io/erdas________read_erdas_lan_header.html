@@ -1,0 +1,218 @@
+<link rel="stylesheet" href="../../../..//default.css">
+<script src="../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/spectralpython/spectral/blob/master/spectral/io/erdas.py#L136">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/spectral/blob/master/spectral/io/erdas.py#L136">GitMyHubLink</a>
+
+&quot&quot&quot
+Functions for reading Erdas files.
+&quot&quot&quot
+&#47&#47 Following description accessed on 2011-01-25 at
+&#47&#47    http://www.pcigeomatics.com/cgi-bin/pcihlp/ERDASWR|IMAGE+FORMAT
+&#47&#47
+&#47&#47 The ERDAS image file format contains a header record (128 bytes), followed by
+&#47&#47 the image data. The image data is arranged in a Band Interleaved by Line
+&#47&#47 (BIL) format. Each file is virtually unlimited in size - the file structure
+&#47&#47 allows up to 274 billion bytes. The file consists of 512-byte records.
+&#47&#47
+&#47&#47                 ERDAS IMAGE FILE FORMAT
+&#47&#47  +----------------------------------------------------------+
+&#47&#47  |   Record 1 (bytes 1 to 128) Header                       |
+&#47&#47  |   --------------------------------                       |
+&#47&#47  |                                                          |
+&#47&#47  |    Bytes   Type   Contents                               |
+&#47&#47  |                                                          |
+&#47&#47  |     1- 6    ASCII  Descriptor         (HEAD74 or HEADER) |
+&#47&#47  |     7- 8    I*2    Type of data:0=8 bit /1=4 bit/2=16 bit|
+&#47&#47  |     9-10    I*2    Number of Channels                    |
+&#47&#47  |    11-16           Unused                                |
+&#47&#47  |    17-20    I*4    Number of Pixels, if HEAD74           |
+&#47&#47  |            (R*4    Number of Pixels, if HEADER)          |
+&#47&#47  |    21-24    I*4    Number of Lines,  if HEAD74           |
+&#47&#47  |            (R*4    Number of Lines,  if HEADER)          |
+&#47&#47  |    25-28    I*4    X-coordinate of 1st pixel, if HEAD74  |
+&#47&#47  |            (R*4    X-coordinate of 1st pixel, if HEADER) |
+&#47&#47  |    29-32    I*4    Y-coordinate of 1st pixel, if HEAD74  |
+&#47&#47  |            (R*4    Y-coordinate of 1st pixel, if HEADER) |
+&#47&#47  |    33-88           Unused                                |
+&#47&#47  |    89-90    I*2    Integer which indicates Map type      |
+&#47&#47  |    91-92    I*2    Number of classes in the data set     |
+&#47&#47  |    93-106          Unused                                |
+&#47&#47  |   107-108   I*2    Units of area of each pixel           |
+&#47&#47  |                    0=NONE, 1=ACRE, 2=HECTAR, 3=OTHER     |
+&#47&#47  |   109-112   R*4    Number of pixel area units            |
+&#47&#47  |   113-116   R*4    Map X-coordinate of upper left corner |
+&#47&#47  |   117-120   R*4    Map Y-coordinate of upper left corner |
+&#47&#47  |   121-124   R*4    X-pixel size                          |
+&#47&#47  |   125-128   R*4    Y-pixel size                          |
+&#47&#47  |                                                          |
+&#47&#47  |   Data files values begin in bytes 129 and cross over    |
+&#47&#47  |   record boundaries as necessary.                        |
+&#47&#47  |   Data are arranged in following order:                  |
+&#47&#47  |                                                          |
+&#47&#47  |   L - Lines;  C - Channels;  P - Pixels per line;        |
+&#47&#47  |                                                          |
+&#47&#47  |   Pixels 1 through x of line 1, band 1                   |
+&#47&#47  |   Pixels 1 through x of line 1, band n                   |
+&#47&#47  |                                                          |
+&#47&#47  |   Pixels 1 through x of line 2, band 1                   |
+&#47&#47  |   Pixels 1 through x of line 2, band n                   |
+&#47&#47  |                                                          |
+&#47&#47  |   Pixels 1 through x of line y, band 1                   |
+&#47&#47  |   Pixels 1 through x of line y, band n                   |
+&#47&#47  +----------------------------------------------------------+
+
+
+from __future__ import absolute_import, division, print_function, unicode_literals
+
+import array
+import numpy as np
+import sys
+
+import spectral as spy
+from ..utilities.python23 import IS_PYTHON3, typecode
+from .bilfile import BilFile
+from .spyfile import find_file_path, InvalidFileError
+from .spyfile import InvalidFileError
+
+if IS_PYTHON3:
+    import builtins
+else:
+    import __builtin__ as builtins
+
+
+
+def open(file):
+    &quot&quot&quot
+    Returns a SpyFile object for an ERDAS/Lan image file.
+
+    Arguments:
+
+        `file` (str):
+
+            Name of the ERDAS/Lan image data file.
+
+    Returns:
+
+        A SpyFile object for the image file.
+
+    Raises:
+
+        spectral.io.spyfile.InvalidFileError
+    &quot&quot&quot
+
+    &#47&#47 ERDAS 7.5 headers do not specify byte order so we&quotll guess little endian.
+    &#47&#47 If any of the parameters look weird, we&quotll try again with big endian.
+
+    class Params:
+        pass
+    p = Params()
+    p.byte_order = 0
+
+    file_path = find_file_path(file)
+
+    lh = read_erdas_lan_header(find_file_path(file))
+    if lh["nbands"] &lt; 0 or lh["nbands"] &gt; 512 or \
+        lh["ncols"] &lt; 0 or lh["ncols"] &gt; 10000 or \
+            lh["nrows"] &lt; 0 or lh["nrows"] &gt; 10000:
+        p.byte_order = 1
+        lh = read_erdas_lan_header(file_path, 1)
+
+    p.filename = file_path
+    p.nbands = lh["nbands"]
+    p.ncols = lh["ncols"]
+    p.nrows = lh["nrows"]
+    p.offset = 128
+    if lh["packing"] == 2:
+        p.dtype = np.dtype(&quoti2&quot).str
+    elif lh["packing"] == 0:
+        p.dtype = np.dtype(&quoti1&quot).str
+    elif lh["packing"] == 1:
+        msg = &quot4-bit data type not supported in SPy ERDAS/Lan format handler.&quot
+        raise InvalidFileError(msg)
+    else:
+        msg = &quotUnexpected data type specified in ERDAS/Lan header.&quot
+        raise InvalidFileError(msg)
+    if spy.byte_order != 0:
+        p.dtype = np.dtype(p.dtype).newbyteorder().str
+
+    return BilFile(p, lh)
+
+
+def read_erdas_lan_header(fileName, byte_order=0):
+    &quot&quot&quotRead parameters from a lan file header.
+
+    Arguments:
+
+        fileName (str):
+
+            File to open.
+
+        byte_order (int) [default 0]:
+
+            Specifies whether to read as little (0) or big (1) endian.
+    &quot&quot&quot
+    <a id="change">f = builtins.open(fileName, "rb")</a>
+
+    h = {}
+    h["format"] = "lan"
+    h["fileName"] = fileName
+    h["sizeOfHeader"] = 128
+
+    h["type"] = f.read(6)
+    if h["type"] not in (b&quotHEAD74&quot, b&quotHEADER&quot):
+        raise InvalidFileError(&quotDoes not look like an ERDAS Lan header.&quot)
+
+    &#47&#47 Read all header data into arrays
+    word = array.array(typecode(&quoth&quot))
+    dword = array.array(typecode(&quoti&quot))
+    float = array.array(typecode(&quotf&quot))
+    word.fromfile(f, 2)
+    f.seek(16)
+    if h["type"] == b&quotHEAD74&quot:
+        dword.fromfile(f, 4)
+    else:
+        float.fromfile(f, 4)
+    f.seek(88)
+    word.fromfile(f, 2)
+    f.seek(106)
+    word.fromfile(f, 1)
+    float.fromfile(f, 5)
+
+    if byte_order != spy.byte_order:
+        word.byteswap()
+        dword.byteswap()
+        float.byteswap()
+
+    &#47&#47 Unpack all header data
+    h["packing"] = word.pop(0)
+    h["nbands"] = word.pop(0)
+
+    if h["type"] == b&quotHEAD74&quot:
+        h["ncols"] = dword.pop(0)
+        h["nrows"] = dword.pop(0)
+        h["pixel_xcoord"] = dword.pop(0)
+        h["pixel_ycoord"] = dword.pop(0)
+    else:
+        h["ncols"] = int(float.pop(0))
+        h["nrows"] = int(float.pop(0))
+        h["pixel_xcoord"] = float.pop(0)
+        h["pixel_ycoord"] = float.pop(0)
+
+    h["map_type"] = word.pop(0)
+    h["nclasses"] = word.pop(0)
+    h["area_unit"] = word.pop(0)
+    h["ypixel_size"] = float.pop()
+    h["xpixel_size"] = float.pop()
+    h["map_ycoord"] = float.pop()
+    h["map_xcoord"] = float.pop()
+    h["narea_units"] = float.pop()
+
+    <a id="change">f</a><a id="change">.close()</a>
+
+    return h
+
+</code></pre>

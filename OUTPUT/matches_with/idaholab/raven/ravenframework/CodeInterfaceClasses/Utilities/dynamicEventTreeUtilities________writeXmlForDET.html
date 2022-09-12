@@ -1,0 +1,67 @@
+<link rel="stylesheet" href="../../../../..//default.css">
+<script src="../../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/idaholab/raven/blob/devel/ravenframework/CodeInterfaceClasses/Utilities/dynamicEventTreeUtilities.py#L22">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/raven/blob/devel/ravenframework/CodeInterfaceClasses/Utilities/dynamicEventTreeUtilities.py#L22">GitMyHubLink</a>
+
+&#47&#47 Copyright 2017 Battelle Energy Alliance, LLC
+&#47&#47
+&#47&#47 Licensed under the Apache License, Version 2.0 (the "License");
+&#47&#47 you may not use this file except in compliance with the License.
+&#47&#47 You may obtain a copy of the License at
+&#47&#47
+&#47&#47 http://www.apache.org/licenses/LICENSE-2.0
+&#47&#47
+&#47&#47 Unless required by applicable law or agreed to in writing, software
+&#47&#47 distributed under the License is distributed on an "AS IS" BASIS,
+&#47&#47 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+&#47&#47 See the License for the specific language governing permissions and
+&#47&#47 limitations under the License.
+
+Created on May 1, 2016
+
+@author: alfoa
+
+from xml.etree import ElementTree as ET
+from xml.dom import minidom
+
+def writeXmlForDET(filename,trigger,listDict,stopInfo):
+  
+    Method to write the XML file containing the information regarding
+    the stop condition for branching in DET method
+    @ In, filename, string, filename (with absolute path) of the XML file that needs to be printed out
+    @ In, trigger, string, the name of the trigger variable
+    @ In, listDict, list, list of dictionaries containing the information regarding the "modified" variables:
+                            [{&quottype&quot:VariableType (e.g. controlled, monitored, aux, etc),
+                              &quotold_value&quot:The unchanged value,
+                              &quotnew_value&quot:[list of new values (if more then one value =&gt; multi-branch)],
+                              &quotassociated_pb&quot:[list of associated probabilities (required only in case a multi-branch is requested]
+                            }]
+    @ In, stopInfo, dict, dictionary of stop information ({&quotend_time&quot: end simulation time (already stopped),&quotend_ts&quot: end simulation time step (optional)})
+    @ Out, None
+  
+  &#47&#47  trigger == &quotvariable trigger&quot
+  &#47&#47  Variables == &quotvariables changed in the branch control logic block&quot
+  &#47&#47  associated_pb = &quotCDF&quot in case multibranch needs to be performed
+  &#47&#47  stopInfo {&quotend_time&quot: end simulation   time (already stopped), &quotend_ts&quot: end time step}
+  root=ET.Element(&quotBranch_info&quot)
+  root.set("end_time",str(stopInfo[&quotend_time&quot]))
+  if "end_ts" in stopInfo.keys():
+    root.set("end_ts",str(stopInfo[&quotend_ts&quot]))
+  triggerNode=ET.SubElement(root,"Distribution_trigger")
+  triggerNode.set("name",trigger)
+  for varInfo in listDict:
+    var=ET.SubElement(triggerNode,&quotVariable&quot)
+    var.text=varInfo[&quotname&quot]
+    var.set(&quottype&quot,varInfo[&quottype&quot])
+    var.set(&quotold_value&quot,str(varInfo[&quotold_value&quot]))
+    var.set(&quotactual_value&quot,str(varInfo[&quotnew_value&quot]))
+    if &quotassociated_pb&quot in varInfo.keys():
+      var.set(&quotprobability&quot,str(varInfo[&quotassociated_pb&quot]))
+  <a id="change">fileObject = open(filename,&quotw&quot)</a>
+  fileObject.write(minidom.parseString(ET.tostring(root, &quotutf-8&quot)).toprettyxml(indent="\t"))
+  <a id="change">fileObject</a><a id="change">.close()</a>
+</code></pre>

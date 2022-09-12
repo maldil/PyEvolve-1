@@ -1,0 +1,70 @@
+<link rel="stylesheet" href="../../../..//default.css">
+<script src="../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/nipy/dipy/blob/master/dipy/io/pickles.py#L39">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/dipy/blob/master/dipy/io/pickles.py#L39">GitMyHubLink</a>
+
+ Load and save pickles 
+import pickle
+
+
+def save_pickle(fname, dix):
+    Save `dix` to `fname` as pickle.
+
+    Parameters
+    ----------
+    fname : str
+       filename to save object e.g. a dictionary
+    dix : str
+       dictionary or other object
+
+    Examples
+    --------
+    &gt;&gt;&gt; import os
+    &gt;&gt;&gt; from tempfile import mkstemp
+    &gt;&gt;&gt; fd, fname = mkstemp() &#47&#47 make temporary file (opened, attached to fh)
+    &gt;&gt;&gt; d={0:{&quotd&quot:1}}
+    &gt;&gt;&gt; save_pickle(fname, d)
+    &gt;&gt;&gt; d2=load_pickle(fname)
+
+    We remove the temporary file we created for neatness
+
+    &gt;&gt;&gt; os.close(fd) &#47&#47 the file is still open, we need to close the fh
+    &gt;&gt;&gt; os.remove(fname)
+
+    See Also
+    --------
+    dipy.io.pickles.load_pickle
+
+    
+    out = open(fname, &quotwb&quot)
+    pickle.dump(dix, out, protocol=pickle.HIGHEST_PROTOCOL)
+    out.close()
+
+
+def load_pickle(fname):
+    Load object from pickle file `fname`.
+
+    Parameters
+    ----------
+    fname : str
+       filename to load dict or other python object
+
+    Returns
+    -------
+    dix : object
+       dictionary or other object
+
+    Examples
+    --------
+    dipy.io.pickles.save_pickle
+
+    
+    <a id="change">inp = open(fname, &quotrb&quot)</a>
+    dix = pickle.load(inp)
+    <a id="change">inp</a><a id="change">.close()</a>
+    return dix
+</code></pre>

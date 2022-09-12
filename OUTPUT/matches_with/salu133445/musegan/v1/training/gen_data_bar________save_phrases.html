@@ -1,0 +1,213 @@
+<link rel="stylesheet" href="../../../..//default.css">
+<script src="../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/salu133445/musegan/blob/main/v1/training/gen_data_bar.py#L35">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/musegan/blob/main/v1/training/gen_data_bar.py#L35">GitMyHubLink</a>
+
+from __future__ import division
+from __future__ import print_function
+
+
+
+
+import os
+import numpy as np
+from os import listdir
+from os.path import isfile, join
+import sys
+import scipy.io as sio
+import scipy.sparse
+import json
+
+PATH_SEG = &quotstructure/labs&quot
+ROOT_TRACKS = &quottracks&quot
+PATH_INSTRU_ACT = join(ROOT_TRACKS, &quotact_instr&quot)
+PATH_SAVE_BAR = &quotdata_bar&quot
+PATH_SAVE_PHR = &quotdata_phr&quot
+TRA_SIZE = 2000
+VAL_SIZE = 800
+SAMPLE_RATIO = 0.5
+
+
+prefix = [&quotBass&quot, &quotDrum&quot, &quotGuitar&quot, &quotOther&quot, &quotPiano&quot, &quotinstr_act&quot]
+PATH_SEG = &quotstructure/labs&quot
+song_list = onlyfiles = [f.split(&quot.&quot)[0] for f in listdir(PATH_SEG) if isfile(join(PATH_SEG, f))]
+
+def csc_to_array(csc):
+    return scipy.sparse.csc_matrix((csc[&quotdata&quot], csc[&quotindices&quot], csc[&quotindptr&quot]), shape= csc[&quotshape&quot]).toarray()
+def reshape_to_bar(flat_array):
+    return flat_array.reshape(-1,96,128)
+
+def save_phrases(<a id="change">rnd_list</a>, <a id="change">save_dir</a>=&quottr&quot):
+    &#47&#47&#47&#47&#47&#47 Strategy &#47&#47&#47&#47&#47&#47&#47&#47 &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+    &#47&#47 (numOfbar of a phrase)
+    &#47&#47 (&gt;= 8)
+    &#47&#47         % 4 = 0
+    &#47&#47             = 1 ed-1
+    &#47&#47             = 2 st,ed-1
+    &#47&#47             = 3 ed+1
+    &#47&#47      4n + 8, n =0,1,2,3
+    &#47&#47
+    &#47&#47 (&lt;= 8)
+    &#47&#47             = 7 ed+1
+    &#47&#47             = 6 st,ed+1
+    &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+
+    <a id="change">path_tosave = join( PATH_SAVE_PHR, save_dir)</a>
+    if not os.path.exists(path_tosave):
+        os.makedirs(path_tosave)
+
+    <a id="change">barsOfphrase_list = [[],[],[],[],[],[]]</a>
+    for song_idx in range(len(rnd_list)):
+        <a id="change">msd_id = song_list[tra_song_idx[song_idx]]</a>
+        sys.stdout.write(&quot{0}/{1}\r&quot.format(song_idx, len(rnd_list)))
+        sys.stdout.flush()
+        <a id="change">f = open(join(PATH_SEG, msd_id+&quot.lab&quot),&quotr&quot)</a>
+
+        <a id="change">info_list = []</a>
+        for line in f.readlines():
+            <a id="change">line = line.strip().split(&quot &quot)</a>
+            st, ed, lab,  = int(float(line[0])), int(float(line[1])), line[2]
+            info_list.append((st, ed, lab, ed-st))
+        <a id="change">tmp_phr_num = len(info_list)</a>
+
+        <a id="change">parsed_phrase_list = []</a>
+        <a id="change">song_tracks = []</a>
+        for pre_idx in range(5):
+            song_tracks.append(reshape_to_bar(csc_to_array(np.load(join(ROOT_TRACKS, prefix[pre_idx], msd_id+&quot.npz&quot)))))
+        <a id="change">act_instr = np.load(join(PATH_INSTRU_ACT, msd_id+&quot.npy&quot))</a>
+        for pidx in range(1, tmp_phr_num-1):
+            st, ed, phr_len = info_list[pidx ][0], info_list[pidx ][1], info_list[pidx ][3]
+            if(phr_len &gt;=8):
+                if(phr_len%4==1):
+                    ed -= 1
+                if(phr_len%4==2):
+                    st += 1
+                    ed -= 1
+                if(phr_len%4==3):
+                    <a id="change">ed = ed+1</a>
+                <a id="change">phr_len = ed - st</a>
+                <a id="change">limit = phr_len - 7</a>
+                for t in range(0, limit, 4):
+                    parsed_phrase_list.append((st+t,st+t+8))
+
+            else:
+                if(phr_len == 7):
+                    parsed_phrase_list.append((st, ed+1))
+                if(phr_len == 6):
+                    parsed_phrase_list.append((st-1, ed+1))
+                else:
+                    pass
+
+
+        for pidx in range(len(parsed_phrase_list)):
+            for pre_idx in range(5):
+                <a id="change">st, ed= parsed_phrase_list[pidx]</a>
+                barsOfphrase_list[pre_idx].append(song_tracks[pre_idx][st:ed, : ,:].astype(bool))
+            barsOfphrase_list[5].append(act_instr[st:ed,:].astype(bool))
+
+        &#47&#47 print(parsed_phrase_list, len(parsed_phrase_list))
+        <a id="change">f</a><a id="change">.close()</a>
+    print(&quot[*] Saving...&quot)
+    print(&quot\n&quot)
+
+    for idx in range(6):
+        <a id="change">track_list = barsOfphrase_list[idx]</a>
+        <a id="change">tmp = np.asarray(track_list)</a>
+        print( tmp.shape, tmp.dtype)
+        np.save(join(path_tosave, prefix[idx]+&quot.npy&quot), tmp)
+
+def save_bars(rnd_list, save_dir=&quottr&quot):
+    total_bar_len = 0
+    path_tosave = join( PATH_SAVE_BAR, save_dir)
+    if not os.path.exists(path_tosave):
+        os.makedirs(path_tosave)
+
+    bar_list = [[],[],[],[],[], []] &#47&#47 len = 6, &quotBass&quot, &quotDrum&quot, &quotGuitar&quot, &quotOther&quot, &quotPiano&quot, &quotinstr_act&quot
+    for song_idx in range(len(rnd_list)):
+        msd_id = song_list[tra_song_idx[song_idx]]
+        sys.stdout.write(&quot{0}/{1}\r&quot.format(song_idx, len(rnd_list)))
+        sys.stdout.flush()
+        f = open(join(PATH_SEG, msd_id+&quot.lab&quot),&quotr&quot)
+
+        info_list = []
+        unique_label = []
+        bar_list_song = []
+        for line in f.readlines():
+            line = line.strip().split(&quot &quot)
+            st, ed, lab,  = int(float(line[0])), int(float(line[1])), line[2]
+            info_list.append((st, ed, lab, ed-st))
+            unique_label.append(lab)
+
+        &#47&#47&#47&#47&#47&#47 Get bar id list of one song &#47&#47&#47&#47&#47&#47
+        unique_label  = list(set(unique_label ))
+        flag = np.zeros(len(unique_label))
+        for pi in range(len(info_list)-2,0,-1):
+            lab = info_list[pi][2]
+            pos = unique_label.index(lab)
+
+            if not flag[pos]:
+                flag[pos] += 1
+                bar_list_song.extend([x for x in range(info_list[pi][0],info_list[pi][1])])
+            else:
+                sample_phr = int(info_list[pi][3] * SAMPLE_RATIO)
+                tmp_rnd_list = np.random.permutation(info_list[pi][3])
+                cand_bar_idx = tmp_rnd_list[:sample_phr]
+                bar_list_song.extend([x+info_list[pi][0] for x in cand_bar_idx])
+                flag[pos] += 1
+
+        &#47&#47&#47&#47&#47&#47 Generate data by bar id list &#47&#47&#47&#47&#47&#47
+        act_instr = np.load(join(PATH_INSTRU_ACT, msd_id+&quot.npy&quot))
+        total_bar_len += act_instr.shape[0]
+        song_tracks = []
+        for pre_idx in range(5):
+            song_tracks.append(reshape_to_bar(csc_to_array(np.load(join(ROOT_TRACKS, prefix[pre_idx], msd_id+&quot.npz&quot)))))
+
+        for idx in range(len(bar_list_song)):
+            bar_idx = bar_list_song[idx]
+            for pre_idx in range(5):
+                bar_list[pre_idx].append(song_tracks[pre_idx][bar_idx,:,:].astype(bool))
+            bar_list[5].append(act_instr[bar_idx,:].astype(bool))
+
+        f.close()
+
+    &#47&#47 print(bar_list)
+
+    &#47&#47 print(num_val_phr, num_val_phr_bar, num_val_bar)
+    print(&quot%d Songs Selected&quot % (len(rnd_list)))
+    print(&quot%d bars selected in %d&quot % (len(bar_list[0]), total_bar_len))
+    print(&quot[*] Saving...&quot)
+    print(&quot\n&quot)
+
+    for idx in range(6):
+        track_list = bar_list[idx]
+        tmp = np.asarray(track_list)
+        print( tmp.shape, tmp.dtype)
+        np.save(join(path_tosave, prefix[idx]+&quot.npy&quot), tmp)
+
+if __name__ == "__main__":
+
+
+
+    numOfSong = len(song_list)
+    rnd_list = list(np.random.permutation(numOfSong ))
+    tra_song_idx = rnd_list[:TRA_SIZE]
+    val_song_idx = rnd_list[TRA_SIZE:TRA_SIZE+VAL_SIZE]
+    test_song_idx = rnd_list[TRA_SIZE+VAL_SIZE:]
+    total_bar_len = 0
+
+    &#47&#47 Saving
+    save_bars(test_song_idx, save_dir=&quottest&quot)
+    save_phrases(test_song_idx, save_dir=&quottest&quot)
+    save_bars(tra_song_idx, save_dir=&quottra&quot)
+    save_phrases(tra_song_idx, save_dir=&quottra&quot)
+    save_bars(val_song_idx, save_dir=&quotval&quot)
+    save_phrases(val_song_idx, save_dir=&quotval&quot)
+
+    &#47&#47 Export random list
+    out_list = {&quottra_song_idx&quot: tra_song_idx, &quotval_song_idx&quot: val_song_idx,&quottest_song_idx&quot:test_song_idx}
+    with open(&quotrnd_idx_list&quot, &quotw&quot) as outfile:
+        json.dump(out_list, outfile)</code></pre>

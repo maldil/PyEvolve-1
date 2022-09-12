@@ -1,0 +1,415 @@
+<link rel="stylesheet" href="../../..//default.css">
+<script src="../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/tiberiu44/TTS-Cube/blob/master/cube/trainer.py#L105">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/TTS-Cube/blob/master/cube/trainer.py#L105">GitMyHubLink</a>
+
+&#47&#47
+&#47&#47 Author: Tiberiu Boros
+&#47&#47
+&#47&#47 Licensed under the Apache License, Version 2.0 (the "License");
+&#47&#47 you may not use this file except in compliance with the License.
+&#47&#47 You may obtain a copy of the License at
+&#47&#47
+&#47&#47 http://www.apache.org/licenses/LICENSE-2.0
+&#47&#47
+&#47&#47 Unless required by applicable law or agreed to in writing, software
+&#47&#47 distributed under the License is distributed on an "AS IS" BASIS,
+&#47&#47 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+&#47&#47 See the License for the specific language governing permissions and
+&#47&#47 limitations under the License.
+&#47&#47
+
+import dynet_config
+import optparse
+import sys
+import numpy as np
+
+if __name__ == &quot__main__&quot:
+    parser = optparse.OptionParser()
+    parser.add_option(&quot--cleanup&quot, action=&quotstore_true&quot, dest=&quotcleanup&quot,
+                      help=&quotCleanup temporary training files and start from fresh&quot)
+    parser.add_option(&quot--phase&quot, action=&quotstore&quot, dest=&quotphase&quot,
+                      choices=[&quot1&quot, &quot2&quot, &quot3&quot, &quot4&quot],
+                      help=&quotselect phase: 1 - prepare corpus; 2 - train sequential vocoder; 3 - train encoder; &quot
+                           &quot4 - train parallel vocoder&quot)
+    parser.add_option("--batch-size", action=&quotstore&quot, dest=&quotbatch_size&quot, default=&quot1000&quot, type=&quotint&quot,
+                      help=&quotnumber of samples in a single batch (default=1000)&quot)
+    parser.add_option("--set-mem", action=&quotstore&quot, dest=&quotmemory&quot, default=&quot2048&quot, type=&quotint&quot,
+                      help=&quotpreallocate memory for batch training (default 2048)&quot)
+    parser.add_option("--autobatch", action=&quotstore_true&quot, dest=&quotautobatch&quot,
+                      help=&quotturn on/off dynet autobatching&quot)
+    parser.add_option("--resume", action=&quotstore_true&quot, dest=&quotresume&quot,
+                      help=&quotresume from last checkpoint&quot)
+    parser.add_option("--no-guided-attention", action=&quotstore_true&quot, dest=&quotno_guided_attention&quot,
+                      help=&quotdisable guided attention&quot)
+    parser.add_option("--no-bounds", action=&quotstore_true&quot, dest=&quotno_bounds&quot,
+                      help=&quotdisable fixed synthesis length&quot)
+    parser.add_option("--use-gpu", action=&quotstore_true&quot, dest=&quotgpu&quot,
+                      help=&quotturn on/off GPU support&quot)
+    parser.add_option("--learning-rate", action=&quotstore&quot, dest=&quotlearning_rate&quot, type=&quotfloat&quot,
+                      help=&quotSet the learning rate (default: 0.0001)&quot, default=&quot0.0001&quot)
+    parser.add_option(&quot--train-folder&quot, action=&quotstore&quot, dest=&quottrain_folder&quot,
+                      help=&quotLocation of the training files&quot)
+    parser.add_option(&quot--dev-folder&quot, action=&quotstore&quot, dest=&quotdev_folder&quot,
+                      help=&quotLocation of the development files&quot)
+    parser.add_option(&quot--target-sample-rate&quot, action=&quotstore&quot, dest=&quottarget_sample_rate&quot,
+                      help=&quotResample input files at this rate (default=24000)&quot, type=&quotint&quot, default=24000)
+    parser.add_option(&quot--mgc-order&quot, action=&quotstore&quot, dest=&quotmgc_order&quot, type=&quotint&quot,
+                      help=&quotOrder of MGC parameters (default=80)&quot, default=80)
+    parser.add_option(&quot--sparsity-target&quot, action=&quotstore&quot, type=&quotint&quot, default=&quot95&quot, dest=&quotsparsity_target&quot,
+                      help=&quotTarget sparsity rate for LSTM&quot)
+    parser.add_option(&quot--sparsity-step&quot, action=&quotstore&quot, type=&quotint&quot, default=&quot5&quot, dest=&quotsparsity_step&quot,
+                      help=&quotStep size when increasing sparsity&quot)
+    parser.add_option(&quot--sparsity-increase-at&quot, action=&quotstore&quot, type=&quotint&quot, default=&quot200&quot, dest=&quotsparsity_increase&quot,
+                      help=&quotNumber of files to train on between sparsity increase&quot)
+    parser.add_option(&quot--speaker&quot, action=&quotstore&quot, dest=&quotspeaker&quot, help=&quotImport data under given speaker&quot)
+    parser.add_option(&quot--prefix&quot, action=&quotstore&quot, dest=&quotprefix&quot, help=&quotUse this prefix when importing files&quot)
+    parser.add_option(&quot--output-at&quot, type=&quotint&quot, dest=&quotoutput_at&quot, action=&quotstore&quot, default=5000,
+                      help=&quotSynthesize after every N files&quot)
+    parser.add_option(&quot--g2p-model&quot, dest=&quotg2p&quot, action=&quotstore&quot,
+                      help=&quotUse this G2P model for processing&quot)
+
+    (params, _) = parser.parse_args(sys.argv)
+
+    memory = int(params.memory)
+    if params.autobatch:
+        autobatch = True
+    else:
+        autobatch = False
+    dynet_config.set(mem=memory, random_seed=9, autobatch=autobatch)
+    if params.gpu:
+        dynet_config.set_gpu()
+
+
+    def array2file(a, filename):
+        np.save(filename, a)
+
+
+    def file2array(filename):
+        a = np.load(filename)
+        return a
+
+
+    def render_spectrogram(mgc, output_file):
+        bitmap = np.zeros((mgc.shape[1], mgc.shape[0], 3), dtype=np.uint8)
+        mgc_min = mgc.min()
+        mgc_max = mgc.max()
+
+        for x in range(mgc.shape[0]):
+            for y in range(mgc.shape[1]):
+                val = (mgc[x, y] - mgc_min) / (mgc_max - mgc_min)
+
+                color = val * 255
+                bitmap[mgc.shape[1] - y - 1, x] = [color, color, color]
+        import scipy.misc as smp
+
+        img = smp.toimage(bitmap)
+        img.save(output_file)
+
+
+    def create_lab_file(<a id="change">txt_file</a>, <a id="change">lab_file</a>, <a id="change">speaker_name</a>=None, <a id="change">g2p</a>=None):
+        <a id="change">fin = open(txt_file, &quotr&quot)</a>
+        <a id="change">fout = open(lab_file, &quotw&quot)</a>
+        <a id="change">line = fin.readline().strip().replace(&quot\t&quot, &quot &quot)</a>
+        while True:
+            <a id="change">nl = line.replace(&quot  &quot, &quot &quot)</a>
+            if nl == line:
+                break
+            <a id="change">line = nl</a>
+
+        if speaker_name is not None:
+            <a id="change">speaker = &quotSPEAKER:&quot + speaker_name</a>
+        elif len(txt_file.replace(&quot\\&quot, &quot/&quot).split(&quot/&quot)[-1].split(&quot_&quot)) != 1:
+            <a id="change">speaker = &quotSPEAKER:&quot + txt_file.replace(&quot\\&quot, &quot/&quot).split(&quot_&quot)[0].split(&quot/&quot)[-1]</a>
+        else:
+            <a id="change">speaker = &quotSPEAKER:none&quot</a>
+
+        fout.write(&quotSTART\n&quot)
+
+        if g2p is not None:
+            <a id="change">w = &quot&quot</a>
+            for char in line:
+                <a id="change">l_char = char.lower()</a>
+                if l_char == l_char.upper():  &#47&#47 symbol
+                    &#47&#47 append word, then symbol
+                    if w.strip() != &quot&quot:
+                        <a id="change">transcription = g2p.transcribe(w)</a>
+                        <a id="change">first = True</a>
+                        for phon in transcription:
+                            if first and w[0].upper() == w[0]:
+                                <a id="change">style = &quotCASE:upper&quot</a>
+                                <a id="change">first = False</a>
+                            else:
+                                <a id="change">style = &quotCASE:lower&quot</a>
+
+                            fout.write(phon + &quot\t&quot + speaker + &quot\t&quot + style + &quot\n&quot)
+                    <a id="change">w = &quot&quot</a>
+                    fout.write(l_char + &quot\t&quot + speaker + &quot\tCASE:symb\n&quot)
+                else:
+                    w += l_char
+            if w.strip() != &quot&quot:
+                <a id="change">transcription = g2p.transcribe(w)</a>
+                <a id="change">first = True</a>
+                for phon in transcription:
+                    if first and w[0].upper() == w[0]:
+                        <a id="change">style = &quotCASE:upper&quot</a>
+                        <a id="change">first = False</a>
+                    else:
+                        <a id="change">style = &quotCASE:lower&quot</a>
+
+                    fout.write(phon + &quot\t&quot + speaker + &quot\t&quot + style + &quot\n&quot)
+                <a id="change">w = &quot&quot</a>
+        else:
+            for char in line:
+                <a id="change">l_char = char.lower()</a>
+                <a id="change">style = &quotCASE:lower&quot</a>
+                if l_char == l_char.upper():
+                    <a id="change">style = &quotCASE:symb&quot</a>
+                elif l_char != char:
+                    <a id="change">style = &quotCASE:upper&quot</a>
+                fout.write(l_char + &quot\t&quot + speaker + &quot\t&quot + style + &quot\n&quot)
+
+        fout.write(&quotSTOP\n&quot)
+
+        <a id="change">fin</a><a id="change">.close()</a>
+        <a id="change">fout</a><a id="change">.close()</a>
+        return ""
+
+
+    def phase_1_prepare_corpus(params):
+        from os import listdir
+        from os.path import isfile, join
+        from os.path import exists
+        train_files_tmp = [f for f in listdir(params.train_folder) if isfile(join(params.train_folder, f))]
+        if params.dev_folder is not None:
+            dev_files_tmp = [f for f in listdir(params.dev_folder) if isfile(join(params.dev_folder, f))]
+        else:
+            dev_files_tmp = []
+
+        if params.g2p is not None:
+            from models.g2p import G2P
+            from io_modules.encodings import Encodings
+            g2p_encodings = Encodings()
+            g2p_encodings.load(params.g2p + &quot.encodings&quot)
+            g2p = G2P(g2p_encodings)
+            g2p.load(params.g2p + &quot-bestAcc.network&quot)
+            if exists(params.g2p + &quot.lexicon&quot):
+                g2p.load_lexicon(params.g2p + &quot.lexicon&quot)
+        else:
+            g2p = None
+
+        sys.stdout.write("Scanning training files...")
+        sys.stdout.flush()
+        final_list = []
+        for file in train_files_tmp:
+            base_name = file[:-4]
+            lab_name = base_name + &quot.txt&quot
+            wav_name = base_name + &quot.wav&quot
+            if exists(join(params.train_folder, lab_name)) and exists(join(params.train_folder, wav_name)):
+                if base_name not in final_list:
+                    final_list.append(base_name)
+
+        train_files = final_list
+        sys.stdout.write(" found " + str(len(train_files)) + " valid training files\n")
+        sys.stdout.write("Scanning development files...")
+        sys.stdout.flush()
+        final_list = []
+        for file in dev_files_tmp:
+            base_name = file[:-4]
+            lab_name = base_name + &quot.txt&quot
+            wav_name = base_name + &quot.wav&quot
+            if exists(join(params.dev_folder, lab_name)) and exists(join(params.dev_folder, wav_name)):
+                if base_name not in final_list:
+                    final_list.append(base_name)
+
+        dev_files = final_list
+        sys.stdout.write(" found " + str(len(dev_files)) + " valid development files\n")
+        from io_modules.dataset import DatasetIO
+        from io_modules.vocoder import MelVocoder
+        from shutil import copyfile
+        dio = DatasetIO()
+
+        vocoder = MelVocoder()
+        base_folder = params.train_folder
+        total_files = 0
+        for index in range(len(train_files)):
+            total_files += 1
+            sys.stdout.write("\r\tprocessing file " + str(index + 1) + "/" + str(len(train_files)))
+            sys.stdout.flush()
+            base_name = train_files[index]
+            txt_name = base_name + &quot.txt&quot
+            wav_name = base_name + &quot.wav&quot
+            spc_name = base_name + &quot.png&quot
+            lab_name = base_name + &quot.lab&quot
+
+            tgt_txt_name = txt_name
+            tgt_spc_name = spc_name
+            tgt_lab_name = lab_name
+            if params.prefix is not None:
+                tgt_txt_name = params.prefix + "_{:05d}".format(total_files) + &quot.txt&quot
+                tgt_spc_name = params.prefix + "_{:05d}".format(total_files) + &quot.png&quot
+                tgt_lab_name = params.prefix + "_{:05d}".format(total_files) + &quot.lab&quot
+
+            &#47&#47 LAB - copy or create
+            if exists(join(base_folder, lab_name)):
+                copyfile(join(base_folder, lab_name), join(&quotdata/processed/train&quot, tgt_lab_name))
+            else:
+                create_lab_file(join(base_folder, txt_name),
+                                join(&quotdata/processed/train&quot, tgt_lab_name), speaker_name=params.speaker, g2p=g2p)
+            &#47&#47 TXT
+            copyfile(join(base_folder, txt_name), join(&quotdata/processed/train&quot, tgt_txt_name))
+            &#47&#47 WAVE
+            data, sample_rate = dio.read_wave(join(base_folder, wav_name), sample_rate=params.target_sample_rate)
+            mgc = vocoder.melspectrogram(data, sample_rate=params.target_sample_rate, num_mels=params.mgc_order)
+            &#47&#47 SPECT
+            render_spectrogram(mgc, join(&quotdata/processed/train&quot, tgt_spc_name))
+            if params.prefix is None:
+                dio.write_wave(join(&quotdata/processed/train&quot, base_name + &quot.orig.wav&quot), data, sample_rate)
+                array2file(mgc, join(&quotdata/processed/train&quot, base_name + &quot.mgc&quot))
+            else:
+                tgt_wav_name = params.prefix + "_{:05d}".format(total_files) + &quot.orig.wav&quot
+                tgt_mgc_name = params.prefix + "_{:05d}".format(total_files) + &quot.mgc&quot
+                dio.write_wave(join(&quotdata/processed/train&quot, tgt_wav_name), data, sample_rate)
+                array2file(mgc, join(&quotdata/processed/train&quot, tgt_mgc_name))
+
+        sys.stdout.write(&quot\n&quot)
+        base_folder = params.dev_folder
+        for index in range(len(dev_files)):
+            total_files += 1
+            sys.stdout.write("\r\tprocessing file " + str(index + 1) + "/" + str(len(dev_files)))
+            sys.stdout.flush()
+            base_name = dev_files[index]
+            txt_name = base_name + &quot.txt&quot
+            wav_name = base_name + &quot.wav&quot
+            spc_name = base_name + &quot.png&quot
+            lab_name = base_name + &quot.lab&quot
+
+            tgt_txt_name = txt_name
+            tgt_spc_name = spc_name
+            tgt_lab_name = lab_name
+            if params.prefix is not None:
+                tgt_txt_name = params.prefix + "_{:05d}".format(total_files) + &quot.txt&quot
+                tgt_spc_name = params.prefix + "_{:05d}".format(total_files) + &quot.png&quot
+                tgt_lab_name = params.prefix + "_{:05d}".format(total_files) + &quot.lab&quot
+
+            &#47&#47 LAB - copy or create
+            if exists(join(base_folder, lab_name)):
+                copyfile(join(base_folder, lab_name), join(&quotdata/processed/dev&quot, tgt_lab_name))
+            else:
+                create_lab_file(join(base_folder, txt_name),
+                                join(&quotdata/processed/dev&quot, tgt_lab_name), speaker_name=params.speaker, g2p=g2p)
+            &#47&#47 TXT
+            copyfile(join(base_folder, txt_name), join(&quotdata/processed/dev&quot, tgt_txt_name))
+            &#47&#47 WAVE
+            data, sample_rate = dio.read_wave(join(base_folder, wav_name), sample_rate=params.target_sample_rate)
+            mgc = vocoder.melspectrogram(data, sample_rate=params.target_sample_rate, num_mels=params.mgc_order)
+            &#47&#47 SPECT
+            render_spectrogram(mgc, join(&quotdata/processed/dev&quot, tgt_spc_name))
+            if params.prefix is None:
+                dio.write_wave(join(&quotdata/processed/dev&quot, base_name + &quot.orig.wav&quot), data, sample_rate)
+                array2file(mgc, join(&quotdata/processed/dev&quot, base_name + &quot.mgc&quot))
+            else:
+                tgt_wav_name = params.prefix + "_{:05d}".format(total_files) + &quot.orig.wav&quot
+                tgt_mgc_name = params.prefix + "_{:05d}".format(total_files) + &quot.mgc&quot
+                dio.write_wave(join(&quotdata/processed/dev&quot, tgt_wav_name), data, sample_rate)
+                array2file(mgc, join(&quotdata/processed/dev&quot, tgt_mgc_name))
+
+        sys.stdout.write(&quot\n&quot)
+
+
+    def phase_2_train_vocoder(params):
+        from io_modules.dataset import Dataset
+        from models.vocoder import WavenetVocoder
+        from trainers.vocoder import Trainer
+        vocoder = WavenetVocoder(params)
+        if params.resume:
+            sys.stdout.write(&quotResuming from previous checkpoint\n&quot)
+            vocoder.load(&quotdata/models/nn_vocoder&quot)
+        trainset = Dataset("data/processed/train")
+        devset = Dataset("data/processed/dev")
+        sys.stdout.write(&quotFound &quot + str(len(trainset.files)) + &quot training files and &quot + str(
+            len(devset.files)) + &quot development files\n&quot)
+        trainer = Trainer(vocoder, trainset, devset)
+        trainer.start_training(20, params.batch_size, params.target_sample_rate)
+
+
+    def phase_3_train_encoder(params):
+        from io_modules.dataset import Dataset
+        from io_modules.dataset import Encodings
+        from models.encoder import Encoder
+        from trainers.encoder import Trainer
+        trainset = Dataset("data/processed/train")
+        devset = Dataset("data/processed/dev")
+        sys.stdout.write(&quotFound &quot + str(len(trainset.files)) + &quot training files and &quot + str(
+            len(devset.files)) + &quot development files\n&quot)
+
+        encodings = Encodings()
+        count = 0
+        if not params.resume:
+            for train_file in trainset.files:
+                count += 1
+                if count % 100 == 0:
+                    sys.stdout.write(&quot\r&quot + str(count) + &quot/&quot + str(len(trainset.files)) + &quot processed files&quot)
+                    sys.stdout.flush()
+                from io_modules.dataset import DatasetIO
+                dio = DatasetIO()
+                lab_list = dio.read_lab(train_file + ".lab")
+                for entry in lab_list:
+                    encodings.update(entry)
+            sys.stdout.write(&quot\r&quot + str(count) + &quot/&quot + str(len(trainset.files)) + &quot processed files\n&quot)
+            sys.stdout.write(&quotFound &quot + str(len(encodings.char2int)) + &quot unique symbols, &quot + str(
+                len(encodings.context2int)) + &quot unique features and &quot + str(
+                len(encodings.speaker2int)) + &quot unique speakers\n&quot)
+            encodings.store(&quotdata/models/encoder.encodings&quot)
+        else:
+            encodings.load(&quotdata/models/encoder.encodings&quot)
+        if params.resume:
+            runtime = True  &#47&#47 avoid ortonormal initialization
+        else:
+            runtime = False
+        encoder = Encoder(params, encodings, runtime=runtime)
+        if params.resume:
+            sys.stdout.write(&quotResuming from previous checkpoint\n&quot)
+            encoder.load(&quotdata/models/rnn_encoder&quot)
+        if params.no_guided_attention:
+            sys.stdout.write(&quotDisabling guided attention\n&quot)
+        if params.no_bounds:
+            sys.stdout.write(&quotUsing internal stopping condition for synthesis\n&quot)
+        trainer = Trainer(encoder, trainset, devset)
+        trainer.start_training(10, 1000, params)
+
+
+    def phase_4_train_pvocoder(params):
+        from io_modules.dataset import Dataset
+        from models.vocoder import WavenetVocoder
+        from models.vocoder import ClarinetVocoder
+        from trainers.vocoder import Trainer
+        vocoder_wavenet = WavenetVocoder(params)
+        sys.stdout.write(&quotLoading wavenet vocoder\n&quot)
+        vocoder_wavenet.load(&quotdata/models/nn_vocoder&quot)
+        vocoder = ClarinetVocoder(params, vocoder_wavenet)
+        if params.resume:
+            sys.stdout.write(&quotResuming from previous checkpoint\n&quot)
+            vocoder.load(&quotdata/models/pnn_vocoder&quot)
+
+        trainset = Dataset("data/processed/train")
+        devset = Dataset("data/processed/dev")
+        sys.stdout.write(&quotFound &quot + str(len(trainset.files)) + &quot training files and &quot + str(
+            len(devset.files)) + &quot development files\n&quot)
+        trainer = Trainer(vocoder, trainset, devset, target_output_path=&quotdata/models/pnn_vocoder&quot)
+        trainer.start_training(20, params.batch_size, params.target_sample_rate, params=params)
+
+
+    if params.phase and params.phase == &quot1&quot:
+        phase_1_prepare_corpus(params)
+    if params.phase and params.phase == &quot2&quot:
+        phase_2_train_vocoder(params)
+    if params.phase and params.phase == &quot3&quot:
+        phase_3_train_encoder(params)
+    if params.phase and params.phase == &quot4&quot:
+        phase_4_train_pvocoder(params)
+</code></pre>

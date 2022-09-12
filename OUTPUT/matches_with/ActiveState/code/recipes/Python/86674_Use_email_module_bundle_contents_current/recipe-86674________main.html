@@ -1,0 +1,72 @@
+<link rel="stylesheet" href="../../../../..//default.css">
+<script src="../../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/ActiveState/code/blob/master/recipes/Python/86674_Use_email_module_bundle_contents_current/recipe-86674.py#L15">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/code/blob/master/recipes/Python/86674_Use_email_module_bundle_contents_current/recipe-86674.py#L15">GitMyHubLink</a>
+
+&#47&#47!/usr/bin/env python
+
+import cStringIO
+import base64
+import email.Message
+import email.Utils
+import mimetypes
+import os
+import quopri
+
+toAddr="example@example.com"
+fromAddr="example@example.com"
+outputFile="dirContentsMail"
+
+def main():
+  <a id="change">mainMsg=email.Message.Message()</a>
+  <a id="change">mainMsg["To"]=toAddr</a>
+  <a id="change">mainMsg["From"]=fromAddr</a>
+  <a id="change">mainMsg["Subject"]="Directory contents"</a>
+  <a id="change">mainMsg["Date"]=email.Utils.formatdate(localtime=1)</a>
+  <a id="change">mainMsg["Message-ID"]=email.Utils.make_msgid()</a>
+  <a id="change">mainMsg["Mime-version"]="1.0"</a>
+  <a id="change">mainMsg["Content-type"]="Multipart/mixed"</a>
+  <a id="change">mainMsg.preamble="Mime message\n"</a>
+  <a id="change">mainMsg.epilogue=""</a> &#47&#47 To ensure that message ends with newline
+  
+  <a id="change">firstSubMsg=email.Message.Message()</a>
+  <a id="change">firstSubMsg["Content-type"]="text/plain"</a>
+  <a id="change">firstSubMsg["Content-transfer-encoding"]="7bit"</a>
+  firstSubMsg.set_payload("Files from directory\n")
+  mainMsg.attach(firstSubMsg)
+  
+  &#47&#47 Get names of plain files
+  <a id="change">fileNames=[f for f in os.listdir(os.curdir) if os.path.isfile(f)]</a>
+  for fileName in fileNames:
+    <a id="change">contentType,ignored=mimetypes.guess_type(fileName)</a>
+    if contentType==None: &#47&#47 If no guess, use generic opaque type
+      <a id="change">contentType="application/octet-stream"</a>
+    <a id="change">contentsEncoded=cStringIO.StringIO()</a>
+    <a id="change">f=open(fileName,"rb")</a>
+    <a id="change">mainType=contentType[:contentType.find("/")]</a>
+    if mainType=="text":
+      <a id="change">cte="quoted-printable"</a>
+      quopri.encode(f,contentsEncoded,1) &#47&#47 1 for encode tabs
+    else:
+      <a id="change">cte="base64"</a>
+      base64.encode(f,contentsEncoded)
+    <a id="change">f</a><a id="change">.close()</a>
+    <a id="change">subMsg=email.Message.Message()</a>
+    subMsg.add_header("Content-type",contentType,name=fileName)
+    subMsg.add_header("Content-transfer-encoding",cte)
+    subMsg.set_payload(contentsEncoded.getvalue())
+    contentsEncoded.close()
+    mainMsg.attach(subMsg)
+
+  <a id="change">f=open(outputFile,"wb")</a>
+  f.write(mainMsg.as_string())
+  <a id="change">f</a><a id="change">.close()</a>
+  return None
+
+if __name__=="__main__":
+  main()
+</code></pre>

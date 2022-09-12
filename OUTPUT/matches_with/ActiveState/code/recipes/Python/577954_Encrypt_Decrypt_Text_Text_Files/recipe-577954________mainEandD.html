@@ -1,0 +1,165 @@
+<link rel="stylesheet" href="../../../../..//default.css">
+<script src="../../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/ActiveState/code/blob/master/recipes/Python/577954_Encrypt_Decrypt_Text_Text_Files/recipe-577954.py#L37">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/code/blob/master/recipes/Python/577954_Encrypt_Decrypt_Text_Text_Files/recipe-577954.py#L37">GitMyHubLink</a>
+
+from random import randint,choice
+from math import ceil,log
+
+getVar = lambda searchList, ind: [searchList[i] for i in ind]
+find = lambda searchList, elem: [[i for i, x in enumerate(searchList) if x == e] for e in elem]
+mod = lambda n,m: n % m
+
+def set_up_cipher(): &#47&#47Use this to change your cipher
+    alpha = &quot1234567890qwertyuiop[]asdfghjkl;zxcvbnm,.!@&#47&#47$%^&*()_+-=-{}:&lt;&gt;|QWERTYUIOPASDFGHJKLZXCVBNM ~`?°&quot
+    cipher = "".join([list(alpha)[randint(0,len(list(alpha))-1)] for i in range(5000)])
+    f = open(&quotcipher.txt&quot,&quotr+&quot)
+    f.truncate()
+    f = open(&quotcipher.txt&quot,&quotr+&quot)
+    f.write(cipher)
+
+def baseExpansion(n,c,b):
+    i = len(n)
+    base10 = sum([pow(c,i-k-1)*n[k] for k in range(i)])
+    j = int(ceil(log(base10 + 1,b)))
+    baseExpanded = [mod(base10//pow(b,j-p),b) for p in range(1,j+1)]
+    return baseExpanded
+
+cipher = open(&quotcipher.txt&quot).read()+&quot\n&quot
+def wordEncrypt(word):
+    cipherWord = find(cipher,list(word))
+    keys = [randint(5001,7000), randint(2,5000)]
+    encryptedWord = baseExpansion(list(map(choice, cipherWord)),keys[0],keys[1])
+    encryptedWord.extend(keys)
+    return list(map(int,encryptedWord))
+    
+def wordDecrypt(encryptedList):
+    encryptedWord = encryptedList[0:len(encryptedList)-2]
+    keys = encryptedList[len(encryptedWord):len(encryptedList)]
+    decryptedList = map(int,baseExpansion(encryptedWord, keys[1], keys[0]))
+    return "".join(getVar(cipher,decryptedList))
+
+def mainEandD(): &#47&#47Interactive 
+    print(&quotPlease Enter e for Encryption or d for Decryption&quot)
+    print(&quot &quot)
+    <a id="change">counter = True</a>
+    <a id="change">counter2 = True</a>
+    while counter:
+        while counter2:
+            <a id="change">func = input(&quotEncrypt or Decrypt: &quot)</a>
+            print(&quot &quot)
+            if func.lower() == &quote&quot:
+                print(&quotWould You Like to Encrypt a Word or a Text File?&quot)
+                print(&quot &quot)
+                while True:
+                    <a id="change">fOrw = input(&quotF/W: &quot)</a>
+                    print(&quot &quot)
+                    if fOrw.lower().rstrip() == &quotw&quot:
+                        <a id="change">word = input(&quotEnter Word: &quot)</a>
+                        print(&quot &quot)
+                        print(&quotEncrypting...&quot)
+                        print(&quot &quot)
+                        print(&quotThe Encrypted Word is: {}&quot.format(wordEncrypt(word)))
+                        print(&quot &quot)
+                        <a id="change">counter2 = False</a>
+                        break
+                    elif fOrw.lower().rstrip() == &quotf&quot:
+                        while True:
+                            try:
+                                <a id="change">wordInput = input(&quotEnter Filename: &quot)</a>
+                                print(&quot &quot)
+                                print(&quotEncrypting...&quot)
+                                print(&quot &quot)
+                                <a id="change">word = open(wordInput, &quotr+&quot)</a>
+                                <a id="change">encryptedWord = wordEncrypt(word.read())</a>
+                                <a id="change">word</a><a id="change">.close()</a>
+                                <a id="change">word = open(wordInput, &quotr+&quot)</a>
+                                word.truncate()
+                                word.write(str(encryptedWord))
+                                <a id="change">word</a><a id="change">.close()</a>
+                                print(&quotThe Text File Has Been Encrypted&quot)
+                                print(&quot &quot)
+                                <a id="change">counter2 = False</a>
+                                break
+                            except:
+                                print(&quot &quot)
+                                print(&quotEnter a Valid Filename or Type&quot)
+                                print(&quot &quot)
+                        break
+                    else:
+                        print(&quotPlease enter f for File or w for Word&quot)
+                        print(&quot &quot)
+            elif func.lower() == &quotd&quot:
+                print(&quotWould You Like to Decrypt a Word or Text File?&quot)
+                print(&quot &quot)
+                while True:
+                    <a id="change">fOrw = input(&quotF/W: &quot)</a>
+                    print(&quot &quot)
+                    if fOrw.lower().rstrip() == &quotw&quot:
+                        while True:
+                            try:
+                                <a id="change">encryptedWord = eval(input(&quotEnter Encrypted Word: &quot).rstrip())</a>
+                                print(&quot &quot)
+                                print(&quotDecrypting...&quot)
+                                print(&quot &quot)
+                                print(&quotThe Decrypted Word is: {}&quot.format(wordDecrypt(encryptedWord)))
+                                print(&quot &quot)
+                                <a id="change">counter2 = False</a>
+                                break
+                            except:
+                                print(&quot &quot)
+                                print(&quotYou did not enter a the correct type&quot)
+                                print(&quot &quot)
+                        break
+                    elif fOrw.lower().rstrip() == &quotf&quot:
+                        while True:
+                            try:
+                                <a id="change">wordInput = input(&quotEnter Filename: &quot)</a>
+                                print(&quot &quot)
+                                print(&quotDecrypting...&quot)
+                                print(&quot &quot)
+                                <a id="change">word = open(wordInput, &quotr+&quot)</a>
+                                <a id="change">decryptedWord = wordDecrypt(eval(word.read()))</a>
+                                <a id="change">word</a><a id="change">.close()</a>
+                                <a id="change">word = open(wordInput, &quotr+&quot)</a>
+                                word.truncate()
+                                word.write(str(decryptedWord))
+                                <a id="change">word</a><a id="change">.close()</a>
+                                print(&quotThe Text File Has Been Decrypted&quot)
+                                print(&quot &quot)
+                                <a id="change">counter2 = False</a>
+                                break
+                            except:
+                                print(&quot &quot)
+                                print(&quotYou did not enter a the correct type or Filename&quot)
+                                print(&quot &quot)
+                        break
+                    else:
+                        print(&quotPlease enter f for File or w for Word&quot)
+                        print(&quot &quot)
+            else:
+                print(&quotPlease Enter e for Encryption and d for Decryption&quot)
+                print(&quot &quot)
+        print(&quotWould you like to Encrypt or Decrypt another word or file?&quot)
+        print(&quot &quot)
+        while True:
+            <a id="change">tryAgain = input(&quotY/N: &quot)</a>
+            print(&quot &quot)
+            if tryAgain.lower().rstrip() == &quotn&quot:
+                print(&quotThank You!&quot)
+                print(&quot &quot)
+                <a id="change">counter = False</a>
+                break
+            elif tryAgain.lower().rstrip() == &quoty&quot:
+                <a id="change">counter2 = True</a>
+                break
+            else:
+                print(&quotPlease Enter Either Y for Yes or N for No&quot)
+                print(&quot &quot)
+                
+&#47&#47mainEandD()
+</code></pre>

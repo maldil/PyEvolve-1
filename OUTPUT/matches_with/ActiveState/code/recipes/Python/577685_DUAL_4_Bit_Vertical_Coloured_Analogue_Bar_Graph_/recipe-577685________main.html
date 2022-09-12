@@ -1,0 +1,231 @@
+<link rel="stylesheet" href="../../../../..//default.css">
+<script src="../../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/ActiveState/code/blob/master/recipes/Python/577685_DUAL_4_Bit_Vertical_Coloured_Analogue_Bar_Graph_/recipe-577685.py#L57">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/code/blob/master/recipes/Python/577685_DUAL_4_Bit_Vertical_Coloured_Analogue_Bar_Graph_/recipe-577685.py#L57">GitMyHubLink</a>
+
+&#47&#47 Dual4BitVerticalBargraph3x.py
+&#47&#47
+&#47&#47 A DEMO DUAL 4 bit slow analogue bargraph generator in colour for STANDARD Python 3.x.x
+&#47&#47 and Linux... This is a DUAL vertical version of the SINGLE one also given away by myself.
+&#47&#47 It is written so that anyone can understand how it works.
+&#47&#47
+&#47&#47 (Original copyright, (C)2011, B.Walker, G0LCU.)
+&#47&#47
+&#47&#47 Saved as Dual4BitVerticalBargraph3x.py wherever you like.
+&#47&#47
+&#47&#47 This DEMO goes from safe green, to warning amber, to danger red, with a crirical
+&#47&#47 error beep above 14 on both the vertical displays...
+&#47&#47 It is a slow "AT A GLANCE" display for quick assessments, not for accuracy.
+&#47&#47
+&#47&#47 Two system commands are required, "clear" and "setterm", for this to work.
+&#47&#47 I assume that these are available on all recent and current Linux distros.
+&#47&#47 The device /dev/audio is used so this must be free also. 
+&#47&#47
+&#47&#47 It is useful for quick "AT A GLANCE" readings from say two 8 bit ADCs used as a simple
+&#47&#47 voltmeters, ammeters, etc...
+&#47&#47
+&#47&#47 To run use the following from inside a Python prompt...
+&#47&#47 &gt;&gt;&gt; exec(open("/full/path/to/code/Dual4BitVerticalBargraph3x.py").read())
+&#47&#47
+&#47&#47 This looks like two "LED" style "VU" displays side by side...
+
+&#47&#47 Add the required imports for this DEMO.
+import os
+import random
+import time
+
+&#47&#47 Just for this DEMO set up variables as global...
+global count
+global byteone
+global bytetwo
+global blank
+global greenlines
+global yellowlines
+global redlines
+global waveform
+global unichar
+global spacer
+
+&#47&#47 Startup variable values here.
+count=0
+byteone=0
+bytetwo=0
+blank="(C)2011, B.Walker, G0LCU."
+greenlines=blank
+yellowlines=blank
+redlines=blank
+unichar=chr(0x2588)+chr(0x2588)
+spacer=" ____ "
+&#47&#47 This is a squarewave binary for the critical error beep(s).
+waveform=b"\x00\x00\x00\x00\xff\xff\xff\xff"
+
+def main():
+	&#47&#47 Disable the cursor as it looks much nicer... ;o)
+	os.system("setterm -cursor off")
+
+	while 1:
+		&#47&#47 Run continuously and use Ctrl-C to STOP!
+		<a id="change">blank="\033[0m                              "</a>
+		&#47&#47 Generate two byte values as though grabbed from a serial, parallel or USB port.
+		&#47&#47 E.G... The Arduino Diecimila Dev Board as a multiple analogue source.
+		<a id="change">byteone=int(random.random()*256)</a>
+		<a id="change">bytetwo=int(random.random()*256)</a>
+		&#47&#47 Now divide by 16 to simulate a 4 bit values.
+		<a id="change">byteone=int(byteone/16)</a>
+		<a id="change">bytetwo=int(bytetwo/16)</a>
+		&#47&#47 Although this should never occur, don&quott allow any errors.
+		if byteone&gt;=15: <a id="change">byteone=15</a>
+		if byteone&lt;=0: <a id="change">byteone=0</a>
+		if bytetwo&gt;=15: <a id="change">bytetwo=15</a>
+		if bytetwo&lt;=0: <a id="change">bytetwo=0</a>
+
+		&#47&#47 Do a full, clean, clear screen and start looping.
+		os.system("clear"),chr(13),"  ",chr(13),
+		print("\033[0mDual Four Bit Level Vertical Analogue Bar Graph Display...")
+		print()
+		print("Original copyright, (C)2011, B.Walker, G0LCU.")
+		print()
+		print(blank+"\033[1;31m15 __ __ ____ __ __ 15")
+
+		<a id="change">redlines=blank+"\033[1;31m14 __ "</a>
+		if byteone&gt;=15: <a id="change">redlines=redlines+unichar+spacer</a>
+		else: <a id="change">redlines=redlines+"  "+spacer</a>
+		if bytetwo&gt;=15: <a id="change">redlines=redlines+unichar+" __ 14"</a>
+		else: <a id="change">redlines=redlines+"   __ 14"</a>
+		print(redlines)
+
+		<a id="change">redlines=blank+"\033[1;31m13 __ "</a>
+		if byteone&gt;=14: <a id="change">redlines=redlines+unichar+spacer</a>
+		else: <a id="change">redlines=redlines+"  "+spacer</a>
+		if bytetwo&gt;=14: <a id="change">redlines=redlines+unichar+" __ 13"</a>
+		else: <a id="change">redlines=redlines+"   __ 13"</a>
+		print(redlines)
+
+		<a id="change">yellowlines=blank+"\033[1;33m12 __ "</a>
+		if byteone&gt;=13: <a id="change">yellowlines=yellowlines+unichar+spacer</a>
+		else: <a id="change">yellowlines=yellowlines+"  "+spacer</a>
+		if bytetwo&gt;=13: <a id="change">yellowlines=yellowlines+unichar+" __ 12"</a>
+		else: <a id="change">yellowlines=yellowlines+"   __ 12"</a>
+		print(yellowlines)
+
+		<a id="change">yellowlines=blank+"\033[1;33m11 __ "</a>
+		if byteone&gt;=12: <a id="change">yellowlines=yellowlines+unichar+spacer</a>
+		else: <a id="change">yellowlines=yellowlines+"  "+spacer</a>
+		if bytetwo&gt;=12: <a id="change">yellowlines=yellowlines+unichar+" __ 11"</a>
+		else: <a id="change">yellowlines=yellowlines+"   __ 11"</a>
+		print(yellowlines)
+
+		<a id="change">yellowlines=blank+"\033[1;33m10 __ "</a>
+		if byteone&gt;=11: <a id="change">yellowlines=yellowlines+unichar+spacer</a>
+		else: <a id="change">yellowlines=yellowlines+"  "+spacer</a>
+		if bytetwo&gt;=11: <a id="change">yellowlines=yellowlines+unichar+" __ 10"</a>
+		else: <a id="change">yellowlines=yellowlines+"   __ 10"</a>
+		print(yellowlines)
+
+		<a id="change">greenlines=blank+"\033[1;32m 9 __ "</a>
+		if byteone&gt;=10: <a id="change">greenlines=greenlines+unichar+spacer</a>
+		else: <a id="change">greenlines=greenlines+"  "+spacer</a>
+		if bytetwo&gt;=10: <a id="change">greenlines=greenlines+unichar+" __ 9"</a>
+		else: <a id="change">greenlines=greenlines+"   __ 9"</a>
+		print(greenlines)
+
+		<a id="change">greenlines=blank+"\033[1;32m 8 __ "</a>
+		if byteone&gt;=9: <a id="change">greenlines=greenlines+unichar+spacer</a>
+		else: <a id="change">greenlines=greenlines+"  "+spacer</a>
+		if bytetwo&gt;=9: <a id="change">greenlines=greenlines+unichar+" __ 8"</a>
+		else: <a id="change">greenlines=greenlines+"   __ 8"</a>
+		print(greenlines)
+
+		<a id="change">greenlines=blank+"\033[1;32m 7 __ "</a>
+		if byteone&gt;=8: <a id="change">greenlines=greenlines+unichar+spacer</a>
+		else: <a id="change">greenlines=greenlines+"  "+spacer</a>
+		if bytetwo&gt;=8: <a id="change">greenlines=greenlines+unichar+" __ 7"</a>
+		else: <a id="change">greenlines=greenlines+"   __ 7"</a>
+		print(greenlines)
+
+		<a id="change">greenlines=blank+"\033[1;32m 6 __ "</a>
+		if byteone&gt;=7: <a id="change">greenlines=greenlines+unichar+spacer</a>
+		else: <a id="change">greenlines=greenlines+"  "+spacer</a>
+		if bytetwo&gt;=7: <a id="change">greenlines=greenlines+unichar+" __ 6"</a>
+		else: <a id="change">greenlines=greenlines+"   __ 6"</a>
+		print(greenlines)
+
+		<a id="change">greenlines=blank+"\033[1;32m 5 __ "</a>
+		if byteone&gt;=6: <a id="change">greenlines=greenlines+unichar+spacer</a>
+		else: <a id="change">greenlines=greenlines+"  "+spacer</a>
+		if bytetwo&gt;=6: <a id="change">greenlines=greenlines+unichar+" __ 5"</a>
+		else: <a id="change">greenlines=greenlines+"   __ 5"</a>
+		print(greenlines)
+
+		<a id="change">greenlines=blank+"\033[1;32m 4 __ "</a>
+		if byteone&gt;=5: <a id="change">greenlines=greenlines+unichar+spacer</a>
+		else: <a id="change">greenlines=greenlines+"  "+spacer</a>
+		if bytetwo&gt;=5: <a id="change">greenlines=greenlines+unichar+" __ 4"</a>
+		else: <a id="change">greenlines=greenlines+"   __ 4"</a>
+		print(greenlines)
+
+		<a id="change">greenlines=blank+"\033[1;32m 3 __ "</a>
+		if byteone&gt;=4: <a id="change">greenlines=greenlines+unichar+spacer</a>
+		else: <a id="change">greenlines=greenlines+"  "+spacer</a>
+		if bytetwo&gt;=4: <a id="change">greenlines=greenlines+unichar+" __ 3"</a>
+		else: <a id="change">greenlines=greenlines+"   __ 3"</a>
+		print(greenlines)
+
+		<a id="change">greenlines=blank+"\033[1;32m 2 __ "</a>
+		if byteone&gt;=3: <a id="change">greenlines=greenlines+unichar+spacer</a>
+		else: <a id="change">greenlines=greenlines+"  "+spacer</a>
+		if bytetwo&gt;=3: <a id="change">greenlines=greenlines+unichar+" __ 2"</a>
+		else: <a id="change">greenlines=greenlines+"   __ 2"</a>
+		print(greenlines)
+
+		<a id="change">greenlines=blank+"\033[1;32m 1 __ "</a>
+		if byteone&gt;=2: <a id="change">greenlines=greenlines+unichar+spacer</a>
+		else: <a id="change">greenlines=greenlines+"  "+spacer</a>
+		if bytetwo&gt;=2: <a id="change">greenlines=greenlines+unichar+" __ 1"</a>
+		else: <a id="change">greenlines=greenlines+"   __ 1"</a>
+		print(greenlines)
+
+		<a id="change">greenlines=blank+"\033[1;32m 0 __ "</a>
+		if byteone&gt;=1: <a id="change">greenlines=greenlines+unichar+spacer</a>
+		else: <a id="change">greenlines=greenlines+"__"+spacer</a>
+		if bytetwo&gt;=1: <a id="change">greenlines=greenlines+unichar+" __ 0"</a>
+		else: <a id="change">greenlines=greenlines+"__ __ 0"</a>
+		print(greenlines)
+
+		&#47&#47 Print the two byte values onto the screen...
+		print("\033[1;34mByteone =",byteone,"\b, bytetwo =",bytetwo,"\b...   ")
+		&#47&#47 Now reset to the default colours, etc...
+		print("\033[0mPress Ctrl-C to stop...")
+
+		time.sleep(1)
+
+		&#47&#47 Use two different beeps for the two displays.
+		&#47&#47 Both are different frequency squarewaves.
+		if byteone==15 or bytetwo==15:
+			&#47&#47 Select an error beep for each display...
+			if byteone==15: <a id="change">waveform=b"\x00\x00\x00\x00\xff\xff\xff\xff"</a>
+			if bytetwo==15: <a id="change">waveform=b"\x00\x00\xff\xff\x00\x00\xff\xff"</a>
+			&#47&#47 Set audio timing to zero, "0".
+			<a id="change">count=0</a>
+			&#47&#47 Open up the audio device to write to.
+			&#47&#47 This could be /dev/dsp also...
+			<a id="change">audio=open("/dev/audio", "wb")</a>
+			&#47&#47 A "count" value of 1 = 1mS, so 1000 = 1S.
+			while count&lt;=1000:
+				&#47&#47 Send 8 bytes of data to the audio device 1000 times.
+				audio.write(waveform)
+				<a id="change">count=count+1</a>
+			&#47&#47 Close the audio device access.
+			<a id="change">audio</a><a id="change">.close()</a>
+
+	&#47&#47 Enable the cursor again if it ever gets here... ;oO
+	os.system("setterm -cursor on")
+main()
+
+&#47&#47 End of DEMO...
+&#47&#47 Enjoy finding simple solutions to often very difficult problems...
+</code></pre>

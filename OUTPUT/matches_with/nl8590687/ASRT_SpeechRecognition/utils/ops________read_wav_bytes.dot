@@ -1,0 +1,114 @@
+digraph G {
+1 [label="(42883422)Any(wav)" shape=ellipse style=dashed]
+2 [label="(42883431)readframes" shape=box style=dashed]
+3 [label="(42883418)Any(wav)" shape=ellipse style=dashed]
+4 [label="(42883441)()" shape=box style=dashed]
+5 [label="(42883440)Any(num_sample_width)" shape=ellipse style=dashed]
+6 [label="(42883410)str(filename)" shape=ellipse style=dashed]
+7 [label="(42883425)Any(num_sample_width)" shape=ellipse style=dashed color=blue fontcolor=blue]
+8 [label="(42883407)Any(wav)" shape=ellipse style=dashed color=red fontcolor=red]
+9 [label="(42883415)getnframes" shape=box style=dashed]
+10 [label="(42883439)Any(num_channel)" shape=ellipse style=dashed]
+11 [label="(42883408)wave(wave)" shape=ellipse style=dashed]
+12 [label="(42883424)=" shape=box style=dashed]
+13 [label="(42883411)String(lit(rb))" shape=ellipse style=dashed color=red fontcolor=red]
+14 [label="(42883401)START" style=dashed]
+15 [label="(42883413)Any(num_frame)" shape=ellipse style=dashed color=red fontcolor=red]
+16 [label="(42883420)=" shape=box style=dashed]
+17 [label="(42883423)getframerate" shape=box style=dashed]
+18 [label="(42883426)Any(wav)" shape=ellipse style=dashed]
+19 [label="(42883428)=" shape=box style=dashed]
+20 [label="(42883442)return" shape=box style=dashed]
+21 [label="(42883438)Any(framerate)" shape=ellipse style=dashed]
+22 [label="(42883416)=" shape=box style=dashed]
+23 [label="(42883432)Any(num_frame)" shape=ellipse style=dashed]
+24 [label="(42883404)=" shape=box style=dashed]
+25 [label="(42883409)open" shape=box style=dashed color=red fontcolor=red]
+26 [label="(42883417)Any(num_channel)" shape=ellipse style=dashed color=black fontcolor=black]
+27 [label="(42883429)Any(str_data)" shape=ellipse style=dashed color=yellow fontcolor=yellow]
+28 [label="(42883437)Any(str_data)" shape=ellipse style=dashed]
+29 [label="(42883402)str(filename)" shape=ellipse style=dashed]
+30 [label="(42883434)Any(wav)" shape=ellipse style=dashed color=red fontcolor=red]
+31 [label="(42883427)getsampwidth" shape=box style=dashed]
+32 [label="(42883414)Any(wav)" shape=ellipse style=dashed]
+33 [label="(42883443)END" style=dashed]
+34 [label="(42883433)=" shape=box style=dashed]
+35 [label="(42883412)=" shape=box style=dashed color=red fontcolor=red]
+36 [label="(42883435)close" shape=box style=dashed color=red fontcolor=red]
+37 [label="(42883403)(null)" shape=ellipse style=dashed]
+38 [label="(42883419)getnchannels" shape=box style=dashed]
+39 [label="(42883430)Any(wav)" shape=ellipse style=dashed]
+40 [label="(42883421)Any(framerate)" shape=ellipse style=dashed color=blue fontcolor=blue]
+8 -> 1 [label="ref" style=dotted];
+14 -> 2 [label="" style=solid];
+39 -> 2 [label="recv" style=dotted];
+23 -> 2 [label="para" style=dotted];
+19 -> 2 [label="dep" style=dotted];
+8 -> 3 [label="ref" style=dotted];
+14 -> 4 [label="" style=solid];
+28 -> 4 [label="para" style=dotted];
+21 -> 4 [label="para" style=dotted];
+10 -> 4 [label="para" style=dotted];
+5 -> 4 [label="para" style=dotted];
+36 -> 4 [label="dep" style=dotted];
+7 -> 5 [label="ref" style=dotted];
+19 -> 7 [label="def" style=dotted];
+35 -> 8 [label="def" style=dotted];
+14 -> 9 [label="" style=solid];
+32 -> 9 [label="recv" style=dotted];
+35 -> 9 [label="dep" style=dotted];
+26 -> 10 [label="ref" style=dotted];
+14 -> 12 [label="" style=solid];
+17 -> 12 [label="dep" style=dotted];
+17 -> 12 [label="para" style=dotted];
+22 -> 15 [label="def" style=dotted];
+14 -> 16 [label="" style=solid];
+38 -> 16 [label="dep" style=dotted];
+38 -> 16 [label="para" style=dotted];
+14 -> 17 [label="" style=solid];
+1 -> 17 [label="recv" style=dotted];
+16 -> 17 [label="dep" style=dotted];
+8 -> 18 [label="ref" style=dotted];
+14 -> 19 [label="" style=solid];
+31 -> 19 [label="dep" style=dotted];
+31 -> 19 [label="para" style=dotted];
+14 -> 20 [label="" style=solid];
+4 -> 20 [label="dep" style=dotted];
+4 -> 20 [label="para" style=dotted];
+40 -> 21 [label="ref" style=dotted];
+14 -> 22 [label="" style=solid];
+9 -> 22 [label="dep" style=dotted];
+9 -> 22 [label="para" style=dotted];
+15 -> 23 [label="ref" style=dotted];
+14 -> 24 [label="" style=solid];
+37 -> 24 [label="para" style=dotted];
+14 -> 25 [label="" style=solid];
+11 -> 25 [label="recv" style=dotted];
+6 -> 25 [label="para" style=dotted];
+13 -> 25 [label="para" style=dotted];
+24 -> 25 [label="dep" style=dotted];
+16 -> 26 [label="def" style=dotted];
+34 -> 27 [label="def" style=dotted];
+27 -> 28 [label="ref" style=dotted];
+24 -> 29 [label="def" style=dotted];
+8 -> 30 [label="ref" style=dotted];
+14 -> 31 [label="" style=solid];
+18 -> 31 [label="recv" style=dotted];
+12 -> 31 [label="dep" style=dotted];
+8 -> 32 [label="ref" style=dotted];
+20 -> 33 [label="dep" style=dotted];
+14 -> 34 [label="" style=solid];
+2 -> 34 [label="dep" style=dotted];
+2 -> 34 [label="para" style=dotted];
+14 -> 35 [label="" style=solid];
+25 -> 35 [label="dep" style=dotted];
+25 -> 35 [label="para" style=dotted];
+14 -> 36 [label="" style=solid];
+30 -> 36 [label="recv" style=dotted];
+34 -> 36 [label="dep" style=dotted];
+14 -> 38 [label="" style=solid];
+3 -> 38 [label="recv" style=dotted];
+22 -> 38 [label="dep" style=dotted];
+8 -> 39 [label="ref" style=dotted];
+12 -> 40 [label="def" style=dotted];
+}

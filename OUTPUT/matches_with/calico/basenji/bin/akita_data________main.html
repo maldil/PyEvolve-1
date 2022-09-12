@@ -1,0 +1,520 @@
+<link rel="stylesheet" href="../../..//default.css">
+<script src="../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/calico/basenji/blob/master/bin/akita_data.py#L48">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/basenji/blob/master/bin/akita_data.py#L48">GitMyHubLink</a>
+
+&#47&#47!/usr/bin/env python
+&#47&#47 Copyright 2017 Calico LLC
+
+&#47&#47 Licensed under the Apache License, Version 2.0 (the "License");
+&#47&#47 you may not use this file except in compliance with the License.
+&#47&#47 You may obtain a copy of the License at
+
+&#47&#47     https://www.apache.org/licenses/LICENSE-2.0
+
+&#47&#47 Unless required by applicable law or agreed to in writing, software
+&#47&#47 distributed under the License is distributed on an "AS IS" BASIS,
+&#47&#47 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+&#47&#47 See the License for the specific language governing permissions and
+&#47&#47 limitations under the License.
+&#47&#47 =========================================================================
+from __future__ import print_function
+from optparse import OptionParser
+import json
+import os
+import random
+import shutil
+import subprocess
+import sys
+
+import numpy as np
+import pandas as pd
+
+from basenji import genome
+from basenji import util
+from basenji_data import annotate_unmap, break_large_contigs
+from basenji_data import contig_sequences, limit_contigs
+from basenji_data import divide_contigs_chr, divide_contigs_pct
+from basenji_data import rejoin_large_contigs, write_seqs_bed
+from basenji_data import Contig, ModelSeq
+
+try:
+  import slurm
+except ModuleNotFoundError:
+  pass
+
+&quot&quot&quot
+akita_data.py
+
+Compute model sequences from the genome, extracting DNA Hi-C/uC values.
+&quot&quot&quot
+
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+def main():
+  <a id="change">usage = &quotusage: %prog [options] &lt;fasta_file&gt; &lt;targets_file&gt;&quot</a>
+  <a id="change">parser = OptionParser(usage)</a>
+  parser.add_option(&quot-b&quot, dest=&quotblacklist_bed&quot,
+      help=&quotSet blacklist nucleotides to a baseline value.&quot)
+  parser.add_option(&quot--break&quot, dest=&quotbreak_t&quot,
+      default=8388608, type=&quotint&quot,
+      help=&quotBreak in half contigs above length [Default: %default]&quot)
+  parser.add_option(&quot-c&quot, &quot--crop&quot, dest=&quotcrop_bp&quot,
+      default=0, type=&quotint&quot,
+      help=&quotCrop bp off each end [Default: %default]&quot)
+  parser.add_option(&quot-d&quot, dest=&quotdiagonal_offset&quot,
+      default=2, type=&quotint&quot,
+      help=&quotPositions on the diagonal to ignore [Default: %default]&quot)
+  parser.add_option(&quot-f&quot, dest=&quotfolds&quot,
+      default=None, type=&quotint&quot,
+      help=&quotGenerate cross fold split [Default: %default]&quot)
+  parser.add_option(&quot-g&quot, dest=&quotgaps_file&quot,
+      help=&quotGenome assembly gaps BED [Default: %default]&quot)
+  parser.add_option(&quot-k&quot, dest=&quotkernel_stddev&quot,
+      default=0, type=&quotint&quot,
+      help=&quotGaussian kernel stddev to smooth values [Default: %default]&quot)
+  parser.add_option(&quot-l&quot, dest=&quotseq_length&quot,
+      default=131072, type=&quotint&quot,
+      help=&quotSequence length [Default: %default]&quot)
+  parser.add_option(&quot--limit&quot, dest=&quotlimit_bed&quot,
+      help=&quotLimit to segments that overlap regions in a BED file&quot)
+  parser.add_option(&quot--local&quot, dest=&quotrun_local&quot,
+      default=False, action=&quotstore_true&quot,
+      help=&quotRun jobs locally as opposed to on SLURM [Default: %default]&quot)
+  parser.add_option(&quot-o&quot, dest=&quotout_dir&quot,
+      default=&quotdata_out&quot,
+      help=&quotOutput directory [Default: %default]&quot)
+  parser.add_option(&quot-p&quot, dest=&quotprocesses&quot,
+      default=None, type=&quotint&quot,
+      help=&quotNumber parallel processes [Default: %default]&quot)
+  parser.add_option(&quot-r&quot, dest=&quotseqs_per_tfr&quot,
+      default=128, type=&quotint&quot,
+      help=&quotSequences per TFRecord file [Default: %default]&quot)
+  parser.add_option(&quot--restart&quot, dest=&quotrestart&quot,
+      default=False, action=&quotstore_true&quot,
+      help=&quotContinue progress from midpoint. [Default: %default]&quot)
+  parser.add_option(&quot--sample&quot, dest=&quotsample_pct&quot,
+      default=1.0, type=&quotfloat&quot,
+      help=&quotDown-sample the segments&quot)
+  parser.add_option(&quot--seed&quot, dest=&quotseed&quot,
+      default=44, type=&quotint&quot,
+      help=&quotRandom seed [Default: %default]&quot)
+  parser.add_option(&quot--stride_train&quot, dest=&quotstride_train&quot,
+      default=1., type=&quotfloat&quot,
+      help=&quotStride to advance train sequences [Default: seq_length]&quot)
+  parser.add_option(&quot--stride_test&quot, dest=&quotstride_test&quot,
+      default=1., type=&quotfloat&quot,
+      help=&quotStride to advance valid and test sequences [Default: seq_length]&quot)
+  parser.add_option(&quot--st&quot, &quot--split_test&quot, dest=&quotsplit_test&quot,
+      default=False, action=&quotstore_true&quot,
+      help=&quotExit after split. [Default: %default]&quot)
+  parser.add_option(&quot-t&quot, dest=&quottest_pct_or_chr&quot,
+      default=0.05, type=&quotstr&quot,
+      help=&quotProportion of the data for testing [Default: %default]&quot)
+  parser.add_option(&quot-u&quot, dest=&quotumap_bed&quot,
+      help=&quotUnmappable regions in BED format&quot)
+  parser.add_option(&quot--umap_midpoints&quot, dest=&quotumap_midpoints&quot,
+      help=&quotRegions with midpoints to exclude in BED format. Used for 4C/HiC.&quot)
+  parser.add_option(&quot--umap_t&quot, dest=&quotumap_t&quot,
+      default=0.3, type=&quotfloat&quot,
+      help=&quotRemove sequences with more than this unmappable bin % [Default: %default]&quot)
+  parser.add_option(&quot--umap_set&quot, dest=&quotumap_set&quot,
+      default=None, type=&quotfloat&quot,
+      help=&quotSet unmappable regions to this percentile in the sequences\&quot distribution of values&quot)
+  parser.add_option(&quot-w&quot, dest=&quotpool_width&quot,
+      default=128, type=&quotint&quot,
+      help=&quotSum pool width [Default: %default]&quot)
+  parser.add_option(&quot-v&quot, dest=&quotvalid_pct_or_chr&quot,
+      default=0.05, type=&quotstr&quot,
+      help=&quotProportion of the data for validation [Default: %default]&quot)
+  parser.add_option(&quot--snap&quot, dest=&quotsnap&quot,
+      default=None, type=&quotint&quot,
+      help=&quotsnap stride to multiple for binned targets in bp, if not None seq_length must be a multiple of snap&quot)
+  parser.add_option(&quot--as_obsexp&quot, dest=&quotas_obsexp&quot,
+      action="store_true", default=False,
+      help=&quotsave targets as obsexp profiles&quot)
+  parser.add_option(&quot--global_obsexp&quot, dest=&quotglobal_obsexp&quot,
+      action="store_true", default=False,
+      help=&quotuse pre-calculated by-chromosome obs/exp&quot)
+  parser.add_option(&quot--no_log&quot, dest=&quotno_log&quot,
+      action="store_true", default=False,
+      help=&quotdo not take log for obs/exp&quot)
+
+  <a id="change">(options, args) = parser.parse_args()</a>
+
+  if len(args) != 2:
+    parser.error(&quotMust provide FASTA and sample coverage labels and paths.&quot)
+  else:
+    <a id="change">fasta_file = args[0]</a>
+    <a id="change">targets_file = args[1]</a>
+
+  random.seed(options.seed)
+  np.random.seed(options.seed)
+
+  if options.break_t is not None and options.break_t &lt; options.seq_length:
+    print(&quotMaximum contig length --break cannot be less than sequence length.&quot, file=sys.stderr)
+    exit(1)
+
+  &#47&#47 transform proportion strides to base pairs
+  if options.stride_train &lt;= 1:
+    print(&quotstride_train %.f&quot%options.stride_train, end=&quot&quot)
+    <a id="change">options.stride_train = options.stride_train*options.seq_length</a>
+    print(&quot converted to %f&quot % options.stride_train)
+  <a id="change">options.stride_train = int(np.round(options.stride_train))</a>
+  if options.stride_test &lt;= 1:
+    print(&quotstride_test %.f&quot%options.stride_test, end=&quot&quot)
+    <a id="change">options.stride_test = options.stride_test*options.seq_length</a>
+    print(&quot converted to %f&quot % options.stride_test)
+  <a id="change">options.stride_test = int(np.round(options.stride_test))</a>
+
+  if options.snap != None:
+    if np.mod(options.seq_length, options.snap) != 0: 
+      raise ValueError(&quotseq_length must be a multiple of snap&quot)
+    if np.mod(options.stride_train, options.snap) != 0: 
+      raise ValueError(&quotstride_train must be a multiple of snap&quot)
+    if np.mod(options.stride_test, options.snap) != 0:
+      raise ValueError(&quotstride_test must be a multiple of snap&quot)
+
+  if os.path.isdir(options.out_dir) and not options.restart:
+    print(&quotRemove output directory %s or use --restart option.&quot % options.out_dir)
+    exit(1)
+  elif not os.path.isdir(options.out_dir):
+    os.mkdir(options.out_dir)
+
+  &#47&#47 dump options
+  with open(&quot%s/options.json&quot % options.out_dir, &quotw&quot) as options_json_out:
+    json.dump(options.__dict__, options_json_out, sort_keys=True, indent=4)
+
+  &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+  &#47&#47 define genomic contigs
+  &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+  if not options.restart:
+    <a id="change">chrom_contigs = genome.load_chromosomes(fasta_file)</a>
+
+    &#47&#47 remove gaps
+    if options.gaps_file:
+      <a id="change">chrom_contigs = genome.split_contigs(chrom_contigs,
+                                           options.gaps_file)</a>
+
+    &#47&#47 ditch the chromosomes for contigs
+    <a id="change">contigs = []</a>
+    for chrom in chrom_contigs:
+      contigs += [Contig(chrom, ctg_start, ctg_end)
+                   for ctg_start, ctg_end in chrom_contigs[chrom]]
+
+    &#47&#47 limit to a BED file
+    if options.limit_bed is not None:
+      <a id="change">contigs = limit_contigs(contigs, options.limit_bed)</a>
+
+    &#47&#47 filter for large enough
+    <a id="change">contigs = [ctg for ctg in contigs if ctg.end - ctg.start &gt;= options.seq_length]</a>
+
+    &#47&#47 break up large contigs
+    if options.break_t is not None:
+      <a id="change">contigs = break_large_contigs(contigs, options.break_t)</a>
+
+    &#47&#47 print contigs to BED file
+    <a id="change">ctg_bed_file = &quot%s/contigs.bed&quot % options.out_dir</a>
+    write_seqs_bed(ctg_bed_file, contigs)
+
+  &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+  &#47&#47 divide between train/valid/test
+  &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+  &#47&#47 label folds
+  if options.folds is not None:
+    <a id="change">fold_labels = [&quotfold%d&quot % fi for fi in range(options.folds)]</a>
+    <a id="change">num_folds = options.folds</a>
+  else:
+    <a id="change">fold_labels = [&quottrain&quot, &quotvalid&quot, &quottest&quot]</a>
+    <a id="change">num_folds = 3</a>
+
+  if not options.restart:
+    if options.folds is not None:
+      &#47&#47 divide by fold pct
+      <a id="change">fold_contigs = divide_contigs_folds(contigs, options.folds)</a>
+
+    else:
+      try:
+        &#47&#47 convert to float pct
+        <a id="change">valid_pct = float(options.valid_pct_or_chr)</a>
+        <a id="change">test_pct = float(options.test_pct_or_chr)</a>
+        assert(0 &lt;= valid_pct &lt;= 1)
+        assert(0 &lt;= test_pct &lt;= 1)
+
+        &#47&#47 divide by pct
+        <a id="change">fold_contigs = divide_contigs_pct(contigs, test_pct, valid_pct)</a>
+
+      except (ValueError, AssertionError):
+        &#47&#47 divide by chr
+        <a id="change">valid_chrs = options.valid_pct_or_chr.split(&quot,&quot)</a>
+        <a id="change">test_chrs = options.test_pct_or_chr.split(&quot,&quot)</a>
+        <a id="change">fold_contigs = divide_contigs_chr(contigs, test_chrs, valid_chrs)</a>
+
+    &#47&#47 rejoin broken contigs within set
+    for fi in range(len(fold_contigs)):
+      <a id="change">fold_contigs[fi] = rejoin_large_contigs(fold_contigs[fi])</a>
+
+    &#47&#47 write labeled contigs to BED file
+    <a id="change">ctg_bed_file = &quot%s/contigs.bed&quot % options.out_dir</a>
+    <a id="change">ctg_bed_out = open(ctg_bed_file, &quotw&quot)</a>
+    for fi in range(len(fold_contigs)):
+      for ctg in fold_contigs[fi]:
+        <a id="change">line = &quot%s\t%d\t%d\t%s&quot % (ctg.chr, ctg.start, ctg.end, fold_labels[fi])</a>
+        print(line, file=ctg_bed_out)
+    <a id="change">ctg_bed_out</a><a id="change">.close()</a>
+
+  if options.split_test:
+    exit()
+
+  &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+  &#47&#47 define model sequences
+  &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+  if not options.restart:
+    <a id="change">fold_mseqs = []</a>
+    for fi in range(num_folds):
+      if fold_labels[fi] in [&quotvalid&quot,&quottest&quot]:
+        <a id="change">stride_fold = options.stride_test</a>
+      else:
+        <a id="change">stride_fold = options.stride_train</a>
+
+      &#47&#47 stride sequences across contig
+      <a id="change">fold_mseqs_fi = contig_sequences(fold_contigs[fi], options.seq_length,
+                                       stride_fold, options.snap, fold_labels[fi])</a>
+      fold_mseqs.append(fold_mseqs_fi)
+
+      &#47&#47 shuffle
+      random.shuffle(fold_mseqs[fi])
+
+      &#47&#47 down-sample
+      if options.sample_pct &lt; 1.0:
+        <a id="change">fold_mseqs[fi] = random.sample(fold_mseqs[fi], int(options.sample_pct*len(fold_mseqs[fi])))</a>
+
+    &#47&#47 merge into one list
+    <a id="change">mseqs = [ms for fm in fold_mseqs for ms in fm]</a>
+
+
+  &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+  &#47&#47 mappability
+  &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+  if not options.restart:
+    if (options.umap_bed is not None) or (options.umap_midpoints is not None):
+      if shutil.which(&quotbedtools&quot) is None:
+        print(&quotInstall Bedtools to annotate unmappable sites&quot, file=sys.stderr)
+        exit(1)
+
+    if options.umap_bed is not None:
+      &#47&#47 annotate unmappable positions
+      <a id="change">mseqs_unmap = annotate_unmap(mseqs, options.umap_bed,
+                                   options.seq_length, options.pool_width)</a>
+
+      &#47&#47 filter unmappable
+      <a id="change">mseqs_map_mask = (mseqs_unmap.mean(axis=1, dtype=&quotfloat64&quot) &lt; options.umap_t)</a>
+      <a id="change">mseqs = [mseqs[i] for i in range(len(mseqs)) if mseqs_map_mask[i]]</a>
+      <a id="change">mseqs_unmap = mseqs_unmap[mseqs_map_mask,:]</a>
+
+      &#47&#47 write to file
+      <a id="change">unmap_npy = &quot%s/mseqs_unmap.npy&quot % options.out_dir</a>
+      np.save(unmap_npy, mseqs_unmap)
+
+    if options.umap_midpoints is not None:
+      &#47&#47 annotate unmappable midpoints for 4C/HiC
+      <a id="change">mseqs_unmap = annotate_unmap(mseqs, options.umap_midpoints,
+                                   options.seq_length, options.pool_width)</a>
+
+      &#47&#47 filter unmappable
+      <a id="change">seqmid =  mseqs_unmap.shape[1]//2</a>  &#47&#47int( options.seq_length / options.pool_width /2)
+      <a id="change">mseqs_map_mask = (np.sum(mseqs_unmap[:,seqmid-1:seqmid+1],axis=1) == 0)</a>
+
+      <a id="change">mseqs = [mseqs[i] for i in range(len(mseqs)) if mseqs_map_mask[i]]</a>
+      <a id="change">mseqs_unmap = mseqs_unmap[mseqs_map_mask,:]</a>
+
+      &#47&#47 write to file
+      <a id="change">unmap_npy = &quot%s/mseqs_unmap_midpoints.npy&quot % options.out_dir</a>
+      np.save(unmap_npy, mseqs_unmap)
+
+    &#47&#47 write sequences to BED
+    print(&quotwriting sequences to BED&quot)
+    <a id="change">seqs_bed_file = &quot%s/sequences.bed&quot % options.out_dir</a>
+    write_seqs_bed(seqs_bed_file, mseqs, True)
+  else:
+    &#47&#47 read from directory
+    <a id="change">seqs_bed_file = &quot%s/sequences.bed&quot % options.out_dir</a>
+    <a id="change">unmap_npy = &quot%s/mseqs_unmap.npy&quot % options.out_dir</a>
+    <a id="change">mseqs = []</a>
+    <a id="change">fold_mseqs = []</a>
+    for fi in range(num_folds):
+      fold_mseqs.append([])
+    for line in open(seqs_bed_file):
+      <a id="change">a = line.split()</a>
+      <a id="change">msg = ModelSeq(a[0], int(a[1]), int(a[2]), a[3])</a>
+      mseqs.append(msg)
+      if a[3] == &quottrain&quot:
+        <a id="change">fi = 0</a>
+      elif a[3] == &quotvalid&quot:
+        <a id="change">fi = 1</a>
+      elif a[3] == &quottest&quot:
+        <a id="change">fi = 2</a>
+      else:
+        <a id="change">fi = int(a[3].replace(&quotfold&quot,&quot&quot))</a>
+      fold_mseqs[fi].append(msg)
+
+
+  &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+  &#47&#47 read sequence coverage values
+  &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+  &#47&#47 read target datasets
+  <a id="change">targets_df = pd.read_csv(targets_file, index_col=0, sep=&quot\t&quot)</a>
+
+  <a id="change">seqs_cov_dir = &quot%s/seqs_cov&quot % options.out_dir</a>
+  if not os.path.isdir(seqs_cov_dir):
+    os.mkdir(seqs_cov_dir)
+
+  <a id="change">read_jobs = []</a>
+
+  for ti in range(targets_df.shape[0]):
+    <a id="change">genome_cov_file = targets_df[&quotfile&quot].iloc[ti]</a>
+    <a id="change">seqs_cov_stem = &quot%s/%d&quot % (seqs_cov_dir, ti)</a>
+    <a id="change">seqs_cov_file = &quot%s.h5&quot % seqs_cov_stem</a>
+
+    <a id="change">clip_ti = None</a>
+    if &quotclip&quot in targets_df.columns:
+      <a id="change">clip_ti = targets_df[&quotclip&quot].iloc[ti]</a>
+
+    &#47&#47 scale_ti = 1
+    &#47&#47 if &quotscale&quot in targets_df.columns:
+    &#47&#47   scale_ti = targets_df[&quotscale&quot].iloc[ti]
+
+    if options.restart and os.path.isfile(seqs_cov_file):
+      print(&quotSkipping existing %s&quot % seqs_cov_file, file=sys.stderr)
+    else:
+      <a id="change">cmd = &quotakita_data_read.py&quot</a>
+      cmd += &quot --crop %d&quot % options.crop_bp
+      cmd += &quot -d %s&quot % options.diagonal_offset
+      cmd += &quot -k %d&quot % options.kernel_stddev
+      cmd += &quot -w %d&quot % options.pool_width
+      if clip_ti is not None:
+        cmd += &quot --clip %f&quot % clip_ti
+      &#47&#47 cmd += &quot -s %f&quot % scale_ti
+      if options.blacklist_bed:
+        cmd += &quot -b %s&quot % options.blacklist_bed
+      if options.as_obsexp:
+        cmd += &quot --as_obsexp&quot
+        if options.global_obsexp:
+          cmd += &quot --global_obsexp&quot
+        if options.no_log:
+          cmd += &quot --no_log&quot
+      cmd += &quot %s&quot % genome_cov_file
+      cmd += &quot %s&quot % seqs_bed_file
+      cmd += &quot %s&quot % seqs_cov_file
+
+      if options.run_local:
+        &#47&#47 breaks on some OS
+        &#47&#47 cmd += &quot &&gt; %s.err&quot % seqs_cov_stem
+        read_jobs.append(cmd)
+      else:
+        <a id="change">j = slurm.Job(cmd,
+            name=&quotread_t%d&quot % ti,
+            out_file=&quot%s.out&quot % seqs_cov_stem,
+            err_file=&quot%s.err&quot % seqs_cov_stem,
+            queue=&quotstandard&quot, mem=15000, time=&quot12:0:0&quot)</a>
+        read_jobs.append(j)
+
+  if options.run_local:
+    util.exec_par(read_jobs, options.processes, verbose=True)
+  else:
+    slurm.multi_run(read_jobs, options.processes, verbose=True,
+                    launch_sleep=1, update_sleep=5)
+
+
+  &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+  &#47&#47 write TF Records
+  &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+  &#47&#47 copy targets file
+  shutil.copy(targets_file, &quot%s/targets.txt&quot % options.out_dir)
+
+  &#47&#47 initialize TF Records dir
+  <a id="change">tfr_dir = &quot%s/tfrecords&quot % options.out_dir</a>
+  if not os.path.isdir(tfr_dir):
+    os.mkdir(tfr_dir)
+
+  <a id="change">write_jobs = []</a>
+
+  for fold_set in fold_labels:
+    <a id="change">fold_set_indexes = [i for i in range(len(mseqs)) if mseqs[i].label == fold_set]</a>
+    <a id="change">fold_set_start = fold_set_indexes[0]</a>
+    <a id="change">fold_set_end = fold_set_indexes[-1] + 1</a>
+
+    <a id="change">tfr_i = 0</a>
+    <a id="change">tfr_start = fold_set_start</a>
+    <a id="change">tfr_end = min(tfr_start+options.seqs_per_tfr, fold_set_end)</a>
+
+    while tfr_start &lt;= fold_set_end:
+      <a id="change">tfr_stem = &quot%s/%s-%d&quot % (tfr_dir, fold_set, tfr_i)</a>
+
+      <a id="change">cmd = &quotbasenji_data_write.py&quot</a>
+      cmd += &quot -s %d&quot % tfr_start
+      cmd += &quot -e %d&quot % tfr_end
+
+      &#47&#47 do not use      
+      &#47&#47 if options.umap_bed is not None:
+      &#47&#47   cmd += &quot -u %s&quot % unmap_npy
+      &#47&#47 if options.umap_set is not None:
+      &#47&#47   cmd += &quot --umap_set %f&quot % options.umap_set
+
+      cmd += &quot %s&quot % fasta_file
+      cmd += &quot %s&quot % seqs_bed_file
+      cmd += &quot %s&quot % seqs_cov_dir
+      cmd += &quot %s.tfr&quot % tfr_stem
+
+      if options.run_local:
+        &#47&#47 breaks on some OS
+        &#47&#47 cmd += &quot &&gt; %s.err&quot % tfr_stem
+        write_jobs.append(cmd)
+      else:
+        <a id="change">j = slurm.Job(cmd,
+              name=&quotwrite_%s-%d&quot % (fold_set, tfr_i),
+              out_file=&quot%s.out&quot % tfr_stem,
+              err_file=&quot%s.err&quot % tfr_stem,
+              queue=&quotstandard&quot, mem=15000, time=&quot12:0:0&quot)</a>
+        write_jobs.append(j)
+
+      &#47&#47 update
+      tfr_i += 1
+      tfr_start += options.seqs_per_tfr
+      <a id="change">tfr_end = min(tfr_start+options.seqs_per_tfr, fold_set_end)</a>
+
+  if options.run_local:
+    util.exec_par(write_jobs, options.processes, verbose=True)
+  else:
+    slurm.multi_run(write_jobs, options.processes, verbose=True,
+                    launch_sleep=1, update_sleep=5)
+
+  &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+  &#47&#47 stats
+  &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+  <a id="change">stats_dict = {}</a>
+  <a id="change">stats_dict[&quotnum_targets&quot] = targets_df.shape[0]</a>
+  <a id="change">stats_dict[&quotseq_length&quot] = options.seq_length</a>
+  <a id="change">stats_dict[&quotpool_width&quot] = options.pool_width</a>
+  <a id="change">stats_dict[&quotcrop_bp&quot] = options.crop_bp</a>
+  <a id="change">stats_dict[&quotdiagonal_offset&quot] = options.diagonal_offset</a>
+
+  <a id="change">target1_length = options.seq_length - 2*options.crop_bp</a>
+  <a id="change">target1_length = target1_length // options.pool_width</a>
+  <a id="change">target1_length = target1_length - options.diagonal_offset</a>
+  <a id="change">target_length = target1_length*(target1_length+1) // 2</a>
+  <a id="change">stats_dict[&quottarget_length&quot] = target_length</a>
+
+  for fi in range(num_folds):
+    <a id="change">stats_dict[&quot%s_seqs&quot % fold_labels[fi]] = len(fold_mseqs[fi])</a>
+
+  with <a id="change">open(&quot%s/statistics.json&quot % options.out_dir, &quotw&quot)</a> as stats_json_out:
+    json.dump(stats_dict, stats_json_out, indent=4)
+
+
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+if __name__ == &quot__main__&quot:
+  main()</code></pre>

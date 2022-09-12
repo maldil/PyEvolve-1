@@ -1,0 +1,153 @@
+<link rel="stylesheet" href="../../..//default.css">
+<script src="../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/jiesutd/NCRFpp/blob/master/utils/tagSchemeConverter.py#L53">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/NCRFpp/blob/master/utils/tagSchemeConverter.py#L53">GitMyHubLink</a>
+
+&#47&#47 -*- coding: utf-8 -*-
+&#47&#47 @Author: Jie Yang
+&#47&#47 @Date:   2017-11-27 16:53:36
+&#47&#47 @Last Modified by:   Jie Yang,     Contact: jieynlp@gmail.com
+&#47&#47 @Last Modified time: 2019-01-09 21:39:10
+
+
+
+    convert NER/Chunking tag schemes, i.e. BIO-&gt;BIOES, BIOES-&gt;BIO, IOB-&gt;BIO, IOB-&gt;BIOES
+
+from __future__ import print_function
+
+import sys
+
+
+def BIO2BIOES(input_file, output_file):
+    print("Convert BIO -&gt; BIOES for file:", input_file)
+    with open(input_file,&quotr&quot) as in_file:
+        fins = in_file.readlines()
+    fout = open(output_file,&quotw&quot)
+    words = []
+    labels = []
+    for line in fins:
+        if len(line) &lt; 3:
+            sent_len = len(words)
+            for idx in range(sent_len):
+                if "-" not in labels[idx]:
+                    fout.write(words[idx]+" "+labels[idx]+"\n")
+                else:
+                    label_type = labels[idx].split(&quot-&quot)[-1]
+                    if "B-" in labels[idx]:
+                        if (idx == sent_len - 1) or ("I-" not in labels[idx+1]):
+                            fout.write(words[idx]+" S-"+label_type+"\n")
+                        else:
+                            fout.write(words[idx]+" B-"+label_type+"\n")
+                    elif "I-" in labels[idx]:
+                        if (idx == sent_len - 1) or ("I-" not in labels[idx+1]):
+                            fout.write(words[idx]+" E-"+label_type+"\n")
+                        else:
+                            fout.write(words[idx]+" I-"+label_type+"\n")
+            fout.write(&quot\n&quot)
+            words = []
+            labels = []
+        else:
+            pair = line.strip(&quot\n&quot).split()
+            words.append(pair[0])
+            labels.append(pair[-1].upper())
+    fout.close()
+    print("BIOES file generated:", output_file)
+
+
+
+def BIOES2BIO(input_file, output_file):
+    print("Convert BIOES -&gt; BIO for file:", input_file)
+    with open(input_file,&quotr&quot) as in_file:
+        fins = <a id="change">in_file</a>.readlines()
+    <a id="change">fout</a><a id="change"> = open(output_file,&quotw&quot)</a>
+    words = []
+    labels = []
+    for line in fins:
+        if len(line) &lt; 3:
+            sent_len = len(words)
+            for idx in range(sent_len):
+                if "-" not in labels[idx]:
+                    <a id="change">fout</a>.write(words[idx]+" "+labels[idx]+"\n")
+                else:
+                    label_type = labels[idx].split(&quot-&quot)[-1]
+                    if "E-" in labels[idx]:
+                        <a id="change">fout</a>.write(words[idx]+" I-"+label_type+"\n")
+                    elif "S-" in labels[idx]:
+                        <a id="change">fout</a>.write(words[idx]+" B-"+label_type+"\n")
+                    else:
+                        <a id="change">fout</a>.write(words[idx]+" "+labels[idx]+"\n")     
+            <a id="change">fout</a>.write(&quot\n&quot)
+            words = []
+            labels = []
+        else:
+            pair = <a id="change">line</a>.strip(&quot\n&quot).split()
+            <a id="change">words</a>.append(pair[0])
+            <a id="change">labels</a>.append(pair[-1].upper())
+    <a id="change">fout</a><a id="change">.close()</a>
+    print("BIO file generated:", output_file)
+
+
+def IOB2BIO(input_file, output_file):
+    print("Convert IOB -&gt; BIO for file:", input_file)
+    with open(input_file,&quotr&quot) as in_file:
+        fins = in_file.readlines()
+    fout = open(output_file,&quotw&quot)
+    words = []
+    labels = []
+    for line in fins:
+        if len(line) &lt; 3:
+            sent_len = len(words)
+            for idx in range(sent_len):
+                if "I-" in labels[idx]:
+                    label_type = labels[idx].split(&quot-&quot)[-1]
+                    if (idx == 0) or (labels[idx-1] == "O") or (label_type != labels[idx-1].split(&quot-&quot)[-1]):
+                        fout.write(words[idx]+" B-"+label_type+"\n")
+                    else:
+                        fout.write(words[idx]+" "+labels[idx]+"\n")
+                else:
+                    fout.write(words[idx]+" "+labels[idx]+"\n")
+            fout.write(&quot\n&quot)
+            words = []
+            labels = []
+        else:
+            pair = line.strip(&quot\n&quot).split()
+            words.append(pair[0])
+            labels.append(pair[-1].upper())
+    fout.close()
+    print("BIO file generated:", output_file)
+
+
+def choose_label(input_file, output_file):
+    with open(input_file,&quotr&quot) as in_file:
+        fins = in_file.readlines()
+    with open(output_file,&quotw&quot) as fout:
+        for line in fins:
+            if len(line) &lt; 3:
+                fout.write(line)
+            else:
+                pairs = line.strip(&quot\n&quot).split(&quot &quot)
+                fout.write(pairs[0]+" "+ pairs[-1]+"\n")
+
+
+if __name__ == &quot__main__&quot:
+    &quot&quot&quotConvert NER tag schemes among IOB/BIO/BIOES.
+        For example: if you want to convert the IOB tag scheme to BIO, then you run as following:
+            python tagSchemeConverter.py IOB2BIO input_iob_file output_bio_file
+        Input data format is the standard CoNLL 2003 data format.
+    &quot&quot&quot
+    if sys.argv[1].upper() == "IOB2BIO":
+        IOB2BIO(sys.argv[2],sys.argv[3])
+    elif sys.argv[1].upper() == "BIO2BIOES":
+        BIO2BIOES(sys.argv[2],sys.argv[3])
+    elif sys.argv[1].upper() == "BIOES2BIO":
+        BIOES2BIO(sys.argv[2],sys.argv[3])
+    elif sys.argv[1].upper() == "IOB2BIOES":
+        IOB2BIO(sys.argv[2],"temp")
+        BIO2BIOES("temp",sys.argv[3])
+    else:
+        print("Argument error: sys.argv[1] should belongs to \"IOB2BIO/BIO2BIOES/BIOES2BIO/IOB2BIOES\"")
+</code></pre>

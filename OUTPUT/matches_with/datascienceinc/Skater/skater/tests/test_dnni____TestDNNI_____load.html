@@ -1,0 +1,121 @@
+<link rel="stylesheet" href="../../../..//default.css">
+<script src="../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/datascienceinc/Skater/blob/master/skater/tests/test_dnni.py#L40">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/Skater/blob/master/skater/tests/test_dnni.py#L40">GitMyHubLink</a>
+
+import unittest
+
+import keras
+import tensorflow as tf
+from keras.datasets import mnist
+from keras.models import Sequential, Model, load_model, model_from_yaml
+from keras import backend as K
+
+from skater.core.local_interpretation.dnni.deep_interpreter import DeepInterpreter
+
+
+class TestDNNI(unittest.TestCase):
+
+    &#47&#47 The below architecture maps to the pre_trained_models/mnist_cnn/model_mnist_cnn_epoch_3*
+    &#47&#47 @classmethod
+    &#47&#47 def _build_mnist_CNN_model(cls):
+    &#47&#47     from keras.layers import Dense, Dropout, Flatten, Activation
+    &#47&#47     from keras.layers import Conv2D, MaxPooling2D
+    &#47&#47
+    &#47&#47     Build and train a network.
+    &#47&#47     model = Sequential()
+    &#47&#47     model.add(Conv2D(32, kernel_size=(3, 3), activation=&quotrelu&quot, input_shape=cls.input_shape))
+    &#47&#47     model.add(Conv2D(64, (3, 3), activation=&quotrelu&quot))
+    &#47&#47     model.add(MaxPooling2D(pool_size=(2, 2)))
+    &#47&#47     model.add(Dropout(0.25))
+    &#47&#47     model.add(Flatten())
+    &#47&#47     model.add(Dense(128, activation=&quotrelu&quot))
+    &#47&#47     model.add(Dropout(0.5))
+    &#47&#47     model.add(Dense(cls.num_classes))
+    &#47&#47     model.add(Activation(&quotsoftmax&quot))
+    &#47&#47
+    &#47&#47     model.compile(loss=keras.losses.categorical_crossentropy, optimizer=keras.optimizers.Adadelta(),
+    &#47&#47                   metrics=[&quotaccuracy&quot])
+    &#47&#47     model.fit(cls.x_train, cls.y_train, batch_size=cls.batch_size, epochs=cls.epochs,
+    &#47&#47               verbose=1, validation_data=(cls.x_test, cls.y_test))
+    &#47&#47     return model
+
+
+    @classmethod
+    def _load(cls, model_name):
+        <a id="change">f_h</a><a id="change"> = open(&quot{}.yaml&quot.format(model_name), &quotr&quot)</a>
+        <a id="change">persisted_yaml_model</a> = f_h.read()
+        <a id="change">f_h</a><a id="change">.close()</a>
+        <a id="change">loaded_model</a> = model_from_yaml(persisted_yaml_model)
+        &#47&#47 load weights into retrieved model instance
+        loaded_model.load_weights("{}.h5".format(model_name))
+        return loaded_model
+
+
+    @classmethod
+    def setUpClass(cls):
+        &#47&#47 MNIST dataset used for building pre_trained_models/mnist_cnn/model_mnist_cnn_epoch_3
+        cls.batch_size = 128
+        cls.num_classes = 10
+        cls.epochs = 2
+        &#47&#47 input image dimensions
+        cls.img_rows, cls.img_cols = 28, 28
+        &#47&#47 shuffled and split between train and test sets
+        (cls.x_train, cls.y_train), (cls.x_test, cls.y_test) = mnist.load_data()
+        if K.image_data_format() == &quotchannels_first&quot:
+            cls.x_train = cls.x_train.reshape(cls.x_train.shape[0], 1, cls.img_rows, cls.img_cols)
+            cls.x_test = cls.x_test.reshape(cls.x_test.shape[0], 1, cls.img_rows, cls.img_cols)
+            cls.input_shape = (1, cls.img_rows, cls.img_cols)
+        else:
+            cls.x_train = cls.x_train.reshape(cls.x_train.shape[0], cls.img_rows, cls.img_cols, 1)
+            cls.x_test = cls.x_test.reshape(cls.x_test.shape[0], cls.img_rows, cls.img_cols, 1)
+            cls.input_shape = (cls.img_rows, cls.img_cols, 1)
+
+        cls.x_train = cls.x_train.astype(&quotfloat32&quot)
+        cls.x_test = cls.x_test.astype(&quotfloat32&quot)
+        cls.x_train /= 255
+        cls.x_test /= 255
+        cls.x_train = (cls.x_train - 0.5) * 2
+        cls.x_test = (cls.x_test - 0.5) * 2
+
+        &#47&#47 convert class vectors to binary class matrices
+        cls.y_train = keras.utils.to_categorical(cls.y_train, cls.num_classes)
+        cls.y_test = keras.utils.to_categorical(cls.y_test, cls.num_classes)
+
+
+    def test_deep_interpreter_cnn(self):
+        K.set_learning_phase(0)
+        with DeepInterpreter(session=tf.compat.v1.keras.backend.get_session()) as di:
+            &#47&#47 1. Load the persisted model
+            &#47&#47 2. Retrieve the input tensor from the loaded model
+
+            retrieved_model = self._load(&quotskater/tests/pre_trained_models/mnist_cnn/model_mnist_cnn_epoch_3&quot)
+            input_tensor = retrieved_model.layers[0].input
+            output_tensor = retrieved_model.layers[-2].output
+
+            &#47&#47 3. We will using the last dense layer(pre-softmax) as the output layer
+            &#47&#47 4. Instantiate a model with the new input and output tensor
+            new_model = Model(inputs=input_tensor, outputs=output_tensor)
+            target_tensor = new_model(input_tensor)
+            xs = self.x_test[0:2]
+            ys = self.y_test[0:2]
+
+            relevance_scores_elrp = di.explain(&quotelrp&quot, target_tensor * ys, input_tensor, xs, use_case=&quotimage&quot)
+            relevance_scores_ig = di.explain(&quotig&quot, target_tensor * ys, input_tensor, xs, use_case=&quotimage&quot)
+            &#47&#47 test for optional arguments related to window_size and step size for &quotocclusion&quot
+            optional_args = {"window_size": 2, "step": 2}
+            relevance_scores_occ = di.explain(&quotocclusion&quot, target_tensor * ys, input_tensor, xs,
+                                              use_case=&quotimage&quot, **optional_args)
+        self.assertEquals(relevance_scores_elrp.shape, (2, 28, 28, 1))
+        self.assertEquals(relevance_scores_ig.shape, (2, 28, 28, 1))
+        self.assertEquals(relevance_scores_occ.shape, (2, 28, 28, 1))
+
+
+if __name__ == &quot__main__&quot:
+    suite = unittest.TestLoader().loadTestsFromTestCase(TestDNNI)
+    unittest.TextTestRunner(verbosity=2).run(suite)
+</code></pre>

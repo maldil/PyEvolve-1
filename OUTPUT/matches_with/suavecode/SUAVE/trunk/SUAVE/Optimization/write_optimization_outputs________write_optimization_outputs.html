@@ -1,0 +1,89 @@
+<link rel="stylesheet" href="../../../../..//default.css">
+<script src="../../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/suavecode/SUAVE/blob/develop/trunk/SUAVE/Optimization/write_optimization_outputs.py#L20">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/SUAVE/blob/develop/trunk/SUAVE/Optimization/write_optimization_outputs.py#L20">GitMyHubLink</a>
+
+&#47&#47&#47&#47 @ingroup Optimization
+&#47&#47 write_optimization_outputs.py
+&#47&#47
+&#47&#47 Created:  May 2016, M. Vegh
+&#47&#47 Modified:
+
+
+&#47&#47 ----------------------------------------------------------------------
+&#47&#47  Imports
+&#47&#47 ----------------------------------------------------------------------
+
+from .helper_functions import get_values, scale_obj_values, scale_const_values
+
+&#47&#47 ----------------------------------------------------------------------
+&#47&#47  write_optimization_outputs
+&#47&#47 ----------------------------------------------------------------------
+
+
+&#47&#47&#47&#47 @ingroup Optimization
+def write_optimization_outputs(nexus, filename):
+     Writes the optimization outputs to a file
+
+    Assumptions:
+    N/A
+
+    Source:
+    N/A
+
+    Inputs:
+    nexus            [nexus()]
+    filename         [str]
+
+    Outputs:
+    N/A
+
+    Properties Used:
+    N/A
+           
+ 
+    &#47&#47unpack optimization problem values
+    <a id="change">objective</a>          = nexus.optimization_problem.objective
+    <a id="change">aliases</a>            = nexus.optimization_problem.aliases
+    <a id="change">constraints</a>        = nexus.optimization_problem.constraints
+    
+    &#47&#47inputs
+    <a id="change">unscaled_inputs</a>    = nexus.optimization_problem.inputs[:,1] &#47&#47use optimization problem inputs here
+    <a id="change">input_scaling</a>      = nexus.optimization_problem.inputs[:,3]
+    <a id="change">scaled_inputs</a>      = unscaled_inputs/input_scaling
+    
+    &#47&#47objective
+    <a id="change">objective_value</a>    = get_values(nexus,objective,aliases)
+    <a id="change">scaled_objective</a>   = scale_obj_values(objective , objective_value)
+    
+    &#47&#47constraints
+    <a id="change">constraint_values</a>  = get_values(nexus,constraints,aliases) 
+    <a id="change">scaled_constraints</a> = scale_const_values(constraints,constraint_values)
+    
+    <a id="change">problem_inputs</a>  = []
+    <a id="change">problem_constraints</a> = []
+    for <a id="change">value</a> in scaled_inputs:
+        problem_inputs.append(value)  &#47&#47writing to file is easier when you use list
+    for <a id="change">value</a> in scaled_constraints:
+        problem_constraints.append(value)
+    
+    
+    <a id="change">file</a><a id="change">=open(filename, &quota&quot)</a>
+    file.write(&quotiteration = &quot)
+    file.write(str(nexus.total_number_of_iterations))
+    file.write(&quot , &quot)
+    file.write(&quotobjective = &quot)
+    file.write(str(scaled_objective[0]))
+    file.write(&quot, inputs = &quot)
+    file.write(str(problem_inputs))
+    file.write(&quot, constraints = &quot)
+    file.write(str(problem_constraints))
+    
+    file.write(&quot\n&quot) 
+    <a id="change">file</a><a id="change">.close()</a>
+    
+    return</code></pre>

@@ -1,0 +1,153 @@
+<link rel="stylesheet" href="../../../../..//default.css">
+<script src="../../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/clips/pattern/blob/master/examples/08-server/03-wiki/wiki.py#L130">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/pattern/blob/master/examples/08-server/03-wiki/wiki.py#L130">GitMyHubLink</a>
+
+from __future__ import print_function
+from __future__ import unicode_literals
+
+from builtins import str, bytes, dict, int
+
+import os
+import sys
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
+
+from pattern.server import App, template, threadsafe
+
+from io import open
+
+&#47&#47 This example demonstrates a simple wiki served by pattern.server.
+&#47&#47 A wiki is a web app where each page can be edited (e.g, Wikipedia).
+&#47&#47 We will store the contents of each page as a file in /data.
+
+app = App(name="wiki")
+
+&#47&#47 Our wiki app has a single URL handler listening at the root ("/").
+&#47&#47 It takes any combination of positional and keyword arguments.
+&#47&#47 This means that any URL will be routed to the index() function.
+&#47&#47 For example, http://127.0.0.1:8080/pages/bio.html?edit calls index()
+&#47&#47 with path=("pages", "bio.html") and data={"edit": ""}.
+
+
+@app.route("/")
+def index(*path, **data):
+    &#47&#47print("path:", path)
+    &#47&#47print("data:", data)
+    &#47&#47 Construct a file name in /data from the URL path.
+    &#47&#47 For example, path=("pages", "bio.html")
+    &#47&#47 is mapped to "/data/pages/bio.html.txt".
+    page = "/".join(path)
+    page = page if page else "index.html"
+    page = page.replace(" ", "-")
+    page = page + ".txt"
+    page = os.path.join(app.path, "data", page) &#47&#47 Absolute paths are safer.
+    &#47&#47print("page:", page)
+
+    &#47&#47 If the URL ends in "?save", update the page content.
+    if "save" in data and "content" in data:
+        return save(page, src=data["content"])
+    &#47&#47 If the URL ends in "?edit", show the page editor.
+    if "edit" in data:
+        return edit(page)
+    &#47&#47 If the page does not exist, show the page editor.
+    if not os.path.exists(page):
+        return edit(page)
+    &#47&#47 Show the page.
+    else:
+        return view(page)
+
+&#47&#47 The pattern.server module has a simple template() function
+&#47&#47 that takes a file path or a string and optional parameters.
+&#47&#47 Placeholders in the template source (e.g., "$name")
+&#47&#47 are replaced with the parameter values.
+
+&#47&#47 Below is a template with placeholders for page name and content.
+&#47&#47 The page content is loaded from a file stored in /data.
+&#47&#47 The page name is parsed from the filename,
+&#47&#47 e.g., "/data/index.html.txt" =&gt; "index.html".
+
+wiki = 
+&lt;!doctype html&gt;
+&lt;html&gt;
+&lt;head&gt;
+    &lt;title&gt;$name&lt;/title&gt;
+    &lt;meta charset="utf-8"&gt;
+&lt;/head&gt;
+&lt;body&gt;
+    &lt;h3&gt;$name&lt;/h3&gt;
+    $content
+    &lt;br&gt;
+    &lt;a href="?edit"&gt;edit&lt;/a&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+
+
+&#47&#47 The name() function takes a file path (e.g., "/data/index.html.txt")
+&#47&#47 and returns the page name ("index.html").
+
+
+def name(page):
+    name = os.path.basename(page)     &#47&#47 "/data/index.html.txt" =&gt; "index.html.txt"
+    name = os.path.splitext(name)[0]  &#47&#47 ("index.html", ".txt") =&gt; "index.html"
+    return name
+
+&#47&#47 We could also have a function for a *display* name (e.g., "Index").
+&#47&#47 Something like:
+
+
+def displayname(page):
+    return name(name(page)).replace("-", " ").title()
+
+&#47&#47 The view() function is called when a page needs to be displayed.
+&#47&#47 Our template has two placeholders: the page $name and $content.
+&#47&#47 We load the $content from the contents of the given file path.
+&#47&#47 We load the $name using the name() function above.
+
+
+def view(page):
+    print(displayname(page))
+    return template(wiki, name=name(page), content=open(page).read())
+
+&#47&#47 The edit() function is called when a URL ends in "?edit",
+&#47&#47 e.g., http://127.0.0.1:8080/index.html?edit.
+&#47&#47 In this case, we don&quott show the contents of "/data/index.html.txt" directly,
+&#47&#47 but wrapped inside a &lt;textarea&gt; for editing instead.
+&#47&#47 Once the user is done editing and clicks "Submit",
+&#47&#47 the browser redirects to http://127.0.0.1:8080/index.html?save,
+&#47&#47 posting the data inside the &lt;textarea&gt; to the server.
+&#47&#47 We can catch it as the optional "content" parameter of the index() function
+&#47&#47 (since the name of the &lt;textarea&gt; is "content").
+
+
+def edit(page):
+    s = open(page).read() if os.path.exists(page) else ""
+    s = &quot&lt;form method="post" action="?save"&gt;&quot \
+        &quot&lt;textarea name="content" rows="10" cols="80"&gt;%s&lt;/textarea&gt;&lt;br&gt;&quot \
+        &quot&lt;input type="submit"&gt;&quot \
+        &quot&lt;/form&gt;&quot % s
+    return template(wiki, name=name(page), content=s)
+
+&#47&#47 The save() function is called when edited content is posted to the server.
+&#47&#47 It creates a file in /data and stores the content.
+
+
+@threadsafe
+def save(page, src):
+    <a id="change">f</a><a id="change"> = open(page, "w")</a>
+    f.write(src.encode("utf-8"))
+    <a id="change">f</a><a id="change">.close()</a>
+    return view(page)
+
+&#47&#47 Writing HTML by hand in the &lt;textarea&gt; becomes tedious after a while,
+&#47&#47 so we could for example extend save() with a parser for Markdown syntax:
+&#47&#47 http://en.wikipedia.org/wiki/Markdown,
+&#47&#47 http://pythonhosted.org/Markdown/,
+&#47&#47 or replace the &lt;textarea&gt; with a visual TinyMCE editor:
+&#47&#47 http://www.tinymce.com.
+
+app.run("127.0.0.1", port=8080)
+</code></pre>

@@ -1,0 +1,146 @@
+<link rel="stylesheet" href="../../../..//default.css">
+<script src="../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/baidu/Dialogue/blob/master/DAM/bin/train_and_evaluate.py#L13">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/Dialogue/blob/master/DAM/bin/train_and_evaluate.py#L13">GitMyHubLink</a>
+
+import sys
+import os
+import time
+
+import cPickle as pickle
+import tensorflow as tf
+import numpy as np
+
+import utils.reader as reader
+import utils.evaluation as eva
+
+
+def train(<a id="change">conf</a>, <a id="change">_model</a>):
+    
+    if conf[&quotrand_seed&quot] is not None:
+        np.random.seed(conf[&quotrand_seed&quot])
+
+    if not os.path.exists(conf[&quotsave_path&quot]):
+        os.makedirs(conf[&quotsave_path&quot])
+
+    &#47&#47 load data
+    print(&quotstarting loading data&quot)
+    print(time.strftime(&quot%Y-%m-%d %H:%M:%S&quot,time.localtime(time.time())))
+    <a id="change">train_data, val_data, test_data = pickle.load(open(conf["data_path"], &quotrb&quot))</a>    
+    print(&quotfinish loading data&quot)
+    print(time.strftime(&quot%Y-%m-%d %H:%M:%S&quot,time.localtime(time.time())))
+
+    <a id="change">val_batches = reader.build_batches(val_data, conf)</a>
+
+    print("finish building test batches")
+    print(time.strftime(&quot%Y-%m-%d %H:%M:%S&quot,time.localtime(time.time())))
+
+    &#47&#47 refine conf
+    <a id="change">batch_num = int(len(train_data[&quoty&quot]) / conf["batch_size"])</a>
+    <a id="change">val_batch_num = len(val_batches["response"])</a>
+
+    <a id="change">conf["train_steps"] = conf["num_scan_data"] * batch_num</a>
+    <a id="change">conf["save_step"] = int(max(1, batch_num / 10))</a>
+    <a id="change">conf["print_step"] = int(max(1, batch_num / 100))</a>
+
+    print(&quotconfigurations: %s&quot %conf)
+
+    print(&quotmodel sucess&quot)
+    print(time.strftime(&quot%Y-%m-%d %H:%M:%S&quot,time.localtime(time.time())))
+
+    <a id="change">_graph = _model.build_graph()</a>
+    print(&quotbuild graph sucess&quot)
+    print(time.strftime(&quot%Y-%m-%d %H:%M:%S&quot,time.localtime(time.time())))
+
+    with tf.Session(graph=_graph) as sess:
+        _model.init.run();
+        if conf["init_model"]:
+            _model.saver.restore(sess, conf["init_model"])
+            print("sucess init %s" %conf["init_model"])
+
+        <a id="change">average_loss = 0.0</a>
+        <a id="change">batch_index = 0</a>
+        <a id="change">step = 0</a>
+        <a id="change">best_result = [0, 0, 0, 0]</a>
+
+        for step_i in xrange(conf["num_scan_data"]):
+            &#47&#47for batch_index in rng.permutation(range(batch_num)):
+            print(&quotstarting shuffle train data&quot)
+            <a id="change">shuffle_train = reader.unison_shuffle(train_data)</a>
+            <a id="change">train_batches = reader.build_batches(shuffle_train, conf)</a>
+            print(&quotfinish building train data&quot)
+            for batch_index in range(batch_num):
+
+                <a id="change">feed = {
+                    _model.turns: train_batches["turns"][batch_index], 
+                    _model.tt_turns_len: train_batches["tt_turns_len"][batch_index],
+                    _model.every_turn_len: train_batches["every_turn_len"][batch_index],
+                    _model.response: train_batches["response"][batch_index], 
+                    _model.response_len: train_batches["response_len"][batch_index],
+                    _model.label: train_batches["label"][batch_index]
+                }</a>
+
+                <a id="change">batch_index = (batch_index + 1) % batch_num</a>;
+
+                <a id="change">_, curr_loss = sess.run([_model.g_updates, _model.loss], feed_dict = feed)</a>
+
+                
+                average_loss += curr_loss
+
+                step += 1
+
+                if step % conf["print_step"] == 0 and step &gt; 0:
+                    <a id="change">g_step, lr = sess.run([_model.global_step, _model.learning_rate])</a>
+                    print(&quotstep: %s, lr: %s&quot %(g_step, lr))
+                    print("processed: [" + str(step * 1.0 / batch_num) + "] loss: [" + str(average_loss / conf["print_step"]) + "]" )
+                    <a id="change">average_loss = 0</a>
+
+                
+                if step % conf["save_step"] == 0 and step &gt; 0:
+                    <a id="change">index = step / conf[&quotsave_step&quot]</a>
+                    <a id="change">score_file_path = conf[&quotsave_path&quot] + &quotscore.&quot + str(index)</a>
+                    <a id="change">score_file = open(score_file_path, &quotw&quot)</a>
+                    print(&quotsave step: %s&quot %index)
+                    print(time.strftime(&quot%Y-%m-%d %H:%M:%S&quot,time.localtime(time.time())))
+
+                    for batch_index in xrange(val_batch_num):
+                
+                        <a id="change">feed = { 
+                            _model.turns: val_batches["turns"][batch_index],
+                            _model.tt_turns_len: val_batches["tt_turns_len"][batch_index],
+                            _model.every_turn_len: val_batches["every_turn_len"][batch_index],
+                            _model.response: val_batches["response"][batch_index],
+                            _model.response_len: val_batches["response_len"][batch_index],
+                            _model.label: val_batches["label"][batch_index]
+                        }</a>   
+                
+                        <a id="change">scores = sess.run(_model.logits, feed_dict = feed)</a>
+                    
+                        for i in xrange(conf["batch_size"]):
+                            score_file.write(
+                                str(scores[i]) + &quot\t&quot + 
+                                str(val_batches["label"][batch_index][i]) + &quot\n&quot)
+                    <a id="change">score_file</a><a id="change">.close()</a>
+
+                    &#47&#47write evaluation result
+                    <a id="change">result = eva.evaluate(score_file_path)</a>
+                    <a id="change">result_file_path = conf["save_path"] + "result." + str(index)</a>
+                    with open(result_file_path, &quotw&quot) as out_file:
+                        for p_at in result:
+                            out_file.write(str(p_at) + &quot\n&quot)
+                    print(&quotfinish evaluation&quot)
+                    print(time.strftime(&quot%Y-%m-%d %H:%M:%S&quot,time.localtime(time.time())))
+
+                    if result[1] + result[2] &gt; best_result[1] + best_result[2]:
+                        <a id="change">best_result = result</a>
+                        <a id="change">_save_path = _model.saver.save(sess, conf["save_path"] + "model.ckpt." + str(step / conf["save_step"]))</a>
+                        print("succ saving model in " + _save_path)
+                        print(time.strftime(&quot%Y-%m-%d %H:%M:%S&quot,time.localtime(time.time())))
+                    
+                
+
+</code></pre>

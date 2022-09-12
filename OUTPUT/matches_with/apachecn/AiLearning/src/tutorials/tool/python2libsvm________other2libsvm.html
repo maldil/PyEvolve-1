@@ -1,0 +1,63 @@
+<link rel="stylesheet" href="../../../../..//default.css">
+<script src="../../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/apachecn/AiLearning/blob/master/src/tutorials/tool/python2libsvm.py#L16">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/AiLearning/blob/master/src/tutorials/tool/python2libsvm.py#L16">GitMyHubLink</a>
+
+&#47&#47!/usr/bin/python
+&#47&#47 coding:utf8
+
+from __future__ import print_function
+import os
+import sklearn.datasets as datasets
+
+
+def get_data(file_input, separator=&quot\t&quot):
+    if &quotlibsvm&quot not in file_input:
+        file_input = other2libsvm(file_input, separator)
+    data = datasets.load_svmlight_file(file_input)
+    return data[0], data[1]
+
+
+def other2libsvm(file_name, separator=&quot\t&quot):
+
+    <a id="change">libsvm_name</a> = file_name.replace(&quot.txt&quot, &quot.libsvm_tmp&quot)
+    <a id="change">libsvm_data</a><a id="change"> = open(libsvm_name, &quotw&quot)</a>
+
+    <a id="change">file_data</a><a id="change"> = open(file_name, &quotr&quot)</a>
+    for <a id="change">line</a> in file_data.readlines():
+        <a id="change">features</a> = line.strip().split(separator)
+        &#47&#47 print len(features)
+        <a id="change">class_data</a> = features[-1]
+        <a id="change">svm_format</a> = &quot&quot
+        for <a id="change">i</a> in range(len(features)-1):
+            svm_format += " %d:%s" % (i+1, features[i])
+            &#47&#47 print svm_format
+        <a id="change">svm_format</a> = "%s%s\n" % (class_data, svm_format)
+        &#47&#47 print svm_format
+        libsvm_data.write(svm_format)
+    <a id="change">file_data</a><a id="change">.close()</a>
+
+    <a id="change">libsvm_data</a><a id="change">.close()</a>
+    return libsvm_name
+
+
+def dump_data(x, y, file_output):
+    datasets.dump_svmlight_file(x, y, file_output)
+    os.remove("%s_tmp" % file_output)
+
+
+if __name__ == "__main__":
+    file_input = "data/7.AdaBoost/horseColicTest2.txt"
+    file_output = "data/7.AdaBoost/horseColicTest2.libsvm"
+
+    &#47&#47 获取数据集
+    x, y = get_data(file_input, separator=&quot\t&quot)
+    print(x[3, :])
+    print(y)
+    &#47&#47 导出数据为 libsvm
+    dump_data(x, y, file_output)
+</code></pre>

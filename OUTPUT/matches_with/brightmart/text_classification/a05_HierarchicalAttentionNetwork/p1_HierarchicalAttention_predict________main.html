@@ -1,0 +1,148 @@
+<link rel="stylesheet" href="../../..//default.css">
+<script src="../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/brightmart/text_classification/blob/master/a05_HierarchicalAttentionNetwork/p1_HierarchicalAttention_predict.py#L43">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/text_classification/blob/master/a05_HierarchicalAttentionNetwork/p1_HierarchicalAttention_predict.py#L43">GitMyHubLink</a>
+
+&#47&#47 -*- coding: utf-8 -*-
+&#47&#47prediction using model.
+&#47&#47process---&gt;1.load data(X:list of lint,y:int). 2.create session. 3.feed data. 4.predict
+import sys
+reload(sys)
+sys.setdefaultencoding(&quotutf8&quot)
+import tensorflow as tf
+import numpy as np
+from data_util_zhihu import load_data_predict,load_final_test_data,create_voabulary,create_voabulary_label
+from tflearn.data_utils import pad_sequences &#47&#47to_categorical
+import os
+import codecs
+from p1_HierarchicalAttention_model import HierarchicalAttention
+
+&#47&#47configuration
+FLAGS=tf.app.flags.FLAGS
+tf.app.flags.DEFINE_integer("num_classes",1999,"number of label")
+tf.app.flags.DEFINE_float("learning_rate",0.01,"learning rate")
+tf.app.flags.DEFINE_integer("batch_size", 80, "Batch size for training/evaluating.") &#47&#47批处理的大小 32--&gt;128
+tf.app.flags.DEFINE_integer("decay_steps", 6000, "how many steps before decay learning rate.") &#47&#476000批处理的大小 32--&gt;128
+tf.app.flags.DEFINE_float("decay_rate", 1.0, "Rate of decay for learning rate.") &#47&#470.65一次衰减多少
+tf.app.flags.DEFINE_string("ckpt_dir","checkpoint_hier_atten_title/text_hier_atten_title_desc_checkpoint_0609/","checkpoint location for the model")
+tf.app.flags.DEFINE_integer("sequence_length",100,"max sentence length")
+tf.app.flags.DEFINE_integer("embed_size",100,"embedding size")
+tf.app.flags.DEFINE_boolean("is_training",False,"is traning.true:tranining,false:testing/inference")
+tf.app.flags.DEFINE_integer("num_epochs",10,"number of epochs to run.")
+tf.app.flags.DEFINE_integer("validate_every", 1, "Validate every validate_every epochs.") &#47&#47每10轮做一次验证
+tf.app.flags.DEFINE_boolean("use_embedding",True,"whether to use embedding or not.")
+&#47&#47tf.app.flags.DEFINE_string("cache_path","text_cnn_checkpoint/data_cache.pik","checkpoint location for the model")
+&#47&#47train-zhihu4-only-title-all.txt
+tf.app.flags.DEFINE_string("traning_data_path","train-zhihu4-only-title-all.txt","path of traning data.") &#47&#47O.K.train-zhihu4-only-title-all.txt--&gt;training-data/test-zhihu4-only-title.txt---&gt;&quottraining-data/train-zhihu5-only-title-multilabel.txt&quot
+tf.app.flags.DEFINE_string("word2vec_model_path","zhihu-word2vec-title-desc.bin-100","word2vec&quots vocabulary and vectors") &#47&#47zhihu-word2vec.bin-100--&gt;zhihu-word2vec-multilabel-minicount15.bin-100
+tf.app.flags.DEFINE_boolean("multi_label_flag",True,"use multi label or single label.")
+tf.app.flags.DEFINE_integer("num_sentences", 4, "number of sentences in the document") &#47&#47每10轮做一次验证
+tf.app.flags.DEFINE_integer("hidden_size",100,"hidden size")
+tf.app.flags.DEFINE_string("predict_target_file","checkpoint_hier_atten_title/text_hier_atten_title_desc_checkpoint_0609/zhihu_result_hier_atten_multilabel_b512_DROPOUT4.csv","target file path for final prediction")
+tf.app.flags.DEFINE_string("predict_source_file",&quottest-zhihu-forpredict-title-desc-v6.txt&quot,"target file path for final prediction") &#47&#47test-zhihu-forpredict-v4only-title.txt
+
+&#47&#471.load data(X:list of lint,y:int). 2.create session. 3.feed data. 4.training (5.validation) ,(6.prediction)
+&#47&#47 1.load data with vocabulary of words and labels
+
+
+def main(_):
+    &#47&#47 1.load data with vocabulary of words and labels
+    vocabulary_word2index, vocabulary_index2word = create_voabulary(simple=&quotsimple&quot,word2vec_model_path=FLAGS.word2vec_model_path,name_scope="hierAtten")
+    vocab_size = len(vocabulary_word2index)
+    vocabulary_word2index_label, vocabulary_index2word_label = create_voabulary_label(name_scope="hierAtten")
+    questionid_question_lists=load_final_test_data(FLAGS.predict_source_file)
+    test= load_data_predict(vocabulary_word2index,vocabulary_word2index_label,questionid_question_lists)
+    testX=[]
+    question_id_list=[]
+    for tuple in test:
+        question_id,question_string_list=tuple
+        question_id_list.append(question_id)
+        testX.append(question_string_list)
+    &#47&#47 2.Data preprocessing: Sequence padding
+    print("start padding....")
+    testX2 = pad_sequences(testX, maxlen=FLAGS.sequence_length, value=0.)  &#47&#47 padding to max length
+    print("end padding...")
+   &#47&#47 3.create session.
+    config=tf.ConfigProto()
+    config.gpu_options.allow_growth=True
+    with tf.Session(config=config) as sess:
+        &#47&#47 4.Instantiate Model
+        model = HierarchicalAttention(FLAGS.num_classes, FLAGS.learning_rate, FLAGS.batch_size, FLAGS.decay_steps,
+                                      FLAGS.decay_rate, FLAGS.sequence_length,
+                                      FLAGS.num_sentences, vocab_size, FLAGS.embed_size, FLAGS.hidden_size,
+                                      FLAGS.is_training, multi_label_flag=FLAGS.multi_label_flag)
+        saver=tf.train.Saver()
+        if os.path.exists(FLAGS.ckpt_dir+"checkpoint"):
+            print("Restoring Variables from Checkpoint")
+            saver.restore(sess,tf.train.latest_checkpoint(FLAGS.ckpt_dir))
+        else:
+            print("Can&quott find the checkpoint.going to stop")
+            return
+        &#47&#47 5.feed data, to get logits
+        number_of_training_data=len(testX2);print("number_of_training_data:",number_of_training_data)
+        index=0
+        <a id="change">predict_target_file_f = codecs.open(FLAGS.predict_target_file, &quota&quot, &quotutf8&quot)</a>
+        for start, end in zip(range(0, number_of_training_data, FLAGS.batch_size),range(FLAGS.batch_size, number_of_training_data+1, FLAGS.batch_size)):
+            logits=sess.run(model.logits,feed_dict={model.input_x:testX2[start:end],model.dropout_keep_prob:1}) &#47&#47&quotshape of logits:&quot, ( 1, 1999)
+            &#47&#47 6. get lable using logtis
+            &#47&#47predicted_labels=get_label_using_logits(logits[0],vocabulary_index2word_label)
+            &#47&#47 7. write question id and labels to file system.
+            &#47&#47write_question_id_with_labels(question_id_list[index],predicted_labels,predict_target_file_f)
+            question_id_sublist=question_id_list[start:end]
+            get_label_using_logits_batch(question_id_sublist, logits, vocabulary_index2word_label, predict_target_file_f)
+
+            index=index+1
+        <a id="change">predict_target_file_f</a><a id="change">.close()</a>
+
+&#47&#47 get label using logits
+def get_label_using_logits(logits,vocabulary_index2word_label,top_number=5):
+    index_list=np.argsort(logits)[-top_number:] &#47&#47print("sum_p", np.sum(1.0 / (1 + np.exp(-logits))))
+    index_list=index_list[::-1]
+    label_list=[]
+    for index in index_list:
+        label=vocabulary_index2word_label[index]
+        label_list.append(label) &#47&#47(&quotget_label_using_logits.label_list:&quot, [u&quot-3423450385060590478&quot, u&quot2838091149470021485&quot, u&quot-3174907002942471215&quot, u&quot-1812694399780494968&quot, u&quot6815248286057533876&quot])
+    return label_list
+
+&#47&#47 get label using logits
+def get_label_using_logits_with_value(logits,vocabulary_index2word_label,top_number=5):
+    index_list=np.argsort(logits)[-top_number:] &#47&#47print("sum_p", np.sum(1.0 / (1 + np.exp(-logits))))
+    index_list=index_list[::-1]
+    value_list=[]
+    label_list=[]
+    for index in index_list:
+        label=vocabulary_index2word_label[index]
+        label_list.append(label) &#47&#47(&quotget_label_using_logits.label_list:&quot, [u&quot-3423450385060590478&quot, u&quot2838091149470021485&quot, u&quot-3174907002942471215&quot, u&quot-1812694399780494968&quot, u&quot6815248286057533876&quot])
+        value_list.append(logits[index])
+    return label_list,value_list
+
+&#47&#47 write question id and labels to file system.
+def write_question_id_with_labels(question_id,labels_list,f):
+    labels_string=",".join(labels_list)
+    f.write(question_id+","+labels_string+"\n")
+
+&#47&#47 get label using logits
+def get_label_using_logits_batch(question_id_sublist,logits_batch,vocabulary_index2word_label,f,top_number=5):
+    &#47&#47print("get_label_using_logits.shape:", logits_batch.shape) &#47&#47 (10, 1999))=[batch_size,num_labels]===&gt;需要(10,5)
+    for i,logits in enumerate(logits_batch):
+        index_list=np.argsort(logits)[-top_number:] &#47&#47print("sum_p", np.sum(1.0 / (1 + np.exp(-logits))))
+        index_list=index_list[::-1]
+        label_list=[]
+        for index in index_list:
+            label=vocabulary_index2word_label[index]
+            label_list.append(label) &#47&#47(&quotget_label_using_logits.label_list:&quot, [u&quot-3423450385060590478&quot, u&quot2838091149470021485&quot, u&quot-3174907002942471215&quot, u&quot-1812694399780494968&quot, u&quot6815248286057533876&quot])
+        &#47&#47print("get_label_using_logits.label_list",label_list)
+        write_question_id_with_labels(question_id_sublist[i], label_list, f)
+    f.flush()
+    &#47&#47return label_list
+&#47&#47 write question id and labels to file system.
+def write_question_id_with_labels(question_id,labels_list,f):
+    labels_string=",".join(labels_list)
+    f.write(question_id+","+labels_string+"\n")
+
+if __name__ == "__main__":
+    tf.app.run()</code></pre>

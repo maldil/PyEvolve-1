@@ -1,0 +1,364 @@
+<link rel="stylesheet" href="../../../../..//default.css">
+<script src="../../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/Microsoft/MMdnn/blob/master/mmdnn/conversion/darknet/darknet_parser.py#L32">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/MMdnn/blob/master/mmdnn/conversion/darknet/darknet_parser.py#L32">GitMyHubLink</a>
+
+
+import os
+import numpy as np
+
+from mmdnn.conversion.common.utils import *
+from mmdnn.conversion.darknet.prototxt import *
+from mmdnn.conversion.darknet.darknet_utils import *
+
+from mmdnn.conversion.darknet.darknet_graph import DarknetGraph
+import mmdnn.conversion.common.IR.graph_pb2 as graph_pb2
+from mmdnn.conversion.common.DataStructure.parser import Parser
+from mmdnn.conversion.common.IR.graph_pb2 import NodeDef, GraphDef, DataType
+
+class DarknetParser(Parser):
+
+    dtype_map = {
+        0 : graph_pb2.DT_UNDEFINED,
+        np.float32 : graph_pb2.DT_FLOAT32,
+        np.float64 : graph_pb2.DT_FLOAT64,
+        3 : graph_pb2.DT_INT32,
+        4 : graph_pb2.DT_UINT8,
+        5 : graph_pb2.DT_INT16,
+        6 : graph_pb2.DT_INT8,
+        7 : graph_pb2.DT_STRING,
+        9 : graph_pb2.DT_INT64
+    }
+
+    @property
+    def src_graph(self):
+        return self.dk_graph
+
+    def __init__(self, model_config, weightfile, yolo):
+        super(DarknetParser, self).__init__()
+
+        if not os.path.exists(model_config):
+            raise ValueError(&quotDarknet model config [{}] can not be found!&quot.format(model_config))
+
+        if weightfile:
+            self.weight_loaded = True
+
+        <a id="change">fp = open(weightfile, &quotrb&quot)</a>
+        header = np.fromfile(fp, count=4, dtype=np.int32)
+        self.buf = np.fromfile(fp, dtype = np.float32)
+        print("weights buf size: {}".format(self.buf.size))
+
+        <a id="change">fp</a><a id="change">.close()</a>
+
+        &#47&#47 yolo3(608) start at 1, yolo2(608) start at 0. yolo2(416) start at 1, yolo3(416) start at 0
+        if yolo == "1":
+            self.start = 1  &#47&#47yolov3
+        else:
+            self.start = 0   &#47&#47yolov2
+
+        model = parse_cfg(model_config)
+        self.dk_graph = DarknetGraph(model)
+        self.dk_graph.build()
+
+    def gen_IR(self):
+
+        &#47&#47 load weight by original order
+        for layer in self.dk_graph.original_list:
+
+            current_node = self.dk_graph.get_node(layer)
+            node_type = current_node.type
+            &#47&#47 print(node_type)
+            if hasattr(self, "rename_" + node_type):
+                func = getattr(self, "rename_" + node_type)
+                func(current_node)
+            else:
+                self.rename_UNKNOWN(current_node)
+
+        print("loaded weights buf size: {}".format(self.start))
+
+
+    @staticmethod
+    def _copy_and_reop(source_node, IR_node, new_op = None):
+        if new_op == None: new_op = source_node.type
+        IR_node.name = source_node.name
+        IR_node.op = new_op
+
+        if &quot_output_shape&quot in source_node.layer[&quotattr&quot].keys():
+            output_list = source_node.layer[&quotattr&quot][&quot_output_shape&quot]
+            shape = graph_pb2.TensorShape()
+            for dim in output_list:
+                new_dim = shape.dim.add()
+                if dim == None:
+                    new_dim.size = -1
+                else:
+                    new_dim.size = int(dim)
+
+            IR_node.attr["_output_shape"].list.shape.extend([shape])
+
+        if &quotshape&quot in source_node.layer[&quotattr&quot].keys():
+            shape_list = source_node.layer[&quotattr&quot][&quotshape&quot]
+            if not output_list == None:
+                for dim in shape_list:
+                    new_dim = IR_node.attr["shape"].shape.dim.add()
+                    if dim == None:
+                        new_dim.size = -1
+                    else:
+                        new_dim.size = int(dim)
+            else:
+                IR_node.attr["shape"].shape.unknown_rank = True
+
+
+    def _convert_inedge(self, source_node, IR_node, start_idx = 0, end_idx = None):
+        if end_idx == None: end_idx = len(source_node.in_edges)
+        for idx in range(start_idx, end_idx):
+            IR_node.input.append(self.src_graph.get_node(source_node.in_edges[idx]).real_name)
+
+    def _convert_identity_operation(self, source_node, start_idx = 0, end_idx = None, new_op = None):
+        IR_node = self.IR_graph.node.add()
+        DarknetParser._copy_and_reop(source_node, IR_node, new_op)
+        self._convert_inedge(source_node, IR_node, start_idx, end_idx)
+        return IR_node
+
+    def rename_UNKNOWN(self, source_node):
+        print(source_node.layer)
+        print("Darknet has not supported operator [%s] with name [%s]."
+              % (source_node.type, source_node.name))
+        assert False
+
+    def rename_DataInput(self, source_node):
+        IR_node = self._convert_identity_operation(source_node, new_op=&quotDataInput&quot)
+        &#47&#47 print(IR_node)
+        &#47&#47 assert False
+
+    def rename_Conv(self, source_node):
+        
+        weights: name_weights, name_bias
+        
+        IR_node = self._convert_identity_operation(source_node, new_op=&quotConv&quot)
+        kwargs = {}
+
+        &#47&#47 strides
+        stride = source_node.get_attr(&quotstride&quot)
+        kwargs[&quotstrides&quot] = [1, stride, stride, 1]
+
+        innode = self.dk_graph.get_node(source_node.in_edges[0])
+        input_shape = innode.get_attr(&quot_output_shape&quot)
+
+        &#47&#47 assert False
+        kwargs[&quotkernel_shape&quot] = source_node.get_attr(&quotkernel&quot)
+
+        &#47&#47 padding
+        if source_node.get_attr(&quotpad&quot):
+            kwargs[&quotauto_pad&quot] = "SAME"
+            padding = source_node.get_attr(&quotpadding&quot)
+            kwargs[&quotpads&quot] = [0, padding, padding, 0, 0, padding, padding, 0]
+        else:
+            kwargs[&quotauto_pad&quot] = "VALID"
+
+        &#47&#47 only load weight conv
+
+        if source_node.get_attr(&quotbias_term&quot) == &quottrue&quot:
+            kwargs[&quotuse_bias&quot] = True
+
+            kernel = kwargs[&quotkernel_shape&quot]
+            kernel = np.zeros([kernel[-1], kernel[-2], kernel[0], kernel[1]])
+            k_bias = np.zeros(kwargs[&quotkernel_shape&quot][-1])
+
+            conv_name = source_node.name
+
+            &#47&#47 print("----------------",self.start)
+            &#47&#47 print(kernel.shape)
+            &#47&#47 print(k_bias.shape)
+
+            b = np.reshape(self.buf[self.start:self.start+k_bias.size], k_bias.shape)
+            self.start = self.start + k_bias.size
+            self.set_weight(conv_name, &quotbias&quot, b)
+
+            W = np.reshape(self.buf[self.start:self.start+kernel.size], kernel.shape)
+            self.start = self.start + kernel.size
+            W = np.transpose(W, (2, 3, 1, 0))
+            self.set_weight(conv_name, &quotweights&quot, W)
+        else:
+            kwargs[&quotuse_bias&quot] = False
+
+
+        assign_IRnode_values(IR_node, kwargs)
+
+    def rename_BatchNorm(self, source_node):
+
+        IR_node = self._convert_identity_operation(source_node, new_op=&quotBatchNorm&quot)
+        kwargs = {}
+        IR_node.attr[&quotuse_global_stats&quot].b = source_node.get_attr(&quotuse_global_stats&quot)
+        IR_node.attr[&quotbias&quot].b = source_node.get_attr(&quotuse_global_stats&quot)
+        IR_node.attr[&quotscale&quot].b = source_node.get_attr(&quotuse_global_stats&quot)
+        IR_node.attr[&quotepsilon&quot].f = 1e-5
+
+        assign_IRnode_values(IR_node, kwargs)
+
+        innode = self.dk_graph.get_node(source_node.in_edges[0])
+        input_shape = innode.get_attr(&quot_output_shape&quot)
+        kernel = innode.get_attr(&quotkernel&quot)
+        kernel = np.zeros([kernel[-1], kernel[-2], kernel[0], kernel[1]])
+
+        &#47&#47 buf, start, scale_layer[&quotname&quot], bn_layer[&quotname&quot], conv_layer[&quotname&quot]
+        &#47&#47 print("==============",self.start)
+        bias = np.zeros(input_shape[-1])
+        scale = np.zeros(input_shape[-1])
+        mean = np.zeros(input_shape[-1])
+        var = np.zeros(input_shape[-1])
+        &#47&#47 print(bias.shape)
+        &#47&#47 print(scale.shape)
+        &#47&#47 print(mean.shape)
+        &#47&#47 print(var.shape)
+        &#47&#47 print(kernel.shape)
+
+        bias_content = np.reshape(self.buf[self.start:self.start+bias.size], bias.shape)
+        self.start = self.start + bias.size
+        self.set_weight(source_node.name, &quotbias&quot, bias_content)
+
+        scale_content = np.reshape(self.buf[self.start:self.start+scale.size], scale.shape)
+        self.start = self.start + scale.size
+        self.set_weight(source_node.name, &quotscale&quot, scale_content)
+
+
+        mean_content = np.reshape(self.buf[self.start:self.start+mean.size], mean.shape)
+        self.start = self.start + mean.size
+        self.set_weight(source_node.name, &quotmean&quot, mean_content)
+
+
+        var_content = np.reshape(self.buf[self.start:self.start+var.size], var.shape)
+        self.start = self.start + var.size
+        self.set_weight(source_node.name, &quotvar&quot, var_content)
+
+
+        W = np.reshape(self.buf[self.start:self.start+kernel.size], kernel.shape)
+        self.start = self.start + kernel.size
+        W = np.transpose(W, (2, 3, 1, 0))
+        &#47&#47 print(W)
+        &#47&#47 assert False
+        self.set_weight(innode.name, &quotweights&quot, W)
+
+
+    &#47&#47 no use
+    def rename_ReLU(self, source_node):
+        IR_node = self._convert_identity_operation(source_node, new_op=&quotRelu&quot)
+
+
+    def rename_leakyReLU(self, source_node):
+        &#47&#47 print(source_node.layer)
+        kwargs = {}
+        kwargs[&quotalpha&quot] = float(source_node.get_attr(&quotnegative_slope&quot))
+        IR_node = self._convert_identity_operation(source_node, new_op=&quotLeakyRelu&quot)
+        assign_IRnode_values(IR_node, kwargs)
+
+
+
+    def rename_Pooling(self, source_node):
+        IR_node = self._convert_identity_operation(source_node, new_op=&quotPool&quot)
+        kwargs = {}
+        if source_node.get_attr(&quotpool&quot) == &quotMAX&quot:
+            kernel = source_node.get_attr(&quotkernel_size&quot)
+            kwargs[&quotkernel_shape&quot] = [1, kernel, kernel, 1]
+            stride = source_node.get_attr(&quotstride&quot)
+            kwargs[&quotstrides&quot] = [1, stride, stride, 1]
+            kwargs[&quotpooling_type&quot] = source_node.get_attr(&quotpool&quot)
+            pad = source_node.get_attr(&quotpadding&quot)
+            IR_node.attr["pads"].list.i.extend(([0]+[pad, pad]+[0])*2)
+
+        &#47&#47 for image classification(resnet) AVG pooling
+        else:
+            print(source_node.layer)
+            innode = self.dk_graph.get_node(source_node.in_edges[0])
+            input_shape = innode.get_attr(&quot_output_shape&quot)
+            kwargs[&quotkernel_shape&quot] = [1] + input_shape[1:2] + [1]
+            kwargs[&quotstrides&quot] = [1, 1, 1, 1]
+
+            kwargs[&quotpooling_type&quot] = source_node.get_attr(&quotpool&quot)
+            IR_node.attr["pads"].list.i.extend(([0, 0, 0, 0])*2)
+
+        assign_IRnode_values(IR_node, kwargs)
+
+
+    def rename_yolo(self, source_node):
+        &#47&#47 print(source_node.layer)
+        IR_node = self._convert_identity_operation(source_node, new_op=&quotyolo&quot)
+        kwargs = {}
+        kwargs[&quottruth_thresh&quot] = source_node.get_attr(&quottruth_thresh&quot)
+        kwargs[&quotrandom&quot] = source_node.get_attr(&quotrandom&quot)
+        kwargs[&quotignore_thresh&quot] = source_node.get_attr(&quotignore_thresh&quot)
+        kwargs[&quotjitter&quot] = source_node.get_attr(&quotjitter&quot)
+        kwargs[&quotnum&quot] = source_node.get_attr(&quotnum&quot)
+        kwargs[&quotclasses&quot] = source_node.get_attr(&quotclasses&quot)
+        kwargs[&quotanchors&quot] = source_node.get_attr(&quotanchors&quot)
+        kwargs[&quotmask&quot] = source_node.get_attr(&quotmask&quot)
+        assign_IRnode_values(IR_node, kwargs)
+
+
+    def rename_Concat(self, source_node):
+        IR_node = self._convert_identity_operation(source_node, new_op=&quotConcat&quot)
+        IR_node.attr["axis"].i = int(source_node.get_attr("axis", "1"))
+
+
+    def rename_upsample(self, source_node):
+        IR_node = self._convert_identity_operation(source_node, new_op=&quotUpSampling2D&quot)
+        scales = source_node.get_attr(&quotscales&quot)
+        kwargs = {}
+        kwargs[&quotscales&quot] = scales
+
+        assign_IRnode_values(IR_node, kwargs)
+
+
+    def rename_Add(self, source_node):
+        IR_node = self._convert_identity_operation(source_node, new_op=&quotAdd&quot)
+
+
+    def rename_SpaceToDepth(self, source_node):
+        IR_node = self._convert_identity_operation(source_node, new_op=&quotSpaceToDepth&quot)
+        stride = source_node.get_attr(&quotstrides&quot)
+        kwargs = {}
+        kwargs[&quotblocksize&quot] = stride
+
+        assign_IRnode_values(IR_node, kwargs)
+
+
+    def rename_InnerProduct(self, source_node):
+        print(source_node.layer)
+        assert False
+
+
+    def rename_region(self, source_node):
+        &#47&#47 print(source_node.layer)
+        IR_node = self._convert_identity_operation(source_node, new_op=&quotregion&quot)
+        kwargs = {}
+        kwargs[&quotthresh&quot] = source_node.get_attr(&quotthresh&quot)
+        kwargs[&quotrandom&quot] = source_node.get_attr(&quotrandom&quot)
+        &#47&#47 kwargs[&quotignore_thresh&quot] = source_node.get_attr(&quotignore_thresh&quot)
+        kwargs[&quotjitter&quot] = source_node.get_attr(&quotjitter&quot)
+        kwargs[&quotnum&quot] = source_node.get_attr(&quotnum&quot)
+        kwargs[&quotclasses&quot] = source_node.get_attr(&quotclasses&quot)
+
+        kwargs[&quotsoftmax&quot] = source_node.get_attr(&quotsoftmax&quot)
+        kwargs[&quotcoords&quot] = source_node.get_attr(&quotcoords&quot)
+        kwargs[&quotrescore&quot] = source_node.get_attr(&quotrescore&quot)
+        &#47&#47 print(source_node.get_attr(&quotanchors&quot))
+        kwargs[&quotanchors&quot] = source_node.get_attr(&quotanchors&quot)
+        &#47&#47 kwargs[&quotanchors&quot] = [&quot0.52&quot,&quot0.22&quot]
+        &#47&#47 kwargs[&quotmask&quot] = source_node.get_attr(&quotmask&quot)
+        kwargs[&quotobject_scale&quot] = source_node.get_attr(&quotobject_scale&quot)
+        kwargs[&quotnoobject_scale&quot] = source_node.get_attr(&quotnoobject_scale&quot)
+        kwargs[&quotclass_scale&quot] = source_node.get_attr(&quotclass_scale&quot)
+        kwargs[&quotcoord_scale&quot] = source_node.get_attr(&quotcoord_scale&quot)
+
+        kwargs[&quotbias_match&quot] = source_node.get_attr(&quotbias_match&quot)
+        kwargs[&quotabsolute&quot] = source_node.get_attr(&quotabsolute&quot)
+        assign_IRnode_values(IR_node, kwargs)
+
+
+    def rename_Softmax(self, source_node):
+        IR_node = self._convert_identity_operation(source_node)
+
+</code></pre>

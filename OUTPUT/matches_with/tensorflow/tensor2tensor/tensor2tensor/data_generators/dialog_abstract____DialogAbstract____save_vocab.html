@@ -1,0 +1,418 @@
+<link rel="stylesheet" href="../../../..//default.css">
+<script src="../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/tensorflow/tensor2tensor/blob/master/tensor2tensor/data_generators/dialog_abstract.py#L345">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/tensor2tensor/blob/master/tensor2tensor/data_generators/dialog_abstract.py#L345">GitMyHubLink</a>
+
+&#47&#47 coding=utf-8
+&#47&#47 Copyright 2022 The Tensor2Tensor Authors.
+&#47&#47
+&#47&#47 Licensed under the Apache License, Version 2.0 (the "License");
+&#47&#47 you may not use this file except in compliance with the License.
+&#47&#47 You may obtain a copy of the License at
+&#47&#47
+&#47&#47     http://www.apache.org/licenses/LICENSE-2.0
+&#47&#47
+&#47&#47 Unless required by applicable law or agreed to in writing, software
+&#47&#47 distributed under the License is distributed on an "AS IS" BASIS,
+&#47&#47 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+&#47&#47 See the License for the specific language governing permissions and
+&#47&#47 limitations under the License.
+
+Abstract class for dialog problems.
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+import os
+import re
+import tarfile
+import zipfile
+
+import requests
+from tensor2tensor.data_generators import generator_utils
+from tensor2tensor.data_generators import problem
+from tensor2tensor.data_generators import text_encoder
+from tensor2tensor.data_generators import text_problems
+from tensor2tensor.data_generators.text_problems import VocabType
+from tensor2tensor.layers import modalities
+from tensor2tensor.utils import metrics
+import tensorflow.compat.v1 as tf
+
+&#47&#47 End-of-sentence marker.
+EOS = text_encoder.EOS_ID
+
+
+&#47&#47 An abstract base class for word based chatbot problems.
+class DialogAbstract(text_problems.Text2TextProblem):
+  Abstract class for dialog problems.
+
+  @property
+  def vocab_type(self):
+    return text_problems.VocabType.TOKEN
+
+  @property
+  def is_generate_per_split(self):
+    return True
+
+  @property
+  def vocab_file(self):
+    return self.vocab_filename
+
+  @property
+  def vocab_filename(self):
+    return &quotvocab.chatbot.&quot + str(self.targeted_vocab_size)
+
+  @property
+  def oov_token(self):
+    return &quot&lt;unk&gt;&quot
+
+  @property
+  def use_subword_tokenizer(self):
+    return False
+
+  @property
+  def input_space_id(self):
+    return problem.SpaceID.EN_TOK
+
+  @property
+  def target_space_id(self):
+    return problem.SpaceID.EN_TOK
+
+  @property
+  def targeted_vocab_size(self):
+    return 2**14
+
+  @property
+  def targeted_dataset_size(self):
+    &#47&#47 Number of utterance pairs in the full dataset.
+    &#47&#47 If it&quots 0, then the full size of the dataset is used.
+    return 0
+
+  @property
+  def dataset_split(self):
+    return {&quottrain&quot: 80, &quotval&quot: 10, &quottest&quot: 10}
+
+  @property
+  def dataset_splits(self):
+    return [{
+        &quotsplit&quot: problem.DatasetSplit.TRAIN,
+        &quotshards&quot: 1,
+    }, {
+        &quotsplit&quot: problem.DatasetSplit.EVAL,
+        &quotshards&quot: 1,
+    }, {
+        &quotsplit&quot: problem.DatasetSplit.TEST,
+        &quotshards&quot: 1,
+    }]
+
+  @property
+  def data_dir(self):
+    return &quot&quot
+
+  @property
+  def raw_data_dir(self):
+    return &quot&quot
+
+  @property
+  def raw_data(self):
+    return &quot&quot
+
+  @property
+  def zipped_data(self):
+    return &quot&quot
+
+  @property
+  def url(self):
+    return &quot&quot
+
+  @data_dir.setter
+  def data_dir(self, value):
+    self._data_dir = value
+
+  @raw_data_dir.setter
+  def raw_data_dir(self, value):
+    self._raw_data_dir = value
+
+  @raw_data.setter
+  def raw_data(self, value):
+    self._raw_data = value
+
+  @zipped_data.setter
+  def zipped_data(self, value):
+    self._zipped_data = value
+
+  @url.setter
+  def url(self, value):
+    self._url = value
+
+  &#47&#47 Main function where the preprocessing of the data starts.
+  def preprocess_data(self, train_mode):
+    return NotImplementedError
+
+  &#47&#47 This should also be overriden if the data_pipeline_status is used.
+  def create_data(self, train_mode):
+    pass
+
+  def data_pipeline_status(self, train_mode):
+    Check at which part of the pipeline are we at.
+
+    This function first checks recursively at which point in the
+    data processing point are we (what files can be found on the disk),
+    and then proceeds from there.
+
+    Args:
+      train_mode: string, whether we are in train, dev or test mode
+    
+
+    &#47&#47 Build the source and target paths.
+    sourcepath = os.path.join(self._data_dir, train_mode + &quotSource.txt&quot)
+    targetpath = os.path.join(self._data_dir, train_mode + &quotTarget.txt&quot)
+
+    &#47&#47 If raw data dir doesn&quott exist, create it.
+    if not os.path.exists(self._raw_data_dir):
+      os.makedirs(self._raw_data_dir)
+
+    &#47&#47 Check whether sourcePath.txt exists.
+    if (os.path.isfile(sourcepath) and os.path.isfile(targetpath) and
+        os.path.isfile(os.path.join(self._data_dir, self.vocab_file))):
+      print(&quotproblem_log: Source, target and vocab files exist in &quot +
+            self._data_dir + &quot, proceeding with data generation. &quot +
+            &quotIf you want to rebuild these files, delete them first.&quot)
+      return
+
+    &#47&#47 Check whether the raw data is extracted to the raw_data_dir folder.
+    elif os.path.exists(self._raw_data):
+      print(&quotproblem_log: No source, target or vocab files found in &quot +
+            self._data_dir + &quot.&quot)
+      print(&quotproblem_log: Extracted raw data is in &quot + self._raw_data_dir +
+            &quot. Proceeding with creating source, target and vocab files.&quot)
+      self.create_data(train_mode)
+
+    &#47&#47 Check whether the data is downloaded in the raw_data_dir_folder.
+    elif os.path.exists(self._zipped_data):
+      print(&quotproblem_log: No source, target or vocab files found in &quot +
+            self._data_dir + &quot.&quot)
+      print(&quotproblem_log: No extracted raw data found in &quot +
+            self._raw_data_dir + &quot.&quot)
+      print(&quotproblem_log: Unextracted raw data is in &quot + self._raw_data_dir +
+            &quot. Extracting and creating source, target and vocab files.&quot)
+      self.extract_data(train_mode)
+
+    else:
+      print(&quotproblem_log: No source, target or vocab files found in &quot +
+            self._data_dir + &quot.&quot)
+      print(&quotproblem_log: No raw data found in &quot + self._raw_data_dir +
+            &quot. Proceeding with downloading the data, extracting it, &quot +
+            &quotand creating source, target and vocab files.&quot)
+      self.download_data(train_mode)
+
+  def download_data(self, train_mode):
+    Download data from official sources.
+
+    Args:
+      train_mode: string, whether we are in train, dev or test mode
+    
+
+    &#47&#47 Open the url and download the data with progress bars.
+    data_stream = requests.get(self._url, stream=True)
+    with open(self._zipped_data, &quotwb&quot) as f:
+      for chunk in data_stream.iter_content(1024):
+        if chunk:
+          f.write(chunk)
+          f.flush()
+
+    &#47&#47 Next step is extracting the data.
+    print(&quotproblem_log: Extracting data to &quot + self._zipped_data + &quot.&quot)
+    self.extract_data(train_mode)
+
+  def extract_data(self, train_mode):
+    Extract data and go to the next step.
+
+    Args:
+      train_mode:  string, whether we are in train, dev or test mode
+    
+
+    if self._zipped_data[-2:] == &quotgz&quot:
+      zip_file = tarfile.open(self._zipped_data, &quotr:gz&quot)
+    elif self._zipped_data[-3:] == &quotzip&quot:
+      zip_file = zipfile.ZipFile(self._zipped_data, &quotr&quot)
+    else:
+      print(&quotproblem_log: &quot + self._zipped_data +
+            &quot is not a .zip or .gz file, so I can\&quott extract it.&quot)
+
+    zip_file.extractall(self._raw_data_dir)
+    zip_file.close()
+
+    &#47&#47 Next step is creating the source, target and vocab files.
+    print(&quotproblem_log: Creating &quot +
+          train_mode + &quot files in &quot + self._data_dir)
+    self.create_data(train_mode)
+
+  &#47&#47 hparams for the problem.
+  def hparams(self, defaults, unused_model_hparams):
+    p = defaults
+    p.stop_at_eos = int(True)
+
+    p.modality = {&quottargets&quot: modalities.ModalityType.SYMBOL}
+    if self.has_inputs:
+      p.modality[&quotinputs&quot] = modalities.ModalityType.SYMBOL
+      p.vocab_size = {&quotinputs&quot: self._encoders[&quotinputs&quot].vocab_size}
+    p.vocab_size[&quottargets&quot] = self._encoders[&quotinputs&quot].vocab_size
+
+    if self.vocab_type == VocabType.CHARACTER:
+      p.loss_multiplier = 2.0
+
+    if self.packed_length:
+      if self.has_inputs:
+        p.modality[&quotinputs_segmentation&quot] = modalities.ModalityType.IDENTITY
+        p.modality[&quotinputs_position&quot] = modalities.ModalityType.IDENTITY
+        p.vocab_size[&quotinputs_segmentation&quot] = None
+        p.vocab_size[&quotinputs_position&quot] = None
+      p.modality[&quottargets_segmentation&quot] = modalities.ModalityType.IDENTITY
+      p.modality[&quottargets_position&quot] = modalities.ModalityType.IDENTITY
+      p.vocab_size[&quottargets_segmentation&quot] = None
+      p.vocab_size[&quottargets_position&quot] = None
+
+  &#47&#47 What evaluation metrics to use with this problem.
+  def eval_metrics(self):
+    return [metrics.Metrics.ACC, metrics.Metrics.ACC_TOP5,
+            metrics.Metrics.ACC_PER_SEQ,
+            metrics.Metrics.NEG_LOG_PERPLEXITY,
+            metrics.Metrics.APPROX_BLEU]
+
+  &#47&#47 Override this, to start with preprocessing.
+  def generate_data(self, data_dir, tmp_dir, task_id=-1):
+    self.data_dir = data_dir
+    &#47&#47 Determine whether we are in training or validation mode.
+    self.mode = {problem.DatasetSplit.TRAIN: &quottrain&quot,
+                 problem.DatasetSplit.EVAL: &quotdev&quot,
+                 problem.DatasetSplit.TEST: &quottest&quot}
+    filepath_fns = {problem.DatasetSplit.TRAIN: self.training_filepaths,
+                    problem.DatasetSplit.EVAL: self.dev_filepaths,
+                    problem.DatasetSplit.TEST: self.test_filepaths}
+
+    split_paths = [(split[&quotsplit&quot], filepath_fns[split[&quotsplit&quot]](
+        data_dir, split[&quotshards&quot], shuffled=self.already_shuffled))
+                   for split in self.dataset_splits]
+    all_paths = []
+    for _, paths in split_paths:
+      all_paths.extend(paths)
+
+    if self.is_generate_per_split:
+      for split, paths in split_paths:
+        &#47&#47 Create the source and target txt files from the raw data.
+        self.preprocess_data(self.mode[split])
+        generator_utils.generate_files(
+            self.generate_encoded_samples(data_dir, tmp_dir, split), paths)
+    else:
+      self.preprocess_data(self.mode[problem.DatasetSplit.TRAIN])
+      generator_utils.generate_files(
+          self.generate_encoded_samples(
+              data_dir, tmp_dir, problem.DatasetSplit.TRAIN), all_paths)
+
+    generator_utils.shuffle_dataset(all_paths, extra_fn=self._pack_fn())
+
+  def generate_samples(self, data_dir, tmp_dir, data_split):
+    This function generates train and validation pairs in t2t-datagen style.
+
+    The function assumes that if you have data at one level of the pipeline,
+    you don&quott want to re-generate it, so for example if the 4 txt files exist,
+    the function continues by generating the t2t-datagen format files.
+    So if you want to re-download or re-generate data,
+    you have to delete it first from the appropriate directories.
+
+    Args:
+      data_dir: string, Directory where the data will be generated. The raw
+                        data has to be downloaded one directory level higher.
+      tmp_dir: string, temp directory.
+      data_split: string, which data split to generate samples for
+
+    Yields:
+      dict
+    
+
+    self.data_dir = data_dir
+    print(&quotproblem_log: &quot +
+          self.mode[data_split] + &quot data generation activated.&quot)
+
+    s_path = os.path.join(data_dir, self.mode[data_split] + &quotSource.txt&quot)
+    t_path = os.path.join(data_dir, self.mode[data_split] + &quotTarget.txt&quot)
+
+    &#47&#47 Open the files and yield source-target lines.
+    with tf.gfile.GFile(s_path, mode=&quotr&quot) as source_file:
+      with tf.gfile.GFile(t_path, mode=&quotr&quot) as target_file:
+        source, target = source_file.readline(), target_file.readline()
+        while source and target:
+          yield {&quotinputs&quot: source.strip(), &quottargets&quot: target.strip()}
+          source, target = source_file.readline(), target_file.readline()
+
+  def save_vocab(self, vocab):
+    Save the vocabulary to a file.
+
+    Args:
+      vocab: dict
+    
+    <a id="change">voc_file = open(os.path.join(self._data_dir, self.vocab_file), &quotw&quot)</a>
+
+    &#47&#47 Put the reserved tokens in.
+    voc_file.write(&quot&lt;pad&gt;\n&quot)
+    voc_file.write(&quot&lt;EOS&gt;\n&quot)
+    for word, _ in vocab.most_common(self.targeted_vocab_size - 3):
+      voc_file.write(word + &quot\n&quot)
+    voc_file.write(&quot&lt;unk&gt;&quot)
+
+    <a id="change">voc_file</a><a id="change">.close()</a>
+
+  &#47&#47 Open the 6 files to write the processed data into.
+  def open_6_files(self):
+    trainsource = open(os.path.join(self._data_dir, &quottrainSource.txt&quot), &quotw&quot)
+    traintarget = open(os.path.join(self._data_dir, &quottrainTarget.txt&quot), &quotw&quot)
+    devsource = open(os.path.join(self._data_dir, &quotdevSource.txt&quot), &quotw&quot)
+    devtarget = open(os.path.join(self._data_dir, &quotdevTarget.txt&quot), &quotw&quot)
+    testsource = open(os.path.join(self._data_dir, &quottestSource.txt&quot), &quotw&quot)
+    testtarget = open(os.path.join(self._data_dir, &quottestTarget.txt&quot), &quotw&quot)
+
+    return trainsource, traintarget, devsource, \
+        devtarget, testsource, testtarget
+
+  &#47&#47 Close the 6 files to write the processed data into.
+  def close_n_files(self, files):
+    for f in files:
+      f.close()
+
+  def clean_line(self, line):
+    Clean a line with some regex rules.
+
+    Args:
+      line: string, line to be processed and returned
+
+    Returns:
+      string
+    
+
+    &#47&#47 2 functions for more complex replacing.
+    def replace(matchobj):
+      return re.sub("&quot", " &quot", str(matchobj.group(0)))
+
+    def replace_null(matchobj):
+      return re.sub("&quot", &quot&quot, str(matchobj.group(0)))
+
+    &#47&#47 Keep some special tokens.
+    line = re.sub("[^a-z .?!&quot0-9]", &quot&quot, line)
+    line = re.sub(&quot[.]&quot, &quot . &quot, line)
+    line = re.sub(&quot[?]&quot, &quot ? &quot, line)
+    line = re.sub(&quot[!]&quot, &quot ! &quot, line)
+
+    &#47&#47 Take care of apostrophes.
+    line = re.sub("[ ]&quot[ ]", &quot &quot, line)
+    line = re.sub(" &quot[a-z]", replace_null, line)
+    line = re.sub("n&quott", " n&quott", line)
+    line = re.sub("[^ n]&quot[^ t]", replace, line)
+
+    return line
+</code></pre>

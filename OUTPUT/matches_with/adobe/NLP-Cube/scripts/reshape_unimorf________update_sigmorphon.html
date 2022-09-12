@@ -1,0 +1,76 @@
+<link rel="stylesheet" href="../../..//default.css">
+<script src="../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/adobe/NLP-Cube/blob/master/scripts/reshape_unimorf.py#L31">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/NLP-Cube/blob/master/scripts/reshape_unimorf.py#L31">GitMyHubLink</a>
+
+import sys
+
+
+def get_upos(unimorf):
+    upos_list = [&quotN&quot, &quotPROPN&quot, &quotADJ&quot, &quotPRO&quot, &quotCLF&quot, &quotART&quot, &quotDET&quot, &quotV&quot, &quotADV&quot, &quotAUX&quot, &quotV.PTCP&quot, &quotV.MSDR&quot, &quotV.CVB&quot, &quotADP&quot,
+                 &quotCOMP&quot, &quotCONJ&quot, &quotNUM&quot, &quotPART&quot, &quotINTJ&quot]
+    parts = unimorf.split(&quot;&quot)
+    for part in parts:
+        if part in upos_list:
+            return part
+    &#47&#47 print(unimorf)
+    return "_"
+
+
+def get_attrs(unimorf, upos):
+    parts = unimorf.split(&quot;&quot)
+    if upos not in parts:
+        print (upos)
+    else:
+        parts.remove(upos)
+    parts = sorted(parts)
+    attrs = &quot&quot
+    for part in parts:
+        attrs += part + &quot;&quot
+    if attrs == &quot&quot:
+        attrs = &quot_;&quot
+    attrs = attrs[:-1]
+    return attrs
+
+
+def update_sigmorphon(<a id="change">input_file</a>, <a id="change">output_file</a>):
+    <a id="change">inpf = open(input_file, &quotr&quot)</a>
+    <a id="change">outf = open(output_file, &quotw&quot)</a>
+    for line in inpf:
+        <a id="change">parts = line.split(&quot\t&quot)</a>
+        if len(parts) &lt; 3:
+            outf.write(line)
+        else:
+            <a id="change">unimorf_label = parts[5]</a>
+            <a id="change">upos = get_upos(unimorf_label)</a>
+            <a id="change">attrs = get_attrs(unimorf_label, upos)</a>
+
+            <a id="change">o_line = &quot&quot</a>
+            for part, index in zip(parts, range(len(parts))):
+                if index == 3:
+                    o_line += upos + &quot\t&quot
+                elif index == 5:
+                    o_line += attrs + &quot\t&quot
+                else:
+                    o_line += part + &quot\t&quot
+
+            <a id="change">o_line = o_line[:-1]</a>
+            outf.write(o_line)
+
+    <a id="change">inpf</a><a id="change">.close()</a>
+    <a id="change">outf</a><a id="change">.close()</a>
+
+
+def display_help():
+    sys.stdout.write(&quotUsage: reshape_unimorf.py &lt;input file&gt; &lt;output_file&gt;\n&quot)
+
+
+if len(sys.argv) != 3:
+    display_help()
+else:
+    update_sigmorphon(sys.argv[1], sys.argv[2])
+</code></pre>

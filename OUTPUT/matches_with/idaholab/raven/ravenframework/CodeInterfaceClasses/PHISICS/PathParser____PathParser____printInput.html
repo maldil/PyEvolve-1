@@ -1,0 +1,129 @@
+<link rel="stylesheet" href="../../../../..//default.css">
+<script src="../../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/idaholab/raven/blob/devel/ravenframework/CodeInterfaceClasses/PHISICS/PathParser.py#L89">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/raven/blob/devel/ravenframework/CodeInterfaceClasses/PHISICS/PathParser.py#L89">GitMyHubLink</a>
+
+
+Created on July 17th, 2017
+@author: rouxpn
+
+from __future__ import division, print_function, unicode_literals, absolute_import
+import os
+import re
+from decimal import Decimal
+
+
+class PathParser():
+  
+    Parses the PHISICS decay Qvalue library located in the path folder (betadecay, alphadecay etc.)
+    and replaces the nominal values by the perturbed values.
+  
+
+  def __init__(self, inputFiles, workingDir, **pertDict):
+    
+      Constructor.
+      @ In, inputFiles, string, decay Qvalue library file
+      @ In, workingDir, string, absolute path to working directory
+      @ In, pertDict, dictionary, dictionary of perturbed variables
+      @ Out, None
+    
+    self.endStringCounter = 0  &#47&#47 counts how many times &quotEND&quot occurs
+    self.harcodingSection = 0  &#47&#47 0 if portions of files that will not be perturbed, one if variables can be perturbed
+    self.listedQValuesDict = {}
+    self.inputFiles = inputFiles
+    self.pertQValuesDict = self.scientificNotation(
+        pertDict)  &#47&#47 Perturbed variables
+    self.fileReconstruction()  &#47&#47 Puts the perturbed variables in a dictionary
+    self.printInput(
+        workingDir
+    )  &#47&#47 Replaces the nom. values by the perturbed one and prints in a file
+
+  def scientificNotation(self, pertDict):
+    
+      Converts the numerical values into a scientific notation.
+      @ In, pertDict, dictionary, perturbed variables
+      @ Out, pertDict, dictionary, perturbed variables in scientific format
+    
+    for key, value in pertDict.items():
+      pertDict[key] = &quot%.3E&quot % Decimal(str(value))
+    return pertDict
+
+  def matrixPrinter(self, line, outfile):
+    
+      Prints the perturbed decay matrix in the outfile.
+      @ In, line, file object, input file in file object format
+      @ In, outfile, file object, output file in file object format
+      @ Out, None
+    
+    line = re.sub(r&quot(.*?)(\w+)(-)(\d+M?)&quot, r&quot\1\2\4&quot, line)
+    line = line.upper().split()
+    if line[0] in self.setOfPerturbedIsotopes:
+      try:
+        line[1] = str(self.listedQValuesDict.get(line[0]))
+      except KeyError:
+        raise KeyError(
+            &quotError. Check if the unperturbed library has defined values relative to the requested perturbed isotopes&quot
+        )
+    if len(line) &gt; 1:
+      line[0] = "{0:&lt;7s}".format(line[0])
+      line[1] = "{0:&lt;11s}".format(line[1])
+      line = &quot&quot.join(line[0] + line[1] + "\n")
+      outfile.writelines(line)
+    if re.search(r&quot(.*?)END&quot, line[0]):
+      self.endStringCounter = self.endStringCounter + 1
+      self.harcodingSection = 0
+
+  def fileReconstruction(self):
+    
+      Converts the formatted dictionary -&gt; {&quotXXXDECAY|U235&quot:1.30, XXXDECAY|FUEL2|U238&quot:4.69}.
+      into a dictionary of dictionaries that has the format -&gt; {&quotXXXDECAY&quot:{&quotU235&quot:1.30}, &quotXXXDECAY&quot:{&quotU238&quot:4.69}}
+      @ In, None
+      @ Out, reconstructedDict, nested dictionary
+    
+    perturbedIsotopes = []
+    for key in self.pertQValuesDict.keys():
+      perturbedIsotopes.append(key.split(&quot|&quot)[1])
+    for perturbedIsotope in perturbedIsotopes:
+      self.listedQValuesDict[perturbedIsotope] = {
+      }  &#47&#47 declare all the dictionaries
+    for isotopeKeyName, QValue in self.pertQValuesDict.items():
+      isotopeName = isotopeKeyName.split(&quot|&quot)
+      self.listedQValuesDict[isotopeName[1]] = QValue
+    self.setOfPerturbedIsotopes = set(self.listedQValuesDict.keys())
+
+  def printInput(self, workingDir):
+    
+      Prints out the pertubed decay qvalue file into a .dat file. The workflow is:
+      open a new file with a dummy name; parse the unperturbed library; print the line in the dummy and
+      replace with perturbed variables if necessary, Change the name of the dummy file.
+      @ In, workingDir, string, path to working directory
+      @ Out, None
+    
+    &#47&#47 open the unperturbed file
+    <a id="change">openInputFile = open(self.inputFiles, "r")</a>
+    lines = openInputFile.readlines()
+    <a id="change">openInputFile</a><a id="change">.close()</a>
+
+    &#47&#47 remove the file if was already existing
+    if os.path.exists(self.inputFiles):
+      os.remove(self.inputFiles)
+    sectionCounter = 0
+    with <a id="change">open(self.inputFiles, &quota+&quot)</a> as outfile:
+      for line in lines:
+        if re.search(r&quot(.*?)(\s?)[a-zA-Z](\s+Qvalue)&quot, line.strip()):
+          sectionCounter = sectionCounter + 1
+        if not line.split():
+          continue  &#47&#47 if the line is blank, ignore it
+        if sectionCounter == 1 and self.endStringCounter == 0:  &#47&#47actinide section
+          self.harcodingSection = 1
+          self.matrixPrinter(line, outfile)
+        if sectionCounter == 2 and self.endStringCounter == 1:  &#47&#47FP section
+          self.harcodingSection = 2
+          self.matrixPrinter(line, outfile)
+        if self.harcodingSection != 1 and self.harcodingSection != 2:
+          outfile.writelines(line)
+</code></pre>

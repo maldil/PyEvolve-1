@@ -1,0 +1,377 @@
+<link rel="stylesheet" href="../../../..//default.css">
+<script src="../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/ricsinaruto/Seq2seqChatbots/blob/master/t2t_csaky/problems/cornell_chatbots.py#L48">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/Seq2seqChatbots/blob/master/t2t_csaky/problems/cornell_chatbots.py#L48">GitMyHubLink</a>
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+import os
+import re
+from collections import Counter
+
+from tensor2tensor.data_generators import text_encoder
+from tensor2tensor.utils import registry
+
+from t2t_csaky.problems import opensubtitles_chatbot
+from t2t_csaky.config import PROBLEM_HPARAMS
+
+
+&#47&#47 End-of-sentence marker.
+EOS = text_encoder.EOS_ID
+
+
+@registry.register_problem
+class CornellChatbotBasic(opensubtitles_chatbot.OpensubtitlesChatbot):
+  &quot&quot&quot
+  A class implementing the chatbot problem with Cornell Movie Dialog dataset.
+  &quot&quot&quot
+
+  &#47&#47 Main function where the preprocessing of the data starts.
+  def preprocess_data(self, train_mode):
+    &quot&quot&quot
+    Params:
+      :train_mode: Whether we are in train or dev mode.
+    &quot&quot&quot
+
+    &#47&#47 Set the raw data directory and data.
+    self.raw_data_dir = os.path.join(&quot/&quot.join(self._data_dir.split(&quot/&quot)[:-1]),
+                                     &quotraw_data&quot)
+    self.raw_data = os.path.join(self._raw_data_dir,
+                                 &quotcornell movie-dialogs corpus&quot)
+    self.zipped_data = os.path.join(self._raw_data_dir,
+                                    &quotcornell_movie_dialogs_corpus.zip&quot)
+
+    &#47&#47 Create the download url.
+    self.url = (&quothttp://www.cs.cornell.edu/~cristian/data/&quot +
+                &quotcornell_movie_dialogs_corpus.zip&quot)
+
+    &#47&#47 Check at which part of the pipeline are we at.
+    self.data_pipeline_status(train_mode)
+
+  &#47&#47 Create the source, target and vocab files.
+  def create_data(self, train_mode):
+    &quot&quot&quot
+    Params:
+      :train_mode: Whether we are in train or dev mode.
+    &quot&quot&quot
+
+    &#47&#47 Open the 6 files.
+    trainSource, trainTarget, devSource, devTarget, testSource, testTarget = \
+        self.open_6_files()
+
+    &#47&#47 Open the raw data.
+    <a id="change">movie_lines = open(
+        os.path.join(self._raw_data, &quotmovie_lines.txt&quot), errors=&quotignore&quot)</a>
+    dialog_list = self.extract_dialog_ids()
+
+    vocabulary = Counter()
+    line_dict = {}
+    number_of_lines = 0
+    &#47&#47 Iterate through file.
+    for line in movie_lines:
+      if number_of_lines % 10000 == 0:
+        print(&quott2t_csaky_log: Parsed &quot + str(number_of_lines) + &quot lines.&quot)
+
+      line = line.split(&quot +++$+++ &quot)
+      dialog_id = line[0]
+      line = line[4].lower()
+
+      &#47&#47 Do some cleaning.
+      line = self.clean_line(line)
+      line_dict[dialog_id] = line
+
+      number_of_lines += 1
+      &#47&#47 Check if we reached the desired dataset size.
+      if (self.targeted_dataset_size != 0 and
+              self.targeted_dataset_size &lt; number_of_lines):
+        break
+
+    counter = 0
+    dataset_split_counter = 0
+    &#47&#47 Save the actual dialogs.
+    for dialog in dialog_list:
+      if counter % 10000 == 0:
+        print(&quott2t_csaky_log: Saved &quot +
+              str(counter) + &quot/&quot + str(len(dialog_list)) + &quot dialogs.&quot)
+
+      dataset_split_counter += 1
+      i = 0
+      &#47&#47 Save one utterance.
+      for utterance in dialog:
+        if (utterance != dialog[-1] and
+            dialog[i + 1] != &quotL211194&quot and
+                dialog[i + 1] != &quotL1045&quot):
+          source_line = line_dict[utterance] + &quot\n&quot
+          target_line = line_dict[dialog[i + 1]] + &quot\n&quot
+
+          &#47&#47 Save to the files according to dataset split.
+          if dataset_split_counter &lt;= self.dataset_split[&quottrain&quot]:
+            &#47&#47 Build vocabulary.
+            words = source_line.split()
+            for word in words:
+              if word in vocabulary:
+                vocabulary[word] += 1
+              else:
+                vocabulary[word] = 1
+
+            trainSource.write(source_line)
+            trainTarget.write(target_line)
+
+          elif dataset_split_counter &lt;= (self.dataset_split[&quottrain&quot] +
+                                         self.dataset_split[&quotval&quot]):
+            devSource.write(source_line)
+            devTarget.write(target_line)
+          else:
+            testSource.write(source_line)
+            testTarget.write(target_line)
+        i += 1
+
+      &#47&#47 Reset the split counter if we reached 100%.
+      if dataset_split_counter == 100:
+        dataset_split_counter = 0
+      counter += 1
+
+    &#47&#47 Close the files.
+    self.close_n_files([trainSource,
+                       trainTarget,
+                       devSource,
+                       devTarget,
+                       testSource,
+                       testTarget])
+    <a id="change">movie_lines</a><a id="change">.close()</a>
+
+    &#47&#47 Save the vocabulary.
+    self.save_vocab(vocabulary)
+
+  &#47&#47 Clean a line with some re rules.
+  def clean_line(self, line):
+    &quot&quot&quot
+    Params:
+      :line: Line to be processed and returned.
+    &quot&quot&quot
+
+    &#47&#47 2 functions for more complex replacing.
+    def replace(matchobj):
+      return re.sub("&quot", " &quot", str(matchobj.group(0)))
+
+    def replace_null(matchobj):
+      return re.sub("&quot", &quot&quot, str(matchobj.group(0)))
+
+    &#47&#47 Keep some special tokens.
+    line = re.sub("[^a-z .?!&quot0-9]", &quot&quot, line)
+    line = re.sub(&quot[.]&quot, &quot . &quot, line)
+    line = re.sub(&quot[?]&quot, &quot ? &quot, line)
+    line = re.sub(&quot[!]&quot, &quot ! &quot, line)
+
+    &#47&#47 Take care of apostrophes.
+    line = re.sub("[ ]&quot[ ]", &quot &quot, line)
+    line = re.sub(" &quot[a-z]", replace_null, line)
+    line = re.sub("n&quott", " n&quott", line)
+    line = re.sub("[^ n]&quot[^ t]", replace, line)
+
+    return line
+
+  &#47&#47 Extract the dialog ids from the dialog file.
+  def extract_dialog_ids(self):
+    dialogs = open(os.path.join(self._raw_data, &quotmovie_conversations.txt&quot),
+                   errors=&quotignore&quot)
+
+    dialog_list = []
+    &#47&#47 Each line contains a dialog.
+    for line in dialogs:
+      line = line.split(&quot +++$+++ &quot)
+      line = line[3].split(&quot,&quot)
+
+      i = 0
+      for item in line:
+        line[i] = re.sub(&quot[^A-Z0-9]&quot, &quot&quot, item)
+        i += 1
+      dialog_list.append(line)
+
+    dialogs.close()
+    return dialog_list
+
+
+@registry.register_problem
+class CornellChatbotSeparateNames(CornellChatbotBasic):
+  &quot&quot&quot
+  A class implementing the chatbot problem for the Cornell Movie Dialog dataset
+  with the names of the characters saying a line appended to that line.
+  &quot&quot&quot
+
+  @property
+  def targeted_name_vocab_size(self):
+    return PROBLEM_HPARAMS[&quotname_vocab_size&quot]
+
+  @property
+  def targeted_vocab_size(self):
+    return (PROBLEM_HPARAMS[&quotvocabulary_size&quot] +
+            PROBLEM_HPARAMS[&quotname_vocab_size&quot])
+
+  &#47&#47 Create the source, target and vocab files.
+  def create_data(self, train_mode):
+    &quot&quot&quot
+    Params:
+      :train_mode: Whether we are in train or dev mode.
+    &quot&quot&quot
+
+    &#47&#47 Open the 6 files.
+    trainSource, trainTarget, devSource, devTarget, testSource, testTarget = \
+        self.open_6_files()
+
+    &#47&#47 Open the raw data.
+    movie_lines = open(
+        os.path.join(self._raw_data, &quotmovie_lines.txt&quot), errors=&quotignore&quot)
+    dialog_list = self.extract_dialog_ids()
+
+    vocabulary = Counter()
+    name_vocab = Counter()
+    line_dict = {}
+    number_of_lines = 0
+    &#47&#47 Iterate through file.
+    for line in movie_lines:
+      if number_of_lines % 10000 == 0:
+        print(&quott2t_csaky_log: Parsed &quot + str(number_of_lines) + &quot lines.&quot)
+
+      line = line.split(&quot +++$+++ &quot)
+
+      &#47&#47 Separate characters with same names but appearing in different movies.
+      name = re.sub(&quot &quot, &quot_&quot, line[3]) + &quot_&quot + line[2]
+      dialog_id = line[0]
+      line = line[4].lower()
+
+      &#47&#47 Build vocabulary for names:
+      &#47&#47 Currently we build it based on the whole dataset, because we can assume
+      &#47&#47 that the list of most frequent names is the same in the whole dataset,
+      &#47&#47 and in a random sample of it, however it would be more accurate to
+      &#47&#47 build the name vocab based solely on the training examples.
+      if name in name_vocab:
+        name_vocab[name] += 1
+      elif name != &quot&quot:
+        name_vocab[name] = 1
+
+      &#47&#47 Do some cleaning.
+      line = self.clean_line(line)
+      line_dict[dialog_id] = name + &quot &quot + line
+
+      number_of_lines += 1
+      &#47&#47 Check if we reached the desired dataset size.
+      if (self.targeted_dataset_size != 0 and
+              self.targeted_dataset_size &lt; number_of_lines):
+        break
+
+    &#47&#47 Replace infrequent names with unknown.
+    line_dict = self.replace_names(line_dict, name_vocab)
+
+    &#47&#47 Save the actual dialogs.
+    counter = 0
+    dataset_split_counter = 0
+    for dialog in dialog_list:
+      if counter % 10000 == 0:
+        print(&quott2t_csaky_log: Saved &quot +
+              str(counter) + &quot/&quot + str(len(dialog_list)) + &quot dialogs.&quot)
+
+      dataset_split_counter += 1
+      i = 0
+      &#47&#47 Save one utterance.
+      for utterance in dialog:
+        if (utterance != dialog[-1] and
+            dialog[i + 1] != &quotL211194&quot and
+                dialog[i + 1] != &quotL1045&quot):
+          &#47&#47 Prepare the name annotated data.
+          target_words = line_dict[dialog[i + 1]].split()
+          target_name = target_words[0]
+          target_line = &quot &quot.join(target_words[1:]) + &quot\n&quot
+          source_line = line_dict[utterance] + &quot &quot + target_name + &quot\n&quot
+
+          &#47&#47 Save to the files according to dataset split.
+          if dataset_split_counter &lt;= self.dataset_split[&quottrain&quot]:
+            &#47&#47 Build vocabulary.
+            words = source_line.split()[1:-1]
+            for word in words:
+              if word in vocabulary:
+                vocabulary[word] += 1
+              else:
+                vocabulary[word] = 1
+
+            trainSource.write(source_line)
+            trainTarget.write(target_line)
+
+          elif dataset_split_counter &lt;= (self.dataset_split[&quottrain&quot] +
+                                         self.dataset_split[&quotval&quot]):
+            devSource.write(source_line)
+            devTarget.write(target_line)
+          else:
+            testSource.write(source_line)
+            testTarget.write(target_line)
+        i += 1
+
+      &#47&#47 Reset the split counter if we reached 100%.
+      if dataset_split_counter == 100:
+        dataset_split_counter = 0
+      counter += 1
+
+    &#47&#47 Close the files.
+    self.close_n_files([trainSource,
+                       trainTarget,
+                       devSource,
+                       devTarget,
+                       testSource,
+                       testTarget])
+    movie_lines.close()
+
+    &#47&#47 Save the vocabulary.
+    self.save_vocab(vocabulary, name_vocab)
+
+  &#47&#47 Replace infrequent names with unknown.
+  def replace_names(self, line_dict, name_vocab):
+    &quot&quot&quot
+    Params:
+      :line_dict:   Dictionary containing all the parsed lines.
+      :name_vocab:  The vocabulary of names.
+    &quot&quot&quot
+
+    name_list = []
+    for name, _ in name_vocab.most_common(self.targeted_name_vocab_size - 1):
+      name_list.append(name)
+
+    for dialog_id in line_dict:
+      line = line_dict[dialog_id].split()
+
+      if line[0] not in name_list:
+        string = &quot &quot + line[0] + &quot &quot
+        line_dict[dialog_id] = re.sub(string,
+                                      &quot &lt;unk_name&gt; &quot,
+                                      &quot &quot + line_dict[dialog_id] + &quot &quot)
+    return line_dict
+
+  &#47&#47 Save the vocabulary to a file.
+  def save_vocab(self, vocab, name_vocab):
+    &quot&quot&quot
+    Params:
+      :vocab:       Vocabulary list.
+      :name_vocab:  Name vocabulary.
+    &quot&quot&quot
+    voc_file = open(os.path.join(self._data_dir, self.vocab_file), &quotw&quot)
+
+    &#47&#47 put the reserved tokens in
+    voc_file.write(&quot&lt;pad&gt;\n&quot)
+    voc_file.write(&quot&lt;EOS&gt;\n&quot)
+
+    &#47&#47 basic words
+    for word, _ in vocab.most_common(self.targeted_vocab_size - 3):
+      voc_file.write(word + &quot\n&quot)
+    voc_file.write(&quot&lt;unk&gt;&quot + &quot\n&quot)
+
+    &#47&#47 name vocab
+    for name, _ in name_vocab.most_common(self.targeted_name_vocab_size - 1):
+      voc_file.write(name + &quot\n&quot)
+    voc_file.write(&quot&lt;unk_name&gt;&quot)
+
+    voc_file.close()
+</code></pre>

@@ -1,0 +1,196 @@
+<link rel="stylesheet" href="../../../../..//default.css">
+<script src="../../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/idaholab/raven/blob/devel/ravenframework/CodeInterfaceClasses/PHISICS/XSCreator.py#L70">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/raven/blob/devel/ravenframework/CodeInterfaceClasses/PHISICS/XSCreator.py#L70">GitMyHubLink</a>
+
+
+Created on September 1st, 2017
+@author: rouxpn
+
+from __future__ import division, print_function, unicode_literals, absolute_import
+import os
+from decimal import Decimal
+import xml.etree.ElementTree as ET
+from xml.etree.ElementTree import Element, SubElement, Comment
+from xml.dom import minidom
+
+class XSCreator():
+  
+    Creates a perturbed cross section xml file based.
+  
+  def __init__(self,inputFiles,booleanTab,workingDir,tabMapFileName,**pertDict):
+    
+      Parses the PHISICS scaled_xs data file.
+      @ In, inputFiles, string, file name the perturbed cross sections are printed into
+      @ In, booleanTab, bool, True if a tabulation mapping is provided in the problem input. False otherwise
+                                  This variable is ontrolled by the xml node &lt;tabulation&gt; in the raven input
+      @ In, workingDir, string, absolute path to working directory
+      @ In, tabMapFileName, string, absolute path to xml tabulation file
+      @ In, pertDict, dictionary, dictionary of perturbed variables
+      @ Out, None
+    
+    self.pertDict = self.scientificNotation(pertDict) &#47&#47 Perturbed variables
+    self.listedDict = self.fileReconstruction(self.pertDict)
+    self.generateXML(workingDir,booleanTab,inputFiles,tabMapFileName)
+
+  def scientificNotation(self,pertDict):
+    
+      Converts the numerical values into a scientific notation.
+      @ In, pertDict, dictionary, perturbed variables
+      @ Out, pertDict, dictionary, perturbed variables in scientific format
+    
+    for key, value in pertDict.items():
+      pertDict[key] = &quot%.8E&quot % Decimal(str(value))
+    return pertDict
+
+  def tabMapping(self,tab,tabMapFileName):
+    
+      Links the tabulation number to the actual tabulation points
+      @ In, tab, string, refers to the tabulation number
+      @ In, tabMapFileName, string, absolute path to xml tabulation file
+      @ Out, tabList, list, lists of all the tabulation parameters
+      @ Out, valueList, lists of all the tabulation values
+    
+    mappingTree = ET.parse(tabMapFileName)
+    mappingRoot = mappingTree.getroot()
+    for tabulationXML in mappingRoot.getiterator(&quottabulation&quot):
+      if tab == tabulationXML.attrib.get(&quotset&quot):
+        tabList = []
+        valueList = []
+        for tabXML in tabulationXML.getiterator(&quottab&quot):
+          tabList.append(tabXML.attrib.get(&quotname&quot))
+          valueList.append(tabXML.text)
+    return tabList, valueList
+
+  def prettify(self,elem):
+    
+      Returns a pretty-printed xml string for the Element.
+      @ In, elem, xml.etree.ElementTree.Element
+      @ Out, None
+    
+    roughString = ET.tostring(elem, &quotutf-8&quot)
+    reparsed = minidom.parseString(roughString)
+    return reparsed.toprettyxml(indent="  ")
+
+  def generateXML(self,workingDir,bool,inputFiles,tabMapFileName):
+    
+      Creates an xml file from the interface.
+      @ In, workingDir, string, absolute path to working directory
+      @ In, bool, boolean, True if a tabulation mapping is provided, false otherwise
+      @ In, inputFiles, string, file name the perturbed cross sections are printed into
+      @ In, tabMapFileName, string, absolute path to xml tabulation file
+      @ Out, modifiedFile, string, name of the xml file created (under a dummy name)
+    
+    top = Element(&quotscaling_library&quot, {&quotprint_xml&quot:&quott&quot})
+    print (self.listedDict)
+    for XS in self.listedDict.keys():
+      for tabulation in self.listedDict.get(&quotXS&quot).keys():
+        topChild = SubElement(top, &quotset&quot)
+        if bool:
+          tabList, valueList = self.tabMapping(tabulation,tabMapFileName)
+          for tab,value in zip(tabList,valueList):
+            tabChild = SubElement(topChild, &quottab&quot, {&quotname&quot:tab})
+            tabChild.text = value
+        for material in self.listedDict.get(&quotXS&quot).get(tabulation).keys():
+          tabulationChild = SubElement(topChild, &quotlibrary&quot, {&quotlib_name&quot:material})
+          for isotope in self.listedDict.get(&quotXS&quot).get(tabulation).get(material).keys():
+            for typeOfXs in self.listedDict.get(&quotXS&quot).get(tabulation).get(material).get(isotope).keys():
+              libraryChild = SubElement(tabulationChild, &quotisotope&quot, {&quotid&quot:isotope, &quottype&quot:typeOfXs.lower()})
+              for reaction in self.listedDict.get(&quotXS&quot).get(tabulation).get(material).get(isotope).get(typeOfXs).keys():
+                for count,(group,value) in enumerate(self.listedDict.get(&quotXS&quot).get(tabulation).get(material).get(isotope).get(typeOfXs).get(reaction).items()):
+                  reactionChild = SubElement(libraryChild, self.formatXS(reaction), {&quotg&quot:group})
+                  reactionChild.text = value
+    <a id="change">fileObj = open(inputFiles, &quotw&quot)</a>
+    fileObj.write(self.prettify(top))
+    <a id="change">fileObj</a><a id="change">.close()</a>
+
+  def formatXS(self,reaction):
+    
+      Formats the reaction type to the proper PHISICS template
+      @ In, reaction, string, a reaction type, in capital letters &quotFISSIONXS&quot
+      @ Out, reactionTemplated, a reaction type, templated &quotFissionXS&quot
+    
+    if reaction == &quotFISSIONXS&quot:
+      reactionTemplated = &quotFissionXS&quot
+    elif reaction == &quotKAPPAXS&quot:
+      reactionTemplated = &quotKappaXS&quot
+    elif reaction == &quotNUFISSIONXS&quot:
+      reactionTemplated = &quotNuFissionXS&quot
+    elif reaction == &quotN2NXS&quot:
+      reactionTemplated = &quotn2nXS&quot
+    elif reaction == &quotNPXS&quot:
+      reactionTemplated = &quotnpXS&quot
+    elif reaction == &quotNALPHAXS&quot:
+      reactionTemplated = &quotnalphaXS&quot
+    elif reaction == &quotNGXS&quot:
+      reactionTemplated = &quotngXS&quot
+    else:
+      raise IOError(&quotthe type of cross section &quot+reaction+&quot cannot be processed. Refer to manual for available reactions.&quot)
+    return reactionTemplated
+
+  def cleanEmpty(self,reconstructedDict):
+    
+      Removes all the empty string in the nested dictionary reconstructedDict.
+      @ In, reconstructedDict, dictionary or list,  nested dictionary or list
+      @ Out, cleanEmpty, dictionary or list, nested dictionary or list without trailing blanks
+    
+    if not isinstance(reconstructedDict,(dict,list)):
+      return reconstructedDict
+    if isinstance(reconstructedDict, list):
+      return [v for v in (self.cleanEmpty(v) for v in reconstructedDict) if v]
+    return {k: v for k, v in ((k, self.cleanEmpty(v)) for k, v in reconstructedDict.items()) if v}
+
+  def fileReconstruction(self,deconstructedDict):
+    
+      Converts the formatted dictionary -&gt; {&quotXS|FUEL1|U235|FISSION|1&quot:1.30, &quotXS|FUEL2|U238|ABS|2&quot:4.69}
+      into a dictionary of dictionaries that has the format -&gt; {&quotXS&quot:{&quotFUEL1&quot:{&quotU235&quot:{&quotFISSION&quot:{&quot1&quot:1.30}}}}, &quotFUEL2&quot:{&quotU238&quot:{&quotABS&quot:{&quot2&quot:4.69}}}}
+      @ In, deconstructedDict, dictionary, dictionary of perturbed variables
+      @ Out, leanReconstructedDict, dictionary, nested dictionary of perturbed variables
+    
+    reconstructedDict = {}
+    perturbedPhysicalParameters = []
+    perturbedTabulationPoint = []
+    perturbedMaterials = []
+    perturbedIsotopes = []
+    perturbedTypes = []
+    perturbedReactions = []
+    perturbedGroups = []
+
+    pertDictSet = set(self.pertDict)
+    deconstructedDictSet = set(deconstructedDict)
+    for key in pertDictSet.intersection(deconstructedDictSet):
+      if len(key.split(&quot|&quot)) != 7:
+        raise IOError("The cross section variable "+key+" is not properly formatted")
+      perturbedPhysicalParameters.append(key.split(&quot|&quot)[0])
+      perturbedTabulationPoint.append(key.split(&quot|&quot)[1])
+      perturbedMaterials.append(key.split(&quot|&quot)[2])
+      perturbedIsotopes.append(key.split(&quot|&quot)[3])
+      perturbedTypes.append(key.split(&quot|&quot)[4])
+      perturbedReactions.append(key.split(&quot|&quot)[5])
+      perturbedGroups.append(key.split(&quot|&quot)[6])
+
+    for pertPhysicalParam in perturbedPhysicalParameters:
+      reconstructedDict[pertPhysicalParam] = {}
+      for pertTabulationPoint in perturbedTabulationPoint:
+        reconstructedDict[pertPhysicalParam][pertTabulationPoint] = {}
+        for mat in perturbedMaterials:
+          reconstructedDict[pertPhysicalParam][pertTabulationPoint][mat] = {}
+          for isotope in perturbedIsotopes:
+            reconstructedDict[pertPhysicalParam][pertTabulationPoint][mat][isotope] = {}
+            for reactType in perturbedTypes:
+              reconstructedDict[pertPhysicalParam][pertTabulationPoint][mat][isotope][reactType] = {}
+              for react in perturbedReactions:
+                reconstructedDict[pertPhysicalParam][pertTabulationPoint][mat][isotope][reactType][react] = {}
+                for group in perturbedGroups:
+                  reconstructedDict[pertPhysicalParam][pertTabulationPoint][mat][isotope][reactType][react][group] = {}
+    for typeKey, value in deconstructedDict.items():
+      if typeKey in pertDictSet:
+        keyWords = typeKey.split(&quot|&quot)
+        reconstructedDict[keyWords[0]][keyWords[1]][keyWords[2]][keyWords[3]][keyWords[4]][keyWords[5]][keyWords[6]] = value
+    leanReconstructedDict = self.cleanEmpty(reconstructedDict)
+    return leanReconstructedDict
+</code></pre>

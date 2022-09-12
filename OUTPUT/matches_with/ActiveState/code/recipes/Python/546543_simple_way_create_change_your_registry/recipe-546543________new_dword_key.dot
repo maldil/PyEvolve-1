@@ -1,0 +1,42 @@
+digraph G {
+1 [label="(175043582)String(lit(C:\reg3.reg))" shape=ellipse style=dashed color=blue fontcolor=blue]
+2 [label="(175043580)TextIO(reg3)" shape=ellipse style=dashed color=blue fontcolor=blue]
+3 [label="(175043587)String(lit(REGEDIT4
+[HKEY_CURRENT_USER\Example]
+"Dword key"=dword:00000000 ))" shape=ellipse style=dashed]
+4 [label="(175043593)number(0)" shape=ellipse style=dashed]
+5 [label="(175043584)=" shape=box style=dashed color=blue fontcolor=blue]
+6 [label="(175043590)win32api(win32api)" shape=ellipse style=dashed]
+7 [label="(175043583)String(lit(w))" shape=ellipse style=dashed color=blue fontcolor=blue]
+8 [label="(175043585)TextIO(reg3)" shape=ellipse style=dashed]
+9 [label="(175043588)TextIO(reg3)" shape=ellipse style=dashed color=blue fontcolor=blue]
+10 [label="(175043586)write" shape=box style=dashed]
+11 [label="(175043581)open" shape=box style=dashed color=blue fontcolor=blue]
+12 [label="(175043592)String(lit(reg import C:\reg3.reg))" shape=ellipse style=dashed]
+13 [label="(175043589)close" shape=box style=dashed color=blue fontcolor=blue]
+14 [label="(175043594)END" style=dashed]
+15 [label="(175043591)WinExec" shape=box style=dashed]
+16 [label="(175043579)START" style=dashed]
+5 -> 2 [label="def" style=dotted];
+16 -> 5 [label="" style=solid];
+11 -> 5 [label="dep" style=dotted];
+11 -> 5 [label="para" style=dotted];
+2 -> 8 [label="ref" style=dotted];
+2 -> 9 [label="ref" style=dotted];
+16 -> 10 [label="" style=solid];
+8 -> 10 [label="recv" style=dotted];
+3 -> 10 [label="para" style=dotted];
+5 -> 10 [label="dep" style=dotted];
+16 -> 11 [label="" style=solid];
+1 -> 11 [label="para" style=dotted];
+7 -> 11 [label="para" style=dotted];
+16 -> 13 [label="" style=solid];
+9 -> 13 [label="recv" style=dotted];
+10 -> 13 [label="dep" style=dotted];
+15 -> 14 [label="dep" style=dotted];
+16 -> 15 [label="" style=solid];
+6 -> 15 [label="recv" style=dotted];
+12 -> 15 [label="para" style=dotted];
+4 -> 15 [label="para" style=dotted];
+13 -> 15 [label="dep" style=dotted];
+}

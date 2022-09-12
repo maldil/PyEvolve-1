@@ -1,0 +1,247 @@
+<link rel="stylesheet" href="../../../..//default.css">
+<script src="../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/jaakkopasanen/AutoEq/blob/master/measurements/oratory1990/oratory1990_crawler.py#L156">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/AutoEq/blob/master/measurements/oratory1990/oratory1990_crawler.py#L156">GitMyHubLink</a>
+
+&#47&#47 -*- coding: utf-8 -*-
+
+import os
+import sys
+import re
+from bs4 import BeautifulSoup
+from ghostscript import Ghostscript
+import PyPDF2
+from PIL import Image, ImageDraw
+import colorsys
+import numpy as np
+import shutil
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+sys.path.insert(1, os.path.realpath(os.path.join(sys.path[0], os.pardir, os.pardir)))
+from measurements.name_index import NameIndex, NameItem
+from measurements.crawler import Crawler
+from measurements.image_graph_parser import ImageGraphParser
+from frequency_response import FrequencyResponse
+
+DIR_PATH = os.path.abspath(os.path.join(__file__, os.pardir))
+
+
+class Oratory1990Crawler(Crawler):
+    def __init__(self, driver=None):
+        if driver is None:
+            opts = Options()
+            opts.add_argument(&quot--headless&quot)
+            driver = webdriver.Chrome(os.path.abspath(os.path.join(DIR_PATH, &quot..&quot, &quotchromedriver&quot)), options=opts)
+        super().__init__(driver=driver)
+
+    @staticmethod
+    def read_name_index():
+        return NameIndex.read_tsv(os.path.join(DIR_PATH, &quotname_index.tsv&quot))
+
+    def write_name_index(self):
+        self.name_index.write_tsv(os.path.join(DIR_PATH, &quotname_index.tsv&quot))
+
+    @staticmethod
+    def get_existing():
+        return NameIndex.read_files(os.path.join(DIR_PATH, &quotdata&quot, &quot*&quot, &quot*&quot, &quot*&quot))
+
+    def get_urls(self):
+        if self.driver is None:
+            raise TypeError(&quotself.driver cannot be None&quot)
+
+        document = self.get_beautiful_soup(&quothttps://www.reddit.com/r/oratory1990/wiki/index/list_of_presets&quot)
+        urls = {}
+        table_header = document.find(id=&quotwiki_full_list_of_eq_settings.3A&quot)
+        if table_header is None:
+            raise RedditCrawlFailed(&quotCould not read data in Reddit.&quot)
+        tbody = table_header.parent.find(&quottable&quot).find(&quottbody&quot)
+        manufacturer = None
+        model = None
+        for row in tbody.find_all(&quottr&quot):
+            cells = row.find_all(&quottd&quot)
+
+            &#47&#47 Parse cells
+            manufacturer = cells[0].text.strip() if cells[0].text.strip() != &quot-&quot else manufacturer
+            model = cells[1].text.strip() if cells[1].text.strip() != &quot-&quot else model
+            url = cells[2].find(&quota&quot)[&quothref&quot].replace(&quot?dl=0&quot, &quot?dl=1&quot)
+            notes = cells[3].text.strip()
+
+            words = [x.strip().lower() for x in notes.split()]
+            if bool([x for x in [&quotband&quot, &quoteq&quot, &quotsetting&quot, &quotcrinacle&quot, &quotadi-2&quot] if x in words]):
+                &#47&#47 Skip various EQ settings
+                continue
+
+            false_name = f&quot{manufacturer} {model}&quot
+            if notes:
+                false_name += f&quot ({notes})&quot
+            if false_name not in urls:
+                urls[false_name] = url
+
+        &#47&#47 Manual additions which have not been added to the list yet
+        &#47&#47urls[&quotAvantone Planar&quot] = &quothttps://www.dropbox.com/s/o867ox65g124mp1/Avantone%20Planar.pdf?dl=1&quot
+
+        return urls
+
+    @staticmethod
+    def parse_image(im, model, px_top=800, px_bottom=4400, px_left=0, px_right=2500):
+        Parses graph image downloaded from innerfidelity.com
+        &#47&#47 Crop out everything but graph area (roughly)
+        box = (px_left, px_top, im.size[0] - px_right, im.size[1] - px_bottom)
+        im = im.crop(box)
+        &#47&#47 im.show()
+
+        &#47&#47 Find graph edges
+        v_lines = ImageGraphParser.find_lines(im, &quotvertical&quot)
+        h_lines = ImageGraphParser.find_lines(im, &quothorizontal&quot)
+
+        &#47&#47 Crop by graph edges
+        box = (v_lines[0], h_lines[0], v_lines[1], h_lines[1])
+        im = im.crop(box)
+        &#47&#47 im.show()
+
+        &#47&#47 X axis
+        f_min = 10
+        f_max = 20000
+        f_step = (f_max / f_min) ** (1 / im.size[0])
+        f = [f_min]
+        for _ in range(1, im.size[0]):
+            f.append(f[-1] * f_step)
+
+        &#47&#47 Y axis
+        a_max = 30
+        a_min = -20
+        a_res = (a_max - a_min) / im.size[1]
+
+        _im = im.copy()
+        pix = _im.load()
+        amplitude = []
+        y_legend = 40 / 50 * im.size[1]
+        x0_legend = np.log(70 / f_min) / np.log(f_step)
+        x1_legend = np.log(1000 / f_min) / np.log(f_step)
+        &#47&#47 Iterate each column
+        for x in range(im.size[0]):
+            pxs = []  &#47&#47 Graph pixels
+            &#47&#47 Iterate each row (pixel in column)
+            for y in range(im.size[1]):
+                if y &gt; y_legend and x0_legend &lt; x &lt; x1_legend:
+                    &#47&#47 Skip pixels in the legend box
+                    continue
+
+                &#47&#47 Convert read RGB pixel values and convert to HSV
+                h, s, v = colorsys.rgb_to_hsv(*[v / 255.0 for v in im.getpixel((x, y))])
+                &#47&#47 Graph pixels are colored
+                if 0.7 &lt; s &lt; 0.9 and 20 / 360 &lt; h &lt; 30 / 360:
+                    pxs.append(float(y))
+                else:
+                    p = im.getpixel((x, y))
+                    pix[x, y] = (int(0.3 * p[0]), int(255 * 0.7 + 0.3 * p[1]), int(0.3 * p[2]))
+            if not pxs:
+                &#47&#47 No graph pixels found on this column
+                amplitude.append(None)
+            else:
+                &#47&#47 Mean of recorded pixels
+                v = np.mean(pxs)
+                &#47&#47 Convert to dB value
+                v = a_max - v * a_res
+                amplitude.append(v)
+
+        &#47&#47 Inspection image
+        draw = ImageDraw.Draw(_im)
+        x0 = np.log(20 / f_min) / np.log(f_step)
+        x1 = np.log(10000 / f_min) / np.log(f_step)
+        draw.rectangle(((x0, 10 / a_res), (x1, 40 / a_res)), outline=&quotmagenta&quot)
+        draw.rectangle(((x0 + 1, 10 / a_res + 1), (x1 - 1, 40 / a_res - 1)), outline=&quotmagenta&quot)
+
+        fr = FrequencyResponse(model, f, amplitude)
+        fr.interpolate()
+        fr.center()
+        return fr, _im
+
+    @staticmethod
+    def pdf_to_image(<a id="change">input_file</a>, <a id="change">output_file</a>):
+        <a id="change">input_file = os.path.abspath(input_file)</a>
+        <a id="change">output_file = os.path.abspath(output_file)</a>
+
+        &#47&#47 Read headphone model from the PDF
+        <a id="change">f = open(input_file, &quotrb&quot)</a>
+        <a id="change">text = PyPDF2.PdfFileReader(f).getPage(0).extractText()</a>
+        if &quotcrinacle&quot in text.lower():
+            raise ValueError(&quotMeasured by Crinacle&quot)
+
+        &#47&#47 Convert to image with ghostscript
+        &#47&#47 Using temporary paths with Ghostscript because it seems to be unable to work with non-ascii characters
+        <a id="change">tmp_in = os.path.join(os.path.split(input_file)[0], &quot__tmp.pdf&quot)</a>
+        <a id="change">tmp_out = os.path.join(os.path.split(output_file)[0], &quot__tmp.png&quot)</a>
+        if tmp_in == input_file or tmp_out == output_file:
+            &#47&#47 Skip tmp files in case it was passed as input
+            raise ValueError(&quottmp file&quot)
+        shutil.copy(input_file, tmp_in)
+        <a id="change">gs = Ghostscript(
+            b&quotpdf2png&quot,
+            b&quot-dNOPAUSE&quot,
+            b&quot-sDEVICE=png16m&quot,
+            b&quot-dBATCH&quot,
+            b&quot-r600&quot,
+            b&quot-dUseCropBox&quot,
+            f&quot-sOutputFile={tmp_out}&quot.encode(&quotutf-8&quot),
+            tmp_in.encode(&quotutf-8&quot)
+        )</a>
+        gs.exit()
+        shutil.copy(tmp_out, output_file)
+        print(&quot\nSaved image to "{}"\n&quot.format(output_file))
+        <a id="change">f</a><a id="change">.close()</a>
+
+        return Image.open(output_file)
+
+    def process(self, item, url):
+        if item.form == &quotignore&quot:
+            return
+
+        pdf_dir = os.path.join(DIR_PATH, &quotpdf&quot)
+        image_dir = os.path.join(DIR_PATH, &quotimages&quot)
+        inspection_dir = os.path.join(DIR_PATH, &quotinspection&quot)
+        data_dir = os.path.join(DIR_PATH, &quotdata&quot)
+        out_dir = os.path.join(data_dir, item.form, item.true_name)
+
+        os.makedirs(pdf_dir, exist_ok=True)
+        os.makedirs(image_dir, exist_ok=True)
+        os.makedirs(inspection_dir, exist_ok=True)
+        os.makedirs(out_dir, exist_ok=True)
+
+        pdf_path = Crawler.download(url, item.true_name, pdf_dir)
+        if not pdf_path:
+            return
+        try:
+            im = Oratory1990Crawler.pdf_to_image(
+                os.path.join(pdf_dir, f&quot{item.true_name}.pdf&quot),
+                os.path.join(image_dir, f&quot{item.true_name}.png&quot)
+            )
+        except ValueError as err:
+            if str(err) == &quotMeasured by Crinacle&quot:
+                ignored = item.copy()
+                ignored.form = &quotignore&quot
+                self.name_index.update(ignored, false_name=item.false_name, true_name=item.true_name, form=item.form)
+                self.write_name_index()
+                print(f&quotIgnored {item.false_name} because it is measured by Crinacle.&quot)
+            return
+        fr, inspection = Oratory1990Crawler.parse_image(im, item.true_name)
+        inspection.save(os.path.join(inspection_dir, f&quot{item.true_name}.png&quot))
+        fr.write_to_csv(os.path.join(out_dir, f&quot{item.true_name}.csv&quot))
+
+
+class RedditCrawlFailed(Exception):
+    pass
+
+
+def main():
+    crawler = Oratory1990Crawler()
+    crawler.process_new(prompt=False)
+
+
+if __name__ == &quot__main__&quot:
+    main()
+</code></pre>

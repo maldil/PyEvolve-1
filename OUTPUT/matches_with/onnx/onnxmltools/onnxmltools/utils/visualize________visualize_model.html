@@ -1,0 +1,154 @@
+<link rel="stylesheet" href="../../../..//default.css">
+<script src="../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/onnx/onnxmltools/blob/main/onnxmltools/utils/visualize.py#L62">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/onnxmltools/blob/main/onnxmltools/utils/visualize.py#L62">GitMyHubLink</a>
+
+&#47&#47 SPDX-License-Identifier: Apache-2.0
+
+import os
+import shutil
+import sys
+from webbrowser import open_new_tab
+
+
+def get_set_node(node, i="0"):
+    return "g.setNode(" + str(i) + ", { label: &quot" + node + "&quot, class: &quottype-" + node + "&quot });"
+
+
+def get_set_edge(start, end):
+    return "g.setEdge(" + str(start) + ", " + str(end) + ");"
+
+
+def get_nodes(graph):
+    graph_nodes = [(i, node.op_type) for i, node in enumerate(graph.node, 0)]
+    graph_nodes.extend([(i, node.name)
+                        for i, node in enumerate(graph.input, len(graph_nodes))])
+    graph_nodes.extend([(i, node.name)
+                        for i, node in enumerate(graph.output, len(graph_nodes) + 1)])
+    return graph_nodes
+
+
+def get_nodes_builder(graph_nodes):
+    _ret = [get_set_node(node[1], node[0]) for node in graph_nodes]
+    return _ret
+
+
+def get_edges(graph):
+    nodes = graph.node
+    initializer_names = [init.name for init in graph.initializer]
+    output_node_hash = {}
+    edge_list = []
+    for i, node in enumerate(nodes, 0):
+        for output in node.output:
+            if output in output_node_hash.keys():
+                output_node_hash[output].append(i)
+            else:
+                output_node_hash[output] = [i]
+    for i, inp in enumerate(graph.input, len(nodes)):
+        output_node_hash[inp.name] = [i]
+    for i, node in enumerate(nodes, 0):
+        for input in node.input:
+            if input in output_node_hash.keys():
+                edge_list.extend([(node_id, i)
+                                  for node_id in output_node_hash[input]])
+            else:
+                if not input in initializer_names:
+                    print(
+                        "No corresponding output found for {0}.".format(input))
+    for i, output in enumerate(graph.output, len(nodes) + len(graph.input) + 1):
+        if output.name in output_node_hash.keys():
+            edge_list.extend([(node_id, i)
+                              for node_id in output_node_hash[output.name]])
+        else:
+            pass
+    return edge_list
+
+
+def visualize_model(<a id="change">onnx_model</a>, <a id="change">open_browser</a>=True, <a id="change">dest</a>="index.html"):
+    
+    Creates a graph visualization of an ONNX protobuf model.
+    It creates a SVG graph with *d3.js* and stores it into a file.
+
+    :param model: ONNX model (protobuf object)
+    :param open_browser: opens the browser
+    :param dest: destination file
+
+    Example:
+
+    ::
+
+        from onnxmltools.utils import visualize_model
+        visualize_model(model)
+    
+    <a id="change">graph = onnx_model.graph</a>
+    <a id="change">model_info = "Model produced by: " + onnx_model.producer_name + \
+        " version(" + onnx_model.producer_version + ")"</a>
+
+    <a id="change">html_str = 
+    &lt;!doctype html&gt;
+    &lt;meta charset="utf-8"&gt;
+    &lt;title&gt;ONNX Visualization&lt;/title&gt;
+    &lt;script src="https://d3js.org/d3.v3.min.js"&gt;&lt;/script&gt;
+    &lt;link rel="stylesheet" href="styles.css"&gt;
+    &lt;script src="dagre-d3.min.js"&gt;&lt;/script&gt;
+
+    &lt;h2&gt;[model_info]&lt;/h2&gt;
+
+    &lt;svg id="svg-canvas" width=960 height=600&gt;&lt;/svg&gt;
+
+    &lt;script id="js"&gt;
+    var g = new dagreD3.graphlib.Graph()
+    .setGraph({})
+    .setDefaultEdgeLabel(function() { return {}; });
+
+    [nodes_html]
+
+    g.nodes().forEach(function(v) {
+    var node = g.node(v);
+    // Round the corners of the nodes
+    node.rx = node.ry = 5;
+    });
+
+    [edges_html]
+
+    // Create the renderer
+    var render = new dagreD3.render();
+
+    // Set up an SVG group so that we can translate the final graph.
+    var svg = d3.select("svg"),
+        svgGroup = svg.append("g");
+
+    // Run the renderer. This is what draws the final graph.
+    render(d3.select("svg g"), g);
+
+    // Center the graph
+    svgGroup.attr("transform", "translate(20, 20)");
+    svg.attr("height", g.graph().height + 40);
+    svg.attr("width", g.graph().width + 40);
+    &lt;/script&gt;
+    </a>
+
+    <a id="change">html_str = html_str.replace("[nodes_html]", "\n".join(
+        get_nodes_builder(get_nodes(graph))))</a>
+
+    <a id="change">html_str = html_str.replace("[edges_html]", "\n".join(
+        [get_set_edge(edge[0], edge[1]) for edge in get_edges(graph)]))</a>
+
+    <a id="change">html_str = html_str.replace("[model_info]", model_info)</a>
+
+    <a id="change">Html_file = open(dest, "w")</a>
+    Html_file.write(html_str)
+    <a id="change">Html_file</a><a id="change">.close()</a>
+
+    <a id="change">pkgdir = sys.modules[&quotonnxmltools&quot].__path__[0]</a>
+    <a id="change">fullpath = os.path.join(pkgdir, "utils", "styles.css")</a>
+    shutil.copy(fullpath, os.getcwd())
+    <a id="change">fullpath = os.path.join(pkgdir, "utils", "dagre-d3.min.js")</a>
+    shutil.copy(fullpath, os.getcwd())
+
+    open_new_tab("file://" + os.path.realpath("index.html"))
+</code></pre>

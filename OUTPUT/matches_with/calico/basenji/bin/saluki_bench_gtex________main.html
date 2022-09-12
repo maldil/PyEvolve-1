@@ -1,0 +1,324 @@
+<link rel="stylesheet" href="../../..//default.css">
+<script src="../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/calico/basenji/blob/master/bin/saluki_bench_gtex.py#L43">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/basenji/blob/master/bin/saluki_bench_gtex.py#L43">GitMyHubLink</a>
+
+&#47&#47!/usr/bin/env python
+&#47&#47 Copyright 2020 Calico LLC
+
+&#47&#47 Licensed under the Apache License, Version 2.0 (the "License");
+&#47&#47 you may not use this file except in compliance with the License.
+&#47&#47 You may obtain a copy of the License at
+
+&#47&#47     https://www.apache.org/licenses/LICENSE-2.0
+
+&#47&#47 Unless required by applicable law or agreed to in writing, software
+&#47&#47 distributed under the License is distributed on an "AS IS" BASIS,
+&#47&#47 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+&#47&#47 See the License for the specific language governing permissions and
+&#47&#47 limitations under the License.
+&#47&#47 =========================================================================
+
+from optparse import OptionParser
+import glob
+import os
+import pickle
+import pdb
+import shutil
+import subprocess
+import sys
+
+import h5py
+import numpy as np
+import pandas as pd
+
+import slurm
+
+
+saluki_bench_gtex.py
+
+Compute SNP expression difference scores for variants in VCF files of
+fine-mapped GTEx variants to benchmark as features in a classification
+task.
+
+
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+&#47&#47 main
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+def main():
+  <a id="change">usage = &quotusage: %prog [options] &lt;models_dir&gt;&quot</a>
+  <a id="change">parser = OptionParser(usage)</a>
+
+  &#47&#47 ssd
+  parser.add_option(&quot-f&quot, dest=&quotgenome_fasta&quot,
+      default=&quot%s/data/hg38.fa&quot % os.environ[&quotBASENJIDIR&quot],
+      help=&quotGenome FASTA for sequences [Default: %default]&quot)
+  parser.add_option(&quot-g&quot, dest=&quotgenes_gtf&quot,
+      default=&quot/home/drk/rnaml/data/genes/gencode36_saluki.gtf&quot,
+      help=&quotGenes GTF [Default: %default]&quot)
+  parser.add_option(&quot-o&quot,dest=&quotout_dir&quot,
+      default=&quotssd_gtex&quot,
+      help=&quotOutput directory for tables and plots [Default: %default]&quot)
+  parser.add_option(&quot--shifts&quot, dest=&quotshifts&quot,
+      default=&quot0&quot, type=&quotstr&quot,
+      help=&quotEnsemble prediction shifts [Default: %default]&quot)
+
+  &#47&#47 multi
+  parser.add_option(&quot-d&quot, dest=&quotdata_head&quot,
+      default=None, type=&quotint&quot,
+      help=&quotIndex for dataset/head [Default: %default]&quot)
+  parser.add_option(&quot-e&quot, dest=&quotconda_env&quot,
+      default=&quottf2.6-rna&quot,
+      help=&quotAnaconda environment [Default: %default]&quot)
+  parser.add_option(&quot--name&quot, dest=&quotname&quot,
+      default=&quotgtex&quot, help=&quotSLURM name prefix [Default: %default]&quot)
+  parser.add_option(&quot--max_proc&quot, dest=&quotmax_proc&quot,
+      default=None, type=&quotint&quot,
+      help=&quotMaximum concurrent processes [Default: %default]&quot)
+  parser.add_option(&quot-p&quot, dest=&quotprocesses&quot,
+      default=None, type=&quotint&quot,
+      help=&quotNumber of processes, passed by multi script. \
+            (Unused, but needs to appear as dummy.)&quot)
+  parser.add_option(&quot-q&quot, dest=&quotqueue&quot,
+      default=&quotgeforce&quot,
+      help=&quotSLURM queue on which to run the jobs [Default: %default]&quot)
+  parser.add_option(&quot-r&quot, dest=&quotrestart&quot,
+      default=False, action=&quotstore_true&quot,
+      help=&quotRestart a partially completed job [Default: %default]&quot)
+  parser.add_option(&quot-v&quot, dest=&quotgtex_vcf_dir&quot,
+      default=&quot/home/drk/rnaml/data/gtex_fine/susie_pip90&quot)
+  <a id="change">(options, args) = parser.parse_args()</a>
+
+  if len(args) != 1:
+    parser.error(&quotMust provide cross-validation model directory&quot)
+  else:
+    <a id="change">models_dir = args[0]</a>
+
+  &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+  &#47&#47 prep work
+
+  &#47&#47 output directory
+  if not options.restart:
+    if os.path.isdir(options.out_dir):
+      print(&quotPlease remove %s&quot % options.out_dir, file=sys.stderr)
+      exit(1)
+    os.mkdir(options.out_dir)
+
+  <a id="change">model_str = &quotmodel_best.h5&quot</a>
+  if options.data_head is not None:
+    <a id="change">model_str = &quotmodel%d_best.h5&quot % options.data_head</a>
+
+  <a id="change">num_folds = len(glob.glob(&quot%s/f*_c0/train/%s&quot % (models_dir,model_str)))</a>
+  <a id="change">num_crosses = len(glob.glob(&quot%s/f0_c*/train/%s&quot % (models_dir,model_str)))</a>
+  print(&quotFolds %d, Crosses %d&quot % (num_folds, num_crosses))
+  if not options.restart:
+    for fi in range(num_folds):
+      for ci in range(num_crosses):
+        os.mkdir(&quot%s/f%d_c%d&quot % (options.out_dir, fi, ci))
+
+  &#47&#47 pickle options
+  <a id="change">options_pkl_file = &quot%s/options.pkl&quot % options.out_dir</a>
+  <a id="change">options_pkl = open(options_pkl_file, &quotwb&quot)</a>
+  pickle.dump(options, options_pkl)
+  <a id="change">options_pkl</a><a id="change">.close()</a>
+
+  &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+  &#47&#47 predict
+
+  <a id="change">params_file = &quot%s/params.json&quot % models_dir</a>
+
+  <a id="change">cmd_base = &quot. /home/drk/anaconda3/etc/profile.d/conda.sh;&quot</a>
+  cmd_base += &quot conda activate %s;&quot % options.conda_env
+  cmd_base += &quot saluki_ssd.py %s %s&quot % (options_pkl_file, params_file)
+
+  <a id="change">jobs = []</a>
+  for gtex_pos_vcf in glob.glob(&quot%s/*_pos.vcf&quot % options.gtex_vcf_dir):
+    for fi in range(num_folds):
+      for ci in range(num_crosses):
+        <a id="change">model_file = &quot%s/f%d_c%d/train/%s&quot % (models_dir, fi, ci, model_str)</a>
+
+        &#47&#47 positive job
+        <a id="change">job_base = os.path.splitext(os.path.split(gtex_pos_vcf)[1])[0]</a>
+        <a id="change">out_dir = &quot%s/f%d_c%d/%s&quot % (options.out_dir, fi, ci, job_base)</a>
+        if not options.restart or not os.path.isfile(&quot%s/ssd.tsv&quot%out_dir):
+          <a id="change">cmd = &quot%s -o %s %s %s&quot % (cmd_base, out_dir, model_file, gtex_pos_vcf)</a>
+          <a id="change">name = &quot%s_%s&quot % (options.name, job_base)</a>
+          <a id="change">j = slurm.Job(cmd, name,
+              &quot%s.out&quot%out_dir, &quot%s.err&quot%out_dir,
+              queue=options.queue, gpu=1,
+              mem=22000, time=&quot1-0:0:0&quot)</a>
+          jobs.append(j)
+
+        &#47&#47 negative job
+        <a id="change">gtex_neg_vcf = gtex_pos_vcf.replace(&quot_pos.&quot,&quot_neg.&quot)</a>
+        <a id="change">job_base = os.path.splitext(os.path.split(gtex_neg_vcf)[1])[0]</a>
+        <a id="change">out_dir = &quot%s/f%d_c%d/%s&quot % (options.out_dir, fi, ci, job_base)</a>
+        if not options.restart or not os.path.isfile(&quot%s/ssd.tsv&quot%out_dir):
+          <a id="change">cmd = &quot%s -o %s %s %s&quot % (cmd_base, out_dir, model_file, gtex_neg_vcf)</a>
+          <a id="change">name = &quot%s_%s&quot % (options.name, job_base)</a>
+          <a id="change">j = slurm.Job(cmd, name,
+              &quot%s.out&quot%out_dir, &quot%s.err&quot%out_dir,
+              queue=options.queue, gpu=1,
+              mem=22000, time=&quot1-0:0:0&quot)</a>
+          jobs.append(j)
+
+  slurm.multi_run(jobs, max_proc=options.max_proc, verbose=True,
+                  launch_sleep=10, update_sleep=60)
+
+  &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+  &#47&#47 Combine into whole body set
+
+  for fi in range(num_folds):
+    for ci in range(num_crosses):
+      &#47&#47 initialize
+      <a id="change">variant_scores = {}</a>
+      <a id="change">pos_variants = set()</a>
+      <a id="change">neg_variants = set()</a>
+
+      &#47&#47 collect scores
+      for gtex_pos_vcf in glob.glob(&quot%s/*_pos.vcf&quot % options.gtex_vcf_dir):
+
+        &#47&#47 read positives
+        <a id="change">job_base = os.path.splitext(os.path.split(gtex_pos_vcf)[1])[0]</a>
+        <a id="change">out_dir = &quot%s/f%d_c%d/%s&quot % (options.out_dir, fi, ci, job_base)</a>
+        <a id="change">ssd_file = &quot%s/ssd.tsv&quot%out_dir</a>
+        if not os.path.isfile(ssd_file):
+          print(&quotWARNING: no file %s&quot % ssd_file)
+        else:
+          for line in open(ssd_file):
+            <a id="change">a = line.split()</a>
+            if a[0] == &quotvariant&quot:
+              <a id="change">header = line.rstrip()</a>
+            else:
+              vt = (a[0],a[1])
+              <a id="change">variant_scores[vt] = [float(x) for x in a[2:]]</a>
+              pos_variants.add(vt)
+
+        &#47&#47 read negatives
+        <a id="change">gtex_neg_vcf = gtex_pos_vcf.replace(&quot_pos.&quot,&quot_neg.&quot)</a>
+        <a id="change">job_base = os.path.splitext(os.path.split(gtex_neg_vcf)[1])[0]</a>
+        <a id="change">out_dir = &quot%s/f%d_c%d/%s&quot % (options.out_dir, fi, ci, job_base)</a>
+        <a id="change">ssd_file = &quot%s/ssd.tsv&quot%out_dir</a>
+        if not os.path.isfile(ssd_file):
+          print(&quotWARNING: no file %s&quot % ssd_file)
+        else:
+          for line in open(ssd_file):
+            <a id="change">a = line.split()</a>
+            if a[0] == &quotvariant&quot:
+              <a id="change">header = line.rstrip()</a>
+            else:
+              vt = (a[0],a[1])
+              <a id="change">variant_scores[vt] = [float(x) for x in a[2:]]</a>
+              neg_variants.add(vt)
+
+      <a id="change">posneg_variants = pos_variants & neg_variants</a>
+      if len(posneg_variants) &gt; 0 and fi == 0 and ci == 0:
+        print(&quotRemoving %d positive variants from negative set&quot % len(posneg_variants))
+        neg_variants -= posneg_variants
+
+      &#47&#47 write positive
+      <a id="change">out_dir = &quot%s/f%d_c%d/Body_Combined_pos&quot % (options.out_dir, fi, ci)</a>
+      os.makedirs(out_dir, exist_ok=True)
+      <a id="change">ssd_out = open(&quot%s/ssd.tsv&quot%out_dir, &quotw&quot)</a>
+      print(header, file=ssd_out)
+      for vt in pos_variants:
+        <a id="change">cols = [vt[0], vt[1]] + [str(x) for x in variant_scores[vt]]</a>
+        print(&quot\t&quot.join(cols), file=ssd_out)
+      <a id="change">ssd_out</a><a id="change">.close()</a>
+
+      &#47&#47 write negative
+      <a id="change">out_dir = &quot%s/f%d_c%d/Body_Combined_neg&quot % (options.out_dir, fi, ci)</a>
+      os.makedirs(out_dir, exist_ok=True)
+      <a id="change">ssd_out = open(&quot%s/ssd.tsv&quot%out_dir, &quotw&quot)</a>
+      print(header, file=ssd_out)
+      for vt in neg_variants:
+        <a id="change">cols = [vt[0], vt[1]] + [str(x) for x in variant_scores[vt]]</a>
+        print(&quot\t&quot.join(cols), file=ssd_out)
+      <a id="change">ssd_out</a><a id="change">.close()</a>
+
+
+  &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+  &#47&#47 ensemble
+
+  if not os.path.isdir(&quot%s/ensemble&quot % (options.out_dir)):
+    os.mkdir(&quot%s/ensemble&quot % (options.out_dir))
+
+  for gtex_pos_vcf in glob.glob(&quot%s/*_pos.vcf&quot % options.gtex_vcf_dir):
+    <a id="change">tissue = os.path.splitext(os.path.split(gtex_pos_vcf)[1])[0][:-4]</a>
+    ensemble_ssd(options.out_dir, tissue, &quotpos&quot, num_folds, num_crosses)
+    ensemble_ssd(options.out_dir, tissue, &quotneg&quot, num_folds, num_crosses)
+
+  <a id="change">tissue = &quotBody_Combined&quot</a>
+  ensemble_ssd(options.out_dir, tissue, &quotpos&quot, num_folds, num_crosses)
+  ensemble_ssd(options.out_dir, tissue, &quotneg&quot, num_folds, num_crosses)
+
+
+  &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+  &#47&#47 classify
+
+  <a id="change">cmd_base = &quot. /home/drk/anaconda3/etc/profile.d/conda.sh;&quot</a>
+  cmd_base += &quot conda activate %s;&quot % options.conda_env
+  cmd_base += &quot saluki_bench_classify.py -a -i 100 --msl 4 -p 2 -r 44 -s&quot
+
+  <a id="change">jobs = []</a>
+  for gtex_pos_vcf in glob.glob(&quot%s/*_pos.vcf&quot % options.gtex_vcf_dir):
+    <a id="change">tissue = os.path.splitext(os.path.split(gtex_pos_vcf)[1])[0][:-4]</a>
+    <a id="change">ssd_pos = &quot%s/ensemble/%s_pos/ssd.tsv&quot % (options.out_dir, tissue)</a>
+    <a id="change">ssd_neg = &quot%s/ensemble/%s_neg/ssd.tsv&quot % (options.out_dir, tissue)</a>
+    <a id="change">out_dir = &quot%s/ensemble/%s_class&quot % (options.out_dir, tissue)</a>
+    if not options.restart or not os.path.isfile(&quot%s/stats.txt&quot % out_dir):
+      <a id="change">cmd = &quot%s -o %s %s %s&quot % (cmd_base, out_dir, ssd_pos, ssd_neg)</a>
+      <a id="change">j = slurm.Job(cmd, tissue,
+          &quot%s.out&quot%out_dir, &quot%s.err&quot%out_dir,
+          queue=&quotstandard&quot, cpu=2,
+          mem=22000, time=&quot1-0:0:0&quot)</a>
+      jobs.append(j)
+
+  <a id="change">tissue = &quotBody_Combined&quot</a>
+  <a id="change">ssd_pos = &quot%s/ensemble/%s_pos/ssd.tsv&quot % (options.out_dir, tissue)</a>
+  <a id="change">ssd_neg = &quot%s/ensemble/%s_neg/ssd.tsv&quot % (options.out_dir, tissue)</a>
+  <a id="change">out_dir = &quot%s/ensemble/%s_class&quot % (options.out_dir, tissue)</a>
+  if not options.restart or not os.path.isfile(&quot%s/stats.txt&quot % out_dir):
+    <a id="change">cmd = &quot%s -o %s %s %s&quot % (cmd_base, out_dir, ssd_pos, ssd_neg)</a>
+    <a id="change">j = slurm.Job(cmd, tissue,
+        &quot%s.out&quot%out_dir, &quot%s.err&quot%out_dir,
+        queue=&quotstandard&quot, cpu=2,
+        mem=22000, time=&quot1-0:0:0&quot)</a>
+    jobs.append(j)
+
+  slurm.multi_run(jobs, verbose=True)
+
+
+def ensemble_ssd(out_dir, tissue, posneg, num_folds, num_crosses):
+  &#47&#47 read fold0, cross0
+  ssd_file = &quot%s/f0_c0/%s_%s/ssd.tsv&quot % (out_dir, tissue, posneg)
+  ensemble_df = pd.read_csv(ssd_file, sep=&quot\t&quot)
+
+  &#47&#47 add next folds
+  for fi in range(num_folds):
+    for ci in range(num_crosses):
+      if fi != 0 or ci != 0:
+        ssd_file = &quot%s/f%d_c%d/%s_%s/ssd.tsv&quot % (out_dir, fi, ci, tissue, posneg)
+        fold_df = pd.read_csv(ssd_file, sep=&quot\t&quot)
+        ensemble_df.iloc[:,2:] += fold_df.iloc[:,2:]
+
+  &#47&#47 take mean
+  ensemble_df.iloc[:,2:] /= num_folds
+
+  &#47&#47 write
+  ssd_ens_dir = &quot%s/ensemble/%s_%s&quot % (out_dir, tissue, posneg)
+  if not os.path.isdir(ssd_ens_dir):
+    os.mkdir(ssd_ens_dir)
+  ssd_ens_file = &quot%s/ensemble/%s_%s/ssd.tsv&quot % (out_dir, tissue, posneg)
+  ensemble_df.to_csv(ssd_ens_file, sep=&quot\t&quot, index=False)
+
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+&#47&#47 __main__
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+if __name__ == &quot__main__&quot:
+  main()
+</code></pre>

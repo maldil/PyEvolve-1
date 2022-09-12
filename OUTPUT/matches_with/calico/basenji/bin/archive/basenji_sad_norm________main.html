@@ -1,0 +1,195 @@
+<link rel="stylesheet" href="../../../..//default.css">
+<script src="../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/calico/basenji/blob/master/bin/archive/basenji_sad_norm.py#L29">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/basenji/blob/master/bin/archive/basenji_sad_norm.py#L29">GitMyHubLink</a>
+
+&#47&#47!/usr/bin/env python
+from optparse import OptionParser
+import glob
+from multiprocessing import Array, Pool
+import os
+import pdb
+
+import h5py
+import numpy as np
+from scipy.stats import cauchy
+
+import matplotlib
+matplotlib.use(&quotagg&quot)
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+from basenji.plots import jointplot
+from basenji.sad5 import SAD5
+
+&quot&quot&quot
+basenji_sad_norm.py
+
+Compute normalization parameters across a split chromosome dataset.
+&quot&quot&quot
+
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+&#47&#47 main
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+def main():
+    <a id="change">usage = &quotusage: %prog [options] arg&quot</a>
+    <a id="change">parser = OptionParser(usage)</a>
+    parser.add_option(&quot-o&quot, dest=&quotout_dir&quot,
+            default=&quotsad_norm&quot)
+    parser.add_option(&quot-s&quot, dest=&quotsample&quot,
+            default=100000, type=&quotint&quot,
+            help=&quotNumber of SNPs to sample for fit [Default: %default]&quot)
+    <a id="change">(options,args) = parser.parse_args()</a>
+
+    if len(args) != 1:
+        parser.error(&quotMust provide SAD HDF5 path&quot)
+    else:
+        <a id="change">sad_h5_path = args[0]</a>
+
+    &#47&#47 retrieve chromosome SAD HDF5 files
+    <a id="change">chr_sad_h5_files = sorted(glob.glob(&quot%s/*/sad.h5&quot % sad_h5_path))</a>
+    assert(len(chr_sad_h5_files) &gt; 0)
+
+    &#47&#47 clean out any existing fits
+    &#47&#47 count SNPs across chromosomes
+    <a id="change">num_snps = 0</a>
+    for chr_sad_h5_file in chr_sad_h5_files:
+        <a id="change">chr_sad_h5 = h5py.File(chr_sad_h5_file, &quotr+&quot)</a>
+
+        &#47&#47 delete fit params
+        if &quottarget_cauchy_fit_loc&quot in chr_sad_h5.keys():
+            del chr_sad_h5[&quottarget_cauchy_fit_loc&quot]
+            del chr_sad_h5[&quottarget_cauchy_fit_scale&quot]
+
+        &#47&#47 delete norm params
+        if &quottarget_cauchy_norm_loc&quot in chr_sad_h5.keys():
+            del chr_sad_h5[&quottarget_cauchy_norm_loc&quot]
+            del chr_sad_h5[&quottarget_cauchy_norm_scale&quot]
+
+        &#47&#47 count SNPs
+        num_snps += chr_sad_h5[&quotSAD&quot].shape[0]
+        <a id="change">num_targets = chr_sad_h5[&quotSAD&quot].shape[-1]</a>
+
+        chr_sad_h5.close()
+
+
+    &#47&#47 sample SNPs across chromosomes
+    <a id="change">sad = sample_sad(chr_sad_h5_files, options.sample, num_snps, num_targets)</a>
+
+
+    &#47&#47 initialize fit parameters
+    <a id="change">target_cauchy_fit_loc = np.zeros(num_targets)</a>
+    <a id="change">target_cauchy_fit_scale = np.zeros(num_targets)</a>
+
+    &#47&#47 fit parameters
+    for ti in range(num_targets):
+        print(&quotFitting t%d&quot % ti, flush=True)
+        <a id="change">cp = cauchy.fit(sad[:,ti])</a>
+        <a id="change">target_cauchy_fit_loc[ti] = cp[0]</a>
+        <a id="change">target_cauchy_fit_scale[ti] = cp[1]</a>
+    del sad
+
+    &#47&#47 write across chromosomes
+    for chr_sad_h5_file in chr_sad_h5_files:
+        <a id="change">chr_sad_h5 = h5py.File(chr_sad_h5_file, &quotr+&quot)</a>
+        chr_sad_h5.create_dataset(&quottarget_cauchy_fit_loc&quot,
+                                  data=target_cauchy_fit_loc)
+        chr_sad_h5.create_dataset(&quottarget_cauchy_fit_scale&quot,
+                                  data=target_cauchy_fit_scale)
+        chr_sad_h5.close()
+
+    &#47&#47 compute normalization parameters
+    for chr_sad_h5_file in chr_sad_h5_files:
+        <a id="change">chr_sad5 = SAD5(chr_sad_h5_file)</a>
+
+
+    &#47&#47 QC fit table
+    if not os.path.isdir(options.out_dir):
+        os.mkdir(options.out_dir)
+    <a id="change">fit_out = open(&quot%s/fits.txt&quot % options.out_dir, &quotw&quot)</a>
+    for ti in range(num_targets):
+        print(&quot%-4d  %7.1e  %7.1e&quot % (ti, target_cauchy_fit_loc[ti], target_cauchy_fit_scale[ti]), file=fit_out)
+    <a id="change">fit_out</a><a id="change">.close()</a>
+
+    &#47&#47 QC quantiles
+    <a id="change">quantile_dir = &quot%s/quantiles&quot % options.out_dir</a>
+    if not os.path.isdir(quantile_dir):
+        os.mkdir(quantile_dir)
+    <a id="change">sad_qc = sample_sad(chr_sad_h5_files, 2048, num_snps, num_targets)</a>
+    for ti in np.linspace(0, num_targets-1, 64, dtype=&quotint&quot):
+        &#47&#47 compute cauchy and argsort quantiles
+        <a id="change">cauchy_q = cauchy.cdf(sad_qc[:,ti], loc=target_cauchy_fit_loc[ti], scale=target_cauchy_fit_scale[ti])</a>
+        <a id="change">sort_i = np.argsort(sad_qc[:,ti])</a>
+
+        <a id="change">quantile_pdf = &quot%s/t%d.pdf&quot % (quantile_dir, ti)</a>
+
+        jointplot(np.linspace(0,1,len(sort_i)), cauchy_q[sort_i], quantile_pdf,
+                  square=True, cor=None, x_label=&quotEmpirical&quot, y_label=&quotCauchy&quot)
+
+    &#47&#47 QC plots
+    <a id="change">norm_dir = &quot%s/norm&quot % options.out_dir</a>
+    if not os.path.isdir(norm_dir):
+        os.mkdir(norm_dir)
+    <a id="change">chr_sad5 = SAD5(chr_sad_h5_files[0])</a>
+    <a id="change">qc_sample = 2048</a>
+    if qc_sample &lt; chr_sad5.num_snps:
+        <a id="change">ri = sorted(np.random.choice(np.arange(chr_sad5.num_snps), size=qc_sample, replace=False))</a>
+    else:
+        <a id="change">ri = np.arange(chr_sad5.num_snps)</a>
+    <a id="change">qc_sad_raw = chr_sad5.sad_matrix[ri]</a>
+    <a id="change">qc_sad_norm = chr_sad5[ri]</a>
+    for ti in np.linspace(0, num_targets-1, 32, dtype=&quotint&quot):
+        plt.figure()
+        sns.jointplot(qc_sad_raw[:,ti], qc_sad_norm[:,ti], joint_kws={&quotalpha&quot:0.5, &quots&quot:10})
+        plt.savefig(&quot%s/t%d.pdf&quot % (norm_dir, ti))
+        plt.close()
+
+
+def sample_sad(chr_sad_h5_files, sample, num_snps, num_targets):
+    &#47&#47 sample SNPs uniformly across chromosomes
+    if sample &lt; num_snps:
+        ri = np.random.choice(np.arange(num_snps), size=sample, replace=False)
+        ri.sort()
+    else:
+        ri = np.arange(num_snps)
+
+    &#47&#47 read SAD across chromosomes
+    sad = np.zeros((len(ri), num_targets), dtype=&quotfloat32&quot)
+    chr_start = 0
+    si = 0
+    for chr_sad_h5_file in chr_sad_h5_files:
+        chr_sad_h5 = h5py.File(chr_sad_h5_file, &quotr&quot)
+
+        &#47&#47 determine chr interval
+        chr_end = chr_start + chr_sad_h5[&quotSAD&quot].shape[0]
+
+        &#47&#47 filter/transform random indexes for chromosome
+        chr_ri_mask = (chr_start &lt;= ri) & (ri &lt; chr_end)
+        chr_ri = ri[chr_ri_mask] - chr_start
+        chr_snps = len(chr_ri)
+
+        &#47&#47 read chr SNPs
+        sad[si:si+chr_snps,:] = chr_sad_h5[&quotSAD&quot][chr_ri,:]
+        chr_sad_h5.close()
+
+        &#47&#47 advance indexes
+        si += chr_snps
+        chr_start = chr_end
+
+    return sad
+
+
+def fit_cauchy(sad, ti):
+    print(&quotFitting t%d&quot % ti)
+    return cauchy.fit(sad[:,ti])
+
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+&#47&#47 __main__
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+if __name__ == &quot__main__&quot:
+    main()
+</code></pre>

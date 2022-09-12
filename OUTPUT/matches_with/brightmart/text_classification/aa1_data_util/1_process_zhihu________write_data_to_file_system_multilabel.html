@@ -1,0 +1,150 @@
+<link rel="stylesheet" href="../../..//default.css">
+<script src="../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/brightmart/text_classification/blob/master/aa1_data_util/1_process_zhihu.py#L122">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/text_classification/blob/master/aa1_data_util/1_process_zhihu.py#L122">GitMyHubLink</a>
+
+&#47&#47 -*- coding: utf-8 -*-
+import sys
+&#47&#47reload(sys)
+&#47&#47sys.setdefaultencoding(&quotutf8&quot)
+&#47&#471.将问题ID和TOPIC对应关系保持到字典里：process question_topic_train_set.txt
+&#47&#47from:question_id,topics(topic_id1,topic_id2,topic_id3,topic_id4,topic_id5)
+&#47&#47  to:(question_id,topic_id1)
+&#47&#47     (question_id,topic_id2)
+&#47&#47read question_topic_train_set.txt
+import codecs
+&#47&#471.&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+print("process question_topic_train_set.txt,started...")
+q_t=&quotquestion_topic_train_set.txt&quot
+q_t_file = codecs.open(q_t, &quotr&quot, &quotutf8&quot)
+lines=q_t_file.readlines()
+question_topic_dict={}
+for i,line in enumerate(lines):
+    if i%300000==0:
+        print(i)
+    &#47&#47print(line)
+    question_id,topic_list_string=line.split(&quot\t&quot)
+    &#47&#47print(question_id)
+    &#47&#47print(topic_list_string)
+    topic_list=topic_list_string.replace("\n","").split(",")
+    question_topic_dict[question_id]=topic_list
+    &#47&#47for ii,topic in enumerate(topic_list):
+    &#47&#47    print(ii,topic)
+    &#47&#47print("=====================================")
+    &#47&#47if i&gt;10:
+    &#47&#47   print(question_topic_dict)
+    &#47&#47   break
+print("process question_topic_train_set.txt,ended...")
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+&#47&#472.处理问题--得到问题ID：问题的表示，存成字典。proces question. for every question form a a list of string to reprensent it.
+import codecs
+print("process question started11...")
+q=&quotquestion_train_set.txt&quot
+q_file = codecs.open(q, &quotr&quot, &quotutf8&quot)
+q_lines=q_file.readlines()
+questionid_words_representation={}
+question_representation=[]
+length_desc=30
+for i,line in enumerate(q_lines):
+    &#47&#47print("line:")
+    &#47&#47print(line)
+    element_lists=line.split(&quot\t&quot) &#47&#47[&quotc324,c39&quot,&quotw305...&quot,&quotc&quot]
+    question_id=element_lists[0]
+    &#47&#47print("question_id:",element_lists[0])
+    &#47&#47for i,q_e in enumerate(element_lists):
+    &#47&#47    print("e:",q_e)
+    &#47&#47question_representation=[x for x in element_lists[2].split(",")] &#47&#47+  &#47&#47TODO this is only for title&quots word. no more.
+    title_words=[x for x in element_lists[2].strip().split(",")][-length_desc:]
+    &#47&#47print("title_words:",title_words)
+    title_c=[x for x in element_lists[1].strip().split(",")][-length_desc:]
+    &#47&#47print("title_c:", title_c)
+    desc_words=[x for x in element_lists[4].strip().split(",")][-length_desc:]
+    &#47&#47print("desc_words:", desc_words)
+    desc_c=[x for x in element_lists[3].strip().split(",")][-length_desc:]
+    &#47&#47print("desc_c:", desc_c)
+    question_representation =title_words+ title_c+desc_words+ desc_c
+    question_representation=" ".join(question_representation)
+    &#47&#47print("question_representation:",question_representation)
+    &#47&#47print("question_representation:",question_representation)
+    questionid_words_representation[question_id]=question_representation
+q_file.close()
+print("proces question ended2...")
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+&#47&#47 3.获得模型需要的训练数据。以{问题的表示：TOPIC_ID}的形式的列表
+&#47&#47 save training data,testing data: question __label__topic_id
+import codecs
+import random
+
+print("saving traininig data.started1...")
+count = 0
+train_zhihu = &quottrain-zhihu6-title-desc.txt&quot
+test_zhihu = &quottest-zhihu6-title-desc.txt&quot
+valid_zhihu = &quotvalid-zhihu6-title-desc.txt&quot
+data_list = []
+multi_label_flag=True
+
+def split_list(listt):
+    random.shuffle(listt)
+    list_len = len(listt)
+    train_len = 0.95
+    valid_len = 0.025
+    train = listt[0:int(list_len * train_len)]
+    valid = listt[int(list_len * train_len):int(list_len * (train_len + valid_len))]
+    test = listt[int(list_len * (train_len + valid_len)):]
+    return train, valid, test
+
+for question_id, question_representation in questionid_words_representation.items():
+    &#47&#47 print("===================&gt;")
+    &#47&#47 print(&quotquestion_id&quot,question_id)
+    &#47&#47 print("question_representation:",question_representation)
+    &#47&#47 get label_id for this question_id by using:question_topic_dict
+    topic_list = question_topic_dict[question_id]
+    &#47&#47 print("topic_list:",topic_list)
+    &#47&#47 if count&gt;5:
+    &#47&#47    ii=0
+    &#47&#47    ii/0
+    if not multi_label_flag:
+        for topic_id in topic_list:
+            data_list.append((question_representation, topic_id)) &#47&#47single-label
+    else:
+        data_list.append((question_representation, topic_list)) &#47&#47multi-label
+    count = count + 1
+
+&#47&#47 random shuffle list
+random.shuffle(data_list)
+
+def write_data_to_file_system(file_name, data):
+    file = codecs.open(file_name, &quota&quot, &quotutf8&quot)
+    for d in data:
+        &#47&#47 print(d)
+        question_representation, topic_id = d
+        question_representation_ = " ".join(question_representation)
+        file.write(question_representation_ + " __label__" + str(topic_id) + "\n")
+    file.close()
+
+def write_data_to_file_system_multilabel(file_name, data):
+    <a id="change">file = codecs.open(file_name, &quota&quot, &quotutf8&quot)</a>
+    for d in data:
+        question_representation, topic_id_list = d
+        topic_id_list_=" ".join(topic_id_list)
+        file.write(question_representation + " __label__" + str(topic_id_list_) + "\n")
+    <a id="change">file</a><a id="change">.close()</a>
+
+train_data, valid_data, test_data = split_list(data_list)
+if not multi_label_flag:&#47&#47single label
+    write_data_to_file_system(train_zhihu, train_data)
+    write_data_to_file_system(valid_zhihu, valid_data)
+    write_data_to_file_system(test_zhihu, test_data)
+else:&#47&#47multi-label
+    write_data_to_file_system_multilabel(train_zhihu, train_data)
+    write_data_to_file_system_multilabel(valid_zhihu, valid_data)
+    write_data_to_file_system_multilabel(test_zhihu, test_data)
+
+print("saving traininig data.ended...")
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47</code></pre>

@@ -1,0 +1,1306 @@
+<link rel="stylesheet" href="../../../..//default.css">
+<script src="../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/deeptools/HiCExplorer/blob/master/hicexplorer/lib/tadClassifier.py#L619">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/HiCExplorer/blob/master/hicexplorer/lib/tadClassifier.py#L619">GitMyHubLink</a>
+
+&#47&#47 import statements
+
+&#47&#47 classic python libraries
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from numpy.random import Generator
+from os import EX_CANTCREAT, walk
+from os import listdir
+import os
+import re
+import math
+import argparse
+import warnings
+import logging
+import scipy.stats as statsw
+from scipy.sparse import csr_matrix, lil_matrix
+import pickle
+import site
+&#47&#47 hicexplorer and pybedtools
+from hicexplorer import hicFindTADs
+from hicexplorer import hicTransform
+from hicmatrix import HiCMatrix as hm
+from pybedtools import BedTool
+import cooler
+from hicexplorer.utilities import obs_exp_matrix
+from hicexplorer.utilities import convertNansToZeros, convertInfsToZeros
+
+&#47&#47 machine learning libraries
+&#47&#47 https://imbalanced-learn.readthedocs.io/en/stable/
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.ensemble import BaggingClassifier
+from sklearn import metrics
+from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
+from sklearn.impute import SimpleImputer
+from sklearn.ensemble import AdaBoostClassifier
+from sklearn.metrics import roc_auc_score
+from sklearn.metrics import roc_curve, auc
+
+from cleanlab.classification import LearningWithNoisyLabels
+from imblearn.under_sampling import *
+
+&#47&#47 PCA
+&#47&#47 from sklearn import decomposition
+
+
+log = logging.getLogger(__name__)
+
+
+class TADClassifier:
+    &quot&quot&quotwrapper class for hicTADClassifier program&quot&quot&quot
+
+    pretrained_classifier_10000_obsexp = &quotpretrained_classifier_10000_obsexp.BIN&quot
+    pretrained_classifier_10000_range = &quotpretrained_classifier_10000_range.BIN&quot
+
+    class MP_Domain_Data:
+        &quot&quot&quotrepresents domain and protein information and implements helper functions for their preparation&quot&quot&quot
+
+        def __init__(self, domain_file, protein_file=None,
+                     threshold=None, leniency=0, resolution=10000, pAddRemoveChrPrexix=None):
+            &quot&quot&quotread the necessary files and check domains against proteins&quot&quot&quot
+
+            &#47&#47 read domain file
+            self.domain_df = TADClassifier.MP_Domain_Data.read_domain_file(
+                domain_file)
+
+            &#47&#47 read protein file and intersect if necessary
+            if(protein_file is not None):
+                &#47&#47 if pAddRemoveChrPrexix:
+
+                self.protein_df = TADClassifier.MP_Domain_Data.readProtein(
+                    protein_file, pAddRemoveChrPrexix)
+                TADClassifier.MP_Domain_Data.apply_binning_and_leniency(
+                    self.protein_df, pBinSize=resolution, leniency=leniency)
+                self.domain_df = TADClassifier.MP_Domain_Data.check_domains_against_protein(
+                    self.domain_df, self.protein_df, resolution=resolution, threshold=threshold)
+
+            &#47&#47 build dictionary for tads from domain file
+            self.chromosomes = self.domain_df[&quotChrom&quot].unique().tolist()
+            self.domain_dict = TADClassifier.MP_Domain_Data.build_tad_dictionary(
+                self.domain_df, chromosomes=self.chromosomes)
+
+        def readProtein(pFile, pAddChr):
+            &quot&quot&quotread in a bed protein file (add pAddChr, if chr are in single digit form)&quot&quot&quot
+
+            &#47&#47 read
+            protein_df = pd.read_csv(pFile, sep=&quot\t&quot, header=None)[
+                [0, 1, 2, 6, 7, 8]]
+            if pAddChr is None:
+                pass
+            elif pAddChr:
+                protein_df[0] = &quotchr&quot + protein_df[0].astype(str)
+            elif not pAddChr:
+                &#47&#47 protein_df[0] = &quotchr&quot + protein_df[0].astype(str)
+                protein_df[0] = protein_df[0].str.lstrip(&quotchr&quot)
+            log.debug(&quotprotein_df {}&quot.format(protein_df))
+            if(protein_df.size &lt; 1):
+                raise ValueError(&quotempty protein file passed&quot)
+
+            &#47&#47 use bedtools sorting and apply proper column names
+            protein_df_bedtool = BedTool.from_dataframe(protein_df)
+            protein_df = protein_df_bedtool.sort().to_dataframe(
+                disable_auto_names=True, header=None)
+            protein_df.columns = TADClassifier.MP_Domain_Data.get_protein_col_names()
+            return protein_df
+
+        def read_domain_file(tad_file):
+            &quot&quot&quotread in the domain.bed output file of hicFindTads&quot&quot&quot
+
+            &#47&#47 read and sort
+            domains_by_hicfindtads = pd.read_csv(
+                tad_file, sep="\t", header=None)
+            domains_by_hicfindtads.columns = TADClassifier.MP_Domain_Data.get_domain_col_names()
+            domains_by_hicfindtads = domains_by_hicfindtads.sort_values(
+                by=["Chrom", "Start"])
+
+            if(domains_by_hicfindtads.size &lt; 1):
+                raise ValueError(&quotempty domain file passed&quot)
+
+            return domains_by_hicfindtads
+
+        def check_domains_against_protein(
+                domain_df, protein_df, resolution, threshold=None):
+            &quot&quot&quotcheck the given tads in the domain df against the protein peaks in the protein file with a threshold&quot&quot&quot
+
+            &#47&#47 build bedtools from dfs
+            domain_df[&quotName&quot] = domain_df[&quotEnd&quot]
+            domain_df[&quotEnd&quot] = domain_df[&quotStart&quot] + resolution
+
+            tad_bedtool = BedTool.from_dataframe(
+                domain_df[["Chrom", "Start", "End", "Name"]])
+            protein_bedtool = BedTool.from_dataframe(protein_df)
+
+            &#47&#47 intersect domains and proteins
+            domain_protein = tad_bedtool.intersect(
+                protein_bedtool, wa=True, wb=True).to_dataframe()
+            domain_protein.columns = TADClassifier.MP_Domain_Data.get_domain_protein_col_names()
+
+            &#47&#47 aggregate multiple peaks at one domain
+            domain_protein = domain_protein.groupby([&quotChrom&quot, &quotStart&quot, &quotEnd&quot, &quotName&quot]).agg(
+                signal_value=pd.NamedAgg(column=&quotsignalValue&quot, aggfunc=max),
+                p_value=pd.NamedAgg(column=&quotpValue&quot, aggfunc=max),
+                q_value=pd.NamedAgg(column=&quotqValue&quot, aggfunc=max)
+            )
+
+            &#47&#47 select only domains with certain threshold if given
+            if threshold is not None:
+                mask = domain_protein[&quotsignal_value&quot] &gt;= threshold
+                domain_protein = domain_protein[mask]
+
+            &#47&#47 build output
+            domain_protein.reset_index(inplace=True)
+            domain_protein[&quotEnd&quot] = domain_protein[&quotName&quot]
+
+            &#47&#47 debug information; TODO: move
+            log.debug(&quotprotein peaks: {}&quot.format(len(protein_df)))
+            log.debug(&quotTADs: {}&quot.format(len(domain_df)))
+            log.debug(&quotMatched TADs: {}&quot.format(len(domain_protein)))
+
+            return domain_protein
+
+        def apply_binning_and_leniency(pDataFrame, pBinSize=10000, leniency=0):
+            bin the given protein file and make peaks wider if necessary
+
+            pDataFrame_out = pDataFrame.copy()
+            pDataFrame_out[&quotStart&quot] = (
+                pDataFrame[&quotStart&quot] / pBinSize).astype(int) * pBinSize
+            pDataFrame_out[&quotEnd&quot] = (
+                (pDataFrame[&quotEnd&quot] / pBinSize).astype(int) + 1) * pBinSize
+
+            if (leniency &gt; 0):
+                pDataFrame_out[&quotStart&quot] = np.maximum(
+                    0, pDataFrame_out[&quotStart&quot] - int(pBinSize * leniency))
+                pDataFrame_out[&quotEnd&quot] = pDataFrame_out[&quotEnd&quot] + \
+                    int(pBinSize * leniency)
+
+            pDataFrame_out.drop_duplicates()
+            bedtools_data = BedTool.from_dataframe(pDataFrame_out)
+            bedtools_data = bedtools_data.merge()
+            bedtools_data = bedtools_data.sort()
+
+            return bedtools_data.to_dataframe()
+
+        def get_protein_col_names():
+            &quot&quot&quotget column names&quot&quot&quot
+
+            return [&quotChrom&quot, &quotStart&quot, &quotEnd&quot, &quotsignalValue&quot, &quotpValue&quot, &quotqValue&quot]
+
+        def get_domain_col_names():
+            &quot&quot&quotget column names&quot&quot&quot
+
+            return ["Chrom", "Start", "End", "Name", "Score",
+                    "Strand", "ThickStart", "ThickEnd", "ItemRGB"]
+
+        def get_domain_protein_col_names():
+            &quot&quot&quotget column names&quot&quot&quot
+
+            return ["Chrom", "Start", "End", "Name", "Chrom_p",
+                    "Start_p", "End_p", &quotsignalValue&quot, &quotpValue&quot, &quotqValue&quot]
+
+        def build_tad_dictionary(domains, chromosomes):
+            &quot&quot&quotget a dictionary based on domain file for multiple chromosomes&quot&quot&quot
+
+            &#47&#47 for given chromosome names, build dictionary from dataframe
+            &#47&#47 this is done for performance reasons only
+            domain_dicts = {}
+            for chromosome in chromosomes:
+
+                &#47&#47 add current chromosomes, then add all positions
+                chr_domains = domains[domains[&quotChrom&quot] == chromosome]
+                b = chr_domains["Start"]
+                chr_dict = dict((int(position), True) for position in b)
+                domain_dicts[str(chromosome)] = chr_dict
+
+            return domain_dicts
+
+    class MP_Matrix:
+        &quot&quot&quotacts as a wrapper class for a HiCMatrix Object and implements helper functions for matrix data preparation&quot&quot&quot
+        &#47&#47 currently supports matrices of one chromosome
+
+        def __init__(self, matrix_file, method=None, range_max=None, pChromosome=None, pThreads=None):
+
+            &#47&#47 use input directly, if already normalized
+            if method == &quotobs_exp&quot:
+                hic_ma, hic_ma_np = TADClassifier.MP_Matrix.read_matrix_file(
+                    matrix_file, pChromosome)
+                hic_ma = TADClassifier.MP_Matrix.obs_exp_normalization(hic_ma, pThreads=pThreads)
+                &#47&#47 hic_ma_np = np.array(hic_ma.getMatrix())
+                &#47&#47 hic_ma_np = hic_ma.matrix
+
+            &#47&#47 perform range normalization, with given max value or infer from
+            &#47&#47 matrix
+            elif method == &quotrange&quot:
+                hic_ma, hic_ma_np = TADClassifier.MP_Matrix.read_matrix_file(
+                    matrix_file, pChromosome)
+                range_min = 0.0
+                o_min = 0.0
+                o_max = 1.0
+
+                if range_max is None:
+                    &#47&#47 range_max = np.nanmax(hic_ma_np)
+                    range_max = hic_ma_np.max()
+
+                &#47&#47 elif (range_max &lt; np.nanmax(hic_ma_np)):
+                elif (range_max &lt; hic_ma_np.max()):
+
+                    raise ValueError(&quotrange maximum too low for input matrix&quot)
+
+                hic_ma_np = TADClassifier.MP_Matrix.range_normalization(
+                    hic_ma_np, range_min, range_max, o_min, o_max)
+
+            else:
+                raise NotImplementedError
+
+            self.numpy_matrix = hic_ma_np
+            self.hic_matrix = hic_ma
+            self.positions = self.get_positions()
+            self.range_max = range_max
+            self.resolution = None
+
+        def get_positions(self):
+            &quot&quot&quotget positions for matrix&quot&quot&quot
+
+            &#47&#47 get start and end position for every bin in the matrix
+            indices = np.arange(0, self.numpy_matrix.shape[0])
+            &#47&#47 print(&quotindices {}&quot.format(indices))
+            &#47&#47 print(&quotself.hic_matrix.cut_intervals {}&quot.format(self.hic_matrix.cut_intervals))
+            vec_bin_pos = np.vectorize(self.hic_matrix.getBinPos)
+            pos = vec_bin_pos(indices)
+
+            &#47&#47 return it as an ordered array
+            return np.transpose(np.array(pos)[0:3, :], (1, 0))
+
+        def get_resolution(self):
+            resolution of matrix
+
+            if(self.resolution is None):
+                self.resolution = self.hic_matrix.getBinSize()
+
+            return self.resolution
+
+        def get_boundary_positions(self, domain_dicts):
+            &quot&quot&quotreturn a list of booleans, denoting if a boundary exists at the current index&quot&quot&quot
+
+            &#47&#47 build necessary function and df to check if there is a boundary
+            &#47&#47 at position
+
+            is_boundary = np.full(self.positions.shape[0], False, dtype=bool)
+            &#47&#47 log.debug(domain_dicts)
+            &#47&#47 check for all indices
+            for k in range(self.positions.shape[0]):
+                try:
+                    is_boundary[k] = int(self.positions[k, 1]) in domain_dicts[self.positions[k, 0]]
+                except KeyError:
+                    is_boundary[k] = False
+            return is_boundary
+
+        def get_features(self, distance, use_gradient=False):
+            &quot&quot&quotbuild features for self&quot&quot&quot
+
+            &#47&#47 run build features for self
+            features = TADClassifier.MP_Matrix.build_features(
+                self.numpy_matrix, distance)
+            if features is None:
+                return None
+            &#47&#47 experimental: use gradient matrix too
+            if(use_gradient):
+                x_gradient, y_gradient = self.build_gradient_features(distance)
+                features = np.concatenate(
+                    (features, x_gradient, y_gradient), axis=1)
+
+            return features
+
+        def build_features(numpy_matrix, distance):
+            &quot&quot&quotselect features from input matrix&quot&quot&quot
+
+            &#47&#47 build necessary structures
+            m_indices = np.arange(
+                distance, numpy_matrix.shape[0] - distance, 1)
+            m_list = []
+
+            &#47&#47 get triangle at position index
+            def get_triangle(index):
+                start = index - distance
+                end = index + distance + 1
+
+                &#47&#47 log.debug(&quottriu submatrix: {}&quot.format(numpy_matrix[start:end, start:end]))
+                &#47&#47 log.debug(&quotstart {} end {}&quot.format(start, end))
+                triangle = np.triu(numpy_matrix[start:end, start:end].todense(), k=0)
+                triangle = triangle.astype(float)
+                triangle[np.tril_indices(triangle.shape[0], -1)] = np.NINF
+                mask = triangle != float(&quot-inf&quot)
+                flattened_triangle = np.ndarray.flatten(triangle[mask])
+                return flattened_triangle
+
+            &#47&#47 run for all positions
+            &#47&#47 can refactor for vectorization, but resampling and fitting takes
+            &#47&#47 way longer anyway
+            for i in m_indices:
+                m_list.append(get_triangle(i))
+
+            &#47&#47 build output
+            &#47&#47 at boundaries: use filler, those will be unselected later anyways
+            if len(m_list) == 0:
+                return None
+            features = np.stack(m_list, axis=1)
+            sentinel1 = np.full((features.shape[0], distance), np.nan)
+            sentinel2 = np.full((features.shape[0], distance), np.nan)
+            features = np.concatenate([sentinel1, features, sentinel2], axis=1)
+
+            return np.transpose(features, (1, 0))
+
+        def unselect_border_cases(X, distance):
+            &quot&quot&quotunselect cases at border of matrix&quot&quot&quot
+
+            return X[(distance - 1):(X.shape[0] - distance), :]
+
+        def unselect_border_cases_list(y, distance):
+            &quot&quot&quotunselect cases at border of matrix&quot&quot&quot
+
+            return y[(distance - 1):y.shape[0] - distance]
+
+        def write_input_to_file(positions, X, y, out_file):
+            &quot&quot&quotsave positions,features and is_boundary to file&quot&quot&quot
+
+            output = np.concatenate((positions, X, y[:, np.newaxis]), axis=1)
+            np.savetxt(out_file, output, delimiter=";")
+
+        def read_matrix_file(matrix_file, pChromosome):
+            &quot&quot&quot&quotreads a given cool file and returns its hiCMatrix and numpy representation&quot&quot&quot
+            &#47&#47 log.debug(&quotmatrix_file {}&quot.format(matrix_file))
+            &#47&#47 log.debug(&quotpChromosome {}&quot.format(pChromosome))
+            &#47&#47 check if instance of string or file and load appropriate
+            if isinstance(matrix_file, str):
+                if pChromosome is not None:
+                    hic_ma = hm.hiCMatrix(matrix_file, pChrnameList=[pChromosome])
+                else:
+                    hic_ma = hm.hiCMatrix(matrix_file)
+
+                &#47&#47 log.debug(&quothic_ma: {}&quot.format(hic_ma.matrix))
+
+            else:
+                hic_ma = matrix_file
+
+            &#47&#47 hic_ma_np = np.array(hic_ma.getMatrix())
+            hic_ma_np = hic_ma.matrix
+
+            return (hic_ma, hic_ma_np)
+
+        def range_normalization(n, n_min, n_max, o_min, o_max):
+            &quot&quot&quotapply range normalization&quot&quot&quot
+
+            return o_min + (n - n_min) * (o_max - o_min) / (n_max - n_min)
+
+        def obs_exp_normalization(hic_ma, pThreads=None):
+            &quot&quot&quotapply obs_exp normalization&quot&quot&quot
+            log.debug(&quotobs/exp matrix computation...&quot)
+
+            trasf_matrix = lil_matrix(hic_ma.matrix.shape)
+
+            &#47&#47 from hicTransformTADs
+            def _obs_exp(pSubmatrix, pThreads=None):
+                obs_exp_matrix_ = obs_exp_matrix(pSubmatrix, pThreads=pThreads, pDistance=100)
+                obs_exp_matrix_ = convertNansToZeros(
+                    csr_matrix(obs_exp_matrix_))
+                obs_exp_matrix_ = convertInfsToZeros(
+                    csr_matrix(obs_exp_matrix_))
+                &#47&#47 if len(obs_exp_matrix_.data) == 0:
+                &#47&#47 return np.array([[]])
+                return obs_exp_matrix_  &#47&#47 .todense()
+
+            for chrname in hic_ma.getChrNames():
+                chr_range = hic_ma.getChrBinRange(chrname)
+                submatrix = hic_ma.matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]]
+                submatrix.astype(float)
+                obs_exp = _obs_exp(submatrix, pThreads)
+                if obs_exp.nnz != 0:
+                    trasf_matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = lil_matrix(obs_exp)
+
+            hic_ma.setMatrix(
+                trasf_matrix.tocsr(),
+                cut_intervals=hic_ma.cut_intervals)
+            log.debug(&quotobs/exp matrix computation... DONE&quot)
+
+            return hic_ma
+
+    class MP_Classifier:
+        &quot&quot&quotacts as a wrapper for a classifier&quot&quot&quot
+
+        def __init__(self, resolution=10000,
+                     normalization_method=&quotrange&quot,
+                     resampling_method=&quotundersample_random&quot,
+                     alternative_resampling_method=None,
+                     alternative_classifier=None,
+                     impute_value=-1.0,
+                     estimators_per_step=10,
+                     use_cleanlab=False,
+                     threads=4,
+                     use_gradient=False,
+                     distance=15):
+
+            &#47&#47 set some attribute
+            self.resolution = resolution
+            self.normalization_method = normalization_method
+            self.resampling_method = resampling_method
+            self.alternative_resampling_method = alternative_resampling_method
+            self.impute_value = impute_value
+            self.estimators_per_step = estimators_per_step
+            self.use_cleanlab = use_cleanlab
+            self.threads = threads
+            self.use_gradient = use_gradient
+            self.distance = distance
+            self.is_default_classifier = alternative_classifier is None
+
+            if(alternative_classifier is None):
+                self.classifier = BaggingClassifier(
+                    base_estimator=AdaBoostClassifier(),
+                    n_estimators=0,
+                    warm_start=True,
+                    n_jobs=threads)
+
+            else:
+                self.classifier = alternative_classifier
+
+            if (use_cleanlab):
+                estimators = self.classifier.get_params(
+                )[&quotn_estimators&quot] + self.estimators_per_step
+                self.classifier.set_params(n_estimators=estimators)
+                self.classifier = LearningWithNoisyLabels(
+                    clf=self.classifier, n_jobs=self.threads)
+
+        def single_run(self, positions, X, y, test_size_n=0.2):
+            &quot&quot&quottrain and test the classifier on the given dataset&quot&quot&quot
+
+            &#47&#47 impute missing values
+            X = TADClassifier.MP_Classifier.impute(X, self.impute_value)
+
+            &#47&#47 division into training set and test set
+            pos_train, pos_test, X_train, X_test, y_train, y_test = train_test_split(
+                positions, X, y, test_size=test_size_n, random_state=0)
+
+            &#47&#47 enact imbalance strategy
+            X_train, y_train = TADClassifier.MP_Classifier.resample(
+                X_train, y_train, self.resampling_method, self.alternative_resampling_method, threads=self.threads)
+
+            &#47&#47 set estimators to real wanted value
+            estimators = self.classifier.get_params(
+            )[&quotn_estimators&quot] + self.estimators_per_step
+            self.classifier.set_params(n_estimators=estimators)
+
+            &#47&#47 train model
+            &#47&#47 if input contains only one class, an exception is thrown
+            log.debug(&quotfitting&quot)
+            if(np.unique(y).shape[0] &gt;= 2):
+                self.classifier.fit(X, y)
+
+            else:
+                warnings.warn(
+                    &quotinput does not contain boundaries or no non-boundaries, fitting aborted&quot)
+
+            &#47&#47 test model
+            pos_test, X_test, y_test = TADClassifier.MP_Classifier.resample_test(
+                pos_test, X_test, y_test, threads=self.threads)
+            y_pred = self.classifier.predict(X_test)
+
+            return (y_test, y_pred)
+
+        def incremental_fit(self, X, y, resample=True):
+            &quot&quot&quottrain existing model incrementally on a new dataset, by adding estimators&quot&quot&quot
+
+            &#47&#47 impute missing values
+            X = TADClassifier.MP_Classifier.impute(X, self.impute_value)
+
+            &#47&#47 enact oversample imbalance strategy
+            if(resample):
+                X, y = TADClassifier.MP_Classifier.resample(
+                    X, y, self.resampling_method, self.alternative_resampling_method, threads=self.threads)
+
+            &#47&#47 introduce additional estimators to accomodate for new dataset
+            if(self.use_cleanlab):
+                estimators = self.classifier.clf.get_params(
+                )[&quotn_estimators&quot] + self.estimators_per_step
+                self.classifier.clf.set_params(n_estimators=estimators)
+
+            else:
+                estimators = self.classifier.get_params(
+                )[&quotn_estimators&quot] + self.estimators_per_step
+                self.classifier.set_params(n_estimators=estimators)
+
+            &#47&#47 train model
+            &#47&#47 if input contains only one class, an exception is thrown
+            log.debug(&quotfitting&quot)
+            self.classifier.fit(X, y)
+
+        def predict(self, positions, X):
+            &quot&quot&quotpredict with existing model&quot&quot&quot
+
+            if X is None or len(X) == 0:
+                return None, None
+            &#47&#47 impute missing values
+            X = TADClassifier.MP_Classifier.impute(X, self.impute_value)
+
+            &#47&#47 test model
+            log.debug(&quotpredicting&quot)
+            y_pred = self.classifier.predict(X)
+            return positions, y_pred
+
+        def predict_test(self, positions, X, y_test):
+
+            &#47&#47 impute missing values
+            X = TADClassifier.MP_Classifier.impute(X, self.impute_value)
+
+            &#47&#47 enact resampling test strategy
+            positions, X, y_test = TADClassifier.MP_Classifier.resample_test(
+                positions, X, y_test, threads=self.threads)
+
+            &#47&#47 test model
+            log.debug(&quotpredicting&quot)
+            if(not y_test[y_test == False].shape[0] &lt;= 0 and not y_test[y_test == True].shape[0] &lt;= 0):
+                y_pred = self.classifier.predict(X)
+                return positions, X, y_test, y_pred
+            else:
+                raise ValueError(
+                    &quotinput does not contain boundaries and non-boundaries&quot)
+
+        def impute(X, fill_value=-1.0):
+            &quot&quot&quotimpute missing nan values by setting them to fill_value&quot&quot&quot
+
+            &#47&#47 call Simple Imputer, which will fill all non real numbers with
+            &#47&#47 another value
+            log.debug(&quotimputing with value: &quot + str(fill_value))
+            imp = SimpleImputer(
+                missing_values=np.nan,
+                strategy=&quotconstant&quot,
+                fill_value=-1.0)
+            X = imp.fit_transform(X)
+
+            return X
+
+        def resample(X, y, method=&quotundersample_random&quot,
+                     passed_method=None, threads=4):
+            &quot&quot&quotenact resample method chosen with method&quot&quot&quot
+
+            &#47&#47 resample method: KMEANs
+            if(method == &quotundersample_cluster_centroids&quot):
+                log.debug(&quotresampling with: &quot + method)
+                cc = ClusterCentroids(random_state=42, n_jobs=threads)
+                return cc.fit_resample(X, y)
+
+            &#47&#47 resample method: random
+            elif(method == &quotundersample_random&quot):
+                log.debug(&quotresampling with: &quot + method)
+                rus = RandomUnderSampler(random_state=42)
+                return rus.fit_resample(X, y)
+
+            &#47&#47 use users method
+            elif(method == &quotpassed_method&quot and passed_method is not None):
+                log.debug(&quotresampling with: &quot + method)
+                return passed_method.fit_resample(X, y)
+
+            &#47&#47 just return, if none is chosen
+            else:
+                return X, y
+
+        def resample_test(positions, X, y, threads=4):
+            &quot&quot&quotcall imblearn random undersample for prediction&quot&quot&quot
+
+            &#47&#47 resample test set, for correct accuracy score
+            if (np.unique(y).shape[0] &gt; 1):
+                pos_X = np.concatenate((positions, X), axis=1)
+                rus = RandomUnderSampler(random_state=42)
+                pos_X, y = rus.fit_resample(pos_X, y)
+                positions = pos_X[:, 0:3]
+                X = pos_X[:, 3:(pos_X.shape[1])]
+
+            return positions, X, y
+
+        def print_results(<a id="change">self</a>, <a id="change">y_test</a>, <a id="change">y_pred</a>, <a id="change">out_file</a>=None):
+            &quot&quot&quotprint accuracy, confusion matrix and classification report to logger&quot&quot&quot
+
+            &#47&#47 important: perform a balanced test predict using y_test!!!
+            <a id="change">acc = "accuracy score: " + \
+                str(accuracy_score(y_test, y_pred)) + &quot\n\n&quot</a>
+            <a id="change">classification = "classification report:\n" + \
+                classification_report(y_test, y_pred) + &quot\n&quot</a>
+            <a id="change">conf = "confusion matrix:\n" + \
+                str(confusion_matrix(y_test, y_pred))</a>
+
+            log.debug(acc)
+            log.debug(classification)
+            log.debug(conf)
+
+            if(out_file):
+
+                <a id="change">f = open(out_file, "w")</a>
+                f.writelines(acc)
+                f.writelines(classification)
+                f.writelines(conf)
+                <a id="change">f</a><a id="change">.close()</a>
+
+        def get_feature_importance(self, out_file):
+            &quot&quot&quotprint feature importances&quot&quot&quot
+
+            if(self.is_default_classifier and not self.use_cleanlab):
+                &#47&#47 only use on Bagging Classifier
+                feature_importances = np.mean(
+                    [est.feature_importances_ for est in self.classifier.estimators_], axis=0)
+                ind = np.arange(0, feature_importances.shape[0])
+
+                barlist = plt.bar(ind, feature_importances)
+
+                d = self.distance * 2
+                off = 0
+                barlist[off].set_color(&quotred&quot)
+
+                while(d &gt; 0):
+                    off = d + off
+                    barlist[off].set_color(&quotred&quot)
+                    d = d - 1
+
+                plt.savefig(out_file)
+
+        def get_roc(self, X_test, y_test, out_file):
+            &quot&quot&quotget receiver operating characteristic&quot&quot&quot
+
+            if(self.is_default_classifier and not self.use_cleanlab):
+                &#47&#47 from
+                &#47&#47 https://scikit-learn.org/stable/auto_examples/model_selection/plot_roc.html
+                fpr = dict()
+                tpr = dict()
+                roc_auc = dict()
+
+                y_score = self.classifier.decision_function(X_test)
+                y_test = y_test.astype(int)
+
+                &#47&#47 Compute micro-average ROC curve and ROC area
+                fpr["micro"], tpr["micro"], _ = roc_curve(
+                    y_test.ravel(), y_score.ravel())
+                roc_auc["micro"] = auc(fpr["micro"], tpr["micro"])
+
+                plt.figure()
+                lw = 2
+
+                plt.plot(fpr["micro"], tpr["micro"], color=&quotaqua&quot,
+                         lw=lw, label=&quotROC curve (area = %0.2f)&quot % roc_auc["micro"])
+
+                plt.plot([0, 1], [0, 1], color=&quotnavy&quot, lw=lw, linestyle=&quot--&quot)
+                plt.xlim([0.0, 1.0])
+                plt.ylim([0.0, 1.05])
+                plt.xlabel(&quotFalse Positive Rate&quot)
+                plt.ylabel(&quotTrue Positive Rate&quot)
+                plt.title(&quotReceiver operating characteristic&quot)
+                plt.legend(loc="lower right")
+                plt.savefig(out_file)
+
+    &#47&#47 TAD classifier program
+
+    def __init__(self, mode,
+                 out_file,
+                 normalization_method=&quotrange&quot,
+                 saved_classifier=None,
+                 unselect_border_cases=True,
+                 threads=4,
+                 threshold=None,
+                 leniency=0,
+                 resolution=10000,
+                 distance=15,
+                 impute_value=-1.0,
+                 resampling_method=&quotundersample_random&quot,
+                 alternative_resampling_method=None,
+                 alternative_classifier=None,
+                 use_cleanlab=False,
+                 estimators_per_step=50,
+                 concatenate_before_resample=False,
+                 pAddRemoveChrPrexix=None
+                 ):
+
+        self.mode = mode
+        self.out_file = out_file
+        self.threshold = threshold
+        self.leniency = leniency
+        self.unselect_border_cases = unselect_border_cases
+        self.concatenate_before_resample = concatenate_before_resample
+        self.addRemoveChrPrexix = pAddRemoveChrPrexix
+
+        if(mode == &quotpredict&quot or mode == &quottrain_existing&quot or mode == &quotpredict_test&quot):
+            if(saved_classifier is not None):
+                try:
+                    self.classifier = pickle.load(open(saved_classifier, &quotrb&quot))
+                except Exception as exp:
+                    log.error(&quotTried to load ML model but failed! {}&quot.format(str(exp)))
+                    exit(1)
+
+            else:
+                model_location = site.getsitepackages()[0] + &quot/hicexplorer/trained_models/&quot
+
+                if(normalization_method == &quotobs_exp&quot):
+                    if resolution == 10000:
+                        model_location += &quot10kb_model_cleanlab_proteins_obs_exp.BIN&quot
+                    elif resolution == 25000:
+                        model_location += &quot25kb_model_cleanlab_proteins_obs_exp.BIN&quot
+                    elif resolution == 50000:
+                        model_location += &quot50kb_model_cleanlab_proteins_obs_exp.BIN&quot
+                    elif resolution == 100000:
+                        model_location += &quot100kb_model_cleanlab_proteins_obs_exp.BIN&quot
+                    else:
+                        log.error(&quotNo trained model for this resolution! Please train a model on your own with hicTrainTADClassifier!&quot)
+                        exit(1)
+
+                    log.debug(&quotusing obs/exp default classifier&quot)
+                else:
+                    if resolution == 10000:
+                        model_location += &quot10kb_model_cleanlab_proteins_range.BIN&quot
+                    elif resolution == 25000:
+                        model_location += &quot25kb_model_cleanlab_proteins_range.BIN&quot
+                    elif resolution == 50000:
+                        model_location += &quot50kb_model_cleanlab_proteins_range.BIN&quot
+                    elif resolution == 100000:
+                        model_location += &quot100kb_model_cleanlab_proteins_range.BIN&quot
+                    else:
+                        log.error(&quotNo trained model for this resolution! Please train a model on your own with hicTrainTADClassifier!&quot)
+                        exit(1)
+
+                try:
+                    self.classifier = pickle.load(
+                        open(model_location, &quotrb&quot))
+                except Exception as exp:
+                    log.error(&quotTried to load ML model but failed! {}&quot.format(str(exp)))
+                    exit(1)
+        if(mode == &quottrain_new&quot or mode == &quottrain_test&quot):
+            if(alternative_classifier is not None and not isinstance(alternative_classifier, sklearn.base.BaseEstimator)):
+                raise ValueError(&quotthe passed classifier is not valid&quot)
+
+            if(not resampling_method == &quotpassed_method&quot and alternative_resampling_method is not None):
+                warnings.warn(
+                    &quotdefault resampling method chosen, but custom method passed; using passed method&quot)
+                resampling_method = &quotpassed_method&quot
+
+            if(alternative_resampling_method is not None and not isinstance(alternative_resampling_method, imblearn.base.BaseCleaningSampler)):
+                raise ValueError(&quotthe passed resampling method is not valid&quot)
+
+            self.classifier = TADClassifier.MP_Classifier(
+                resolution=resolution,
+                normalization_method=normalization_method,
+                resampling_method=resampling_method,
+                alternative_resampling_method=alternative_resampling_method,
+                alternative_classifier=alternative_classifier,
+                impute_value=impute_value,
+                estimators_per_step=estimators_per_step,
+                use_cleanlab=use_cleanlab,
+                use_gradient=False,
+                distance=distance,
+                threads=threads)
+
+    def prepare_train(self, matrix_file, domain_file, protein_file, pChromosome, ):
+        &quot&quot&quotprepare matrix and its derivatives for the run&quot&quot&quot
+
+        log.debug(&quotpreparing domain data&quot)
+        prep = TADClassifier.MP_Domain_Data(
+            domain_file,
+            protein_file,
+            resolution=self.classifier.resolution,
+            threshold=self.threshold,
+            leniency=self.leniency,
+            pAddRemoveChrPrexix=self.addRemoveChrPrexix)
+        domain_dict = prep.domain_dict
+
+        log.debug(&quotloading matrix&quot)
+        &#47&#47 ingest matrix
+        matrix = TADClassifier.MP_Matrix(matrix_file,
+                                         method=self.classifier.normalization_method, pChromosome=pChromosome)
+
+        &#47&#47 build inputs for classifier
+        log.debug(&quotbuild features&quot)
+        is_boundary = matrix.get_boundary_positions(domain_dict)
+        features = matrix.get_features(
+            self.classifier.distance,
+            self.classifier.use_gradient)
+        if features is None:
+            return matrix, None, features, is_boundary
+        positions = matrix.positions
+
+        if(not self.classifier.resolution == matrix.get_resolution()):
+            warnings.warn(
+                &quottraining matrix with resolution {} on classifier with resolution {}&quot.format(
+                    self.classifier.resolution,
+                    matrix.get_resolution()))
+
+        &#47&#47 get rid of cases at the border of matrix
+        if(self.unselect_border_cases):
+            features = TADClassifier.MP_Matrix.unselect_border_cases(
+                features, self.classifier.distance)
+            positions = TADClassifier.MP_Matrix.unselect_border_cases(
+                positions, self.classifier.distance)
+            is_boundary = TADClassifier.MP_Matrix.unselect_border_cases_list(
+                is_boundary, self.classifier.distance)
+
+        return matrix, positions, features, is_boundary
+
+    def prepare_predict(self, matrix_file, pChromosome):
+        &quot&quot&quotprepare matrix and its derivatives for the run&quot&quot&quot
+
+        log.debug(&quotloading matrix&quot)
+        &#47&#47 ingest matrix
+        matrix = TADClassifier.MP_Matrix(matrix_file,
+                                         method=self.classifier.normalization_method, pChromosome=pChromosome)
+
+        &#47&#47 build inputs for classifier
+        log.debug(&quotbuild features&quot)
+        features = matrix.get_features(
+            self.classifier.distance,
+            self.classifier.use_gradient)
+        positions = matrix.positions
+
+        &#47&#47 get rid of cases at the border of matrix
+        if(self.unselect_border_cases):
+            features = TADClassifier.MP_Matrix.unselect_border_cases(
+                features, self.classifier.distance)
+            positions = TADClassifier.MP_Matrix.unselect_border_cases(
+                positions, self.classifier.distance)
+
+        return matrix, positions, features
+
+    def train_test(self, matrix_list, domain_list, protein_list, pChromosome):
+        &quot&quot&quotperform train_test program mode&quot&quot&quot
+
+        &#47&#47 prepare
+        matrix, positions, features, is_boundary = self.prepare_train(
+            matrix_list[0], domain_list[0], protein_list[0], pChromosome=pChromosome[0][0])
+
+        out_file_s = self.out_file.split(&quot.&quot)
+
+        if(out_file_s[-1] == &quottxt&quot):
+            out_file = self.out_file
+        else:
+            out_file = self.out_file + &quot.txt&quot
+
+        &#47&#47 run and print classifier output
+        try:
+            y_test, y_pred = self.classifier.single_run(
+                positions, features, is_boundary)
+            self.classifier.print_results(
+                y_test, y_pred, out_file=out_file)
+        except ValueError:
+            raise ValueError(
+                &quottraining or test set does not contain any boundaries&quot)
+
+    def multi_train(self, matrix_list, domain_list,
+                    protein_list, nm_conc_features=1, pChromosome=None):
+        &quot&quot&quotperform train and on multiple matrices in list, resample separatly, but train once&quot&quot&quot
+
+        &#47&#47 note, that the parameter nm_conc_features can be used to resample a
+        &#47&#47 few matrices together
+        nm_conc_features = nm_conc_features - 1
+        i = 0
+        conc_features = None
+        conc_is_boundary = None
+        resampled_X = None
+        resampled_y = None
+
+        for j, data in enumerate(zip(matrix_list, domain_list, protein_list, pChromosome)):
+            for chromosome in pChromosome[j]:
+                matrix, positions, features, is_boundary = self.prepare_train(
+                    data[0], data[1], data[2], pChromosome=chromosome)
+
+                if features is None:
+                    continue
+                matrix.numpy_matrix = None
+                matrix.hic_matrix = None
+                matrix = None
+
+                if(conc_features is None):
+                    conc_features = features
+                    conc_is_boundary = is_boundary
+
+                else:
+                    conc_features = np.concatenate(
+                        (conc_features, features), axis=0)
+                    conc_is_boundary = np.concatenate(
+                        (conc_is_boundary, is_boundary), axis=0)
+
+                if(i == nm_conc_features):
+                    resampled_X, resampled_y = self.incremental_resample(
+                        resampled_X, resampled_y, conc_features, conc_is_boundary)
+                    i = 0
+                    conc_features = None
+                    conc_is_boundary = None
+
+                else:
+                    i = i + 1
+
+                features = None
+                is_boundary = None
+
+        if (conc_features is not None):
+            resampled_X, resampled_y = self.incremental_resample(
+                resampled_X, resampled_y, conc_features, conc_is_boundary)
+            conc_features = None
+            conc_is_boundary = None
+
+        try:
+            self.classifier.incremental_fit(
+                resampled_X, resampled_y, resample=False)
+            self.persist(self.out_file)
+
+        except ValueError:
+            warnings.warn(
+                &quottraining matrix does not contain any boundaries, training skipped&quot)
+
+    def multi_train_concatenate_before_resample(
+            self, matrix_list, domain_list, protein_list, pChromosome, nm_conc_features=1000000):
+        &quot&quot&quotperform train on multiple matrice, concatenate the features of each matrices and then resample and train&quot&quot&quot
+
+        &#47&#47 use nm_conc_features to reduce the number of matrices, that are
+        &#47&#47 concatenated
+        nm_conc_features = nm_conc_features - 1
+        i = 0
+        conc_features = None
+        conc_is_boundary = None
+
+        for j, data in enumerate(zip(matrix_list, domain_list, protein_list)):
+            for chromosome in pChromosome[j]:
+                matrix, positions, features, is_boundary = self.prepare_train(
+                    data[0], data[1], data[2], pChromosome=chromosome)
+
+                matrix.numpy_matrix = None
+                matrix.hic_matrix = None
+                matrix = None
+
+                if(conc_features is None):
+                    conc_features = features
+                    conc_is_boundary = is_boundary
+
+                else:
+                    conc_features = np.concatenate(
+                        (conc_features, features), axis=0)
+                    conc_is_boundary = np.concatenate(
+                        (conc_is_boundary, is_boundary), axis=0)
+
+                if(i == nm_conc_features):
+                    try:
+                        self.classifier.incremental_fit(
+                            conc_features, conc_is_boundary, resample=True)
+                    except ValueError:
+                        warnings.warn(
+                            &quottraining matrix does not contain any boundaries, training skipped&quot)
+
+                    i = 0
+                    conc_features = None
+                    conc_is_boundary = None
+
+                else:
+                    i = i + 1
+
+                features = None
+                is_boundary = None
+
+        if (conc_features is not None):
+            try:
+                self.classifier.incremental_fit(
+                    conc_features, conc_is_boundary, resample=True)
+            except ValueError:
+                warnings.warn(
+                    &quottraining matrix does not contain any boundaries, training skipped&quot)
+
+            conc_features = None
+            conc_is_boundary = None
+
+        self.persist(self.out_file)
+
+    def multi_test_predict(self, matrix_list, domain_list, protein_list, pChromosome):
+        &quot&quot&quotpredict a balanced dataset for a meaningful classification report&quot&quot&quot
+
+        conc_test_boundary = None
+        conc_is_boundary = None
+        conc_positions = None
+
+        &#47&#47 ROC
+        conc_features = None
+
+        for i, data in enumerate(zip(matrix_list, domain_list, protein_list)):
+
+            for chromosome in pChromosome[i]:
+                matrix, positions, features, is_boundary = self.prepare_train(
+                    data[0], data[1], data[2], pChromosome=chromosome)
+
+                matrix.numpy_matrix = None
+                matrix.hic_matrix = None
+                matrix = None
+
+                try:
+                    positions, features, y_test, y_pred = self.classifier.predict_test(
+                        positions, features, y_test=is_boundary)
+
+                    if(conc_test_boundary is None):
+                        conc_test_boundary = y_test
+                        conc_is_boundary = y_pred
+                        conc_positions = positions
+
+                        &#47&#47 ROC
+                        conc_features = features
+
+                    else:
+                        conc_test_boundary = np.concatenate(
+                            (conc_test_boundary, y_test), axis=0)
+                        conc_is_boundary = np.concatenate(
+                            (conc_is_boundary, y_pred), axis=0)
+                        conc_positions = np.concatenate(
+                            (conc_positions, positions), axis=0)
+
+                        &#47&#47 ROC
+                        conc_features = np.concatenate(
+                            (conc_features, features), axis=0)
+
+                except BaseException:
+                    log.debug(&quotone of the inputs did not contain boundaries&quot)
+
+                is_boundary = None
+                positions = None
+                features = None
+
+        out_file_results = self.out_file + &quot_results.txt&quot
+        out_file_fi = self.out_file + &quot_feature_importance.png&quot
+        out_file_roc = self.out_file + &quot_roc.png&quot
+
+        self.classifier.get_feature_importance(out_file_fi)
+        self.classifier.print_results(
+            conc_test_boundary,
+            conc_is_boundary,
+            out_file=out_file_results)
+        self.classifier.get_roc(
+            conc_features,
+            conc_test_boundary,
+            out_file_roc)
+        &#47&#47 TADClassifier.print_to_bed(TADClassifier.get_domains(conc_positions,conc_is_boundary),self.out_file)
+
+    def incremental_resample(self, X, y, X_i, y_i):
+        &quot&quot&quotresample without fitting&quot&quot&quot
+
+        try:
+            if(X is None):
+                X, y = TADClassifier.MP_Classifier.resample(
+                    X_i, y_i, method=self.classifier.resampling_method, passed_method=self.classifier.alternative_resampling_method, threads=self.classifier.threads)
+
+            else:
+                X_i, y_i = TADClassifier.MP_Classifier.resample(
+                    X_i, y_i, method=self.classifier.resampling_method, passed_method=self.classifier.alternative_resampling_method, threads=self.classifier.threads)
+                X = np.concatenate((X, X_i), axis=0)
+                y = np.concatenate((y, y_i), axis=0)
+
+            return X, y
+
+        except ValueError:
+            warnings.warn(
+                &quottraining matrix does not contain boundaries, training skipped&quot)
+
+            return X, y
+
+    def persist(self, out_file):
+
+        out_file_s = out_file.split(&quot.&quot)
+
+        if(not out_file_s[-1] == &quotBIN&quot):
+            out_file = out_file + &quot.BIN&quot
+
+        pickle.dump(self.classifier, open(out_file, &quotwb&quot))
+
+    def run_hicTrainClassifier(self, matrix_list, domain_list, protein_list, pChromosomes):
+        &quot&quot&quotrun hicTrainClassifier with specified mode on file&quot&quot&quot
+
+        if(isinstance(matrix_list, str)):
+            matrix_list = [matrix_list]
+
+        if(isinstance(domain_list, str)):
+            domain_list = [domain_list]
+
+        if(len(domain_list) == 1):
+            domain_list = domain_list * len(matrix_list)
+
+        if(protein_list is None):
+            protein_list = [None] * len(matrix_list)
+
+        elif(isinstance(protein_list, str)):
+            protein_list = [protein_list]
+
+        if(len(protein_list) == 1):
+            protein_list = protein_list * len(matrix_list)
+
+        if(not (len(matrix_list) == len(domain_list) and len(protein_list) == len(domain_list))):
+            raise ValueError(
+                &quotplease pass domain (,optional protein) and matrix lists of same length or pass a single domain (and optional protein) file&quot)
+
+        chromosome_list = []
+        if pChromosomes is not None:
+            chromosome_list = pChromosomes
+        else:
+            for matrix in matrix_list:
+                cooler_obj = cooler.Cooler(matrix)
+                chromosome_list.append(cooler_obj.chromnames)
+
+        if(self.mode == &quottrain_new&quot or self.mode == &quottrain_existing&quot):
+
+            if(self.concatenate_before_resample):
+                self.multi_train_concatenate_before_resample(
+                    matrix_list, domain_list, protein_list, pChromosome=chromosome_list)
+
+            else:
+                self.multi_train(matrix_list, domain_list, protein_list, pChromosome=chromosome_list)
+
+        elif(self.mode == &quottrain_test&quot):
+            self.train_test(matrix_list, domain_list, protein_list, pChromosome=chromosome_list)
+
+        elif(self.mode == &quotpredict_test&quot):
+            self.multi_test_predict(matrix_list, domain_list, protein_list, pChromosome=chromosome_list)
+
+    def run_hicTADClassifier(self, matrix_list, pChromosomes):
+        &quot&quot&quotpredict a dataset&quot&quot&quot
+
+        if(isinstance(matrix_list, str)):
+            matrix_list = [matrix_list]
+
+        chromosome_list = []
+        if pChromosomes is None:
+            for matrix in matrix_list:
+                cooler_obj = cooler.Cooler(matrix)
+                chromosome_list.append(cooler_obj.chromnames)
+        else:
+            chromosome_list = pChromosomes
+        &#47&#47 i = 0
+        conc_is_boundary = None
+        conc_positions = None
+        for i, data in enumerate(matrix_list):
+            for chromosome in chromosome_list[i]:
+                matrix, positions, features = self.prepare_predict(data, pChromosome=chromosome)
+
+                matrix.numpy_matrix = None
+                matrix.hic_matrix = None
+                matrix = None
+
+                positions, is_boundary = self.classifier.predict(
+                    positions, features)
+                if positions is None or len(positions) == 0:
+                    continue
+                if conc_is_boundary is None:
+                    conc_positions = positions
+                    conc_is_boundary = is_boundary
+                else:
+                    conc_positions = np.concatenate((conc_positions, positions), axis=0)
+
+                    conc_is_boundary = np.concatenate((conc_is_boundary, is_boundary), axis=0)
+
+                features = None
+                is_boundary = None
+                positions = None
+                &#47&#47 i = i + 1
+
+            &#47&#47 matrix_name = ".".join(os.path.basename(matrix_list[i]).split(".")[:-1])
+            out_file_i = self.out_file[i]
+            TADClassifier.print_to_bed(TADClassifier.get_domains(
+                conc_positions, conc_is_boundary), out_file_i)
+
+    def print_to_bed(domain_df, path):
+        &quot&quot&quotprint domain file&quot&quot&quot
+
+        domain_df.to_csv(path, sep=&quot\t&quot, header=None, index=False)
+
+    def filter_domains(domains):
+        &quot&quot&quotfilter out to small domains&quot&quot&quot
+
+        min_tad_size = 50000 - 1
+        domain_df = pd.DataFrame({&quotChrom&quot: domains[:,
+                                                   0],
+                                  &quotStart&quot: domains[:,
+                                                   1],
+                                  &quotEnd&quot: domains[:,
+                                                 2]})
+
+        domain_df[&quotStart&quot] = domain_df.Start.apply(np.int64)
+        domain_df[&quotEnd&quot] = domain_df.End.apply(np.int64)
+        domain_df = domain_df.sort_values(by=["Chrom", "Start"])
+        domain_df[&quotTest&quot] = domain_df[&quotStart&quot].shift(1, fill_value=0)
+        domain_df[&quotChrom_Test&quot] = domain_df[&quotChrom&quot].shift(1, fill_value=0)
+        domain_df[&quotChrom_Test_Bool&quot] = domain_df[&quotChrom&quot] != domain_df[&quotChrom_Test&quot]
+        domain_df[&quotTest_Bool&quot] = domain_df[&quotTest&quot] + min_tad_size &lt;= domain_df[&quotStart&quot]
+        domain_df[&quotTest_Bool&quot] = np.logical_or(domain_df[&quotTest_Bool&quot], domain_df[&quotChrom_Test_Bool&quot])
+        domain_df = domain_df[domain_df[&quotTest_Bool&quot]]
+
+        return domain_df[[&quotChrom&quot, &quotStart&quot, &quotEnd&quot]].to_numpy()
+
+    def get_domains(positions, y):
+        &quot&quot&quotreturn dataframe of predicted TADs&quot&quot&quot
+
+        pos_mask = y[:] == True
+        &#47&#47 print(&quotpos_mask {}&quot.format(pos_mask))
+        domains = positions[pos_mask]
+        &#47&#47 print(&quotdomains {}&quot.format(domains))
+
+        domains = TADClassifier.filter_domains(domains)
+        &#47&#47 print(&quotdomains {}&quot.format(domains))
+
+        name = np.arange(1, domains.shape[0] + 1)
+        score = np.full(domains.shape[0], -1)
+        strand = np.full(domains.shape[0], 0)
+        item_rgb = np.tile([0, 1], domains.shape[0])
+        item_rgb = item_rgb[0:domains.shape[0]]
+        &#47&#47 print(&quotChrom {}&quot.format(domains[:, 0]))
+
+        domain_df = pd.DataFrame({&quotChrom&quot: domains[:,
+                                                   0],
+                                  &quotStart&quot: domains[:,
+                                                   1],
+                                  &quotEnd&quot: domains[:,
+                                                 1],
+                                  &quotName&quot: name,
+                                  &quotScore&quot: score,
+                                  &quotStrand&quot: strand,
+                                  &quotThickStart&quot: domains[:,
+                                                        1],
+                                  &quotThickEnd&quot: domains[:,
+                                                      1],
+                                  &quotItemRGB&quot: item_rgb})
+        &#47&#47 print(&quotdomain_df 1 {}&quot.format(domain_df))
+
+        def rgb_helper(i):
+            if(i == 0):
+                return &quot31,120,180&quot
+            else:
+                return &quot51,160,44&quot
+
+        def name_helper(i):
+            return &quotID_0.03_&quot + str(i)
+
+        def strand_helper(s):
+            return &quot.&quot
+
+        domain_df["ItemRGB"] = domain_df["ItemRGB"].map(rgb_helper)
+        domain_df["Name"] = domain_df["Name"].map(name_helper)
+        domain_df["Strand"] = domain_df["Strand"].map(strand_helper)
+
+        domain_df[&quotStart&quot] = domain_df.Start.apply(np.int64)
+        domain_df[&quotEnd&quot] = domain_df.End.apply(np.int64)
+
+        domain_df = domain_df.sort_values(by=["Chrom", "Start"])
+
+        domain_df[&quotStart&quot] = domain_df[&quotStart&quot].shift(1, fill_value=0)
+        domain_df[&quotThickStart&quot] = domain_df[&quotThickStart&quot].shift(
+            1, fill_value=0)
+        &#47&#47 print(&quotdomain_df 2{}&quot.format(domain_df))
+
+        &#47&#47 domain_df = domain_df[1:]
+        &#47&#47 print(&quotdomain_df 3{}&quot.format(domain_df))
+
+        domain_df = domain_df[domain_df[&quotStart&quot] &lt; domain_df[&quotEnd&quot]]
+
+        return domain_df
+</code></pre>

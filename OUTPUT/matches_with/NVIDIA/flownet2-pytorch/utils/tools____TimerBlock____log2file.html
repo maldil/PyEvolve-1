@@ -1,0 +1,154 @@
+<link rel="stylesheet" href="../../..//default.css">
+<script src="../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/NVIDIA/flownet2-pytorch/blob/master/utils/tools.py#L50">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/flownet2-pytorch/blob/master/utils/tools.py#L50">GitMyHubLink</a>
+
+&#47&#47 freda (todo) : 
+
+import os, time, sys, math
+import subprocess, shutil
+from os.path import *
+import numpy as np
+from inspect import isclass
+from pytz import timezone
+from datetime import datetime
+import inspect
+import torch
+
+def datestr():
+    pacific = timezone(&quotUS/Pacific&quot)
+    now = datetime.now(pacific)
+    return &quot{}{:02}{:02}_{:02}{:02}&quot.format(now.year, now.month, now.day, now.hour, now.minute)
+
+def module_to_dict(module, exclude=[]):
+        return dict([(x, getattr(module, x)) for x in dir(module)
+                     if isclass(getattr(module, x))
+                     and x not in exclude
+                     and getattr(module, x) not in exclude])
+
+class TimerBlock: 
+    def __init__(self, title):
+        print(("{}".format(title)))
+
+    def __enter__(self):
+        self.start = time.clock()
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.end = time.clock()
+        self.interval = self.end - self.start
+
+        if exc_type is not None:
+            self.log("Operation failed\n")
+        else:
+            self.log("Operation finished\n")
+
+
+    def log(self, string):
+        duration = time.clock() - self.start
+        units = &quots&quot
+        if duration &gt; 60:
+            duration = duration / 60.
+            units = &quotm&quot
+        print(("  [{:.3f}{}] {}".format(duration, units, string)))
+    
+    def log2file(self, fid, string):
+        <a id="change">fid</a><a id="change"> = open(fid, &quota&quot)</a>
+        <a id="change">fid</a>.write("%s\n"%(string))
+        <a id="change">fid</a><a id="change">.close()</a>
+
+def add_arguments_for_module(parser, module, argument_for_class, default, skip_params=[], parameter_defaults={}):
+    argument_group = parser.add_argument_group(argument_for_class.capitalize())
+
+    module_dict = module_to_dict(module)
+    argument_group.add_argument(&quot--&quot + argument_for_class, type=str, default=default, choices=list(module_dict.keys()))
+    
+    args, unknown_args = parser.parse_known_args()
+    class_obj = module_dict[vars(args)[argument_for_class]]
+
+    argspec = inspect.getargspec(class_obj.__init__)
+
+    defaults = argspec.defaults[::-1] if argspec.defaults else None
+
+    args = argspec.args[::-1]
+    for i, arg in enumerate(args):
+        cmd_arg = &quot{}_{}&quot.format(argument_for_class, arg)
+        if arg not in skip_params + [&quotself&quot, &quotargs&quot]:
+            if arg in list(parameter_defaults.keys()):
+                argument_group.add_argument(&quot--{}&quot.format(cmd_arg), type=type(parameter_defaults[arg]), default=parameter_defaults[arg])
+            elif (defaults is not None and i &lt; len(defaults)):
+                argument_group.add_argument(&quot--{}&quot.format(cmd_arg), type=type(defaults[i]), default=defaults[i])
+            else:
+                print(("[Warning]: non-default argument &quot{}&quot detected on class &quot{}&quot. This argument cannot be modified via the command line"
+                        .format(arg, module.__class__.__name__)))
+            &#47&#47 We don&quott have a good way of dealing with inferring the type of the argument
+            &#47&#47 TODO: try creating a custom action and using ast&quots infer type?
+            &#47&#47 else:
+            &#47&#47     argument_group.add_argument(&quot--{}&quot.format(cmd_arg), required=True)
+
+def kwargs_from_args(args, argument_for_class):
+    argument_for_class = argument_for_class + &quot_&quot
+    return {key[len(argument_for_class):]: value for key, value in list(vars(args).items()) if argument_for_class in key and key != argument_for_class + &quotclass&quot}
+
+def format_dictionary_of_losses(labels, values):
+    try:
+        string = &quot, &quot.join([(&quot{}: {:&quot + (&quot.3f&quot if value &gt;= 0.001 else &quot.1e&quot) +&quot}&quot).format(name, value) for name, value in zip(labels, values)])
+    except (TypeError, ValueError) as e:
+        print((list(zip(labels, values))))
+        string = &quot[Log Error] &quot + str(e)
+
+    return string
+
+
+class IteratorTimer():
+    def __init__(self, iterable):
+        self.iterable = iterable
+        self.iterator = self.iterable.__iter__()
+
+    def __iter__(self):
+        return self
+
+    def __len__(self):
+        return len(self.iterable)
+
+    def __next__(self):
+        start = time.time()
+        n = next(self.iterator)
+        self.last_duration = (time.time() - start)
+        return n
+
+    next = __next__
+
+def gpumemusage():
+    gpu_mem = subprocess.check_output("nvidia-smi | grep MiB | cut -f 3 -d &quot|&quot", shell=True).replace(&quot &quot, &quot&quot).replace(&quot\n&quot, &quot&quot).replace(&quoti&quot, &quot&quot)
+    all_stat = [float(a) for a in gpu_mem.replace(&quot/&quot,&quot&quot).split(&quotMB&quot)[:-1]]
+
+    gpu_mem = &quot&quot
+    for i in range(len(all_stat)/2):
+        curr, tot = all_stat[2*i], all_stat[2*i+1]
+        util = "%1.2f"%(100*curr/tot)+&quot%&quot
+        cmem = str(int(math.ceil(curr/1024.)))+&quotGB&quot
+        gmem = str(int(math.ceil(tot/1024.)))+&quotGB&quot
+        gpu_mem += util + &quot--&quot + join(cmem, gmem) + &quot &quot
+    return gpu_mem
+
+
+def update_hyperparameter_schedule(args, epoch, global_iteration, optimizer):
+    if args.schedule_lr_frequency &gt; 0:
+        for param_group in optimizer.param_groups:
+            if (global_iteration + 1) % args.schedule_lr_frequency == 0:
+                param_group[&quotlr&quot] /= float(args.schedule_lr_fraction)
+                param_group[&quotlr&quot] = float(np.maximum(param_group[&quotlr&quot], 0.000001))
+
+def save_checkpoint(state, is_best, path, prefix, filename=&quotcheckpoint.pth.tar&quot):
+    prefix_save = os.path.join(path, prefix)
+    name = prefix_save + &quot_&quot + filename
+    torch.save(state, name)
+    if is_best:
+        shutil.copyfile(name, prefix_save + &quot_model_best.pth.tar&quot)
+
+</code></pre>

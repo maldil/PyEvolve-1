@@ -1,0 +1,230 @@
+<link rel="stylesheet" href="../../..//default.css">
+<script src="../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/gyoisamurai/GyoiThon/blob/master/modules/Gyoi_PageTypeChecker.py#L184">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/GyoiThon/blob/master/modules/Gyoi_PageTypeChecker.py#L184">GitMyHubLink</a>
+
+&#47&#47!/bin/env python
+&#47&#47 -*- coding: utf-8 -*-
+import os
+import sys
+import codecs
+import re
+import configparser
+import pickle
+from .NaiveBayes import NaiveBayes
+
+&#47&#47 Type of printing.
+OK = &quotok&quot         &#47&#47 [*]
+NOTE = &quotnote&quot     &#47&#47 [+]
+FAIL = &quotfail&quot     &#47&#47 [-]
+WARNING = &quotwarn&quot  &#47&#47 [!]
+NONE = &quotnone&quot     &#47&#47 No label.
+
+
+class PageChecker:
+    def __init__(self, utility):
+        &#47&#47 Read config.ini.
+        self.utility = utility
+        config = configparser.ConfigParser()
+        self.file_name = os.path.basename(__file__)
+        self.full_path = os.path.dirname(os.path.abspath(__file__))
+        self.root_path = os.path.join(self.full_path, &quot../&quot)
+        config.read(os.path.join(self.root_path, &quotconfig.ini&quot))
+
+        try:
+            self.train_path = os.path.join(self.full_path, config[&quotPageChecker&quot][&quottrain_path&quot])
+            self.train_file = os.path.join(self.train_path, config[&quotPageChecker&quot][&quottrain_page&quot])
+            self.trained_path = os.path.join(self.full_path, config[&quotPageChecker&quot][&quottrained_path&quot])
+            self.trained_file = os.path.join(self.trained_path, config[&quotPageChecker&quot][&quottrained_page&quot])
+            self.signatures_dir = os.path.join(self.root_path, config[&quotCommon&quot][&quotsignature_path&quot])
+            self.signature_file = os.path.join(self.signatures_dir, config[&quotPageChecker&quot][&quotsignature_file&quot])
+            self.action_name = &quotPage Type Checker&quot
+        except Exception as e:
+            self.utility.print_message(FAIL, &quotReading config.ini is failure : {}&quot.format(e))
+            self.utility.write_log(40, &quotReading config.ini is failure : {}&quot.format(e))
+            sys.exit(1)
+
+    &#47&#47 Judge page type.
+    def judge_page_type(self, target_url, response):
+        self.utility.print_message(NOTE, &quotJudge page type.&quot)
+        msg = self.utility.make_log_msg(self.utility.log_in,
+                                        self.utility.log_dis,
+                                        self.file_name,
+                                        action=self.action_name,
+                                        note=&quotJudge page type&quot,
+                                        dest=self.utility.target_host)
+        self.utility.write_log(20, msg)
+        &#47&#47 page_type = {&quotml&quot: {&quottype&quot: &quotunknown&quot, &quotreason&quot: &quot-&quot}, &quoturl&quot: {&quottype&quot: &quotunknown&quot, &quotreason&quot: &quot-&quot}}
+        page_type = {&quotml&quot: {&quotprob&quot: &quot-&quot, &quotreason&quot: &quot-&quot}, &quoturl&quot: {&quotprob&quot: &quot-&quot, &quotreason&quot: &quot-&quot}}
+
+        &#47&#47 Learning.
+        nb = self.train(self.train_file, self.trained_file)
+        if nb is None:
+            msg = self.utility.make_log_msg(self.utility.log_out,
+                                            self.utility.log_dis,
+                                            self.file_name,
+                                            action=self.action_name,
+                                            note=&quotJudge page type&quot,
+                                            dest=self.utility.target_host)
+            self.utility.write_log(20, msg)
+            return &quotunknown&quot
+
+        &#47&#47 Predict page type using Naive Bayes.
+        self.utility.print_message(OK, &quotPredict page type.&quot)
+        predict_result, prob, keywords, classified_list = nb.classify(response)
+        if len(keywords) == 0:
+            self.utility.print_message(OK, &quotPage type is unknown.&quot)
+        else:
+            page_type[&quotml&quot][&quotprob&quot] = str(round(prob*100, 2))
+            page_type[&quotml&quot][&quotreason&quot] = &quot@&quot.join(keywords)
+            msg = &quotML: Page type={}/{}%, reason={}&quot.format(predict_result,
+                                                           round(prob*100, 2),
+                                                           page_type[&quotml&quot][&quotreason&quot])
+            self.utility.print_message(OK, msg)
+            msg = self.utility.make_log_msg(self.utility.log_mid,
+                                            self.utility.log_dis,
+                                            self.file_name,
+                                            action=self.action_name,
+                                            note=msg,
+                                            dest=self.utility.target_host)
+            self.utility.write_log(20, msg)
+
+        &#47&#47 Predict Basic Authenticate.
+        predict_result, page_type[&quoturl&quot][&quotprob&quot], page_type[&quoturl&quot][&quotreason&quot] = self.predict_basic_auth(response)
+        msg = &quotURL: Page type={}/{}%, reason={}&quot.format(predict_result,
+                                                        page_type[&quoturl&quot][&quotprob&quot],
+                                                        page_type[&quoturl&quot][&quotreason&quot])
+        self.utility.print_message(OK, msg)
+        msg = self.utility.make_log_msg(self.utility.log_mid,
+                                        self.utility.log_dis,
+                                        self.file_name,
+                                        action=self.action_name,
+                                        note=msg,
+                                        dest=self.utility.target_host)
+        self.utility.write_log(20, msg)
+
+        if page_type[&quoturl&quot][&quotprob&quot] != &quot100.0&quot:
+            &#47&#47 Predict page type using URL.
+            predict_result, page_type[&quoturl&quot][&quotprob&quot], page_type[&quoturl&quot][&quotreason&quot] = self.predict_page_type(target_url)
+            msg = &quotURL: Page type={}/{}%, reason={}&quot.format(predict_result,
+                                                            page_type[&quoturl&quot][&quotprob&quot],
+                                                            page_type[&quoturl&quot][&quotreason&quot])
+            self.utility.print_message(OK, msg)
+            msg = self.utility.make_log_msg(self.utility.log_mid,
+                                            self.utility.log_dis,
+                                            self.file_name,
+                                            action=self.action_name,
+                                            note=msg,
+                                            dest=self.utility.target_host)
+            self.utility.write_log(20, msg)
+
+        msg = self.utility.make_log_msg(self.utility.log_out,
+                                        self.utility.log_dis,
+                                        self.file_name,
+                                        action=self.action_name,
+                                        note=&quotJudge page type&quot,
+                                        dest=self.utility.target_host)
+        self.utility.write_log(20, msg)
+        return page_type
+
+    &#47&#47 Predict page type using URL.
+    def predict_page_type(self, target_url):
+        self.utility.write_log(20, &quot[In] Predict page type [{}].&quot.format(self.file_name))
+        try:
+            &#47&#47 Identify product name and version.
+            with codecs.open(self.signature_file, &quotr&quot, &quotutf-8&quot) as fin:
+                matching_patterns = fin.readlines()
+                for pattern in matching_patterns:
+                    items = pattern.replace(&quot\r&quot, &quot&quot).replace(&quot\n&quot, &quot&quot).split(&quot@&quot)
+                    page_type = items[0]
+                    signature = items[1]
+                    obj_match = re.search(signature, target_url, flags=re.IGNORECASE)
+
+                    &#47&#47 Judge page type.
+                    if obj_match is not None:
+                        msg = &quotIdentify page type : page type={}/100%, url={}&quot.format(page_type, target_url)
+                        self.utility.print_message(OK, msg)
+                        msg = self.utility.make_log_msg(self.utility.log_mid,
+                                                        self.utility.log_dis,
+                                                        self.file_name,
+                                                        action=self.action_name,
+                                                        note=msg,
+                                                        dest=self.utility.target_host)
+                        self.utility.write_log(20, msg)
+                        self.utility.write_log(20, &quot[Out] Predict page type [{}].&quot.format(self.file_name))
+                        return page_type, &quot100.0&quot, obj_match.group(1)
+
+        except Exception as e:
+            msg = &quotPrediction page type is failure : {}&quot.format(e)
+            self.utility.print_exception(e, msg)
+            self.utility.write_log(30, msg)
+        self.utility.write_log(20, &quot[Out] Predict page type [{}].&quot.format(self.file_name))
+        return &quotLogin&quot, &quot0.0&quot, &quot-&quot
+
+    &#47&#47 Predict page type using HTTP status code.
+    def predict_basic_auth(self, response):
+        self.utility.write_log(20, &quot[In] Predict page type [{}].&quot.format(self.file_name))
+
+        &#47&#47 Identify product name and version.
+        obj_match = re.search(r&quot[\r\n](WWW-Authenticate:\sBasic).*[\r\n]&quot, response, flags=re.IGNORECASE)
+
+        &#47&#47 Judge page type.
+        if obj_match is not None:
+            reason = obj_match.group(1)
+            msg = &quotIdentify page type : page type={}/100%, reason={}&quot.format(&quotLogin&quot, reason)
+            self.utility.print_message(OK, msg)
+            msg = self.utility.make_log_msg(self.utility.log_mid,
+                                            self.utility.log_dis,
+                                            self.file_name,
+                                            action=self.action_name,
+                                            note=msg,
+                                            dest=self.utility.target_host)
+            self.utility.write_log(20, msg)
+            self.utility.write_log(20, &quot[Out] Predict page type [{}].&quot.format(self.file_name))
+            return &quotLogin&quot, &quot100.0&quot, reason
+
+        return &quotLogin&quot, &quot0.0&quot, &quot-&quot
+
+    &#47&#47 Execute learning / Get learned data.
+    def train(self, in_file, out_file):
+        self.utility.write_log(20, &quot[In] Train model [{}].&quot.format(self.file_name))
+        nb = None
+        try:
+            &#47&#47 If existing learned data (pkl), load learned data.
+            if os.path.exists(out_file):
+                msg = &quotLoad trained file : {}&quot.format(out_file)
+                self.utility.print_message(OK, msg)
+                self.utility.write_log(20, msg)
+                with open(out_file, &quotrb&quot) as fin:
+                    nb = pickle.load(fin)
+            &#47&#47 If no learned data, execute learning.
+            else:
+                msg = &quotTrain model : {}&quot.format(in_file)
+                self.utility.print_message(OK, msg)
+                self.utility.write_log(20, msg)
+                nb = NaiveBayes()
+                <a id="change">fin</a><a id="change"> = codecs.open(in_file, &quotr&quot, &quotutf-8&quot)</a>
+                lines = <a id="change">fin</a>.readlines()
+                <a id="change">fin</a><a id="change">.close()</a>
+                items = []
+
+                for line in lines:
+                    words = line[:-2]
+                    train_words = <a id="change">words</a>.split(&quot@&quot)
+                    <a id="change">items</a>.append(train_words[1])
+                    <a id="change">nb</a>.train(train_words[1], train_words[0])
+
+                &#47&#47 Save learned data to pkl file.
+                with open(out_file, &quotwb&quot) as f:
+                    pickle.dump(nb, f)
+        except Exception as e:
+            msg = &quotTraining model is failure : {}&quot.format(e)
+            self.utility.print_exception(e, msg)
+            self.utility.write_log(30, msg)
+        self.utility.write_log(20, &quot[Out] Train model [{}].&quot.format(self.file_name))
+        return nb
+</code></pre>

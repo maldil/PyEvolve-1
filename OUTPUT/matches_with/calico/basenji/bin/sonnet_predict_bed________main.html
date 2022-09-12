@@ -1,0 +1,318 @@
+<link rel="stylesheet" href="../../..//default.css">
+<script src="../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/calico/basenji/blob/master/bin/sonnet_predict_bed.py#L50">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/basenji/blob/master/bin/sonnet_predict_bed.py#L50">GitMyHubLink</a>
+
+&#47&#47!/usr/bin/env python
+&#47&#47 Copyright 2017 Calico LLC
+&#47&#47
+&#47&#47 Licensed under the Apache License, Version 2.0 (the "License");
+&#47&#47 you may not use this file except in compliance with the License.
+&#47&#47 You may obtain a copy of the License at
+&#47&#47
+&#47&#47     https://www.apache.org/licenses/LICENSE-2.0
+&#47&#47
+&#47&#47 Unless required by applicable law or agreed to in writing, software
+&#47&#47 distributed under the License is distributed on an "AS IS" BASIS,
+&#47&#47 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+&#47&#47 See the License for the specific language governing permissions and
+&#47&#47 limitations under the License.
+&#47&#47 =========================================================================
+from __future__ import print_function
+
+from optparse import OptionParser
+
+import json
+import os
+import pdb
+import pickle
+import sys
+
+import h5py
+import numpy as np
+import pandas as pd
+import pysam
+import pyBigWig
+import tensorflow as tf
+
+if tf.__version__[0] == &quot1&quot:
+  tf.compat.v1.enable_eager_execution()
+
+from basenji import bed
+from basenji import dna_io
+from basenji import seqnn
+from basenji import stream
+
+&quot&quot&quot
+basenji_predict_bed.py
+
+Predict sequences from a BED file.
+&quot&quot&quot
+
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+&#47&#47 main
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+def main():
+  <a id="change">usage = &quotusage: %prog [options] &lt;model_file&gt; &lt;bed_file&gt;&quot</a>
+  <a id="change">parser = OptionParser(usage)</a>
+  parser.add_option(&quot-b&quot, dest=&quotbigwig_indexes&quot,
+      default=None, help=&quotComma-separated list of target indexes to write BigWigs&quot)
+  parser.add_option(&quot-e&quot, dest=&quotembed_layer&quot,
+      default=None, type=&quotint&quot,
+      help=&quotEmbed sequences using the specified layer index.&quot)
+  parser.add_option(&quot-f&quot, dest=&quotgenome_fasta&quot,
+      default=None,
+      help=&quotGenome FASTA for sequences [Default: %default]&quot)
+  parser.add_option(&quot-g&quot, dest=&quotgenome_file&quot,
+      default=None,
+      help=&quotChromosome length information [Default: %default]&quot)
+  parser.add_option(&quot-l&quot, dest=&quotsite_length&quot,
+      default=None, type=&quotint&quot,
+      help=&quotPrediction site length. [Default: model seq_length]&quot)
+  parser.add_option(&quot-o&quot, dest=&quotout_dir&quot,
+      default=&quotpred_out&quot,
+      help=&quotOutput directory [Default: %default]&quot)
+  &#47&#47 parser.add_option(&quot--plots&quot, dest=&quotplots&quot,
+  &#47&#47     default=False, action=&quotstore_true&quot,
+  &#47&#47     help=&quotMake heatmap plots [Default: %default]&quot)
+  parser.add_option(&quot-p&quot, dest=&quotprocesses&quot,
+      default=None, type=&quotint&quot,
+      help=&quotNumber of processes, passed by multi script&quot)
+  parser.add_option(&quot--rc&quot, dest=&quotrc&quot,
+      default=False, action=&quotstore_true&quot,
+      help=&quotEnsemble forward and reverse complement predictions [Default: %default]&quot)
+  parser.add_option(&quot-s&quot, dest=&quotsum&quot,
+      default=False, action=&quotstore_true&quot,
+      help=&quotSum site predictions [Default: %default]&quot)
+  parser.add_option(&quot--shifts&quot, dest=&quotshifts&quot,
+      default=&quot0&quot,
+      help=&quotEnsemble prediction shifts [Default: %default]&quot)
+  parser.add_option(&quot--species&quot, dest=&quotspecies&quot,
+      default=&quothuman&quot)
+  parser.add_option(&quot-t&quot, dest=&quottargets_file&quot,
+      default=None, type=&quotstr&quot,
+      help=&quotFile specifying target indexes and labels in table format&quot)
+  <a id="change">(options, args) = parser.parse_args()</a>
+
+  if len(args) == 2:
+    <a id="change">model_file = args[0]</a>
+    <a id="change">bed_file = args[1]</a>
+
+  elif len(args) == 4:
+    &#47&#47 multi worker
+    <a id="change">options_pkl_file = args[0]</a>
+    <a id="change">model_file = args[1]</a>
+    <a id="change">bed_file = args[2]</a>
+    <a id="change">worker_index = int(args[3])</a>
+
+    &#47&#47 load options
+    <a id="change">options_pkl = open(options_pkl_file, &quotrb&quot)</a>
+    <a id="change">options = pickle.load(options_pkl)</a>
+    <a id="change">options_pkl</a><a id="change">.close()</a>
+
+    &#47&#47 update output directory
+    <a id="change">options.out_dir = &quot%s/job%d&quot % (options.out_dir, worker_index)</a>
+  else:
+    parser.error(&quotMust provide parameter and model files and BED file&quot)
+
+  if not os.path.isdir(options.out_dir):
+    os.mkdir(options.out_dir)
+
+  <a id="change">options.shifts = [int(shift) for shift in options.shifts.split(&quot,&quot)]</a>
+
+  if options.bigwig_indexes is not None:
+    <a id="change">options.bigwig_indexes = [int(bi) for bi in options.bigwig_indexes.split(&quot,&quot)]</a>
+  else:
+    <a id="change">options.bigwig_indexes = []</a>
+
+  if len(options.bigwig_indexes) &gt; 0:
+    <a id="change">bigwig_dir = &quot%s/bigwig&quot % options.out_dir</a>
+    if not os.path.isdir(bigwig_dir):
+      os.mkdir(bigwig_dir)
+
+  &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+  &#47&#47 read parameters and collet target information
+
+  if options.targets_file is None:
+    <a id="change">target_slice = None</a>
+  else:
+    <a id="change">targets_df = pd.read_table(options.targets_file, index_col=0)</a>
+    <a id="change">target_slice = targets_df.index</a>
+
+  &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+  &#47&#47 setup model
+
+  <a id="change">seqnn_model = tf.saved_model.load(model_file).model</a>
+
+  &#47&#47 query num model targets 
+  <a id="change">seq_length = seqnn_model.predict_on_batch.input_signature[0].shape[1]</a>
+  <a id="change">null_1hot = np.zeros((1,seq_length,4))</a>
+  <a id="change">null_preds = seqnn_model.predict_on_batch(null_1hot)</a>
+  <a id="change">null_preds = null_preds[options.species].numpy()</a>
+  <a id="change">_, preds_length, preds_depth = null_preds.shape</a>
+
+  &#47&#47 hack sizes
+  <a id="change">preds_window = 128</a>
+  <a id="change">seq_crop = (seq_length - preds_length*preds_window) // 2</a>
+
+
+  &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+  &#47&#47 sequence dataset
+
+  if options.site_length is None:
+    <a id="change">options.site_length = preds_window*preds_length</a>
+    print(&quotsite_length: %d&quot % options.site_length)
+
+  &#47&#47 construct model sequences
+  <a id="change">model_seqs_dna, model_seqs_coords = bed.make_bed_seqs(
+    bed_file, options.genome_fasta,
+    seq_length, stranded=False)</a>
+
+  &#47&#47 construct site coordinates
+  <a id="change">site_seqs_coords = bed.read_bed_coords(bed_file, options.site_length)</a>
+
+  &#47&#47 filter for worker SNPs
+  if options.processes is not None:
+    <a id="change">worker_bounds = np.linspace(0, len(model_seqs_dna), options.processes+1, dtype=&quotint&quot)</a>
+    <a id="change">model_seqs_dna = model_seqs_dna[worker_bounds[worker_index]:worker_bounds[worker_index+1]]</a>
+    <a id="change">model_seqs_coords = model_seqs_coords[worker_bounds[worker_index]:worker_bounds[worker_index+1]]</a>
+    <a id="change">site_seqs_coords = site_seqs_coords[worker_bounds[worker_index]:worker_bounds[worker_index+1]]</a>
+
+  <a id="change">num_seqs = len(model_seqs_dna)</a>
+
+
+  &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+  &#47&#47 setup output
+
+  assert(preds_length % 2 == 0)
+  <a id="change">preds_mid = preds_length // 2</a>
+
+  assert(options.site_length % preds_window == 0)
+  <a id="change">site_preds_length = options.site_length // preds_window</a>
+
+  assert(site_preds_length % 2 == 0)
+  <a id="change">site_preds_start = preds_mid - site_preds_length//2</a>
+  <a id="change">site_preds_end = site_preds_start + site_preds_length</a>
+
+  &#47&#47 initialize HDF5
+  <a id="change">out_h5_file = &quot%s/predict.h5&quot % options.out_dir</a>
+  if os.path.isfile(out_h5_file):
+    os.remove(out_h5_file)
+  <a id="change">out_h5 = h5py.File(out_h5_file, &quotw&quot)</a>
+
+  &#47&#47 create predictions
+  if options.sum:
+    out_h5.create_dataset(&quotpreds&quot, shape=(num_seqs, preds_depth), dtype=&quotfloat16&quot)
+  else:
+    out_h5.create_dataset(&quotpreds&quot, shape=(num_seqs, site_preds_length, preds_depth), dtype=&quotfloat16&quot)
+
+  &#47&#47 store site coordinates
+  <a id="change">site_seqs_chr, site_seqs_start, site_seqs_end = zip(*site_seqs_coords)</a>
+  <a id="change">site_seqs_chr = np.array(site_seqs_chr, dtype=&quotS&quot)</a>
+  <a id="change">site_seqs_start = np.array(site_seqs_start)</a>
+  <a id="change">site_seqs_end = np.array(site_seqs_end)</a>
+  out_h5.create_dataset(&quotchrom&quot, data=site_seqs_chr)
+  out_h5.create_dataset(&quotstart&quot, data=site_seqs_start)
+  out_h5.create_dataset(&quotend&quot, data=site_seqs_end)
+
+
+  &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+  &#47&#47 predict scores, write output
+
+  &#47&#47 define sequence generator
+  def seqs_gen():
+    for seq_dna in model_seqs_dna:
+      yield dna_io.dna_1hot(seq_dna)
+
+  &#47&#47 initialize predictions stream
+  <a id="change">preds_stream = stream.PredStreamSonnet(seqnn_model, seqs_gen(),
+    rc=options.rc, shifts=options.shifts, species=options.species)</a>
+
+  for si in range(num_seqs):
+    <a id="change">preds_seq = preds_stream[si]</a>
+
+    &#47&#47 slice site
+    <a id="change">preds_site = preds_seq[site_preds_start:site_preds_end,:]</a>
+
+    &#47&#47 write
+    if options.sum:
+      <a id="change">out_h5[&quotpreds&quot][si] = preds_site.sum(axis=0)</a>
+    else:
+      <a id="change">out_h5[&quotpreds&quot][si] = preds_site</a>
+
+    &#47&#47 write bigwig
+    for ti in options.bigwig_indexes:
+      <a id="change">bw_file = &quot%s/s%d_t%d.bw&quot % (bigwig_dir, si, ti)</a>
+      bigwig_write(preds_seq[:,ti], model_seqs_coords[si], bw_file,
+                   options.genome_file, seq_crop)
+
+  &#47&#47 close output HDF5
+  out_h5.close()
+
+
+def bigwig_open(bw_file, genome_file):
+   Open the bigwig file for writing and write the header. 
+
+  bw_out = pyBigWig.open(bw_file, &quotw&quot)
+
+  chrom_sizes = []
+  for line in open(genome_file):
+    a = line.split()
+    chrom_sizes.append((a[0], int(a[1])))
+
+  bw_out.addHeader(chrom_sizes)
+
+  return bw_out
+
+
+def bigwig_write(signal, seq_coords, bw_file, genome_file, seq_crop=0):
+   Write a signal track to a BigWig file over the region
+         specified by seqs_coords.
+
+    Args
+     signal:      Sequences x Length signal array
+     seq_coords:  (chr,start,end)
+     bw_file:     BigWig filename
+     genome_file: Chromosome lengths file
+     seq_crop:    Sequence length cropped from each side of the sequence.
+    
+  target_length = len(signal)
+
+  &#47&#47 open bigwig
+  bw_out = bigwig_open(bw_file, genome_file)
+
+  &#47&#47 initialize entry arrays
+  entry_starts = []
+  entry_ends = []
+
+  &#47&#47 set entries
+  chrm, start, end = seq_coords
+  preds_pool = (end - start - 2 * seq_crop) // target_length
+
+  bw_start = start + seq_crop
+  for li in range(target_length):
+    bw_end = bw_start + preds_pool
+    entry_starts.append(bw_start)
+    entry_ends.append(bw_end)
+    bw_start = bw_end
+
+  &#47&#47 add
+  bw_out.addEntries(
+          [chrm]*target_length,
+          entry_starts,
+          ends=entry_ends,
+          values=[float(s) for s in signal])
+
+  bw_out.close()
+
+
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+&#47&#47 __main__
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+if __name__ == &quot__main__&quot:
+  main()
+</code></pre>

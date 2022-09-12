@@ -1,0 +1,184 @@
+digraph G {
+1 [label="(151708931)=" shape=box style=dashed color=blue fontcolor=blue]
+2 [label="(151708923)encode" shape=box style=dashed]
+3 [label="(151708947)bytes(bytes)" shape=ellipse style=dashed]
+4 [label="(151708952)write" shape=box style=dashed]
+5 [label="(151708944)GetNext" shape=box style=dashed]
+6 [label="(151708920)String(lit(hello world{}))" shape=ellipse style=dashed]
+7 [label="(151708957)GetNext" shape=box style=dashed]
+8 [label="(151708965)END" style=dashed]
+9 [label="(151708907)os(os)" shape=ellipse style=dashed]
+10 [label="(151708959)assertEqual" shape=box style=dashed]
+11 [label="(151708932)tensorboard.compat.tensorflow_stub.pywrap_tensorflow.PyRecordReader_New(r)" shape=ellipse style=dashed]
+12 [label="(151708928)open" shape=box style=dashed color=blue fontcolor=blue]
+13 [label="(151708939)tensorboard.compat.tensorflow_stub.errors(errors)" shape=ellipse style=dashed]
+14 [label="(151708903)(null)" shape=ellipse style=dashed]
+15 [label="(151708946)List[bytes](chunks_to_write)" shape=ellipse style=dashed]
+16 [label="(151708953)bytes(bytes)" shape=ellipse style=dashed]
+17 [label="(151708935)=" shape=box style=dashed]
+18 [label="(151708924)empty" shape=box style=dashed]
+19 [label="(151708929)str(filename)" shape=ellipse style=dashed]
+20 [label="(151708940)tensorboard.compat.tensorflow_stub.errors.OutOfRangeError(OutOfRangeError)" shape=ellipse style=dashed]
+21 [label="(151708925)=" shape=box style=dashed]
+22 [label="(151708933)PyRecordReader_New" shape=box style=dashed]
+23 [label="(151708906)str(filename)" shape=ellipse style=dashed]
+24 [label="(151708945)empty" shape=box style=dashed]
+25 [label="(151708901)START" style=dashed]
+26 [label="(151708908)os.path(path)" shape=ellipse style=dashed]
+27 [label="(151708919)comprehension" shape=diamond style=dashed]
+28 [label="(151708914)List[bytes](chunks_to_write)" shape=ellipse style=dashed]
+29 [label="(151708921)format" shape=box style=dashed]
+30 [label="(151708938)assertRaises" shape=box style=dashed]
+31 [label="(151708956)tensorboard.compat.tensorflow_stub.pywrap_tensorflow.PyRecordReader_New(r)" shape=ellipse style=dashed]
+32 [label="(151708915)ListComp" shape=diamond style=dashed]
+33 [label="(151708962)bytes(bytes)" shape=ellipse style=dashed]
+34 [label="(151708913)=" shape=box style=dashed]
+35 [label="(151708949)For" shape=diamond style=dashed]
+36 [label="(151708936)With" shape=diamond style=dashed]
+37 [label="(151708961)record" shape=box style=dashed]
+38 [label="(151708943)tensorboard.compat.tensorflow_stub.pywrap_tensorflow.PyRecordReader_New(r)" shape=ellipse style=dashed]
+39 [label="(151708934)str(filename)" shape=ellipse style=dashed]
+40 [label="(151708942)empty" shape=box style=dashed]
+41 [label="(151708909)join" shape=box style=dashed]
+42 [label="(151708951)tensorboard.summary.writer.record_writer.RecordWriter(w)" shape=ellipse style=dashed]
+43 [label="(151708902)RecordWriterTest(self)" shape=ellipse style=dashed]
+44 [label="(151708937)RecordWriterTest(self)" shape=ellipse style=dashed]
+45 [label="(151708958)RecordWriterTest(self)" shape=ellipse style=dashed]
+46 [label="(151708912)String(lit(record_immediate_read))" shape=ellipse style=dashed]
+47 [label="(151708926)tensorboard.summary.writer.record_writer.RecordWriter(w)" shape=ellipse style=dashed color=blue fontcolor=blue]
+48 [label="(151708930)String(lit(wb))" shape=ellipse style=dashed color=blue fontcolor=blue]
+49 [label="(151708922)int(i)" shape=ellipse style=dashed]
+50 [label="(151708910)RecordWriterTest(self)" shape=ellipse style=dashed]
+51 [label="(151708960)tensorboard.compat.tensorflow_stub.pywrap_tensorflow.PyRecordReader_New(r)" shape=ellipse style=dashed]
+52 [label="(151708918)number(10)" shape=ellipse style=dashed]
+53 [label="(151708964)close" shape=box style=dashed color=blue fontcolor=blue]
+54 [label="(151708948)bytes(bytes)" shape=ellipse style=dashed]
+55 [label="(151708950)empty" shape=box style=dashed]
+56 [label="(151708911)get_temp_dir" shape=box style=dashed]
+57 [label="(151708916)int(i)" shape=ellipse style=dashed]
+58 [label="(151708941)AS" shape=box style=dashed]
+59 [label="(151708963)tensorboard.summary.writer.record_writer.RecordWriter(w)" shape=ellipse style=dashed color=blue fontcolor=blue]
+60 [label="(151708954)tensorboard.summary.writer.record_writer.RecordWriter(w)" shape=ellipse style=dashed]
+61 [label="(151708904)=" shape=box style=dashed]
+62 [label="(151708927)RecordWriter" shape=box style=dashed]
+63 [label="(151708955)flush" shape=box style=dashed]
+64 [label="(151708917)range" shape=box style=dashed]
+25 -> 1 [label="" style=solid];
+62 -> 1 [label="dep" style=dotted];
+62 -> 1 [label="para" style=dotted];
+25 -> 2 [label="" style=solid];
+29 -> 2 [label="dep" style=dotted];
+29 -> 2 [label="recv" style=dotted];
+15 -> 3 [label="def" style=dotted];
+35 -> 4 [label="" style=solid];
+42 -> 4 [label="recv" style=dotted];
+16 -> 4 [label="para" style=dotted];
+55 -> 4 [label="dep" style=dotted];
+36 -> 5 [label="T"];
+38 -> 5 [label="recv" style=dotted];
+40 -> 5 [label="dep" style=dotted];
+35 -> 7 [label="" style=solid];
+31 -> 7 [label="recv" style=dotted];
+63 -> 7 [label="dep" style=dotted];
+53 -> 8 [label="dep" style=dotted];
+35 -> 10 [label="" style=solid];
+45 -> 10 [label="recv" style=dotted];
+37 -> 10 [label="dep" style=dotted];
+37 -> 10 [label="para" style=dotted];
+33 -> 10 [label="para" style=dotted];
+7 -> 10 [label="dep" style=dotted];
+17 -> 11 [label="def" style=dotted];
+25 -> 12 [label="" style=solid];
+19 -> 12 [label="para" style=dotted];
+48 -> 12 [label="para" style=dotted];
+21 -> 12 [label="dep" style=dotted];
+28 -> 15 [label="ref" style=dotted];
+3 -> 16 [label="ref" style=dotted];
+25 -> 17 [label="" style=solid];
+22 -> 17 [label="dep" style=dotted];
+22 -> 17 [label="para" style=dotted];
+27 -> 18 [label="" style=solid];
+23 -> 19 [label="ref" style=dotted];
+13 -> 20 [label="qual" style=dotted];
+25 -> 21 [label="" style=solid];
+32 -> 21 [label="dep" style=dotted];
+32 -> 21 [label="para" style=dotted];
+25 -> 22 [label="" style=solid];
+39 -> 22 [label="para" style=dotted];
+1 -> 22 [label="dep" style=dotted];
+34 -> 23 [label="def" style=dotted];
+36 -> 24 [label="F"];
+9 -> 26 [label="qual" style=dotted];
+25 -> 27 [label="" style=solid];
+64 -> 27 [label="dep" style=dotted];
+57 -> 27 [label="cond" style=dotted];
+21 -> 28 [label="def" style=dotted];
+25 -> 29 [label="" style=solid];
+6 -> 29 [label="recv" style=dotted];
+49 -> 29 [label="para" style=dotted];
+27 -> 29 [label="dep" style=dotted];
+25 -> 30 [label="" style=solid];
+44 -> 30 [label="recv" style=dotted];
+20 -> 30 [label="para" style=dotted];
+17 -> 30 [label="dep" style=dotted];
+11 -> 31 [label="ref" style=dotted];
+25 -> 32 [label="" style=solid];
+2 -> 32 [label="dep" style=dotted];
+2 -> 32 [label="cond" style=dotted];
+18 -> 32 [label="dep" style=dotted];
+18 -> 32 [label="para" style=dotted];
+3 -> 33 [label="ref" style=dotted];
+25 -> 34 [label="" style=solid];
+41 -> 34 [label="dep" style=dotted];
+41 -> 34 [label="para" style=dotted];
+25 -> 35 [label="" style=solid];
+54 -> 35 [label="cond" style=dotted];
+5 -> 35 [label="dep" style=dotted];
+24 -> 35 [label="dep" style=dotted];
+25 -> 36 [label="" style=solid];
+58 -> 36 [label="dep" style=dotted];
+58 -> 36 [label="para" style=dotted];
+35 -> 37 [label="" style=solid];
+51 -> 37 [label="recv" style=dotted];
+7 -> 37 [label="dep" style=dotted];
+11 -> 38 [label="ref" style=dotted];
+23 -> 39 [label="ref" style=dotted];
+36 -> 40 [label="T"];
+25 -> 41 [label="" style=solid];
+26 -> 41 [label="recv" style=dotted];
+56 -> 41 [label="dep" style=dotted];
+56 -> 41 [label="para" style=dotted];
+46 -> 41 [label="para" style=dotted];
+61 -> 41 [label="dep" style=dotted];
+47 -> 42 [label="ref" style=dotted];
+61 -> 43 [label="def" style=dotted];
+1 -> 47 [label="def" style=dotted];
+57 -> 49 [label="ref" style=dotted];
+11 -> 51 [label="ref" style=dotted];
+25 -> 53 [label="" style=solid];
+59 -> 53 [label="recv" style=dotted];
+10 -> 53 [label="dep" style=dotted];
+3 -> 54 [label="ref" style=dotted];
+35 -> 55 [label="" style=solid];
+25 -> 56 [label="" style=solid];
+50 -> 56 [label="recv" style=dotted];
+61 -> 56 [label="dep" style=dotted];
+64 -> 57 [label="def" style=dotted];
+25 -> 58 [label="" style=solid];
+30 -> 58 [label="dep" style=dotted];
+30 -> 58 [label="para" style=dotted];
+47 -> 59 [label="ref" style=dotted];
+47 -> 60 [label="ref" style=dotted];
+25 -> 61 [label="" style=solid];
+14 -> 61 [label="para" style=dotted];
+25 -> 62 [label="" style=solid];
+12 -> 62 [label="dep" style=dotted];
+12 -> 62 [label="para" style=dotted];
+21 -> 62 [label="dep" style=dotted];
+35 -> 63 [label="" style=solid];
+60 -> 63 [label="recv" style=dotted];
+4 -> 63 [label="dep" style=dotted];
+25 -> 64 [label="" style=solid];
+52 -> 64 [label="para" style=dotted];
+34 -> 64 [label="dep" style=dotted];
+}

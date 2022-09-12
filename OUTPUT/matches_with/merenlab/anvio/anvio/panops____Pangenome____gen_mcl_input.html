@@ -1,0 +1,1004 @@
+<link rel="stylesheet" href="../../..//default.css">
+<script src="../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/merenlab/anvio/blob/master/anvio/panops.py#L284">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/anvio/blob/master/anvio/panops.py#L284">GitMyHubLink</a>
+
+&#47&#47 -*- coding: utf-8
+&#47&#47 pylint: disable=line-too-long
+
+    Classes for pan operations.
+
+    anvi-pan-genome is the default client using this module
+
+
+import os
+import json
+import math
+import copy
+import pandas as pd
+from itertools import chain
+
+&#47&#47 multiprocess is a fork of multiprocessing that uses the dill serializer instead of pickle
+&#47&#47 using the multiprocessing module directly results in a pickling error in Python 3.10 which
+&#47&#47 goes like this:
+&#47&#47
+&#47&#47   &gt;&gt;&gt; AttributeError: Can&quott pickle local object &quotSOMEFUNCTION.&lt;locals&gt;.&lt;lambda&gt;&quot multiprocessing
+&#47&#47
+import multiprocess as multiprocessing
+
+import anvio
+import anvio.utils as utils
+import anvio.dbops as dbops
+import anvio.terminal as terminal
+import anvio.constants as constants
+import anvio.clustering as clustering
+import anvio.filesnpaths as filesnpaths
+import anvio.tables.miscdata as miscdata
+
+from anvio.drivers.blast import BLAST
+from anvio.drivers.diamond import Diamond
+from anvio.drivers.mcl import MCL
+from anvio.drivers import Aligners
+
+from anvio.errors import ConfigError, FilesNPathsError
+from anvio.genomestorage import GenomeStorage
+from anvio.tables.geneclusters import TableForGeneClusters
+from anvio.tables.views import TablesForViews
+
+__author__ = "Developers of anvi&quoto (see AUTHORS.txt)"
+__copyright__ = "Copyleft 2015-2018, the Meren Lab (http://merenlab.org/)"
+__credits__ = []
+__license__ = "GPL 3.0"
+__version__ = anvio.__version__
+__maintainer__ = "A. Murat Eren"
+__email__ = "a.murat.eren@gmail.com"
+
+
+run = terminal.Run()
+progress = terminal.Progress()
+pp = terminal.pretty_print
+aligners = Aligners()
+
+
+class Pangenome(object):
+    def __init__(self, args=None, run=run, progress=progress):
+        self.args = args
+        self.run = run
+        self.progress = progress
+
+        self.max_num_gene_clusters_for_hierarchical_clustering = constants.max_num_items_for_hierarchical_clustering
+
+        A = lambda x: args.__dict__[x] if x in args.__dict__ else None
+        self.genome_names_to_focus = A(&quotgenome_names&quot)
+        self.genomes_storage_path = A(&quotgenomes_storage&quot)
+        self.genomes = None
+        self.project_name = A(&quotproject_name&quot)
+        self.output_dir = A(&quotoutput_dir&quot)
+        self.num_threads = A(&quotnum_threads&quot)
+        self.skip_alignments = A(&quotskip_alignments&quot)
+        self.skip_homogeneity = A(&quotskip_homogeneity&quot)
+        self.quick_homogeneity = A(&quotquick_homogeneity&quot)
+        self.align_with = A(&quotalign_with&quot)
+        self.overwrite_output_destinations = A(&quotoverwrite_output_destinations&quot)
+        self.debug = anvio.DEBUG
+        self.min_percent_identity = A(&quotmin_percent_identity&quot)
+        self.gene_cluster_min_occurrence = A(&quotmin_occurrence&quot)
+        self.mcl_inflation = A(&quotmcl_inflation&quot)
+        self.sensitive = A(&quotsensitive&quot)
+        self.minbit = A(&quotminbit&quot)
+        self.use_ncbi_blast = A(&quotuse_ncbi_blast&quot)
+        self.exclude_partial_gene_calls = A(&quotexclude_partial_gene_calls&quot)
+        self.description_file_path = A(&quotdescription&quot)
+        self.skip_hierarchical_clustering = A(&quotskip_hierarchical_clustering&quot)
+        self.enforce_hierarchical_clustering = A(&quotenforce_hierarchical_clustering&quot)
+        self.enforce_the_analysis_of_excessive_number_of_genomes = anvio.USER_KNOWS_IT_IS_NOT_A_GOOD_IDEA
+
+        if not self.project_name:
+            raise ConfigError("Please set a project name using --project-name or -n.")
+
+        &#47&#47 when it is time to organize gene_clusters
+        self.linkage = A(&quotlinkage&quot) or constants.linkage_method_default
+        self.distance = A(&quotdistance&quot) or constants.distance_metric_default
+
+        self.log_file_path = None
+
+        &#47&#47 to be filled during init:
+        self.amino_acid_sequences_dict = {}
+        self.view_data = {}
+        self.view_data_presence_absence = {}
+        self.additional_view_data = {}
+        self.aligner = None
+
+        &#47&#47 we don&quott know what we are about
+        self.description = None
+
+
+    def load_genomes(self):
+        &#47&#47 genome_name parameter can be a file or comma seperated genome names.
+        if self.genome_names_to_focus:
+            if filesnpaths.is_file_exists(self.genome_names_to_focus, dont_raise=True):
+                self.genome_names_to_focus = utils.get_column_data_from_TAB_delim_file(self.genome_names_to_focus, column_indices=[0], expected_number_of_fields=1)[0]
+            else:
+                self.genome_names_to_focus = [g.strip() for g in self.genome_names_to_focus.split(&quot,&quot)]
+
+            self.run.warning("A subset of genome names is found, and anvi&quoto will focus only on to those.")
+
+        self.genomes_storage = GenomeStorage(self.genomes_storage_path, storage_hash=None, genome_names_to_focus=self.genome_names_to_focus)
+        self.genomes = self.genomes_storage.get_genomes_dict()
+
+        self.external_genome_names = [g for g in self.genomes if self.genomes[g][&quotexternal_genome&quot]]
+        self.internal_genome_names = [g for g in self.genomes if not self.genomes[g][&quotexternal_genome&quot]]
+
+        self.hash_to_genome_name = {}
+        for genome_name in self.genomes:
+            self.hash_to_genome_name[self.genomes[genome_name][&quotgenome_hash&quot]] = genome_name
+
+
+    def generate_pan_db(self):
+        meta_values = {&quotinternal_genome_names&quot: &quot,&quot.join(self.internal_genome_names),
+                       &quotexternal_genome_names&quot: &quot,&quot.join(self.external_genome_names),
+                       &quotnum_genomes&quot: len(self.genomes),
+                       &quotmin_percent_identity&quot: self.min_percent_identity,
+                       &quotgene_cluster_min_occurrence&quot: self.gene_cluster_min_occurrence,
+                       &quotmcl_inflation&quot: self.mcl_inflation,
+                       &quotdefault_view&quot: &quotgene_cluster_presence_absence&quot,
+                       &quotuse_ncbi_blast&quot: self.use_ncbi_blast,
+                       &quotdiamond_sensitive&quot: self.sensitive,
+                       &quotminbit&quot: self.minbit,
+                       &quotexclude_partial_gene_calls&quot: self.exclude_partial_gene_calls,
+                       &quotgene_alignments_computed&quot: False if self.skip_alignments else True,
+                       &quotgenomes_storage_hash&quot: self.genomes_storage.get_storage_hash(),
+                       &quotproject_name&quot: self.project_name,
+                       &quotitems_ordered&quot: False,
+                       &quotdescription&quot: self.description if self.description else &quot_No description is provided_&quot,
+                      }
+
+        dbops.PanDatabase(self.pan_db_path, quiet=False).create(meta_values)
+
+        &#47&#47 know thyself.
+        self.args.pan_db = self.pan_db_path
+
+
+    def get_output_file_path(self, file_name, delete_if_exists=False):
+        output_file_path = os.path.join(self.output_dir, file_name)
+
+        if delete_if_exists:
+            if os.path.exists(output_file_path):
+                os.remove(output_file_path)
+
+        return output_file_path
+
+
+    def check_programs(self):
+        if self.use_ncbi_blast:
+            utils.is_program_exists(&quotblastp&quot)
+        else:
+            utils.is_program_exists(&quotdiamond&quot)
+
+        utils.is_program_exists(&quotmcl&quot)
+
+
+    def check_project_name(self):
+        &#47&#47 check the project name:
+        if not self.project_name:
+            raise ConfigError("Please set a project name using the `--project-name` parameter, and be prepared to see "
+                              "it around as anvi&quoto will use it for multiple things, such as setting the output directory "
+                              "and naming various output files including the database file that will be generated at the "
+                              "end of the process. If you set your own output directory name, you can have multiple "
+                              "projects in it and all of those projects can use the same intermediate files whenever "
+                              "possible.")
+
+        utils.is_this_name_OK_for_database(&quotpan project name&quot, self.project_name, stringent=False)
+
+
+    def check_params(self):
+        &#47&#47 if the user did not set a specific output directory name, use the project name
+        &#47&#47 for it:
+        self.output_dir = self.output_dir if self.output_dir else self.project_name
+
+        &#47&#47 deal with the output directory:
+        try:
+            filesnpaths.is_file_exists(self.output_dir)
+        except FilesNPathsError:
+            filesnpaths.gen_output_directory(self.output_dir, delete_if_exists=self.overwrite_output_destinations)
+
+        filesnpaths.is_output_dir_writable(self.output_dir)
+        self.output_dir = os.path.abspath(self.output_dir)
+
+        if not self.log_file_path:
+            self.log_file_path = self.get_output_file_path(&quotlog.txt&quot)
+
+        filesnpaths.is_output_file_writable(self.log_file_path)
+        os.remove(self.log_file_path) if os.path.exists(self.log_file_path) else None
+
+        if not isinstance(self.minbit, float):
+            raise ConfigError("minbit value must be of type float :(")
+
+        if self.minbit &lt; 0 or self.minbit &gt; 1:
+            raise ConfigError("Well. minbit must be between 0 and 1. Yes. Very boring.")
+
+        if not isinstance(self.min_percent_identity, float):
+            raise ConfigError("Minimum percent identity value must be of type float :(")
+
+        if self.min_percent_identity &lt; 0 or self.min_percent_identity &gt; 100:
+            raise ConfigError("Minimum percent identity must be between 0%% and 100%%. Although your %.2f%% is "
+                              "pretty cute, too." % self.min_percent_identity)
+
+
+        if len([c for c in list(self.genomes.values()) if &quotgenome_hash&quot not in c]):
+            raise ConfigError("self.genomes does not seem to be a properly formatted dictionary for "
+                              "the anvi&quoto class Pangenome.")
+
+        if self.enforce_hierarchical_clustering and self.skip_hierarchical_clustering:
+            raise ConfigError("You are confusing anvi&quoto :/ You can&quott tell anvi&quoto to skip hierarchical clustering "
+                              "while also asking it to enforce it.")
+
+        if self.description_file_path:
+            filesnpaths.is_file_plain_text(self.description_file_path)
+            self.description = open(os.path.abspath(self.description_file_path), &quotrU&quot).read()
+
+        self.pan_db_path = self.get_output_file_path(self.project_name + &quot-PAN.db&quot)
+
+
+    def run_diamond(self, unique_AA_sequences_fasta_path, unique_AA_sequences_names_dict):
+        diamond = Diamond(unique_AA_sequences_fasta_path, run=self.run, progress=self.progress,
+                          num_threads=self.num_threads, overwrite_output_destinations=self.overwrite_output_destinations)
+
+        diamond.names_dict = unique_AA_sequences_names_dict
+        diamond.search_output_path = self.get_output_file_path(&quotdiamond-search-results&quot)
+        diamond.tabular_output_path = self.get_output_file_path(&quotdiamond-search-results.txt&quot)
+
+        diamond.sensitive = self.sensitive
+
+        return diamond.get_blast_results()
+
+
+    def run_blast(self, unique_AA_sequences_fasta_path, unique_AA_sequences_names_dict):
+        self.run.warning("You elected to use NCBI&quots `blastp` for amino acid sequence search. Running blastp will "
+                         "be significantly slower than DIAMOND, but in some cases, slightly more sensitive. "
+                         "We are unsure about whether the slight increase in sensitivity may justify significant "
+                         "increase in run time, but you are the boss.", lc="cyan")
+
+        blast = BLAST(unique_AA_sequences_fasta_path, run=self.run, progress=self.progress,
+                          num_threads=self.num_threads, overwrite_output_destinations=self.overwrite_output_destinations)
+
+        blast.names_dict = unique_AA_sequences_names_dict
+        blast.log_file_path = self.log_file_path
+        blast.search_output_path = self.get_output_file_path(&quotblast-search-results.txt&quot)
+
+        return blast.get_blast_results()
+
+
+    def run_search(self, unique_AA_sequences_fasta_path, unique_AA_sequences_names_dict):
+        if self.use_ncbi_blast:
+            return self.run_blast(unique_AA_sequences_fasta_path, unique_AA_sequences_names_dict)
+        else:
+            return self.run_diamond(unique_AA_sequences_fasta_path, unique_AA_sequences_names_dict)
+
+
+    def run_mcl(self, mcl_input_file_path):
+        mcl = MCL(mcl_input_file_path, run=self.run, progress=self.progress, num_threads=self.num_threads)
+
+        mcl.inflation = self.mcl_inflation
+        mcl.clusters_file_path = self.get_output_file_path(&quotmcl-clusters.txt&quot)
+        mcl.log_file_path = self.log_file_path
+
+        return mcl.get_clusters_dict()
+
+
+    def gen_mcl_input(self, blastall_results):
+        self.run.warning(None, header="MCL INPUT", lc="green")
+
+        self.progress.new(&quotProcessing search results&quot)
+        self.progress.update(&quot...&quot)
+
+        all_ids = set([])
+
+        &#47&#47 mapping for the fields in the blast output
+        mapping = [str, str, float, int, int, int, int, int, int, int, float, float]
+
+        &#47&#47 here we perform an initial pass on the blast results to fill the dict that will hold
+        &#47&#47 the bit score for each gene when it was blasted against itself. this dictionary
+        &#47&#47 will then be used to calculate the &quotminbit&quot value between two genes, which I learned
+        &#47&#47 from ITEP (Benedict MN et al, doi:10.1186/1471-2164-15-8). ITEP defines minbit as
+        &#47&#47 &quotbit score between target and query / min(selfbit for query, selbit for target)&quot. This
+        &#47&#47 heuristic approach provides a mean to set a cutoff to eliminate weak matches between
+        &#47&#47 two genes. minbit value reaches to 1 for hits between two genes that are almost identical.
+        self_bit_scores = {}
+        line_no = 1
+        self.progress.update(&quot(initial pass of the search results to set the self bit scores ...)&quot)
+        for line in open(blastall_results):
+            fields = line.strip().split(&quot\t&quot)
+
+            try:
+                query_id, subject_id, perc_id, aln_length, mismatches, gaps, q_start, q_end, s_start, s_end, e_val, bit_score = \
+                    [mapping[i](fields[i]) for i in range(0, len(mapping))]
+            except Exception as e:
+                self.progress.end()
+                raise ConfigError("Something went wrong while processing the blastall output file in line %d. "
+                                   "Here is the error from the uppoer management: &quot&quot&quot%s&quot&quot&quot" % (line_no, e))
+            line_no += 1
+            all_ids.add(query_id)
+            all_ids.add(subject_id)
+
+            if query_id == subject_id:
+                self_bit_scores[query_id] = bit_score
+
+        self.progress.end()
+
+        ids_without_self_search = all_ids - set(self_bit_scores.keys())
+        if len(ids_without_self_search):
+            search_tool = &quotBLAST&quot if self.use_ncbi_blast else &quotDIAMOND&quot
+            self.run.warning("%s did not retun search results for %d of %d the amino acid sequences in your input FASTA file. "
+                             "Anvi&quoto will do some heuristic magic to complete the missing data in the search output to recover "
+                             "from this. But since you are a scientist, here are the amino acid sequence IDs for which %s "
+                             "failed to report self search results: %s." \
+                                                    % (search_tool, len(ids_without_self_search), len(all_ids), \
+                                                       search_tool, &quot, &quot.join(ids_without_self_search)))
+
+        &#47&#47 HEURISTICS TO ADD MISSING SELF SEARCH RESULTS
+        &#47&#47 we are here, because amino acid sequences in ids_without_self_search did not have any hits in the search output
+        &#47&#47 although they were in the FASTA file the target database were built from. so we will make sure they are not
+        &#47&#47 missing from self_bit_scores dict, or mcl_input (additional mcl inputs will be stored in the following dict)
+        additional_mcl_input_lines = {}
+
+        for id_without_self_search in ids_without_self_search:
+            entry_hash, gene_caller_id = id_without_self_search.split(&quot_&quot)
+
+            try:
+                genome_name = self.hash_to_genome_name[entry_hash]
+            except KeyError:
+                raise ConfigError("Something horrible happened. This can only happend if you started a new analysis with "
+                                   "additional genomes without cleaning the previous work directory. Sounds familiar?")
+
+            &#47&#47 divide the DNA length of the gene by three to get the AA length, and multiply that by two to get an approximate
+            &#47&#47 bit score that would have recovered from a perfect match
+            gene_amino_acid_sequence_length = len(self.genomes_storage.get_gene_sequence(genome_name, int(gene_caller_id), report_DNA_sequences=False))
+            self_bit_scores[id_without_self_search] = gene_amino_acid_sequence_length * 2
+
+            &#47&#47 add this SOB into additional_mcl_input_lines dict.
+            additional_mcl_input_lines[id_without_self_search] = &quot%s\t%s\t1.0\n&quot % (id_without_self_search, id_without_self_search)
+
+
+        &#47&#47 CONTINUE AS IF NOTHING HAPPENED
+        self.run.info(&quotMin percent identity&quot, self.min_percent_identity)
+        self.run.info(&quotMinbit&quot, self.minbit)
+        self.progress.new(&quotProcessing search results&quot)
+
+        mcl_input_file_path = self.get_output_file_path(&quotmcl-input.txt&quot)
+        <a id="change">mcl_input = open(mcl_input_file_path, &quotw&quot)</a>
+
+        line_no = 1
+        num_edges_stored = 0
+        for line in open(blastall_results):
+            fields = line.strip().split(&quot\t&quot)
+
+            query_id, subject_id, perc_id, aln_length, mismatches, gaps, q_start, q_end, s_start, s_end, e_val, bit_score = \
+                [mapping[i](fields[i]) for i in range(0, len(mapping))]
+
+            line_no += 1
+
+            if line_no % 5000 == 0:
+                self.progress.update(&quotLines processed %s ...&quot % pp(line_no))
+
+            &#47&#47
+            &#47&#47 FILTERING BASED ON PERCENT IDENTITY
+            &#47&#47
+            if perc_id &lt; self.min_percent_identity:
+                continue
+
+            &#47&#47
+            &#47&#47 FILTERING BASED ON MINBIT
+            &#47&#47
+            minbit = bit_score / min(self_bit_scores[query_id], self_bit_scores[subject_id])
+            if minbit &lt; self.minbit:
+                continue
+
+            mcl_input.write(&quot%s\t%s\t%f\n&quot % (query_id, subject_id, perc_id / 100.0))
+            num_edges_stored += 1
+
+        &#47&#47 add additional lines if there are any:
+        for line in list(additional_mcl_input_lines.values()):
+            mcl_input.write(line)
+            num_edges_stored += 1
+
+        <a id="change">mcl_input</a><a id="change">.close()</a>
+
+        self.progress.end()
+
+        self.run.info(&quotFiltered search results&quot, &quot%s edges stored&quot % pp(num_edges_stored))
+        self.run.info(&quotMCL input&quot, &quot%s&quot % mcl_input_file_path)
+
+        return mcl_input_file_path
+
+
+    def process_gene_clusters(self, gene_clusters_dict):
+        self.progress.new(&quotGenerating view data&quot)
+        self.progress.update(&quot...&quot)
+
+        gene_clusters = list(gene_clusters_dict.keys())
+
+        for genome_name in self.genomes:
+            self.genomes[genome_name][&quotsingleton_gene_clusters&quot] = 0
+            self.genomes[genome_name][&quotnum_gene_clusters_raw&quot] = 0
+
+        for gene_cluster in gene_clusters:
+            self.view_data[gene_cluster] = dict([(genome_name, 0) for genome_name in self.genomes])
+            self.view_data_presence_absence[gene_cluster] = dict([(genome_name, 0) for genome_name in self.genomes])
+            self.additional_view_data[gene_cluster] = {&quotnum_genes_in_gene_cluster&quot: 0, &quotnum_genomes_gene_cluster_has_hits&quot: 0, &quotSCG&quot: 0, &quotmax_num_paralogs&quot: 0}
+
+            for gene_entry in gene_clusters_dict[gene_cluster]:
+                genome_name = gene_entry[&quotgenome_name&quot]
+
+                self.view_data[gene_cluster][genome_name] += 1
+                self.view_data_presence_absence[gene_cluster][genome_name] = 1
+                self.additional_view_data[gene_cluster][&quotnum_genes_in_gene_cluster&quot] += 1
+                self.genomes[genome_name][&quotnum_gene_clusters_raw&quot] += 1
+
+            genomes_contributing_to_gene_cluster = [t[0] for t in self.view_data_presence_absence[gene_cluster].items() if t[1]]
+
+            if len(genomes_contributing_to_gene_cluster) == 1:
+                self.genomes[genomes_contributing_to_gene_cluster[0]][&quotsingleton_gene_clusters&quot] += 1
+
+            self.additional_view_data[gene_cluster][&quotSCG&quot] = 1 if set(self.view_data[gene_cluster].values()) == set([1]) else 0
+            self.additional_view_data[gene_cluster][&quotmax_num_paralogs&quot] = max(self.view_data[gene_cluster].values())
+
+            self.additional_view_data[gene_cluster][&quotnum_genomes_gene_cluster_has_hits&quot] = len([True for genome in self.view_data[gene_cluster] if self.view_data[gene_cluster][genome] &gt; 0])
+
+        self.progress.end()
+        &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+        &#47&#47                           FILTERING BASED ON OCCURRENCE
+        &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+        gene_clusters_of_interest = set([])
+        for gene_cluster in gene_clusters:
+            if self.additional_view_data[gene_cluster][&quotnum_genomes_gene_cluster_has_hits&quot] &gt;= self.gene_cluster_min_occurrence:
+                gene_clusters_of_interest.add(gene_cluster)
+
+        removed_gene_clusters = 0
+        for gene_cluster in gene_clusters:
+            if gene_cluster not in gene_clusters_of_interest:
+                self.view_data.pop(gene_cluster)
+                self.view_data_presence_absence.pop(gene_cluster)
+                self.additional_view_data.pop(gene_cluster)
+                gene_clusters_dict.pop(gene_cluster)
+                removed_gene_clusters += 1
+
+        if self.gene_cluster_min_occurrence &gt; 1:
+            self.run.info(&quotgene_clusters min occurrence&quot, &quot%d (the filter removed %d gene_clusters)&quot % (self.gene_cluster_min_occurrence, removed_gene_clusters))
+
+        &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+        &#47&#47            CAN WE CLUSTER THIS STUFF? DOES THE USER WANT US TO TRY REGARDLESS?
+        &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+        if len(gene_clusters_dict) &gt; self.max_num_gene_clusters_for_hierarchical_clustering:
+            if self.enforce_hierarchical_clustering:
+                self.run.warning("You have %s gene_clusters, which exceeds the number of gene_clusters anvi&quoto is comfortable to cluster. But "
+                                 "since you have used the flag `--enforce-hierarchical-clustering`, anvi&quoto will attempt "
+                                 "to create a hierarchical clustering of your gene_clusters anyway. It may take a bit of "
+                                 "time. Pour yourself a coffee. Or go to a nice vacation. See you in 10 mins, or next year "
+                                 "or never." % pp(len(gene_clusters_dict)))
+            else:
+                self.run.warning("It seems you have %s gene clusters in your pangenome. This exceeds the soft limit "
+                                 "of %s for anvi&quoto to attempt to create a hierarchical clustering of your gene clusters "
+                                 "(which becomes the center tree in all anvi&quoto displays). If you want a hierarchical "
+                                 "clustering to be done anyway, please see the flag `--enforce-hierarchical-clustering`." \
+                                            % (pp(len(gene_clusters_dict)), pp(self.max_num_gene_clusters_for_hierarchical_clustering)))
+                self.skip_hierarchical_clustering = True
+
+        &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+        &#47&#47                           STORING FILTERED DATA IN THE DB
+        &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+        TablesForViews(self.pan_db_path).create_new_view(
+                                        view_data=self.view_data,
+                                        table_name=&quotgene_cluster_frequencies&quot,
+                                        view_name = &quotgene_cluster_frequencies&quot,
+                                        from_matrix_form=True)
+
+        TablesForViews(self.pan_db_path).create_new_view(
+                                        view_data=self.view_data_presence_absence,
+                                        table_name=&quotgene_cluster_presence_absence&quot,
+                                        view_name = &quotgene_cluster_presence_absence&quot,
+                                        from_matrix_form=True)
+
+        item_additional_data_table = miscdata.TableForItemAdditionalData(self.args, r=terminal.Run(verbose=False))
+        item_additional_data_keys = [&quotnum_genomes_gene_cluster_has_hits&quot, &quotnum_genes_in_gene_cluster&quot, &quotmax_num_paralogs&quot, &quotSCG&quot]
+        item_additional_data_table.add(self.additional_view_data, item_additional_data_keys, skip_check_names=True)
+        &#47&#47                                                                                    ^^^^^^^^^^^^^^^^^^^^^
+        &#47&#47                                                                                   /
+        &#47&#47 here we say skip_check_names=True, simply because there is no gene_clusters table has not been
+        &#47&#47 generated yet, but the check names functionality in dbops looks for the gene clsuters table to
+        &#47&#47 be certain. it is not a big deal here, since we absoluely know what gene cluster names we are
+        &#47&#47 working with.
+
+        &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+        &#47&#47                   RETURN THE -LIKELY- UPDATED PROTEIN CLUSTERS DICT
+        &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+        return gene_clusters_dict
+
+
+    def gen_synteny_based_ordering_of_gene_clusters(self, gene_clusters_dict):
+        Take the dictionary of gene_clusters, and order gene_clusters per genome based on synteny of genes.
+
+           This adds more orders to the pangenomic output so the user can enforce ordering of
+           gene_clusters based on the synteny of genes they contain in a given genome.
+
+           The synteny in this context is defined by the gene caller ids. Gene caller ids
+           follow a numerical order in anvi&quoto contigs databases for genes that are coming
+           from the same contig. Of course, the synteny does not mean much for genes that
+           fragmented into multiple contigs.
+        
+
+        &#47&#47 yes. this is meren converting the gene_clusters_dict into a pandas data frame :/ if you are reading
+        &#47&#47 this line and if you are not evan, don&quott tell evan about this. everyone else: i don&quott know
+        &#47&#47 what you&quotre talking about.
+        df = pd.DataFrame(list(chain.from_iterable(list(gene_clusters_dict.values()))))
+        df = df.sort_values(by=[&quotgenome_name&quot, &quotgene_caller_id&quot])
+        df = df.reset_index(drop=True)
+
+        &#47&#47 forced synteny
+        for genome_name in df.genome_name.unique():
+            gene_clusters_in_genome = df.loc[(df.genome_name == genome_name)].gene_cluster_id.unique()
+            gene_clusters_not_described = df.loc[~df.gene_cluster_id.isin(gene_clusters_in_genome)].gene_cluster_id.unique()
+            gene_clusters_order_based_on_genome_synteny = list(gene_clusters_in_genome) + list(gene_clusters_not_described)
+
+            order_name = &quotForced synteny &lt;&gt; %s&quot % genome_name
+
+            dbops.add_items_order_to_db(self.pan_db_path, order_name, &quot,&quot.join(gene_clusters_order_based_on_genome_synteny), order_data_type_newick=False, run=terminal.Run(verbose=False))
+
+        gene_cluster_gene_cluster_edges = []
+        &#47&#47 network description of gene_cluster-gene_cluster relationships given the gene synteny.
+        gene_ordered_list_of_gene_clusters = list(zip(df.gene_caller_id, df.gene_cluster_id))
+        for index in range(1, len(gene_ordered_list_of_gene_clusters)):
+            (GENE_A, gene_cluster_A), (GENE_B, gene_cluster_B) = gene_ordered_list_of_gene_clusters[index-1], gene_ordered_list_of_gene_clusters[index]
+            if GENE_A == GENE_B - 1:
+                gene_cluster_gene_cluster_edges.append((gene_cluster_A, gene_cluster_B), )
+
+        &#47&#47 FIXME: Do something with gene_cluster_gene_cluster_edges.
+
+
+    def gen_hierarchical_clustering_of_gene_clusters(self):
+        Uses a clustering configuration to add hierarchical clustering of gene clusters into the pan db
+
+        Note how this function cheats the system to create an enchanced clustering configuration:
+        We want to use the clustering configurations for pan genomomic analyses to order
+        gene clusters. however, we want to add something into the clustering configuraiton
+        file, which depends on the number of genomes we have. this addition is &quotnum_genomes_gene_cluster_has_hits&quot
+        data, which pulls together gene clusters that are distributed across genomes similarly based
+        on this extra bit of inofrmation. becasue the clustering configurations framework in anvi&quoto
+        does not allow us to have variable information in these recipes, we are going to generate one
+        on the fly to have a more capable one.
+
+        if self.skip_hierarchical_clustering:
+            return
+
+        updated_clustering_configs = {}
+
+        for config_name in constants.clustering_configs[&quotpan&quot]:
+            config_path = constants.clustering_configs[&quotpan&quot][config_name]
+
+            &#47&#47 now we have the config path. we first get a temporary file path:
+            enhanced_config_path = filesnpaths.get_temp_file_path()
+
+            &#47&#47 setup the additional section based on the number of genomes we have:
+            if config_name == &quotpresence-absence&quot:
+                additional_config_section=\n[AdditionalData !PAN.db::item_additional_data]\ntable_form=dataframe\ncolumns_to_use = %s\nnormalize = False\n \
+                                        % &quot,&quot.join([&quotnum_genomes_gene_cluster_has_hits&quot] * (int(round(len(self.genomes) / 2))))
+            elif config_name == &quotfrequency&quot:
+                additional_config_section=\n[AdditionalData !PAN.db::item_additional_data]\ntable_form=dataframe\ncolumns_to_use = %s\nnormalize = False\nlog=True\n \
+                                        % &quot,&quot.join([&quotnum_genes_in_gene_cluster&quot] * (int(round(math.sqrt(len(self.genomes))))))
+
+            &#47&#47 write the content down in to file at the new path:
+            open(enhanced_config_path, &quotw&quot).write(open(config_path).read() + additional_config_section)
+
+            &#47&#47 update the clustering configs:
+            updated_clustering_configs[config_name] = enhanced_config_path
+
+            dbops.do_hierarchical_clustering_of_items(self.pan_db_path, updated_clustering_configs, database_paths={&quotPAN.db&quot: self.pan_db_path},\
+                                                      input_directory=self.output_dir, default_clustering_config=constants.pan_default,\
+                                                      distance=self.distance, linkage=self.linkage, run=terminal.Run(verbose=False), progress=self.progress)
+
+
+    def populate_gene_cluster_homogeneity_index(self, gene_clusters_dict, gene_clusters_failed_to_align=set([])):
+        if self.skip_alignments:
+            self.run.warning(&quotSkipping homogeneity calculations because gene clusters are not alligned.&quot)
+            return
+
+        if self.skip_homogeneity:
+            self.run.warning("Skipping homogeneity calculations per the &quot--skip-homogeneity&quot flag.")
+            return
+
+        pan = dbops.PanSuperclass(args=self.args, r=terminal.Run(verbose=False), p=self.progress)
+        gene_cluster_names = set(list(gene_clusters_dict.keys()))
+
+        d = pan.compute_homogeneity_indices_for_gene_clusters(gene_cluster_names=gene_cluster_names,
+                                                              gene_clusters_failed_to_align=gene_clusters_failed_to_align,
+                                                              num_threads=self.num_threads)
+
+        if d is None:
+            self.run.warning("Anvi&quoto received an empty dictionary for homogeneity indices. Not good :/ Returning empty handed,\
+                              without updating anything in the pan database...")
+            return
+
+        miscdata.TableForItemAdditionalData(self.args, r=terminal.Run(verbose=False)).add(d, [&quotfunctional_homogeneity_index&quot, &quotgeometric_homogeneity_index&quot, &quotcombined_homogeneity_index&quot], skip_check_names=True)
+
+
+    def populate_layers_additional_data_and_orders(self):
+        self.progress.new(&quotLayers additional data and orders&quot)
+        self.progress.update(&quotCopmputing the hierarchical clustering of the (transposed) view data&quot)
+
+        layer_orders_data_dict = {}
+        for clustering_tuple in [(&quotgene_cluster presence absence&quot, self.view_data), (&quotgene_cluster frequencies&quot, self.view_data_presence_absence)]:
+            v, d = clustering_tuple
+            newick = clustering.get_newick_tree_data_for_dict(d, transpose=True, distance = self.distance, linkage=self.linkage)
+            layer_orders_data_dict[v] = {&quotdata_type&quot: &quotnewick&quot, &quotdata_value&quot: newick}
+
+        self.progress.update(&quotGenerating layers additional data ..&quot)
+
+        layers_additional_data_dict = {}
+        layers_additional_data_keys = [&quottotal_length&quot, &quotgc_content&quot]
+
+        for h in [&quotpercent_completion&quot, &quotpercent_redundancy&quot]:
+            if h in list(self.genomes.values())[0]:
+                layers_additional_data_keys.append(h)
+
+        layers_additional_data_keys.extend([&quotnum_genes&quot, &quotavg_gene_length&quot, &quotnum_genes_per_kb&quot,
+                                            &quotsingleton_gene_clusters&quot])
+
+        if self.gene_cluster_min_occurrence &gt; 1:
+            layers_additional_data_keys.extend([&quotnum_gene_clusters_raw&quot])
+
+        for genome_name in self.genomes:
+            new_dict = {}
+            for key in layers_additional_data_keys:
+                new_dict[key] = self.genomes[genome_name][key]
+
+            layers_additional_data_dict[genome_name] = new_dict
+
+        &#47&#47 summarize gene cluster stats across genomes
+        layers_additional_data_keys.extend([&quotnum_gene_clusters&quot])
+        for genome_name in self.genomes:
+            layers_additional_data_dict[genome_name][&quotnum_gene_clusters&quot] = 0
+            for gene_cluster in self.view_data_presence_absence:
+                &#47&#47 tracking the total number of gene clusters
+                if self.view_data_presence_absence[gene_cluster][genome_name]:
+                    layers_additional_data_dict[genome_name][&quotnum_gene_clusters&quot] += 1
+
+        self.progress.end()
+
+        miscdata.TableForLayerOrders(self.args, r=terminal.Run(verbose=False)).add(layer_orders_data_dict)
+        miscdata.TableForLayerAdditionalData(self.args, r=terminal.Run(verbose=False)).add(layers_additional_data_dict, layers_additional_data_keys)
+
+
+    def sanity_check(self):
+        self.check_project_name()
+        self.check_programs()
+
+        if not isinstance(self.mcl_inflation, float):
+            raise ConfigError("Well, MCL likes its inflation parameter in &quotfloat&quot form...")
+
+        if self.mcl_inflation &gt; 100 or self.mcl_inflation &lt; 0.1:
+            raise ConfigError("MCL inflation parameter should have a reasonable value :/ Like between 0.1 and 100.0.")
+
+        if not isinstance(self.genomes, type({})):
+            raise ConfigError("self.genomes must be a dict. Anvi&quoto needs an adult :(")
+
+        if len(self.genomes) &lt; 2:
+            raise ConfigError("There must be at least two genomes for this workflow to work. You have like &quot%d&quot of them :/" \
+                    % len(self.genomes))
+
+        if len(self.genomes) &gt; 100:
+            if self.enforce_the_analysis_of_excessive_number_of_genomes:
+                self.run.warning(f"Because you asked for it, anvi&quoto WILL analyze your {pp(len(self.genomes))} genomes. Perhaps it will "
+                                 f"fail, but it will fail while trying.", header="YOU HAVE USED YOUR AUTHORITY ⚔️")
+            else:
+                raise ConfigError(f"Sorry for making you wait this long to tell you this, but you have a total of {pp(len(self.genomes))} "
+                                  f"genomes to process, and anvi&quoto may not be the best platform to do that. The anvi&quoto pangenomics workflow "
+                                  f"is designed for interactive and in-depth investigations of microbial pangenomes. While one can "
+                                  f"certainly perform an in-depth investigation of their {pp(len(self.genomes))} genomes by turning them "
+                                  f"into a pangenome, they will unlikely manage to do it with anvi&quoto with more than about 100 genomes. "
+                                  f"We can&quott stop you if you insist running a pangenomic analyses on your genomes ANYWAY. For instance, "
+                                  f"you can easily force anvi&quoto to start the analysis using the flag `--I-know-this-is-not-a-good-idea`. "
+                                  f"But by using that flag, you will be forfeiting your privilege to complain to anvi&quoto developers if "
+                                  f"something goes wrong with your analyses :)")
+
+        if self.skip_alignments and self.align_with:
+            raise ConfigError("You are asking anvi&quoto to skip aligning sequences within your gene clusters, and then you "
+                              "are also asking it to use &quot%s&quot for aligning sequences within your gene clusters. It is easy "
+                              "to ignore this and skip the alignment, but anvi&quoto gets nervous when it realizes her users are "
+                              "being inconsistent. Please make up your mind, and come back as the explicit person you are" \
+                                                                            % self.align_with)
+
+        self.check_params()
+
+        self.run.log_file_path = self.log_file_path
+        self.run.info(&quotArgs&quot, (str(self.args)), quiet=True)
+
+
+    def store_gene_clusters(self, gene_clusters_dict):
+        self.progress.new(&quotStoring gene clusters in the database&quot)
+        self.progress.update(&quot...&quot)
+
+        table_for_gene_clusters = TableForGeneClusters(self.pan_db_path, run=self.run, progress=self.progress)
+
+        num_genes_in_gene_clusters = 0
+        for gene_cluster_name in gene_clusters_dict:
+            for gene_entry in gene_clusters_dict[gene_cluster_name]:
+                table_for_gene_clusters.add(gene_entry)
+                num_genes_in_gene_clusters += 1
+
+        self.progress.end()
+
+        table_for_gene_clusters.store()
+
+        pan_db = dbops.PanDatabase(self.pan_db_path, quiet=True)
+        pan_db.db.set_meta_value(&quotnum_gene_clusters&quot, len(gene_clusters_dict))
+        pan_db.db.set_meta_value(&quotnum_genes_in_gene_clusters&quot, num_genes_in_gene_clusters)
+        pan_db.disconnect()
+
+
+    def gen_gene_clusters_dict_from_mcl_clusters(self, mcl_clusters):
+        self.progress.new(&quotGenerating the gene clusters dictionary from raw MCL clusters&quot)
+        self.progress.update(&quot...&quot)
+
+        gene_clusters_dict = {}
+
+        for gene_cluster in mcl_clusters:
+            gene_clusters_dict[gene_cluster] = []
+
+            for entry_hash, gene_caller_id in [e.split(&quot_&quot) for e in mcl_clusters[gene_cluster]]:
+                try:
+                    genome_name = self.hash_to_genome_name[entry_hash]
+                except KeyError:
+                    self.progress.end()
+                    raise ConfigError("Something horrible happened. This can only happen if you started a new analysis with "
+                                       "additional genomes without cleaning the previous work directory. Sounds familiar?")
+
+                gene_clusters_dict[gene_cluster].append({&quotgene_caller_id&quot: int(gene_caller_id), &quotgene_cluster_id&quot: gene_cluster, &quotgenome_name&quot: genome_name, &quotalignment_summary&quot: &quot&quot})
+
+        self.progress.end()
+
+        return gene_clusters_dict
+
+
+    def compute_alignments_for_gene_clusters(self, gene_clusters_dict):
+        if self.skip_alignments:
+            self.run.warning(&quotSkipping gene alignments.&quot)
+            return gene_clusters_dict
+
+        &#47&#47 we run "select aligner" to print the citation information (the actual selection is
+        &#47&#47 done in the `alignment_worker` down below)
+        aligners.select(self.align_with)
+
+        gene_cluster_names = list(gene_clusters_dict.keys())
+
+        &#47&#47 we only need to align gene clusters with more than one sequence
+        non_singleton_gene_cluster_names = [g for g in gene_cluster_names if len(gene_clusters_dict[g]) &gt; 1]
+        num_non_singleton_gene_clusters = len(non_singleton_gene_cluster_names)
+
+        self.progress.new(&quotAligning amino acid sequences for genes in gene clusters&quot, progress_total_items=num_non_singleton_gene_clusters)
+        self.progress.update(&quot...&quot)
+
+        manager = multiprocessing.Manager()
+        input_queue = manager.Queue()
+        output_queue = manager.Queue()
+
+        for gene_cluster_name in non_singleton_gene_cluster_names:
+            input_queue.put(gene_cluster_name)
+
+        workers = []
+        for i in range(0, self.num_threads):
+            worker = multiprocessing.Process(target=Pangenome.alignment_worker,
+                args=(input_queue, output_queue, gene_clusters_dict, self.genomes_storage, self.align_with, self.run))
+
+            workers.append(worker)
+            worker.start()
+
+        received_gene_clusters = 0
+        unsuccessful_alignments = set([])
+        while received_gene_clusters &lt; num_non_singleton_gene_clusters:
+            try:
+                gene_clusters_item = output_queue.get()
+
+                if not gene_clusters_item[&quotalignment_was_successful&quot]:
+                    unsuccessful_alignments.add(gene_clusters_item[&quotname&quot])
+
+                if gene_clusters_item:
+                    &#47&#47 worker returns None if there is nothing to align
+                    &#47&#47 we do not need to owerwrite it to gene_clusters_dict
+                    gene_clusters_dict[gene_clusters_item[&quotname&quot]] = gene_clusters_item[&quotentry&quot]
+
+                if self.debug:
+                    print()
+                    print(json.dumps(gene_clusters_item, indent=2))
+
+                received_gene_clusters += 1
+                self.progress.increment()
+                self.progress.update("Processed %d of %d non-singleton GCs in %d threads." %
+                    (received_gene_clusters, num_non_singleton_gene_clusters, self.num_threads))
+
+            except KeyboardInterrupt:
+                print("Anvi&quoto profiler recieved SIGINT, terminating all processes...")
+                break
+
+        for worker in workers:
+            worker.terminate()
+
+        self.progress.end()
+
+        return gene_clusters_dict, unsuccessful_alignments
+
+
+    @staticmethod
+    def alignment_worker(input_queue, output_queue, gene_clusters_dict, genomes_storage, align_with, run):
+        &#47&#47 Note for future changes, this worker should not write anything to gene_clusters_dict
+        &#47&#47 or genome_storage, changes will not be reflected to main process or other processes.
+
+        aligner = aligners.select(align_with, quiet=True)
+
+        &#47&#47 this instance of Run is here because we don&quott want to create this over and over again
+        &#47&#47 in the loop down below. there also is another run instance the worker gets to make sure
+        &#47&#47 it can report its own messages .. don&quott be confused we-do-not-age-discriminate-here padawan.
+        r = terminal.Run()
+        r.verbose = False
+
+        &#47&#47 Main process needs to kill this worker after it receives all tasks because of this infinite loop
+        while True:
+            gene_cluster_name = input_queue.get(True)
+
+            if len(gene_clusters_dict[gene_cluster_name]) == 1:
+                &#47&#47 this sequence is a singleton and does not need alignment
+                output_queue.put(None)
+                continue
+
+            gene_sequences_in_gene_cluster = []
+
+            for gene_entry in gene_clusters_dict[gene_cluster_name]:
+                sequence = genomes_storage.get_gene_sequence(gene_entry[&quotgenome_name&quot], gene_entry[&quotgene_caller_id&quot])
+                gene_sequences_in_gene_cluster.append((&quot%s_%d&quot % (gene_entry[&quotgenome_name&quot], gene_entry[&quotgene_caller_id&quot]), sequence),)
+
+            alignment_was_successful = False
+
+            &#47&#47 sometimes alignments fail, and because pangenomic analyses can take forever,
+            &#47&#47 everything goes into the trash bin. to prevent that, here we have a try/except
+            &#47&#47 block with lots of warnings if something goes wrong.
+            try:
+                alignments = aligner(run=r).run_stdin(gene_sequences_in_gene_cluster)
+                alignment_was_successful = True
+            except:
+                &#47&#47 realm of sad face. before we continue to spam the user with error messages,
+                &#47&#47 we turn our gene sequences to alignments without alignments. this worker will
+                &#47&#47 report raw, unaligned sequences for this gene cluster as if they were aligned
+                &#47&#47 so things will continue working operationally, and it will be on the user to
+                &#47&#47 make sure they went through their results carefully.
+                alignments = dict(gene_sequences_in_gene_cluster)
+
+                &#47&#47 constructing our &#47&#47sad:
+                if anvio.DEBUG:
+                    temp_file_path = filesnpaths.get_temp_file_path(prefix=&quotANVIO_GC_%s&quot % (gene_cluster_name))
+                    with open(temp_file_path, &quotw&quot) as reporting_file:
+                        for tpl in gene_sequences_in_gene_cluster:
+                            reporting_file.write(&quot&gt;%s\n%s\n&quot % (tpl[0], tpl[1]))
+
+                    progress.reset()
+                    run.warning(f"&quot{temp_file_path}&quot contains raw sequences for {len(gene_sequences_in_gene_cluster)} genes "
+                                f"{aligner.__name__} couldn&quott align :/", header=f"FAILED ALIGNMENT FOR GENE CLUSTER &quot{gene_cluster_name}&quot",
+                                lc="green", nl_before=1)
+
+            output = {&quotname&quot: gene_cluster_name, &quotalignment_was_successful&quot: alignment_was_successful, &quotentry&quot: copy.deepcopy(gene_clusters_dict[gene_cluster_name])}
+            for gene_entry in output[&quotentry&quot]:
+                gene_entry[&quotalignment_summary&quot] = utils.summarize_alignment(alignments[&quot%s_%d&quot % (gene_entry[&quotgenome_name&quot], gene_entry[&quotgene_caller_id&quot])])
+
+            output_queue.put(output)
+
+
+    def process(self):
+        &#47&#47 load genomes from genomes storage
+        self.load_genomes()
+
+        &#47&#47 check sanity
+        self.sanity_check()
+
+        &#47&#47 gen pan_db
+        self.generate_pan_db()
+
+        &#47&#47 get all amino acid sequences:
+        combined_aas_FASTA_path = self.get_output_file_path(&quotcombined-aas.fa&quot)
+        self.genomes_storage.gen_combined_aa_sequences_FASTA(combined_aas_FASTA_path,
+                                                             exclude_partial_gene_calls=self.exclude_partial_gene_calls)
+
+
+        &#47&#47 get unique amino acid sequences:
+        self.progress.new(&quotUniquing the output FASTA file&quot)
+        self.progress.update(&quot...&quot)
+        unique_aas_FASTA_path, unique_aas_names_file_path, unique_aas_names_dict = utils.unique_FASTA_file(combined_aas_FASTA_path, store_frequencies_in_deflines=False)
+        self.progress.end()
+        self.run.info(&quotUnique AA sequences FASTA&quot, unique_aas_FASTA_path)
+
+        &#47&#47 run search
+        blastall_results = self.run_search(unique_aas_FASTA_path, unique_aas_names_dict)
+
+        &#47&#47 generate MCL input from filtered blastall_results
+        mcl_input_file_path = self.gen_mcl_input(blastall_results)
+
+        &#47&#47 get clusters from MCL
+        mcl_clusters = self.run_mcl(mcl_input_file_path)
+
+        &#47&#47 we have the raw gene clusters dict, but we need to re-format it for following steps
+        gene_clusters_dict = self.gen_gene_clusters_dict_from_mcl_clusters(mcl_clusters)
+        del mcl_clusters
+
+        &#47&#47 compute alignments for genes within each gene_cluster (or don&quott)
+        gene_clusters_dict, unsuccessful_alignments = self.compute_alignments_for_gene_clusters(gene_clusters_dict)
+
+        if len(unsuccessful_alignments):
+            if anvio.DEBUG:
+               self.run.warning(f"The alignment of sequences failed for {len(unsuccessful_alignments)} of the total {len(gene_clusters_dict)} "
+                                f"gene clusters anvi&quoto identified in your pangenome, and you can find the FASTA files for them in your logs "
+                                f"above. SAD DAY FOR EVERYONE.", header="GENE CLUSTERS SEQUENCE ALIGNMENT WARNING")
+            else:
+               self.run.warning(f"SOME BAD NEWS :/ The alignment of sequences failed for {len(unsuccessful_alignments)} of the total "
+                                f"{len(gene_clusters_dict)} gene clusters anvi&quoto identified in your pangenome :/ This often happens "
+                                f"when you have extremely long genes (often due to improper gene calling across scaffolds) or gene "
+                                f"clusters with extremely large number of genes (often happens with transposons or other mobile elements). "
+                                f"This is not the end of the world, since most things will continue to work. But you will be missing some "
+                                f"things for these gene clusters, including gene cluster functional and geometric homogeneity calculations "
+                                f"(which will have the value of `-1` to help you parse them out later in your downstream analyses). Even "
+                                f"the gene clusters failed at the alignment step will show up in all your downstream analyses. But the fact "
+                                f"that some of your gene clusters will not have any alignments may affect your science downstream depending "
+                                f"on what you wish to do with them (if you are not sure, come to anvi&quoto slack, and tell us about what you "
+                                f"want to do with your pangenome so we can discuss more). Additionally, if you would like to see what is going "
+                                f"wrong with those gene clusters that are not aligned well, you can re-run the program with the `--debug` "
+                                f"flag, upon which anvi&quoto will anvi&quoto will store all the sequences in gene clusters that filed to align "
+                                f"into temporary FASTA files and will print out their locations. Here is the name of those gene clusters: "
+                                f"{&quot, &quot.join(unsuccessful_alignments)}.", header="GENE CLUSTERS SEQUENCE ALIGNMENT WARNING")
+
+        &#47&#47 populate the pan db with results
+        gene_clusters_dict = self.process_gene_clusters(gene_clusters_dict)
+
+        &#47&#47 store gene clusters dict into the db
+        self.store_gene_clusters(gene_clusters_dict)
+
+        &#47&#47 generate a hierarchical clustering of gene clusters (or don&quott)
+        self.gen_hierarchical_clustering_of_gene_clusters()
+
+        &#47&#47 generate orderings of gene_clusters based on synteny of genes
+        self.gen_synteny_based_ordering_of_gene_clusters(gene_clusters_dict)
+
+        &#47&#47 populate layers additional data and orders
+        self.populate_layers_additional_data_and_orders()
+
+        &#47&#47 work with gene cluster homogeneity index
+        self.populate_gene_cluster_homogeneity_index(gene_clusters_dict, gene_clusters_failed_to_align=unsuccessful_alignments)
+
+        &#47&#47 let people know if they have too much data for their own comfort
+        if len(gene_clusters_dict) &gt; 20000 or len(self.genomes) &gt; 150:
+            if len(gene_clusters_dict) &gt; 20000 and len(self.genomes) &gt; 150:
+                _ = "gene clusters and genomes"
+            elif len(gene_clusters_dict) &gt; 20000:
+                _ = "gene clusters"
+            else:
+                _ = "genomes"
+
+            self.run.warning(f"It seems you have a lot of {_} in this pan database :) It is all good! But please be aware that you may "
+                             f"run into performance issues when you try to interactively visaulize these data using `anvi-display-pan`. "
+                             f"In some cases it may even be impossible to do it, in fact. This is largely because the part of the "
+                             f"anvi&quoto workflow to offer interactive access to a pangenomes is not designed to accommodate very"
+                             f" large number of {_}, but rather enable in-depth exploratory analyses of pangenomes interactively. You still "
+                             f"can work with large pangenomes via the command line utilities and do a lot of science with them. If you "
+                             f"are unable to work with the interactive interface and it is critical for you, you have multiple options, "
+                             f"You can use the `--min-occurrence` flag to reduce the number of gene clusters, or use the program "
+                             f"`anvi-dereplicate-genomes` in an attempt to reduce the number of redundant genomes in your analysis. "
+                             f"If you are unsure what would be the best game plan for you, you can consider coming to the anvi&quoto Slack "
+                             f"channel and consult the opinion of the anvi&quoto community. Despite all these, it is still a good idea to run "
+                             f"`anvi-display-pan` and see what it says first.", lc="cyan", header="FRIENDLY WARNING")
+
+        &#47&#47 done
+        self.run.info_single(f"Your pangenome is ready with a total of {pp(len(gene_clusters_dict))} gene clusters across "
+                             f"{len(self.genomes)} genomes 🎉", mc="green", nl_after=1)
+
+
+        self.run.quit()
+</code></pre>

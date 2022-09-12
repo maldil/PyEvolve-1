@@ -1,0 +1,57 @@
+<link rel="stylesheet" href="../../..//default.css">
+<script src="../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/DagnyT/hardnet/blob/master/code/Loggers.py#L15">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/hardnet/blob/master/code/Loggers.py#L15">GitMyHubLink</a>
+
+from tensorboard_logger import configure, log_value
+import os
+
+class FileLogger:
+    "Log text in file."
+    def __init__(self, path):
+        self.path = path
+
+    def log_string(self, file_name, string):
+        Stores log string in specified file.
+        text_file = open(self.path+file_name+".log", "a")
+        text_file.write(string+&quot&quot+str(string)+&quot\n&quot)
+        text_file.close()
+
+    def log_stats(self, file_name, text_to_save, value):
+        Stores log in specified file.
+        <a id="change">text_file = open(self.path+file_name+".log", "a")</a>
+        text_file.write(text_to_save+&quot &quot+str(value)+&quot\n&quot)
+        <a id="change">text_file</a><a id="change">.close()</a>
+
+
+class Logger(object):
+    "Tensorboard Logger"
+    def __init__(self, log_dir):
+        &#47&#47 clean previous logged data under the same directory name
+        self._remove(log_dir)
+
+        &#47&#47 configure the project
+        configure(log_dir)
+
+        self.global_step = 0
+
+    def log_value(self, name, value):
+        log_value(name, value, self.global_step)
+        return self
+
+    def step(self):
+        self.global_step += 1
+
+    @staticmethod
+    def _remove(path):
+         param &lt;path&gt; could either be relative or absolute. 
+        if os.path.isfile(path):
+            os.remove(path)  &#47&#47 remove the file
+        elif os.path.isdir(path):
+            import shutil
+            shutil.rmtree(path)  &#47&#47 remove dir and all contains
+</code></pre>

@@ -1,0 +1,217 @@
+<link rel="stylesheet" href="../../../..//default.css">
+<script src="../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/idaholab/raven/blob/devel/ravenframework/CustomModes/MPISimulationMode.py#L51">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/raven/blob/devel/ravenframework/CustomModes/MPISimulationMode.py#L51">GitMyHubLink</a>
+
+&#47&#47 Copyright 2017 Battelle Energy Alliance, LLC
+&#47&#47
+&#47&#47 Licensed under the Apache License, Version 2.0 (the "License");
+&#47&#47 you may not use this file except in compliance with the License.
+&#47&#47 You may obtain a copy of the License at
+&#47&#47
+&#47&#47 http://www.apache.org/licenses/LICENSE-2.0
+&#47&#47
+&#47&#47 Unless required by applicable law or agreed to in writing, software
+&#47&#47 distributed under the License is distributed on an "AS IS" BASIS,
+&#47&#47 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+&#47&#47 See the License for the specific language governing permissions and
+&#47&#47 limitations under the License.
+
+Module that contains a SimulationMode for PBSPro and mpiexec
+
+&#47&#47for future compatibility with Python 3--------------------------------------------------------------
+from __future__ import division, print_function, unicode_literals, absolute_import
+&#47&#47End compatibility block for Python 3----------------------------------------------------------------
+
+import os
+import math
+import string
+from ravenframework import Simulation
+
+&#47&#47For the mode information
+modeName = "mpi"
+modeClassName = "MPISimulationMode"
+
+class MPISimulationMode(Simulation.SimulationMode):
+  
+    MPISimulationMode is a specialized class of SimulationMode.
+    It is aimed to distribute the runs using the MPI protocol
+  
+  def __init__(self, *args):
+    
+      Constructor
+      @ In, args, list, unused positional arguments
+      @ Out, None
+    
+    super().__init__(*args)
+    &#47&#47Figure out if we are in PBS
+    self.__inPbs = "PBS_NODEFILE" in os.environ
+    self.__nodefile = False
+    self.__runQsub = False
+    self.__coresNeeded = None &#47&#47If not none, use this instead of calculating it
+    self.__memNeeded = None &#47&#47If not none, use this for mem=
+    self.__place = "free" &#47&#47use this for place=
+    self.printTag = &quotMPI SIMULATION MODE&quot
+
+  def modifyInfo(self, runInfoDict):
+    
+      This method is aimed to modify the Simulation instance in
+      order to distribute the jobs using the MPI protocol
+      @ In, runInfoDict, dict, the original runInfo
+      @ Out, newRunInfo, dict, of modified values
+    
+    newRunInfo = {}
+    newRunInfo[&quotbatchSize&quot] = runInfoDict[&quotbatchSize&quot]
+    if self.__nodefile or self.__inPbs:
+      if not self.__nodefile:
+        &#47&#47Figure out number of nodes and use for batchsize
+        nodefile = os.environ["PBS_NODEFILE"]
+      else:
+        nodefile = self.__nodefile
+      self.raiseADebug(&quotSetting up remote nodes based on "{}"&quot.format(nodefile))
+      lines = open(nodefile,"r").readlines()
+      &#47&#47XXX This is an undocumented way to pass information back
+      newRunInfo[&quotNodes&quot] = list(lines)
+      numMPI = runInfoDict[&quotNumMPI&quot]
+      oldBatchsize = runInfoDict[&quotbatchSize&quot]
+      &#47&#47the batchsize is just the number of nodes of which there is one
+      &#47&#47 per line in the nodefile divided by the numMPI (which is per run)
+      &#47&#47 and the floor and int and max make sure that the numbers are reasonable
+      maxBatchsize = max(int(math.floor(len(lines) / numMPI)), 1)
+
+      if maxBatchsize &lt; oldBatchsize:
+        newRunInfo[&quotbatchSize&quot] = maxBatchsize
+        self.raiseAWarning("changing batchsize from "+str(oldBatchsize)+" to "+str(maxBatchsize)+" to fit on "+str(len(lines))+" processors")
+      newBatchsize = newRunInfo[&quotbatchSize&quot]
+      self.raiseADebug(&quotBatch size is "{}"&quot.format(newBatchsize))
+      if newBatchsize &gt; 1:
+        &#47&#47need to split node lines so that numMPI nodes are available per run
+        workingDir = runInfoDict[&quotWorkingDir&quot]
+        for i in range(newBatchsize):
+          <a id="change">nodeFile = open(os.path.join(workingDir, f"node_{i}"), "w")</a>
+          for line in lines[i*numMPI : (i+1) * numMPI]:
+            nodeFile.write(line)
+          <a id="change">nodeFile</a><a id="change">.close()</a>
+        &#47&#47then give each index a separate file.
+        nodeCommand = runInfoDict["NodeParameter"]+" %BASE_WORKING_DIR%/node_%INDEX% "
+      else:
+        &#47&#47If only one batch just use original node file
+        nodeCommand = runInfoDict["NodeParameter"]+" "+nodefile
+
+    else:
+      &#47&#47Not in PBS, so can&quott look at PBS_NODEFILE and none supplied in input
+      newBatchsize = newRunInfo[&quotbatchSize&quot]
+      numMPI = runInfoDict[&quotNumMPI&quot]
+      &#47&#47TODO, we don&quott have a way to know which machines it can run on
+      &#47&#47 when not in PBS so just distribute it over the local machine:
+      nodeCommand = " "
+
+    &#47&#47Disable MPI processor affinity, which causes multiple processes
+    &#47&#47 to be forced to the same thread.
+    os.environ["MV2_ENABLE_AFFINITY"] = "0"
+
+    &#47&#47 Create the mpiexec pre command
+    &#47&#47 Note, with defaults the precommand is "mpiexec -f nodeFile -n numMPI"
+    newRunInfo[&quotprecommand&quot] = runInfoDict["MPIExec"]+" "+nodeCommand+" -n "+str(numMPI)+" "+runInfoDict[&quotprecommand&quot]
+    if runInfoDict[&quotNumThreads&quot] &gt; 1:
+      newRunInfo[&quotthreadParameter&quot] = runInfoDict[&quotthreadParameter&quot]
+      &#47&#47add number of threads to the post command.
+      newRunInfo[&quotpostcommand&quot] =" {} {}".format(newRunInfo[&quotthreadParameter&quot],runInfoDict[&quotpostcommand&quot])
+    self.raiseAMessage("precommand: "+newRunInfo[&quotprecommand&quot]+", postcommand: "+newRunInfo.get(&quotpostcommand&quot,runInfoDict[&quotpostcommand&quot]))
+    return newRunInfo
+
+  def __createAndRunQSUB(self, runInfoDict):
+    
+      Generates a PBS qsub command to run the simulation
+      @ In, runInfoDict, dict, dictionary of run info.
+      @ Out, remoteRunCommand, dict, dictionary of command.
+    
+    &#47&#47 Check if the simulation has been run in PBS mode and, in case, construct the proper command
+    &#47&#47 determine the cores needed for the job
+    if self.__coresNeeded is not None:
+      coresNeeded = self.__coresNeeded
+    else:
+      coresNeeded = runInfoDict[&quotbatchSize&quot]*runInfoDict[&quotNumMPI&quot]
+
+    &#47&#47 get the requested memory, if any
+    if self.__memNeeded is not None:
+      memString = ":mem="+self.__memNeeded
+    else:
+      memString = ""
+    &#47&#47 raven/framework location
+    frameworkDir = runInfoDict["FrameworkDir"]
+    &#47&#47 number of "threads"
+    ncpus = runInfoDict[&quotNumThreads&quot]
+    &#47&#47 job title
+    jobName = runInfoDict[&quotJobName&quot] if &quotJobName&quot in runInfoDict.keys() else &quotraven_qsub&quot
+    &#47&#47&#47&#47 fix up job title
+    validChars = set(string.ascii_letters).union(set(string.digits)).union(set(&quot-_&quot))
+    if any(char not in validChars for char in jobName):
+      raise IOError(&quotJobName can only contain alphanumeric and "_", "-" characters! Received&quot+jobName)
+    &#47&#47check jobName for length
+    if len(jobName) &gt; 15:
+      jobName = jobName[:10]+&quot-&quot+jobName[-4:]
+      print(&quotJobName is limited to 15 characters; truncating to &quot+jobName)
+    &#47&#47 Generate the qsub command needed to run input
+    &#47&#47&#47&#47 raven_framework location
+    raven = os.path.abspath(os.path.join(frameworkDir,&quot..&quot,&quotraven_framework&quot))
+    &#47&#47&#47&#47 generate the command, which will be passed into "args" of subprocess.call
+    command = ["qsub","-N",jobName]+\
+              runInfoDict["clusterParameters"]+\
+              ["-l",
+                  "select={}:ncpus={}:mpiprocs=1{}".format(coresNeeded,ncpus,memString),
+               "-l","walltime="+runInfoDict["expectedTime"],
+               "-l","place="+self.__place,"-v",
+               &quotCOMMAND="{} &quot.format(raven)+
+               " ".join(runInfoDict["SimulationFiles"])+&quot",&quot+
+               &quotRAVEN_FRAMEWORK_DIR="{}"&quot.format(frameworkDir),
+               runInfoDict[&quotRemoteRunCommand&quot]]
+    &#47&#47 Set parameters for the run command
+    remoteRunCommand = {}
+    &#47&#47&#47&#47 directory to start in, where the input file is
+    remoteRunCommand["cwd"] = runInfoDict[&quotInputDir&quot]
+    &#47&#47&#47&#47 command to run in that directory
+    remoteRunCommand["args"] = command
+    &#47&#47&#47&#47 print out for debugging
+    print("remoteRunCommand",remoteRunCommand)
+    return remoteRunCommand
+
+  def remoteRunCommand(self, runInfoDict):
+    
+      If this returns None, don&quott do anything.  If it returns a
+      dictionary, then run the command in the dictionary.
+      @ In, runInfoDict, dict, the run info dictionary
+      @ Out, remoteRunCommand, dict, a dictionary with information for running.
+    
+    if not self.__runQsub or self.__inPbs:
+      return None
+    assert self.__runQsub and not self.__inPbs
+    return self.__createAndRunQSUB(runInfoDict)
+
+  def XMLread(self, xmlNode):
+    
+      XMLread is called with the mode node, and is used here to
+      get extra parameters needed for the simulation mode MPI.
+      @ In, xmlNode, xml.etree.ElementTree.Element, the xml node that belongs to this class instance
+      @ Out, None
+    
+    for child in xmlNode:
+      if child.tag == "nodefileenv":
+        self.__nodefile = os.environ[child.text.strip()]
+      elif child.tag == "nodefile":
+        self.__nodefile = child.text.strip()
+      elif child.tag == "memory":
+        self.__memNeeded = child.text.strip()
+      elif child.tag == "coresneeded":
+        self.__coresNeeded = int(child.text.strip())
+      elif child.tag == "place":
+        self.__place = child.text.strip()
+      elif child.tag.lower() == "runqsub":
+        self.__runQsub = True
+      else:
+        self.raiseADebug("We should do something with child "+str(child))
+</code></pre>

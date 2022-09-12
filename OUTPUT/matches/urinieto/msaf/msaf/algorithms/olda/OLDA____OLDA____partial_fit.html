@@ -1,0 +1,140 @@
+<link rel="stylesheet" href="../../../../..//default.css">
+<script src="../../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/urinieto/msaf/blob/master/msaf/algorithms/olda/OLDA.py#L52">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/msaf/blob/master/msaf/algorithms/olda/OLDA.py#L52">GitMyHubLink</a>
+
+&#47&#47 CREATED:2013-08-19 16:12:01 by Brian McFee &lt;brm2132@columbia.edu&gt;
+&#47&#47
+&#47&#47 Ordinal LDA
+
+import itertools
+import numpy as np
+import scipy.linalg
+from sklearn.base import BaseEstimator, TransformerMixin
+
+class OLDA(BaseEstimator, TransformerMixin):
+
+    def __init__(self, sigma=1e-4):
+        &quot&quot&quotOrdinal linear discriminant analysis
+
+        Arguments:
+        ----------
+        sigma : float
+            Regularization parameter
+        &quot&quot&quot
+
+        self.sigma = sigma
+        self.scatter_ordinal_ = None
+        self.scatter_within_ = None
+
+
+    def fit(self, X, Y):
+        &quot&quot&quotFit the OLDA model
+
+        Parameters
+        ----------
+        X : array-like, shape [n_samples]
+            Training data: each example is an n_features-by-* data array
+
+        Y : array-like, shape [n_samples]
+            Training labels: each label is an array of change-points
+                             (eg, a list of segment boundaries)
+
+        Returns
+        -------
+        self : object
+        &quot&quot&quot
+        
+        &#47&#47 Re-initialize the scatter matrices
+        self.scatter_ordinal_ = None
+        self.scatter_within_  = None
+        
+        &#47&#47 Reduce to partial-fit
+        self.partial_fit(X, Y)
+        
+        return self
+        
+    def partial_fit(self, X, Y):
+        &quot&quot&quotPartial-fit the OLDA model
+
+        Parameters
+        ----------
+        X : array-like, shape [n_samples]
+            Training data: each example is an n_features-by-* data array
+
+        Y : array-like, shape [n_samples]
+            Training labels: each label is an array of change-points
+                             (eg, a list of segment boundaries)
+
+        Returns
+        -------
+        self : object
+        &quot&quot&quot
+        
+        for (xi, yi) in itertools.izip(X, Y):
+            
+            prev_mean       = None
+            prev_length     = None
+            
+            if self.scatter_within_ is None:
+                &#47&#47 First round: initialize
+                d, n = xi.shape
+                
+                if yi[0] &gt; 0:
+                    yi = np.concatenate([np.array([0]), yi])
+                if yi[-1] &lt; n:
+                    yi = np.concatenate([yi, np.array([n])])
+                    
+                self.scatter_within_  = self.sigma * np.eye(d)
+                self.scatter_ordinal_ = np.zeros(d)
+                
+            
+            &#47&#47 iterate over segments
+            for (seg_start, seg_end) in zip(yi[:-1], yi[1:]):
+            
+                seg_length = seg_end - seg_start
+                
+                if seg_length &lt; 2:
+                    continue
+
+                seg_mean = np.mean(xi[:, seg_start:seg_end], axis=1, keepdims=True)
+                seg_cov  = np.cov(xi[:, seg_start:seg_end])    
+                self.scatter_within_ = self.scatter_within_ + seg_length * seg_cov
+                
+                
+                if prev_mean is not None:
+                    diff_ord = seg_mean - (prev_length * prev_mean + seg_length * seg_mean) / (prev_length + seg_length)
+                    self.scatter_ordinal_ = self.scatter_ordinal_ + seg_length * <a id="change">np.dot(diff_ord, diff_ord.T)</a>
+                    
+                    diff_ord = prev_mean - (prev_length * prev_mean + seg_length * seg_mean) / (prev_length + seg_length)
+                    self.scatter_ordinal_ = self.scatter_ordinal_ + prev_length * <a id="change">np.dot(diff_ord, diff_ord.T)</a>
+
+                prev_mean = seg_mean
+                prev_length = seg_length
+        
+        e_vals, e_vecs = scipy.linalg.eig(self.scatter_ordinal_, self.scatter_within_)
+        self.e_vals_ = e_vals
+        self.e_vecs_ = e_vecs
+        self.components_ = e_vecs.T
+        return self
+
+    
+    def transform(self, X):
+        &quot&quot&quotTransform data by FDA
+
+        Parameters
+        ----------
+        X : array-like, shape [n_samples]
+            Data to be transformed. Each example is a d-by-* feature matrix
+
+        Returns
+        -------
+        X_new : array, shape (n_samples)
+        &quot&quot&quot
+
+        return [self.components_.dot(xi) for xi in X]
+</code></pre>

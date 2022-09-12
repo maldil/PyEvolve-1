@@ -1,0 +1,409 @@
+<link rel="stylesheet" href="../../../..//default.css">
+<script src="../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/KaiyangZhou/deep-person-reid/blob/master/projects/attribute_recognition/main.py#L288">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/deep-person-reid/blob/master/projects/attribute_recognition/main.py#L288">GitMyHubLink</a>
+
+from __future__ import division, print_function
+import sys
+import copy
+import time
+import numpy as np
+import os.path as osp
+import datetime
+import warnings
+import torch
+import torch.nn as nn
+
+import torchreid
+from torchreid.utils import (
+    Logger, AverageMeter, check_isfile, open_all_layers, save_checkpoint,
+    set_random_seed, collect_env_info, open_specified_layers,
+    load_pretrained_weights, compute_model_complexity
+)
+from torchreid.data.transforms import (
+    Resize, Compose, ToTensor, Normalize, Random2DTranslation,
+    RandomHorizontalFlip
+)
+
+import models
+import datasets
+from default_parser import init_parser, optimizer_kwargs, lr_scheduler_kwargs
+
+parser = init_parser()
+args = parser.parse_args()
+
+
+def init_dataset(use_gpu):
+    normalize = Normalize(
+        mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+    )
+
+    transform_tr = Compose(
+        [
+            Random2DTranslation(args.height, args.width, p=0.5),
+            RandomHorizontalFlip(),
+            ToTensor(), normalize
+        ]
+    )
+
+    transform_te = Compose(
+        [Resize([args.height, args.width]),
+         ToTensor(), normalize]
+    )
+
+    trainset = datasets.init_dataset(
+        args.dataset,
+        root=args.root,
+        transform=transform_tr,
+        mode=&quottrain&quot,
+        verbose=True
+    )
+
+    valset = datasets.init_dataset(
+        args.dataset,
+        root=args.root,
+        transform=transform_te,
+        mode=&quotval&quot,
+        verbose=False
+    )
+
+    testset = datasets.init_dataset(
+        args.dataset,
+        root=args.root,
+        transform=transform_te,
+        mode=&quottest&quot,
+        verbose=False
+    )
+
+    num_attrs = trainset.num_attrs
+    attr_dict = trainset.attr_dict
+
+    trainloader = torch.utils.data.DataLoader(
+        trainset,
+        batch_size=args.batch_size,
+        shuffle=True,
+        num_workers=args.workers,
+        pin_memory=use_gpu,
+        drop_last=True
+    )
+
+    valloader = torch.utils.data.DataLoader(
+        valset,
+        batch_size=args.batch_size,
+        shuffle=False,
+        num_workers=args.workers,
+        pin_memory=use_gpu,
+        drop_last=False
+    )
+
+    testloader = torch.utils.data.DataLoader(
+        testset,
+        batch_size=args.batch_size,
+        shuffle=False,
+        num_workers=args.workers,
+        pin_memory=use_gpu,
+        drop_last=False
+    )
+
+    return trainloader, valloader, testloader, num_attrs, attr_dict
+
+
+def main():
+    global args
+
+    set_random_seed(args.seed)
+    use_gpu = torch.cuda.is_available() and not args.use_cpu
+    log_name = &quottest.log&quot if args.evaluate else &quottrain.log&quot
+    sys.stdout = Logger(osp.join(args.save_dir, log_name))
+
+    print(&quot** Arguments **&quot)
+    arg_keys = list(args.__dict__.keys())
+    arg_keys.sort()
+    for key in arg_keys:
+        print(&quot{}: {}&quot.format(key, args.__dict__[key]))
+    print(&quot\n&quot)
+    print(&quotCollecting env info ...&quot)
+    print(&quot** System info **\n{}\n&quot.format(collect_env_info()))
+
+    if use_gpu:
+        torch.backends.cudnn.benchmark = True
+    else:
+        warnings.warn(
+            &quotCurrently using CPU, however, GPU is highly recommended&quot
+        )
+
+    dataset_vars = init_dataset(use_gpu)
+    trainloader, valloader, testloader, num_attrs, attr_dict = dataset_vars
+
+    if args.weighted_bce:
+        print(&quotUse weighted binary cross entropy&quot)
+        print(&quotComputing the weights ...&quot)
+        bce_weights = torch.zeros(num_attrs, dtype=torch.float)
+        for _, attrs, _ in trainloader:
+            bce_weights += attrs.sum(0) &#47&#47 sum along the batch dim
+        bce_weights /= len(trainloader) * args.batch_size
+        print(&quotSample ratio for each attribute: {}&quot.format(bce_weights))
+        bce_weights = torch.exp(-1 * bce_weights)
+        print(&quotBCE weights: {}&quot.format(bce_weights))
+        bce_weights = bce_weights.expand(args.batch_size, num_attrs)
+        criterion = nn.BCEWithLogitsLoss(weight=bce_weights)
+
+    else:
+        print(&quotUse plain binary cross entropy&quot)
+        criterion = nn.BCEWithLogitsLoss()
+
+    print(&quotBuilding model: {}&quot.format(args.arch))
+    model = models.build_model(
+        args.arch,
+        num_attrs,
+        pretrained=not args.no_pretrained,
+        use_gpu=use_gpu
+    )
+    num_params, flops = compute_model_complexity(
+        model, (1, 3, args.height, args.width)
+    )
+    print(&quotModel complexity: params={:,} flops={:,}&quot.format(num_params, flops))
+
+    if args.load_weights and check_isfile(args.load_weights):
+        load_pretrained_weights(model, args.load_weights)
+
+    if use_gpu:
+        model = nn.DataParallel(model).cuda()
+        criterion = criterion.cuda()
+
+    if args.evaluate:
+        test(model, testloader, attr_dict, use_gpu)
+        return
+
+    optimizer = torchreid.optim.build_optimizer(
+        model, **optimizer_kwargs(args)
+    )
+    scheduler = torchreid.optim.build_lr_scheduler(
+        optimizer, **lr_scheduler_kwargs(args)
+    )
+
+    start_epoch = args.start_epoch
+    best_result = -np.inf
+    if args.resume and check_isfile(args.resume):
+        checkpoint = torch.load(args.resume)
+        model.load_state_dict(checkpoint[&quotstate_dict&quot])
+        optimizer.load_state_dict(checkpoint[&quotoptimizer&quot])
+        start_epoch = checkpoint[&quotepoch&quot]
+        best_result = checkpoint[&quotlabel_mA&quot]
+        print(&quotLoaded checkpoint from "{}"&quot.format(args.resume))
+        print(&quot- start epoch: {}&quot.format(start_epoch))
+        print(&quot- label_mA: {}&quot.format(best_result))
+
+    time_start = time.time()
+
+    for epoch in range(start_epoch, args.max_epoch):
+        train(
+            epoch, model, criterion, optimizer, scheduler, trainloader, use_gpu
+        )
+        test_outputs = test(model, testloader, attr_dict, use_gpu)
+        label_mA = test_outputs[0]
+        is_best = label_mA &gt; best_result
+        if is_best:
+            best_result = label_mA
+
+        save_checkpoint(
+            {
+                &quotstate_dict&quot: model.state_dict(),
+                &quotepoch&quot: epoch + 1,
+                &quotlabel_mA&quot: label_mA,
+                &quotoptimizer&quot: optimizer.state_dict(),
+            },
+            args.save_dir,
+            is_best=is_best
+        )
+
+    elapsed = round(time.time() - time_start)
+    elapsed = str(datetime.timedelta(seconds=elapsed))
+    print(&quotElapsed {}&quot.format(elapsed))
+
+
+def train(epoch, model, criterion, optimizer, scheduler, trainloader, use_gpu):
+    losses = AverageMeter()
+    batch_time = AverageMeter()
+    data_time = AverageMeter()
+    model.train()
+
+    if (epoch + 1) &lt;= args.fixbase_epoch and args.open_layers is not None:
+        print(
+            &quot* Only train {} (epoch: {}/{})&quot.format(
+                args.open_layers, epoch + 1, args.fixbase_epoch
+            )
+        )
+        open_specified_layers(model, args.open_layers)
+    else:
+        open_all_layers(model)
+
+    end = time.time()
+    for batch_idx, data in enumerate(trainloader):
+        data_time.update(time.time() - end)
+
+        imgs, attrs = data[0], data[1]
+        if use_gpu:
+            imgs = imgs.cuda()
+            attrs = attrs.cuda()
+
+        optimizer.zero_grad()
+        outputs = model(imgs)
+        loss = criterion(outputs, attrs)
+        loss.backward()
+        optimizer.step()
+
+        batch_time.update(time.time() - end)
+
+        losses.update(loss.item(), imgs.size(0))
+
+        if (batch_idx+1) % args.print_freq == 0:
+            &#47&#47 estimate remaining time
+            num_batches = len(trainloader)
+            eta_seconds = batch_time.avg * (
+                num_batches - (batch_idx+1) + (args.max_epoch -
+                                               (epoch+1)) * num_batches
+            )
+            eta_str = str(datetime.timedelta(seconds=int(eta_seconds)))
+            print(
+                &quotEpoch: [{0}/{1}][{2}/{3}]\t&quot
+                &quotTime {batch_time.val:.3f} ({batch_time.avg:.3f})\t&quot
+                &quotData {data_time.val:.3f} ({data_time.avg:.3f})\t&quot
+                &quotLoss {loss.val:.4f} ({loss.avg:.4f})\t&quot
+                &quotLr {lr:.6f}\t&quot
+                &quotEta {eta}&quot.format(
+                    epoch + 1,
+                    args.max_epoch,
+                    batch_idx + 1,
+                    len(trainloader),
+                    batch_time=batch_time,
+                    data_time=data_time,
+                    loss=losses,
+                    lr=optimizer.param_groups[0][&quotlr&quot],
+                    eta=eta_str
+                )
+            )
+
+        end = time.time()
+
+    scheduler.step()
+
+
+@torch.no_grad()
+def test(model, testloader, attr_dict, use_gpu):
+    <a id="change">batch_time</a> = AverageMeter()
+    model.eval()
+
+    <a id="change">num_persons</a> = 0
+    <a id="change">prob_thre</a> = 0.5
+    <a id="change">ins_acc</a> = 0
+    <a id="change">ins_prec</a> = 0
+    <a id="change">ins_rec</a> = 0
+    <a id="change">mA_history</a> = {
+        &quotcorrect_pos&quot: 0,
+        &quotreal_pos&quot: 0,
+        &quotcorrect_neg&quot: 0,
+        &quotreal_neg&quot: 0
+    }
+
+    print(&quotTesting ...&quot)
+
+    for <a id="change">batch_idx</a>, <a id="change">data</a> in enumerate(testloader):
+        imgs, attrs, img_paths = data
+        if use_gpu:
+            imgs = imgs.cuda()
+
+        <a id="change">end</a> = time.time()
+        <a id="change">orig_outputs</a> = model(imgs)
+        batch_time.update(time.time() - end)
+
+        <a id="change">orig_outputs</a> = orig_outputs.data.cpu().numpy()
+        <a id="change">attrs</a> = attrs.data.numpy()
+
+        &#47&#47 transform raw outputs to attributes (binary codes)
+        <a id="change">outputs</a> = copy.deepcopy(orig_outputs)
+        outputs[outputs &lt; prob_thre] = 0
+        outputs[outputs &gt;= prob_thre] = 1
+
+        &#47&#47 compute label-based metric
+        <a id="change">overlaps</a> = outputs * attrs
+        mA_history[&quotcorrect_pos&quot] += overlaps.sum(0)
+        mA_history[&quotreal_pos&quot] += attrs.sum(0)
+        <a id="change">inv_overlaps</a> = (1-outputs) * (1-attrs)
+        mA_history[&quotcorrect_neg&quot] += inv_overlaps.sum(0)
+        mA_history[&quotreal_neg&quot] += (1 - attrs).sum(0)
+
+        <a id="change">outputs</a> = outputs.astype(bool)
+        <a id="change">attrs</a> = attrs.astype(bool)
+
+        &#47&#47 compute instabce-based accuracy
+        <a id="change">intersect</a> = (outputs & attrs).astype(float)
+        <a id="change">union</a> = (outputs | attrs).astype(float)
+        ins_acc += (intersect.sum(1) / union.sum(1)).sum()
+        ins_prec += (intersect.sum(1) / outputs.astype(float).sum(1)).sum()
+        ins_rec += (intersect.sum(1) / attrs.astype(float).sum(1)).sum()
+
+        num_persons += imgs.size(0)
+
+        if (batch_idx+1) % args.print_freq == 0:
+            print(
+                &quotProcessed batch {}/{}&quot.format(batch_idx + 1, len(testloader))
+            )
+
+        if args.save_prediction:
+            <a id="change">txtfile</a><a id="change"> = open(osp.join(args.save_dir, &quotprediction.txt&quot), &quota&quot)</a>
+            for <a id="change">idx</a> in range(imgs.size(0)):
+                <a id="change">img_path</a> = img_paths[idx]
+                <a id="change">probs</a> = orig_outputs[idx, :]
+                <a id="change">labels</a> = attrs[idx, :]
+                txtfile.write(&quot{}\n&quot.format(img_path))
+                txtfile.write(&quot*** Correct prediction ***\n&quot)
+                for <a id="change">attr_idx</a>, (label, prob) in enumerate(zip(labels, probs)):
+                    if label:
+                        <a id="change">attr_name</a> = attr_dict[attr_idx]
+                        <a id="change">info</a> = &quot{}: {:.1%}  &quot.format(attr_name, prob)
+                        txtfile.write(info)
+                txtfile.write(&quot\n*** Incorrect prediction ***\n&quot)
+                for <a id="change">attr_idx</a>, (label, prob) in enumerate(zip(labels, probs)):
+                    if not label and prob &gt; 0.5:
+                        <a id="change">attr_name</a> = attr_dict[attr_idx]
+                        <a id="change">info</a> = &quot{}: {:.1%}  &quot.format(attr_name, prob)
+                        txtfile.write(info)
+                txtfile.write(&quot\n\n&quot)
+            <a id="change">txtfile</a><a id="change">.close()</a>
+
+    print(
+        &quot=&gt; BatchTime(s)/BatchSize(img): {:.4f}/{}&quot.format(
+            batch_time.avg, args.batch_size
+        )
+    )
+
+    ins_acc /= num_persons
+    ins_prec /= num_persons
+    ins_rec /= num_persons
+    <a id="change">ins_f1</a> = (2*ins_prec*ins_rec) / (ins_prec+ins_rec)
+
+    <a id="change">term1</a> = mA_history[&quotcorrect_pos&quot] / mA_history[&quotreal_pos&quot]
+    <a id="change">term2</a> = mA_history[&quotcorrect_neg&quot] / mA_history[&quotreal_neg&quot]
+    <a id="change">label_mA_verbose</a> = (term1+term2) * 0.5
+    <a id="change">label_mA</a> = label_mA_verbose.mean()
+
+    print(&quot* Results *&quot)
+    print(&quot  &#47&#47 test persons: {}&quot.format(num_persons))
+    print(&quot  (instance-based)  accuracy:      {:.1%}&quot.format(ins_acc))
+    print(&quot  (instance-based)  precition:     {:.1%}&quot.format(ins_prec))
+    print(&quot  (instance-based)  recall:        {:.1%}&quot.format(ins_rec))
+    print(&quot  (instance-based)  f1-score:      {:.1%}&quot.format(ins_f1))
+    print(&quot  (label-based)     mean accuracy: {:.1%}&quot.format(label_mA))
+    print(&quot  mA for each attribute: {}&quot.format(label_mA_verbose))
+
+    return label_mA, ins_acc, ins_prec, ins_rec, ins_f1
+
+
+if __name__ == &quot__main__&quot:
+    main()
+</code></pre>

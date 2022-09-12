@@ -1,0 +1,208 @@
+<link rel="stylesheet" href="../../..//default.css">
+<script src="../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/calico/basenji/blob/master/bin/sonnet_bench_gtex.py#L41">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/basenji/blob/master/bin/sonnet_bench_gtex.py#L41">GitMyHubLink</a>
+
+&#47&#47!/usr/bin/env python
+&#47&#47 Copyright 2017 Calico LLC
+
+&#47&#47 Licensed under the Apache License, Version 2.0 (the "License");
+&#47&#47 you may not use this file except in compliance with the License.
+&#47&#47 You may obtain a copy of the License at
+
+&#47&#47     https://www.apache.org/licenses/LICENSE-2.0
+
+&#47&#47 Unless required by applicable law or agreed to in writing, software
+&#47&#47 distributed under the License is distributed on an "AS IS" BASIS,
+&#47&#47 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+&#47&#47 See the License for the specific language governing permissions and
+&#47&#47 limitations under the License.
+&#47&#47 =========================================================================
+
+from optparse import OptionParser
+import glob
+import os
+import pickle
+import shutil
+import subprocess
+import sys
+
+import h5py
+import numpy as np
+
+import slurm
+
+
+sonnet_bench_gtex.py
+
+Compute SNP expression difference scores for variants in VCF files of
+fine-mapped GTEx variants to benchmark as features in a classification
+task.
+
+
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+&#47&#47 main
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+def main():
+  <a id="change">usage = &quotusage: %prog [options] &lt;model_file&gt;&quot</a>
+  <a id="change">parser = OptionParser(usage)</a>
+
+  &#47&#47 sad
+  parser.add_option(&quot-b&quot, dest=&quotbatch_size&quot,
+      default=4, type=&quotint&quot,
+      help=&quotBatch size [Default: %default]&quot)
+  parser.add_option(&quot-c&quot, dest=&quotslice_center&quot,
+      default=None, type=&quotint&quot,
+      help=&quotSlice center positions [Default: %default]&quot)
+  parser.add_option(&quot-f&quot, dest=&quotgenome_fasta&quot,
+      default=&quot%s/data/hg38.fa&quot % os.environ[&quotBASENJIDIR&quot],
+      help=&quotGenome FASTA for sequences [Default: %default]&quot)
+  parser.add_option(&quot-n&quot, dest=&quotnorm_file&quot,
+      default=None,
+      help=&quotNormalize SAD scores&quot)
+  parser.add_option(&quot-o&quot,dest=&quotout_dir&quot,
+      default=&quotsad_gtex&quot,
+      help=&quotOutput directory for tables and plots [Default: %default]&quot)
+  parser.add_option(&quot--pseudo&quot, dest=&quotlog_pseudo&quot,
+      default=1, type=&quotfloat&quot,
+      help=&quotLog2 pseudocount [Default: %default]&quot)
+  parser.add_option(&quot--rc&quot, dest=&quotrc&quot,
+      default=False, action=&quotstore_true&quot,
+      help=&quotAverage forward and reverse complement predictions [Default: %default]&quot)
+  parser.add_option(&quot--shifts&quot, dest=&quotshifts&quot,
+      default=&quot0&quot, type=&quotstr&quot,
+      help=&quotEnsemble prediction shifts [Default: %default]&quot)
+  parser.add_option(&quot--species&quot, dest=&quotspecies&quot,
+      default=&quothuman&quot)
+  parser.add_option(&quot--stats&quot, dest=&quotsad_stats&quot,
+      default=&quotSAD&quot,
+      help=&quotComma-separated list of stats to save. [Default: %default]&quot)
+  parser.add_option(&quot-t&quot, dest=&quottargets_file&quot,
+      default=None, type=&quotstr&quot,
+      help=&quotFile specifying target indexes and labels in table format&quot)
+
+  &#47&#47 classify
+  parser.add_option(&quot--msl&quot, dest=&quotmsl&quot,
+      default=1, type=&quotint&quot,
+      help=&quotRandom forest min_samples_leaf [Default: %default]&quot)
+
+  &#47&#47 multi
+  parser.add_option(&quot-e&quot, dest=&quotconda_env&quot,
+      default=&quottf2.6&quot,
+      help=&quotAnaconda environment [Default: %default]&quot)
+  parser.add_option(&quot-g&quot, dest=&quotgtex_vcf_dir&quot,
+      default=&quot/home/drk/seqnn/data/gtex_fine/susie_pip90&quot)
+  parser.add_option(&quot--name&quot, dest=&quotname&quot,
+      default=&quotgtex&quot, help=&quotSLURM name prefix [Default: %default]&quot)
+  parser.add_option(&quot--max_proc&quot, dest=&quotmax_proc&quot,
+      default=None, type=&quotint&quot,
+      help=&quotMaximum concurrent processes [Default: %default]&quot)
+  parser.add_option(&quot-p&quot, dest=&quotprocesses&quot,
+      default=None, type=&quotint&quot,
+      help=&quotNumber of processes, passed by multi script. \
+            (Unused, but needs to appear as dummy.)&quot)
+  parser.add_option(&quot-q&quot, dest=&quotqueue&quot,
+      default=&quotgeforce&quot,
+      help=&quotSLURM queue on which to run the jobs [Default: %default]&quot)
+  parser.add_option(&quot-r&quot, dest=&quotrestart&quot,
+      default=False, action=&quotstore_true&quot,
+      help=&quotRestart a partially completed job [Default: %default]&quot)
+  <a id="change">(options, args) = parser.parse_args()</a>
+
+  if len(args) != 1:
+    parser.error(&quotMust provide model file&quot)
+  else:
+    <a id="change">model_file = args[0]</a>
+
+  &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+  &#47&#47 prep work
+
+  &#47&#47 output directory
+  if not options.restart:
+    if os.path.isdir(options.out_dir):
+      print(&quotPlease remove %s&quot % options.out_dir, file=sys.stderr)
+      exit(1)
+    os.mkdir(options.out_dir)
+
+  <a id="change">sad_stats_list = options.sad_stats.split(&quot,&quot)</a>
+
+  &#47&#47 pickle options
+  <a id="change">options_pkl_file = &quot%s/options.pkl&quot % options.out_dir</a>
+  <a id="change">options_pkl = open(options_pkl_file, &quotwb&quot)</a>
+  pickle.dump(options, options_pkl)
+  <a id="change">options_pkl</a><a id="change">.close()</a>
+
+  &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+  &#47&#47 predict
+
+  <a id="change">cmd_base = &quot. /home/drk/anaconda3/etc/profile.d/conda.sh;&quot</a>
+  cmd_base += &quot conda activate %s;&quot % options.conda_env
+  cmd_base += &quot sonnet_sad.py %s %s&quot % (options_pkl_file, model_file)
+
+  <a id="change">jobs = []</a>
+  for gtex_pos_vcf in glob.glob(&quot%s/*_pos.vcf&quot % options.gtex_vcf_dir):
+    &#47&#47 positive job
+    <a id="change">job_base = os.path.splitext(os.path.split(gtex_pos_vcf)[1])[0]</a>
+    <a id="change">out_dir = &quot%s/%s&quot % (options.out_dir, job_base)</a>
+    if not options.restart or not os.path.isfile(&quot%s/sad.h5&quot%out_dir):
+      <a id="change">cmd = &quot%s -o %s %s&quot % (cmd_base, out_dir, gtex_pos_vcf)</a>
+      <a id="change">name = &quot%s_%s&quot % (options.name, job_base)</a>
+      <a id="change">j = slurm.Job(cmd, name,
+          &quot%s.out&quot%out_dir, &quot%s.err&quot%out_dir,
+          queue=options.queue, gpu=1,
+          mem=22000, time=&quot1-0:0:0&quot)</a>
+      jobs.append(j)
+
+    &#47&#47 negative job
+    <a id="change">gtex_neg_vcf = gtex_pos_vcf.replace(&quot_pos.&quot,&quot_neg.&quot)</a>
+    <a id="change">job_base = os.path.splitext(os.path.split(gtex_neg_vcf)[1])[0]</a>
+    <a id="change">out_dir = &quot%s/%s&quot % (options.out_dir, job_base)</a>
+    if not options.restart or not os.path.isfile(&quot%s/sad.h5&quot%out_dir):
+      <a id="change">cmd = &quot%s -o %s %s&quot % (cmd_base, out_dir, gtex_neg_vcf)</a>
+      <a id="change">name = &quot%s_%s&quot % (options.name, job_base)</a>
+      <a id="change">j = slurm.Job(cmd, name,
+          &quot%s.out&quot%out_dir, &quot%s.err&quot%out_dir,
+          queue=options.queue, gpu=1,
+          mem=22000, time=&quot1-0:0:0&quot)</a>
+      jobs.append(j)
+
+  slurm.multi_run(jobs, max_proc=options.max_proc, verbose=True,
+                  launch_sleep=10, update_sleep=60)
+
+
+  &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+  &#47&#47 classify
+
+  <a id="change">cmd_base = &quotbasenji_bench_classify.py --iscale 0.1 -i 100 -p 2 -r 44 -s&quot</a>
+
+  cmd_base += &quot --msl %d&quot % options.msl
+
+  <a id="change">jobs = []</a>
+  for gtex_pos_vcf in glob.glob(&quot%s/*_pos.vcf&quot % options.gtex_vcf_dir):
+    <a id="change">tissue = os.path.splitext(os.path.split(gtex_pos_vcf)[1])[0][:-4]</a>
+    <a id="change">sad_pos = &quot%s/%s_pos/sad.h5&quot % (options.out_dir, tissue)</a>
+    <a id="change">sad_neg = &quot%s/%s_neg/sad.h5&quot % (options.out_dir, tissue)</a>
+
+    for sad_stat in sad_stats_list:
+      <a id="change">out_dir = &quot%s/%s_class-%s&quot % (options.out_dir, tissue, sad_stat.lower())</a>
+      if not options.restart or not os.path.isfile(&quot%s/stats.txt&quot % out_dir):
+        <a id="change">cmd = &quot%s -o %s --stat %s %s %s&quot % (cmd_base, out_dir, sad_stat, sad_pos, sad_neg)</a>
+        <a id="change">j = slurm.Job(cmd, tissue,
+            &quot%s.out&quot%out_dir, &quot%s.err&quot%out_dir,
+            queue=&quotstandard&quot, cpu=2,
+            mem=22000, time=&quot20:0:0&quot)</a>
+        jobs.append(j)
+
+  slurm.multi_run(jobs, verbose=True)
+
+
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+&#47&#47 __main__
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+if __name__ == &quot__main__&quot:
+  main()
+</code></pre>

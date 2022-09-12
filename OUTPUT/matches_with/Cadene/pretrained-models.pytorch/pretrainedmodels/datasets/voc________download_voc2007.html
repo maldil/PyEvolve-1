@@ -1,0 +1,271 @@
+<link rel="stylesheet" href="../../../..//default.css">
+<script src="../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/Cadene/pretrained-models.pytorch/blob/master/pretrainedmodels/datasets/voc.py#L114">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/pretrained-models.pytorch/blob/master/pretrainedmodels/datasets/voc.py#L114">GitMyHubLink</a>
+
+from __future__ import print_function, division, absolute_import
+import csv
+import os
+import os.path
+import tarfile
+from six.moves.urllib.parse import urlparse
+
+import numpy as np
+import torch
+import torch.utils.data as data
+from PIL import Image
+
+from . import utils
+
+object_categories = [&quotaeroplane&quot, &quotbicycle&quot, &quotbird&quot, &quotboat&quot,
+                     &quotbottle&quot, &quotbus&quot, &quotcar&quot, &quotcat&quot, &quotchair&quot,
+                     &quotcow&quot, &quotdiningtable&quot, &quotdog&quot, &quothorse&quot,
+                     &quotmotorbike&quot, &quotperson&quot, &quotpottedplant&quot,
+                     &quotsheep&quot, &quotsofa&quot, &quottrain&quot, &quottvmonitor&quot]
+
+urls = {
+    &quotdevkit&quot: &quothttp://host.robots.ox.ac.uk/pascal/VOC/voc2012/VOCdevkit_18-May-2011.tar&quot,
+    &quottrainval_2007&quot: &quothttp://host.robots.ox.ac.uk/pascal/VOC/voc2007/VOCtrainval_06-Nov-2007.tar&quot,
+    &quottest_images_2007&quot: &quothttp://host.robots.ox.ac.uk/pascal/VOC/voc2007/VOCtest_06-Nov-2007.tar&quot,
+    &quottest_anno_2007&quot: &quothttp://host.robots.ox.ac.uk/pascal/VOC/voc2007/VOCtestnoimgs_06-Nov-2007.tar&quot,
+}
+
+
+def read_image_label(file):
+    print(&quot[dataset] read &quot + file)
+    data = dict()
+    with open(file, &quotr&quot) as f:
+        for line in f:
+            tmp = line.split(&quot &quot)
+            name = tmp[0]
+            label = int(tmp[-1])
+            data[name] = label
+            &#47&#47 data.append([name, label])
+            &#47&#47 print(&quot%s  %d&quot % (name, label))
+    return data
+
+
+def read_object_labels(root, dataset, set):
+    path_labels = os.path.join(root, &quotVOCdevkit&quot, dataset, &quotImageSets&quot, &quotMain&quot)
+    labeled_data = dict()
+    num_classes = len(object_categories)
+
+    for i in range(num_classes):
+        file = os.path.join(path_labels, object_categories[i] + &quot_&quot + set + &quot.txt&quot)
+        data = read_image_label(file)
+
+        if i == 0:
+            for (name, label) in data.items():
+                labels = np.zeros(num_classes)
+                labels[i] = label
+                labeled_data[name] = labels
+        else:
+            for (name, label) in data.items():
+                labeled_data[name][i] = label
+
+    return labeled_data
+
+
+def write_object_labels_csv(file, labeled_data):
+    &#47&#47 write a csv file
+    print(&quot[dataset] write file %s&quot % file)
+    with open(file, &quotw&quot) as csvfile:
+        fieldnames = [&quotname&quot]
+        fieldnames.extend(object_categories)
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+
+        writer.writeheader()
+        for (name, labels) in labeled_data.items():
+            example = {&quotname&quot: name}
+            for i in range(20):
+                example[fieldnames[i + 1]] = int(labels[i])
+            writer.writerow(example)
+
+    csvfile.close()
+
+
+def read_object_labels_csv(file, header=True):
+    images = []
+    num_categories = 0
+    print(&quot[dataset] read&quot, file)
+    with open(file, &quotr&quot) as f:
+        reader = csv.reader(f)
+        rownum = 0
+        for row in reader:
+            if header and rownum == 0:
+                header = row
+            else:
+                if num_categories == 0:
+                    num_categories = len(row) - 1
+                name = row[0]
+                labels = (np.asarray(row[1:num_categories + 1])).astype(np.float32)
+                labels = torch.from_numpy(labels)
+                item = (name, labels)
+                images.append(item)
+            rownum += 1
+    return images
+
+
+def find_images_classification(root, dataset, set):
+    path_labels = os.path.join(root, &quotVOCdevkit&quot, dataset, &quotImageSets&quot, &quotMain&quot)
+    images = []
+    file = os.path.join(path_labels, set + &quot.txt&quot)
+    with open(file, &quotr&quot) as f:
+        for line in f:
+            images.append(line)
+    return images
+
+
+def download_voc2007(root):
+    path_devkit = os.path.join(root, &quotVOCdevkit&quot)
+    path_images = os.path.join(root, &quotVOCdevkit&quot, &quotVOC2007&quot, &quotJPEGImages&quot)
+    tmpdir = os.path.join(root, &quottmp&quot)
+
+    &#47&#47 create directory
+    if not os.path.exists(root):
+        os.makedirs(root)
+
+    if not os.path.exists(path_devkit):
+
+        if not os.path.exists(tmpdir):
+            os.makedirs(tmpdir)
+
+        parts = urlparse(urls[&quotdevkit&quot])
+        filename = os.path.basename(parts.path)
+        cached_file = os.path.join(tmpdir, filename)
+
+        if not os.path.exists(cached_file):
+            print(&quotDownloading: "{}" to {}\n&quot.format(urls[&quotdevkit&quot], cached_file))
+            utils.download_url(urls[&quotdevkit&quot], cached_file)
+
+        &#47&#47 extract file
+        print(&quot[dataset] Extracting tar file {file} to {path}&quot.format(file=cached_file, path=root))
+        cwd = os.getcwd()
+        <a id="change">tar = tarfile.open(cached_file, "r")</a>
+        os.chdir(root)
+        tar.extractall()
+        <a id="change">tar</a><a id="change">.close()</a>
+        os.chdir(cwd)
+        print(&quot[dataset] Done!&quot)
+
+    &#47&#47 train/val images/annotations
+    if not os.path.exists(path_images):
+
+        &#47&#47 download train/val images/annotations
+        parts = urlparse(urls[&quottrainval_2007&quot])
+        filename = os.path.basename(parts.path)
+        cached_file = os.path.join(tmpdir, filename)
+
+        if not os.path.exists(cached_file):
+            print(&quotDownloading: "{}" to {}\n&quot.format(urls[&quottrainval_2007&quot], cached_file))
+            utils.download_url(urls[&quottrainval_2007&quot], cached_file)
+
+        &#47&#47 extract file
+        print(&quot[dataset] Extracting tar file {file} to {path}&quot.format(file=cached_file, path=root))
+        cwd = os.getcwd()
+        <a id="change">tar = tarfile.open(cached_file, "r")</a>
+        os.chdir(root)
+        tar.extractall()
+        <a id="change">tar</a><a id="change">.close()</a>
+        os.chdir(cwd)
+        print(&quot[dataset] Done!&quot)
+
+    &#47&#47 test annotations
+    test_anno = os.path.join(path_devkit, &quotVOC2007/ImageSets/Main/aeroplane_test.txt&quot)
+    if not os.path.exists(test_anno):
+
+        &#47&#47 download test annotations
+        parts = urlparse(urls[&quottest_images_2007&quot])
+        filename = os.path.basename(parts.path)
+        cached_file = os.path.join(tmpdir, filename)
+
+        if not os.path.exists(cached_file):
+            print(&quotDownloading: "{}" to {}\n&quot.format(urls[&quottest_images_2007&quot], cached_file))
+            utils.download_url(urls[&quottest_images_2007&quot], cached_file)
+
+        &#47&#47 extract file
+        print(&quot[dataset] Extracting tar file {file} to {path}&quot.format(file=cached_file, path=root))
+        cwd = os.getcwd()
+        <a id="change">tar = tarfile.open(cached_file, "r")</a>
+        os.chdir(root)
+        tar.extractall()
+        <a id="change">tar</a><a id="change">.close()</a>
+        os.chdir(cwd)
+        print(&quot[dataset] Done!&quot)
+
+    &#47&#47 test images
+    test_image = os.path.join(path_devkit, &quotVOC2007/JPEGImages/000001.jpg&quot)
+    if not os.path.exists(test_image):
+
+        &#47&#47 download test images
+        parts = urlparse(urls[&quottest_anno_2007&quot])
+        filename = os.path.basename(parts.path)
+        cached_file = os.path.join(tmpdir, filename)
+
+        if not os.path.exists(cached_file):
+            print(&quotDownloading: "{}" to {}\n&quot.format(urls[&quottest_anno_2007&quot], cached_file))
+            utils.download_url(urls[&quottest_anno_2007&quot], cached_file)
+
+        &#47&#47 extract file
+        print(&quot[dataset] Extracting tar file {file} to {path}&quot.format(file=cached_file, path=root))
+        cwd = os.getcwd()
+        <a id="change">tar = tarfile.open(cached_file, "r")</a>
+        os.chdir(root)
+        tar.extractall()
+        <a id="change">tar</a><a id="change">.close()</a>
+        os.chdir(cwd)
+        print(&quot[dataset] Done!&quot)
+
+
+class Voc2007Classification(data.Dataset):
+
+    def __init__(self, root, set, transform=None, target_transform=None):
+        self.root = root
+        self.path_devkit = os.path.join(root, &quotVOCdevkit&quot)
+        self.path_images = os.path.join(root, &quotVOCdevkit&quot, &quotVOC2007&quot, &quotJPEGImages&quot)
+        self.set = set
+        self.transform = transform
+        self.target_transform = target_transform
+
+        &#47&#47 download dataset
+        download_voc2007(self.root)
+
+        &#47&#47 define path of csv file
+        path_csv = os.path.join(self.root, &quotfiles&quot, &quotVOC2007&quot)
+        &#47&#47 define filename of csv file
+        file_csv = os.path.join(path_csv, &quotclassification_&quot + set + &quot.csv&quot)
+
+        &#47&#47 create the csv file if necessary
+        if not os.path.exists(file_csv):
+            if not os.path.exists(path_csv):  &#47&#47 create dir if necessary
+                os.makedirs(path_csv)
+            &#47&#47 generate csv file
+            labeled_data = read_object_labels(self.root, &quotVOC2007&quot, self.set)
+            &#47&#47 write csv file
+            write_object_labels_csv(file_csv, labeled_data)
+
+        self.classes = object_categories
+        self.images = read_object_labels_csv(file_csv)
+
+        print(&quot[dataset] VOC 2007 classification set=%s number of classes=%d  number of images=%d&quot % (
+            set, len(self.classes), len(self.images)))
+
+    def __getitem__(self, index):
+        path, target = self.images[index]
+        img = Image.open(os.path.join(self.path_images, path + &quot.jpg&quot)).convert(&quotRGB&quot)
+        if self.transform is not None:
+            img = self.transform(img)
+        if self.target_transform is not None:
+            target = self.target_transform(target)
+        return img, path, target
+
+    def __len__(self):
+        return len(self.images)
+
+    def get_number_classes(self):
+        return len(self.classes)
+</code></pre>

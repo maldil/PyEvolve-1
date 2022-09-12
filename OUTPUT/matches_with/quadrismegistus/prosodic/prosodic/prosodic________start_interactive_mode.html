@@ -1,0 +1,608 @@
+<link rel="stylesheet" href="../../..//default.css">
+<script src="../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/quadrismegistus/prosodic/blob/master/prosodic/prosodic.py#L88">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/prosodic/blob/master/prosodic/prosodic.py#L88">GitMyHubLink</a>
+
+&#47&#47!/usr/bin/env python3
+&#47&#47 -*- coding: UTF-8 -*-
+import sys,glob,os,time,codecs
+import logging
+&#47&#47logging.basicConfig(level=logging.DEBUG, format=&quot&#47&#47&#47&#47&#47&#47&#47&#47 %(levelname)s:\n%(message)s\n&#47&#47&#47&#47&#47&#47&#47&#47\n&quot)
+&#47&#47logging.basicConfig(level=logging.INFO, format=&quot&#47&#47&#47&#47 LOG &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47\n%(message)s\n&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47\n&quot)
+&#47&#47print(&quot&gt;&gt; importing prosodic...&quot)
+
+import warnings
+warnings.filterwarnings("ignore")
+
+
+&#47&#47dir_prosodic=sys.path[0]
+dir_prosodic=os.path.split(globals()[&quot__file__&quot])[0]
+sys.path.insert(0,dir_prosodic)
+
+dir_imports=os.path.join(dir_prosodic,&quotlib&quot)
+sys.path.append(dir_imports)
+
+dir_mtree=os.path.join(dir_prosodic,&quot..&quot,&quotmetricaltree&quot)
+sys.path.append(dir_mtree)
+
+
+&#47&#47 import setup
+&#47&#47import importlib.machinery
+import tools
+from tools import *
+
+if &quotconfigure_home_dir&quot in set(dir(tools)):
+	tools.configure_home_dir(force=False)
+&#47&#47&#47&#47 import necessary objects
+toprintconfig=__name__==&quot__main__&quot
+&#47&#47toprintconfig=True
+
+config=loadConfigPy(toprint=toprintconfig,dir_prosodic=dir_prosodic)
+
+import json
+os.environ[&quotprosodic_config_json&quot]=json.dumps(config)
+
+&#47&#47default_dir_prosodic_home = os.path.abspath(os.path.expanduser(&quot~/prosodic_data&quot))
+dir_prosodic_home = config.get(&quotpath_prosodic_data&quot)
+dir_dicts = config.get(&quotpath_dicts&quot, os.path.join(dir_prosodic, &quotdicts&quot))
+dir_meters = config.get(&quotpath_meters&quot, os.path.join(dir_prosodic_home, &quotmeters&quot))
+dir_results = config.get(&quotpath_results&quot, os.path.join(dir_prosodic_home, &quotresults&quot))
+dir_tagged = config.get(&quotpath_tagged_samples&quot, os.path.join(dir_prosodic_home, &quottagged_samples&quot))
+dir_corpus = config.get(&quotpath_corpora&quot, os.path.join(dir_prosodic_home, &quotcorpora&quot))
+dir_nlp_data = config.get(&quotpath_nlp_data&quot, os.path.join(dir_prosodic_home, &quotnlp_libraries&quot))
+
+config[&quotmeters&quot]=loadMeters(dir_meters,config)
+
+METER=config[&quotmeter&quot]=config[&quotmeters&quot][config[&quotmeter&quot]] if &quotmeter&quot in config and config[&quotmeter&quot] else None
+
+text=&quot&quot
+cmd=&quot&quot
+
+
+&#47&#47print(__name__)
+&#47&#47if __name__ != &quot__main__&quot:
+&#47&#47	config[&quotprint_to_screen&quot]=False
+
+import entity
+from entity import being
+being.config=config
+from Text import Text
+from Corpus import Corpus
+from Stanza import Stanza
+from Line import Line
+from Phoneme import Phoneme
+from Word import Word
+from WordToken import WordToken
+from Meter import Meter
+from Meter import get_meter
+import ipa
+hdrbar="&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47"
+
+&#47&#47&#47&#47 set defaults
+languages=[lang for lang in os.listdir(dir_dicts) if os.path.isdir(os.path.join(dir_dicts,lang))] if dir_dicts else [&quoten&quot,&quotfi&quot]
+lang=config[&quotlang&quot]
+
+&#47&#47 load defaults
+dict={}
+for lng in languages:
+	dict[lng]=loadDict(lng,config,dir_dicts=dir_dicts)
+del lng
+
+
+
+def start_interactive_mode():
+	global lang,METER
+	<a id="change">skip</a>=False
+
+	&#47&#47&#47&#47 but do not go into interactive mode if only a single argument
+	&#47&#47&#47&#47 (which is later proven to be a real file or directory)
+	&#47&#47&#47&#47 ACTUALLY NVERMIND ABOVE: GO INTO INTERACTIVE MODE IF SINGLE ARGUMENT
+	try:
+		<a id="change">cmd</a>=sys.argv[1]
+		config[&quotprint_to_screen&quot]=0
+		being.config[&quotprint_to_screen&quot]=0
+		if not cmd.startswith(&quot/&quot):
+			cmd=""
+	except IndexError:
+		cmd="/exit"
+		&#47&#47cmd=""
+		being.printout=True
+
+	try:
+		<a id="change">arg</a>=sys.argv[1]
+		if os.path.exists(arg):
+			if os.path.isdir(arg):
+				text="/corpus "+arg
+				&#47&#47dir_corpus=sys.argv[1]
+				<a id="change">skip</a>=True
+			else:
+				&#47&#47dir_corpus=os.path.dirname(sys.G[1])
+				<a id="change">basename</a>=os.path.basename(arg)
+				text="/text "+arg
+				if basename[0:2] in languages and basename[2]==&quot.&quot:
+					lang=basename[0:2]
+				<a id="change">skip</a>=True
+		elif arg==&quotinstall&quot:
+			try:
+				arg2=sys.argv[2]
+			except IndexError:
+				pass
+
+			if arg2==&quotstanford_parser&quot:
+				dir_get_deps=os.path.join(dir_mtree,&quotget-deps.sh&quot)
+				if not os.path.exists(dir_nlp_data): os.makedirs(dir_nlp_data)
+				&#47&#47cmd=&quotcd &quot+dir_nlp_data+&quot && &quot+dir_get_deps+&quot && cd &quot+dir_prosodic
+				<a id="change">cmd</a>=f&quot{dir_get_deps} "{dir_nlp_data}"&quot
+				print(cmd)
+				os.system(cmd)
+
+		else:
+			&#47&#47print("&lt;error&gt; file not found")
+			obj = Text(&quot &quot.join(sys.argv[1:]),lang=lang)
+
+
+	except:
+		&#47&#47&#47&#47 welcome
+		print("")
+		print("&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47")
+		print("&#47&#47&#47&#47 welcome to prosodic!                  v1.5 &#47&#47&#47&#47")
+		print("&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47")
+		print("")
+		text=""
+		cmd=""
+
+
+
+	&#47&#47&#47&#47 start clock
+	<a id="change">timestart</a>=time.time()
+
+
+
+
+	<a id="change">obj</a>=None
+	sameobj=None
+	while(text!="/exit"):
+		print(text)
+
+		if being.om:
+			being.omm=being.om
+			being.om=&quot&quot
+		&#47&#47msg="\n&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47\n"
+		<a id="change">msg</a>="\n\t[please type a line of text, or enter one of the following commands:]\n"
+		&#47&#47msg+="\t\t/text\t"+dir_corpus+"[folder/file.txt] or [blank for file-list]\n"
+		&#47&#47msg+="\t\t/corpus\t"+dir_corpus+"[folder] or [blank for dir-list]\n"
+		msg+="\t\t/text\tload a text\n"
+		msg+="\t\t/corpus\tload folder of texts\n"
+		msg+="\t\t/paste\tenter multi-line text\n"
+
+		msg+="\n"
+
+		&#47&#47 try:
+		&#47&#47 	learner
+		&#47&#47 except NameError:
+		&#47&#47 	pass
+		&#47&#47 else:
+		&#47&#47 	if learner != None:
+		&#47&#47 		msg+="\t\t/weightsave\tsave the results of the last run of /weight or /weight2 \n"
+		&#47&#47
+		&#47&#47
+
+		if obj:
+			msg+="\t\t/show\tshow annotations on input\n"
+			if config.get(&quotparse_using_metrical_tree&quot,False): msg+="\t\t/grid\tsee stress grids\n"
+			msg+="\t\t/tree\tsee phonological structure\n"
+			msg+="\t\t/query\tquery annotations\n\n"
+
+			msg+="\t\t/parse\tparse metrically\n"
+			msg+="\t\t/meter\tset the meter used for parsing\n"
+			msg+="\t\t/eval\tevaluate this meter against a hand-tagged sample\n"
+			msg+="\t\t/maxent\tlearn weights for meter using maxent\n\n"&#47&#47 (pipe-delimited input file\n"
+			msg+="\t\t/save\tsave previous output to file (except for /weight and /weight2; see /weightsave)\n"
+
+
+			&#47&#47msg+="\t\t/weight2\trun maximum entropy on a tab-delimited file\n"
+
+		if obj and obj.isParsed():
+			msg+="\t\t/scan\tprint out the scanned lines\n"
+			msg+="\t\t/report\tlook over the parse outputs\n"
+			msg+="\t\t/stats\tsave statistics from the parser\n"
+			&#47&#47msg+="\t\t/plot\tcompare features against positions\n"
+			&#47&#47if being.networkx:
+			&#47&#47	msg+="\t\t/draw\tdraw finite-state machines\n"
+
+			msg+="\n"
+
+		&#47&#47msg+="\t\t/config\tchange settings\n"
+
+		&#47&#47
+		if config[&quotprint_to_screen&quot]:
+			msg+="\t\t/mute\thide output from screen\n"
+		else:
+			msg+="\t\t/unmute\tunhide output from screen\n"
+		&#47&#47
+		msg+="\t\t/exit\texit\n"
+		&#47&#47msg+="&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47\n\n"
+		msg+="\n&gt;&gt; ["+str(round((time.time() - timestart),2))+"s] prosodic:"+lang+"$ "
+
+	 	&#47&#47&#47&#47 restart timer
+		timestart=time.time()
+
+		&#47&#47&#47&#47 ask for input only if argument not received
+		if not skip:
+			try:
+				text=input(msg).strip() &#47&#47.decode(&quotutf-8&quot,errors=&quotignore&quot)
+			except (KeyboardInterrupt,EOFError) as e:
+				text=&quot/exit&quot
+		else:
+			skip=False
+
+		if text=="/exit":
+			&#47&#47 for k,v in list(dict.items()):
+			&#47&#47 	&#47&#47dict[k].save_tabbed()
+			&#47&#47 	dict[k].persist()
+			&#47&#47 	dict[k].close()
+			print()
+			print("&gt;&gt; goodbye.")
+			exit()
+
+		elif text and text[0]!="/":
+			&#47&#47&#47&#47 load line &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+			obj = Text(text,lang=lang)
+			&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+
+		elif text.startswith(&quot/paste&quot):
+			print("&gt;&gt; enter or paste your content here. press Ctrl-D when finished.")
+			<a id="change">contents</a> = []
+			while True:
+				try:
+					<a id="change">line</a> = input("") &#47&#47.decode(&quotutf-8&quot,errors=&quotignore&quot)
+					contents.append(line)
+				except EOFError:
+					break
+				except KeyboardInterrupt:
+					contents=[]
+					break
+
+			if contents:
+				<a id="change">txt</a>="\n".join(contents)
+				obj=Text(txt,lang=lang)
+
+		elif text=="/parse":
+			obj.parse(meter=METER)
+
+		elif text.startswith("/maxent"):
+			from MaxEnt2 import DataAggregator
+			from MaxEnt2 import MaxEntAnalyzer
+
+
+			&#47&#47 Check if learner is defined
+			try:
+				learner
+			except NameError:
+				learner = None
+
+			<a id="change">data_path</a> = text[len("/weight "):]
+			if data_path == "" or data_path is None or not os.path.exists(data_path):
+				print("You must enter an existing filename after the command i.e., /maxent &lt;filename&gt;")
+				continue
+
+			with open(data_path) as <a id="change">f</a>:
+				<a id="change">input_data</a> = f.read()
+				tab_not_pipe = input_data.count(&quot|&quot) &lt; input_data.count(&quot\t&quot)
+
+			<a id="change">data_aggregator</a> = DataAggregator(METER, data_path, lang, is_tab_formatted=tab_not_pipe)
+			<a id="change">learner</a> = MaxEntAnalyzer(data_aggregator)
+
+			step_size = float(config.get(&quotmaxent_step_size&quot))
+			negative_weights_allowed = bool(config.get(&quotmaxent_negative_weights_allowed&quot))
+			max_epochs = int(config.get(&quotmaxent_max_epochs&quot))
+			gradient_norm_tolerance = float(config.get(&quotmaxent_gradient_norm_tolerance&quot))
+
+			learner.train(step = step_size, epochs=max_epochs, tolerance=gradient_norm_tolerance, only_positive_weights=not negative_weights_allowed)
+			learner.report()
+
+
+			&#47&#47&#47&#47 save
+			if not learner:
+				print("Cannot save weights as no weights have been trained. First train the MaxEnt learner with /weight or /weight2")
+			else:
+				&#47&#47 save the weights to a file
+				&#47&#47 fn=text.replace(&quot/weightsave&quot,&quot&quot).strip()
+				&#47&#47 if not fn:
+				&#47&#47 	fn=input(&quot\n&gt;&gt; please enter a file name to save output to,\n\t- either as a simple filename in the default directory [&quot+config[&quotfolder_results&quot]+&quot],\n\t- or as a full path.\n\n&quot).strip()
+				<a id="change">ofn</a> = os.path.join(dir_results,&quotmaxent&quot,os.path.basename(data_path)+&quot.txt&quot)
+
+				try:
+					<a id="change">dirname</a>=os.path.dirname(ofn)
+					if not os.path.exists(dirname): os.makedirs(dirname)
+					with codecs.open(ofn,&quotw&quot) as <a id="change">of</a>:
+						<a id="change">output_str</a> = learner.generate_save_string()
+						of.write(output_str)
+						of.close()
+						print("&gt;&gt; saving weights to: "+ofn)
+				except IOError as e:
+					print(e)
+					print("** [error: file not saved.]\n\n")
+
+		elif text=="/plot":
+			obj.plot()
+
+		elif text=="/groom":
+			obj.groom()
+
+		elif text.startswith("/report") and obj.isParsed():
+			<a id="change">arg</a>=&quot &quot.join(text.split()[1:]) if len(text.split())&gt;1 else None
+			include_bounded = arg==&quotall&quot
+			obj.report(meter=METER, include_bounded=include_bounded)
+			print(&quot\t&gt;&gt; options:\n\t\t/report\t\treport unbounded, metrical parses\n\t\t/report all\treport all parses, including those bounded or unmetrical&quot)
+
+		elif text=="/chart":
+			obj.chart()
+
+		elif text.startswith("/stats") and obj.isParsed():
+			<a id="change">arg</a>=&quot &quot.join(text.split()[1:]) if len(text.split())&gt;1 else None
+			<a id="change">funcname</a> = None
+			if arg==&quotlines&quot:
+				<a id="change">funcname</a>=&quotstats_lines&quot
+			elif arg==&quotpos&quot:
+				<a id="change">funcname</a>=&quotstats_positions&quot
+			elif arg==&quotall&quot:
+				<a id="change">funcname</a>=&quotstats&quot
+			elif arg==&quotot&quot:
+				<a id="change">funcname</a>=&quotstats_lines_ot&quot
+
+			if funcname:
+				func=getattr(obj,funcname)
+				for <a id="change">dx</a> in func(meter=METER,all_parses=False):
+					pass
+
+			print(&quot\t&gt;&gt; options:\n\t\t/stats all\t\tsave all stats\n\t\t/stats lines\t\tsave stats on lines\n\t\t/stats ot\t\tsave stats on lines in OT/maxent format\n\t\t/stats pos\t\tsave stats on positions&quot)
+
+		elif text=="/scan" and obj.isParsed():
+			obj.scansion(meter=METER)
+
+		elif text=="/draw":
+			try:
+				obj.genfsms(meter=METER)
+				&#47&#47obj.genmetnet()
+			except ImportError:
+				raise Exception("Loading of networkx failed. Please install networkx: pip install networkx")
+
+
+		elif text=="/tree":
+			obj.om(obj.tree()+"\n\n")
+			&#47&#47print obj.tree()
+			print()
+
+		elif text=="/grid":
+			<a id="change">grid</a>=obj.grid()
+			obj.om("\n"+grid+"\n")
+			print()
+
+		elif text=="/show":
+			obj.show()
+
+		elif text.startswith("/meter"):
+			<a id="change">tl</a> = text.split()
+			<a id="change">arg</a>=None
+			if len(tl)&gt;1:
+				<a id="change">arg</a>=&quot &quot.join(tl[1:])
+				if not arg.isdigit(): <a id="change">arg</a>=None
+
+			<a id="change">mnum2name</a>={}
+			for <a id="change">mi</a>,(mname,mmeter) in enumerate(sorted(config[&quotmeters&quot].items())):
+				<a id="change">mnum</a>=mi+1
+				mnum2name[mnum]=mname
+				&#47&#47print &quot&gt;&gt; meter &#47&#47&quot+str(mnum)+&quot: &quot+mname
+				if not arg:
+					print(&quot[&#47&#47&quot+str(mnum)+&quot]&quot)
+					print(mmeter)
+					&#47&#47print &quot\t&gt;&gt; id:&quot,mname
+					&#47&#47print &quot\t&gt;&gt; name:&quot,msettings[&quotname&quot]
+					&#47&#47print &quot\t&gt;&gt; constraints:&quot
+					&#47&#47for cname in sorted(msettings[&quotconstraints&quot]):
+					&#47&#47	print &quot\t\t&gt;&gt;&quot,cname
+					print()
+
+			if arg and arg.isdigit():
+				meteri=int(arg)
+			else:
+				try:
+					meteri = input(&quot&gt;&gt; please type the number of the meter you would like to use.\n&quot).strip()
+				except (KeyboardInterrupt,EOFError) as e:
+					continue
+
+				if not meteri.isdigit():
+					print(&quot&gt;&gt; not a number. meter not selected.&quot)
+					continue
+
+				meteri=int(meteri)
+			config[&quotmeter&quot]=mnum2name[meteri]
+			<a id="change">METER</a> = config[&quotmeters&quot][config[&quotmeter&quot]]
+			print(&quot&gt;&gt; meter set to [&quot+METER.id+&quot]: &quot+METER.name)
+
+
+
+
+
+		elif text=="/query":
+			<a id="change">q</a>=""
+			while (not q.startswith("/")):
+				try:
+					<a id="change">q</a>=input("&gt;&gt; please type the conjunction of features for which you are searching [type / to exit]:\neg: [-voice] (Syllable: (Onset: [+voice]) (Coda: [+voice]))\n\n").strip()
+				except (KeyboardInterrupt,EOFError) as e:
+					text=&quot&quot
+					break
+
+				<a id="change">matchcount</a>=0
+				try:
+					qq=SearchTerm(q)
+				except:
+					break
+
+				for <a id="change">words</a> in obj.words(flattenList=False):
+					<a id="change">wordobj</a>=words[0]
+					for <a id="change">match</a> in wordobj.search(qq):
+						matchcount+=1
+						if "Word" in str(type(match)):
+							matchstr=""
+						else:
+							matchstr=str(match)
+						wordobj.om(makeminlength(str(matchcount),int(being.linelen/6))+"\t"+makeminlength(str(wordobj),int(being.linelen))+"\t"+matchstr)
+
+			cmd = q
+
+
+		&#47&#47elif text.startswith(&quot/query&quot):
+		&#47&#47	print obj.search(SearchTerm(text.replace(&quot/query&quot,&quot&quot).strip()))
+
+		elif text=="/try":
+			<a id="change">obj</a>=Text(&quotcorpora/corppoetry/fi.kalevala2.txt&quot)
+			&#47&#47print obj.tree()
+			self.parses=obj.parse()
+
+
+		elif text.startswith(&quot/text&quot):
+			<a id="change">fn</a>=text.replace(&quot/text&quot,&quot&quot).strip()
+
+			if not fn:
+				for <a id="change">filename</a> in os.listdir(dir_corpus):
+					if filename.startswith("."): continue
+					if os.path.isdir(os.path.join(dir_corpus,filename)):
+						print("\t"+filename+"/")
+						<a id="change">files</a>=[]
+						for <a id="change">filename2</a> in glob.glob(os.path.join(os.path.join(dir_corpus,filename), "*.txt")):
+							files.append(filename2.replace(dir_corpus,&quot&quot).replace(filename+&quot/&quot,&quot&quot))
+						print("\t\t"+" | ".join(files))
+						print()
+					else:
+						if filename[-4]==".txt":
+							print("\t"+filename)
+
+				print()
+				print("\t" + hdrbar)
+				&#47&#47print "&gt;&gt; to load a text, please either:"
+				print("\t&gt;&gt; select from one of the relative paths above:")
+				print("\t     i.e. /text [foldername]/[filename.txt]")
+				print("\t     e.g. /text shakespeare/sonnet-001.txt")
+				print("\t&gt;&gt; or use an absolute path to a text file on your disk:")
+				print("\t     e.g. /text /absolute/path/to/file.txt")
+				print("\t" + hdrbar)
+				print()
+
+			else:
+				if os.path.exists(os.path.join(dir_corpus,fn)):
+					obj=Text(os.path.join(dir_corpus,fn))
+				elif os.path.exists(fn):
+					obj=Text(fn)
+				else:
+					print("&lt;file not found&gt;\n")
+					continue
+
+		elif text.startswith(&quot/corpus&quot):
+			from Corpus import Corpus
+			<a id="change">fn</a>=text.replace(&quot/corpus&quot,&quot&quot).strip()
+
+			if not fn:
+				for <a id="change">filename</a> in os.listdir(dir_corpus):
+					if filename.startswith("."): continue
+					if os.path.isdir(os.path.join(dir_corpus,filename)):
+						print("\t"+filename)
+
+
+				print()
+				print("\t" + hdrbar)
+				&#47&#47print "&gt;&gt; to load a text, please either:"
+				print("\t&gt;&gt; select from one of the relative paths above:")
+				print("\t     i.e. /corpus [foldername]")
+				print("\t     e.g. /corpus yeats")
+				print("\t&gt;&gt; or use an absolute path to a folder of text files on your disk:")
+				print("\t     e.g. /corpus /absolute/path/to/folder/of/text/files")
+				print("\t" + hdrbar)
+				print()
+
+			else:
+				if os.path.exists(os.path.join(dir_corpus,fn)):
+					obj = Corpus(os.path.join(dir_corpus,fn))
+				elif os.path.exists(fn):
+					obj = Corpus(fn)
+				else:
+					print("&lt;path not found&gt;\n")
+					continue
+
+		elif text.startswith(&quot/save&quot):
+			<a id="change">fn</a>=text.replace(&quot/save&quot,&quot&quot).strip()
+			if not fn:
+				<a id="change">fn</a>=input(&quot\n&gt;&gt; please enter a file name to save output to,\n\t- either as a simple filename in the default directory [&quot+config[&quotfolder_results&quot]+&quot],\n\t- or as a full path.\n\n&quot).strip()
+
+			try:
+				ofn=None
+				<a id="change">dirname</a>=os.path.dirname(fn)
+				if dirname:
+					<a id="change">ofn</a>=fn
+				else:
+					<a id="change">dirname</a>=config[&quotfolder_results&quot]
+					<a id="change">ofn</a>=os.path.join(dirname,fn)
+
+				if not os.path.exists(dirname): os.makedirs(dirname)
+				<a id="change">of</a><a id="change">=codecs.open(ofn,&quotw&quot,encoding=&quotutf-8&quot)</a>
+				if type(being.omm) in [str]:
+					being.omm=being.omm &#47&#47.decode(&quotutf-8&quot,errors=&quotignore&quot)
+				of.write(being.omm)
+				<a id="change">of</a><a id="change">.close()</a>
+				print("&gt;&gt; saving previous output to: "+ofn)
+			except IOError:
+				print("** [error: file not saved.]\n\n")
+
+		elif text.startswith(&quot/eval&quot):
+			<a id="change">path</a>=os.path.join(dir_prosodic,config[&quotfolder_tagged_samples&quot])
+			<a id="change">fn</a>=None
+
+			if not fn:
+				<a id="change">fns</a>=[]
+				for <a id="change">_fn</a> in os.listdir(path):
+					if _fn.startswith(&quot.&quot): continue
+					if &quot.evaluated.&quot in _fn: continue
+					<a id="change">fn_i</a>=len(fns)
+					fns+=[_fn]
+					print(&quot[{0}] {1}&quot.format(fn_i+1, _fn))
+				<a id="change">inp</a>=input(&quot\n&gt;&gt; please enter the number of the file to use as evaluation data:\n&quot).strip()
+				if not inp.isdigit():
+					print(&quot&lt;&lt;invalid: not a number&gt;&gt;&quot)
+					continue
+
+				<a id="change">fn_i</a>=int(inp)-1
+				<a id="change">fn</a>=fns[fn_i]
+
+			<a id="change">key_line</a> = input(&quot\n&gt;&gt; please enter the column name in the file for the column of lines to parse: [default: line]\n&quot).strip()
+			if not key_line: key_line=&quotline&quot
+
+			<a id="change">key_parse</a> = input(&quot\n&gt;&gt; please enter the column name in the file for the column of hand-done parses (using "s" for metrically strong syllables, "w" for metrically weak ones): [default: parse]\n&quot).strip()
+			if not key_parse: key_parse=&quotparse&quot
+
+			<a id="change">key_meterscheme</a> = input(&quot\n&gt;&gt; [optional, will use if present] please enter the column name in the file for the column indicating the metrical template in the poem (anapestic, dactylic, iambic, or trochaic): [default: Meter Scheme]\n&quot).strip()
+			if not key_meterscheme: key_meterscheme=&quotMeter Scheme&quot
+
+			assess(os.path.join(path,fn), key_meterscheme=key_meterscheme, key_parse=key_parse, key_line=key_line, meter=METER)
+
+
+		elif text.startswith(&quot/mute&quot):
+			being.config[&quotprint_to_screen&quot]=0
+
+		elif text.startswith(&quot/unmute&quot):
+			being.config[&quotprint_to_screen&quot]=1
+
+		if cmd:
+			text=cmd
+			cmd=""
+
+&#47&#47&#47&#47 load config
+if __name__ != "__main__":
+	being.printout=False
+	&#47&#47config[&quotprint_to_screen&quot]=0
+else:	&#47&#47&#47&#47 if not imported, go into interactive mode
+	start_interactive_mode()</code></pre>

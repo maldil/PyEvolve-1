@@ -1,0 +1,371 @@
+<link rel="stylesheet" href="../../../..//default.css">
+<script src="../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/Theano/Theano/blob/master/theano/tests/run_tests_in_batch.py#L122">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/Theano/blob/master/theano/tests/run_tests_in_batch.py#L122">GitMyHubLink</a>
+
+&#47&#47!/usr/bin/env python
+from __future__ import absolute_import, print_function, division
+
+import datetime
+import os
+import subprocess
+import sys
+import time
+from six.moves import xrange
+import six.moves.cPickle as pickle
+
+import theano
+from theano.misc.windows import output_subprocess_Popen
+
+__authors__ = "Olivier Delalleau, Eric Larsen"
+__contact__ = "delallea@iro"
+
+
+Run this script to run tests in small batches rather than all at the same time
+or to conduct time-profiling.
+
+If no argument is provided, then the whole Theano test-suite is run.
+Otherwise, only tests found in the directory given as argument are run.
+
+If &quottime_profile=False&quot, this script performs three tasks:
+    1. Run `nosetests --collect-only --with-id` to collect test IDs
+    2. Run `nosetests --with-id i1 ... iN` with batches of &quotbatch_size&quot
+       indices, until all tests have been run (currently batch_size=100 by
+       default).
+    3. Run `nosetests --failed` to re-run only tests that failed
+       =&gt; The output of this 3rd step is the one you should care about
+
+If &quottime_profile=True&quot, this script conducts time-profiling of the tests:
+    1. Run `nosetests --collect-only --with-id` to collect test IDs
+    2. Run `nosetests --with-id i`, one test with ID &quoti&quot at a time, collecting
+       timing information and displaying progresses on standard output after
+       every group of &quotbatch_size&quot (100 by default), until all tests have
+       been run.
+       The results are deposited in the files &quottimeprof_sort&quot and
+       &quottimeprof_nosort&quot in the current directory. Both contain one record for
+       each test and comprise the following fields:
+       - test running-time
+       - nosetests sequential test number
+       - test name
+       - name of class to which test belongs (if any), otherwise full
+         information is contained in test name
+       - test outcome (&quotOK&quot, &quotSKIPPED TEST&quot, &quotFAILED TEST&quot or &quotFAILED PARSING&quot)
+       In &quottimeprof_sort&quot, test records are sorted according to run-time
+       whereas in &quottimeprof_nosort&quot records are reported according to
+       sequential number. The former classification is the main information
+       source for time-profiling. Since tests belonging to same or close
+       classes and files have close sequential numbers, the latter may be used
+       to identify duration patterns among the tests. A full log is also saved
+       as &quottimeprof_rawlog&quot.
+
+One reason to use this script is if you are a Windows user, and see errors like
+"Not enough storage is available to process this command" when trying to simply
+run `nosetests` in your Theano installation directory. This error is apparently
+caused by memory fragmentation: at some point Windows runs out of contiguous
+memory to load the C modules compiled by Theano in the test-suite.
+
+By using this script, nosetests is run on a small subset (batch) of tests until
+all tests are run. Note that this is slower, in particular because of the
+initial cost of importing theano and loading the C module cache on each call of
+nosetests.
+
+
+
+def main(stdout=None, stderr=None, argv=None, theano_nose=None,
+         batch_size=None, time_profile=False, display_batch_output=False):
+    
+    Run tests with optional output redirection.
+
+    Parameters stdout and stderr should be file-like objects used to redirect
+    the output. None uses default sys.stdout and sys.stderr.
+
+    If argv is None, then we use arguments from sys.argv, otherwise we use the
+    provided arguments instead.
+
+    If theano_nose is None, then we use the theano-nose script found in
+    Theano/bin to call nosetests. Otherwise we call the provided script.
+
+    If batch_size is None, we use a default value of 100.
+
+    If display_batch_output is False, then the output of nosetests during batch
+    execution is hidden.
+    
+
+    if stdout is None:
+        stdout = sys.stdout
+    if stderr is None:
+        stderr = sys.stderr
+    if argv is None:
+        argv = sys.argv
+    if theano_nose is None:
+        &#47&#47 If Theano is installed with pip/easy_install, it can be in the
+        &#47&#47 */lib/python2.7/site-packages/theano, but theano-nose in */bin
+        for i in range(1, 5):
+            path = theano.__path__[0]
+            for _ in range(i):
+                path = os.path.join(path, &quot..&quot)
+            path = os.path.join(path, &quotbin&quot, &quottheano-nose&quot)
+            if os.path.exists(path):
+                theano_nose = path
+                break
+    if theano_nose is None:
+        raise Exception("Unable to find theano-nose")
+    if batch_size is None:
+        batch_size = 100
+    stdout_backup = sys.stdout
+    stderr_backup = sys.stderr
+    try:
+        sys.stdout = stdout
+        sys.stderr = stderr
+        run(stdout, stderr, argv, theano_nose, batch_size, time_profile,
+            display_batch_output)
+    finally:
+        sys.stdout = stdout_backup
+        sys.stderr = stderr_backup
+
+
+def run(stdout, stderr, argv, theano_nose, batch_size, time_profile,
+        display_batch_output):
+
+    &#47&#47 Setting aside current working directory for later saving
+    sav_dir = os.getcwd()
+    &#47&#47 The first argument is the called script.
+    argv = argv[1:]
+
+    &#47&#47 It seems safer to fully regenerate the list of tests on each call.
+    if os.path.isfile(&quot.noseids&quot):
+        os.remove(&quot.noseids&quot)
+
+    &#47&#47 Collect test IDs.
+    print(\
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+&#47&#47 COLLECTING TESTS &#47&#47
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47)
+    stdout.flush()
+    stderr.flush()
+    dummy_in = open(os.devnull)
+    &#47&#47 We need to call &quotpython&quot on Windows, because theano-nose is not a
+    &#47&#47 native Windows app; and it does not hurt to call it on Unix.
+    &#47&#47 Using sys.executable, so that the same Python version is used.
+    python = sys.executable
+    rval = subprocess.call(
+        ([python, theano_nose, &quot--collect-only&quot, &quot--with-id&quot] + argv),
+        stdin=dummy_in.fileno(),
+        stdout=stdout.fileno(),
+        stderr=stderr.fileno())
+    stdout.flush()
+    stderr.flush()
+    assert rval == 0
+    noseids_file = &quot.noseids&quot
+
+    with open(noseids_file, &quotrb&quot) as f:
+        data = pickle.load(f)
+
+    ids = data[&quotids&quot]
+    n_tests = len(ids)
+    if n_tests == 0:
+        raise Exception("0 test selected")
+    assert n_tests == max(ids)
+
+    &#47&#47 Standard batch testing is called for
+    if not time_profile:
+        failed = set()
+        print(\
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+&#47&#47 RUNNING TESTS IN BATCHES OF %s &#47&#47
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47 % batch_size)
+        &#47&#47 When `display_batch_output` is False, we suppress all output because
+        &#47&#47 we want the user to focus only on the failed tests, which are re-run
+        &#47&#47 (with output) below.
+        dummy_out = open(os.devnull, &quotw&quot)
+        for test_id in xrange(1, n_tests + 1, batch_size):
+            stdout.flush()
+            stderr.flush()
+            test_range = list(range(test_id,
+                                    min(test_id + batch_size, n_tests + 1)))
+            cmd = ([python, theano_nose, &quot--with-id&quot] +
+                   list(map(str, test_range)) +
+                   argv)
+            subprocess_extra_args = dict(stdin=dummy_in.fileno())
+            if not display_batch_output:
+                &#47&#47 Use quiet mode in nosetests.
+                <a id="change">cmd</a>.append(&quot-q&quot)
+                &#47&#47 Suppress all output.
+                <a id="change">subprocess_extra_args</a>.update(dict(
+                    stdout=dummy_out.fileno(),
+                    stderr=dummy_out.fileno()))
+            t0 = time.time()
+            subprocess.call(cmd, **subprocess_extra_args)
+            t1 = time.time()
+            &#47&#47 Recover failed test indices from the &quotfailed&quot field of the
+            &#47&#47 &quot.noseids&quot file. We need to do it after each batch because
+            &#47&#47 otherwise this field may get erased. We use a set because it
+            &#47&#47 seems like it is not systematically erased though, and we want
+            &#47&#47 to avoid duplicates.
+            with open(noseids_file, &quotrb&quot) as f:
+                failed = <a id="change">failed</a>.union(pickle.load(f)[&quotfailed&quot])
+
+            print(&quot%s%% done in %.3fs (failed: %s)&quot % (
+                (test_range[-1] * 100) // n_tests, t1 - t0, len(failed)))
+        &#47&#47 Sort for cosmetic purpose only.
+        failed = sorted(failed)
+        if failed:
+            &#47&#47 Re-run only failed tests
+            print(\
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+&#47&#47 RE-RUNNING FAILED TESTS ONLY &#47&#47
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47)
+            stdout.flush()
+            stderr.flush()
+            subprocess.call(
+                ([python, theano_nose, &quot-v&quot, &quot--with-id&quot] + failed + argv),
+                stdin=dummy_in.fileno(),
+                stdout=stdout.fileno(),
+                stderr=stderr.fileno())
+            stdout.flush()
+            stderr.flush()
+            return 0
+        else:
+            print(\
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+&#47&#47 ALL TESTS PASSED &#47&#47
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47)
+
+    &#47&#47 Time-profiling is called for
+    else:
+        print(\
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+&#47&#47 RUNNING TESTS IN TIME-PROFILING MODE &#47&#47
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47)
+
+        &#47&#47 finds first word of list l containing string s
+        def getIndexOfFirst(l, s):
+            for pos, word in enumerate(l):
+                if s in word:
+                    return pos
+
+        &#47&#47 finds last word of list l containing string s
+        def getIndexOfLast(l, s):
+            for pos, word in enumerate(reversed(l)):
+                if s in word:
+                    return (len(l) - pos - 1)
+
+        &#47&#47 iterating through tests
+        &#47&#47 initializing master profiling list and raw log
+        prof_master_nosort = []
+        dummy_out = open(os.devnull, &quotw&quot)
+        path_rawlog = os.path.join(sav_dir, &quottimeprof_rawlog&quot)
+        stamp = str(datetime.datetime.now()) + &quot\n\n&quot
+        <a id="change">f_rawlog</a><a id="change"> = open(path_rawlog, &quotw&quot)</a>
+        <a id="change">f_rawlog</a>.write(&quotTIME-PROFILING OF THEANO\&quotS NOSETESTS&quot
+                       &quot (raw log)\n\n&quot + stamp)
+        <a id="change">f_rawlog</a>.flush()
+
+        stamp = str(datetime.datetime.now()) + &quot\n\n&quot
+        fields = (&quotFields: computation time; nosetests sequential id;&quot
+                  &quot test name; parent class (if any); outcome\n\n&quot)
+        path_nosort = os.path.join(sav_dir, &quottimeprof_nosort&quot)
+        &#47&#47 probably this part can be extracted for function with many args
+        with open(path_nosort, &quotw&quot) as f_nosort:
+            &#47&#47 begin of saving nosort
+            <a id="change">f_nosort</a>.write(&quotTIME-PROFILING OF THEANO\&quotS NOSETESTS&quot
+                           &quot (by sequential id)\n\n&quot + stamp + fields)
+            <a id="change">f_nosort</a>.flush()
+            for test_floor in xrange(1, n_tests + 1, batch_size):
+                for test_id in xrange(test_floor, min(test_floor + batch_size,
+                                                      n_tests + 1)):
+                    &#47&#47 Print the test we will start in the raw log to help
+                    &#47&#47 debug tests that are too long.
+                    <a id="change">f_rawlog</a>.write("\n%s Will run test &#47&#47%d %s\n" % (
+                        time.ctime(), test_id, data["ids"][test_id]))
+                    <a id="change">f_rawlog</a>.flush()
+
+                    p_out = output_subprocess_Popen(([python, theano_nose, &quot-v&quot, &quot--with-id&quot] +
+                                                     [str(test_id)] +
+                                                     argv +
+                                                     [&quot--disabdocstring&quot]))
+                    &#47&#47 the previous option calls a custom Nosetests plugin
+                    &#47&#47 precluding automatic sustitution of doc. string for
+                    &#47&#47 test name in display
+                    &#47&#47 (see class &quotDisabDocString&quot in file theano-nose)
+
+                    &#47&#47 recovering and processing data from pipe
+                    err = p_out[1]
+                    &#47&#47 print the raw log
+                    <a id="change">f_rawlog</a>.write(err)
+                    <a id="change">f_rawlog</a>.flush()
+
+                    &#47&#47 parsing the output
+                    l_err = <a id="change">err</a>.split()
+                    try:
+                        pos_id = getIndexOfFirst(l_err, &quot&#47&#47&quot)
+                        prof_id = l_err[pos_id]
+                        pos_dot = getIndexOfFirst(l_err, &quot...&quot)
+                        prof_test = &quot&quot
+                        for s in l_err[pos_id + 1: pos_dot]:
+                            prof_test += s + &quot &quot
+                        if &quotOK&quot in err:
+                            pos_ok = getIndexOfLast(l_err, &quotOK&quot)
+                            if len(l_err) == pos_ok + 1:
+                                prof_time = float(l_err[pos_ok - 1][0:-1])
+                                prof_pass = &quotOK&quot
+                            elif &quotSKIP&quot in l_err[pos_ok + 1]:
+                                prof_time = 0.
+                                prof_pass = &quotSKIPPED TEST&quot
+                            elif &quotKNOWNFAIL&quot in l_err[pos_ok + 1]:
+                                prof_time = float(l_err[pos_ok - 1][0:-1])
+                                prof_pass = &quotOK&quot
+                            else:
+                                prof_time = 0.
+                                prof_pass = &quotFAILED TEST&quot
+                        else:
+                            prof_time = 0.
+                            prof_pass = &quotFAILED TEST&quot
+                    except Exception:
+                        prof_time = 0
+                        prof_id = &quot&#47&#47&quot + str(test_id)
+                        prof_test = (&quotFAILED PARSING, see raw log for details&quot
+                                     &quot on test&quot)
+                        prof_pass = &quot&quot
+                    prof_tuple = (prof_time, prof_id, prof_test, prof_pass)
+
+                    &#47&#47 appending tuple to master list
+                    <a id="change">prof_master_nosort</a>.append(prof_tuple)
+
+                    &#47&#47 write the no sort file
+                    s_nosort = ((str(prof_tuple[0]) + &quots&quot).ljust(10) +
+                                " " + prof_tuple[1].ljust(7) + " " +
+                                prof_tuple[2] + prof_tuple[3] +
+                                "\n")
+                    <a id="change">f_nosort</a>.write(s_nosort)
+                    <a id="change">f_nosort</a>.flush()
+
+                print(&quot%s%% time-profiled&quot % ((test_id * 100) // n_tests))
+            <a id="change">f_rawlog</a><a id="change">.close()</a>
+
+            &#47&#47 sorting tests according to running-time
+            prof_master_sort = sorted(prof_master_nosort,
+                                      key=lambda test: test[0], reverse=True)
+
+            &#47&#47 saving results to readable files
+            path_sort = os.path.join(sav_dir, &quottimeprof_sort&quot)
+            with open(path_sort, &quotw&quot) as f_sort:
+                <a id="change">f_sort</a>.write(&quotTIME-PROFILING OF THEANO\&quotS NOSETESTS&quot
+                             &quot (sorted by computation time)\n\n&quot + stamp + fields)
+                for i in xrange(len(prof_master_nosort)):
+                    s_sort = ((str(prof_master_sort[i][0]) + &quots&quot).ljust(10) +
+                              " " + prof_master_sort[i][1].ljust(7) + " " +
+                              prof_master_sort[i][2] + prof_master_sort[i][3] +
+                              "\n")
+                    <a id="change">f_sort</a>.write(s_sort)
+
+            &#47&#47 end of saving nosort
+
+
+if __name__ == &quot__main__&quot:
+    sys.exit(main())
+</code></pre>

@@ -1,0 +1,94 @@
+digraph G {
+1 [label="(59681840)(null)" shape=ellipse style=dashed]
+2 [label="(59681845)=" shape=box style=dashed]
+3 [label="(59681851)FileLogger.path(path)" shape=ellipse style=dashed]
+4 [label="(59681870)END" style=dashed]
+5 [label="(59681854)String(lit(.log))" shape=ellipse style=dashed]
+6 [label="(59681834)START" style=dashed]
+7 [label="(59681858)TextIO(text_file)" shape=ellipse style=dashed]
+8 [label="(59681857)=" shape=box style=dashed color=blue fontcolor=blue]
+9 [label="(59681867)Add" shape=box style=dashed]
+10 [label="(59681856)String(lit(a))" shape=ellipse style=dashed color=blue fontcolor=blue]
+11 [label="(59681864)Any(string)" shape=ellipse style=dashed]
+12 [label="(59681866)String(lit(
+))" shape=ellipse style=dashed]
+13 [label="(59681853)Add" shape=box style=dashed]
+14 [label="(59681855)Add" shape=box style=dashed]
+15 [label="(59681850)FileLogger(self)" shape=ellipse style=dashed]
+16 [label="(59681844)(null)" shape=ellipse style=dashed]
+17 [label="(59681865)Add" shape=box style=dashed]
+18 [label="(59681848)TextIO(text_file)" shape=ellipse style=dashed color=blue fontcolor=blue]
+19 [label="(59681860)Any(string)" shape=ellipse style=dashed]
+20 [label="(59681869)close" shape=box style=dashed color=blue fontcolor=blue]
+21 [label="(59681868)TextIO(text_file)" shape=ellipse style=dashed color=blue fontcolor=blue]
+22 [label="(59681859)write" shape=box style=dashed]
+23 [label="(59681852)Any(file_name)" shape=ellipse style=dashed]
+24 [label="(59681863)str" shape=box style=dashed]
+25 [label="(59681837)=" shape=box style=dashed]
+26 [label="(59681839)Any(file_name)" shape=ellipse style=dashed]
+27 [label="(59681862)Add" shape=box style=dashed]
+28 [label="(59681861)String(lit())" shape=ellipse style=dashed]
+29 [label="(59681843)Any(string)" shape=ellipse style=dashed]
+30 [label="(59681849)open" shape=box style=dashed color=blue fontcolor=blue]
+31 [label="(59681836)(null)" shape=ellipse style=dashed]
+32 [label="(59681835)FileLogger(self)" shape=ellipse style=dashed]
+33 [label="(59681841)=" shape=box style=dashed]
+6 -> 2 [label="" style=solid];
+16 -> 2 [label="para" style=dotted];
+33 -> 2 [label="dep" style=dotted];
+15 -> 3 [label="qual" style=dotted];
+20 -> 4 [label="dep" style=dotted];
+18 -> 7 [label="ref" style=dotted];
+6 -> 8 [label="" style=solid];
+30 -> 8 [label="dep" style=dotted];
+30 -> 8 [label="para" style=dotted];
+6 -> 9 [label="" style=solid];
+17 -> 9 [label="dep" style=dotted];
+17 -> 9 [label="para" style=dotted];
+12 -> 9 [label="para" style=dotted];
+8 -> 9 [label="dep" style=dotted];
+6 -> 13 [label="" style=solid];
+3 -> 13 [label="para" style=dotted];
+23 -> 13 [label="para" style=dotted];
+2 -> 13 [label="dep" style=dotted];
+6 -> 14 [label="" style=solid];
+13 -> 14 [label="dep" style=dotted];
+13 -> 14 [label="para" style=dotted];
+5 -> 14 [label="para" style=dotted];
+2 -> 14 [label="dep" style=dotted];
+6 -> 17 [label="" style=solid];
+27 -> 17 [label="dep" style=dotted];
+27 -> 17 [label="para" style=dotted];
+24 -> 17 [label="dep" style=dotted];
+24 -> 17 [label="para" style=dotted];
+8 -> 18 [label="def" style=dotted];
+6 -> 20 [label="" style=solid];
+21 -> 20 [label="recv" style=dotted];
+22 -> 20 [label="dep" style=dotted];
+18 -> 21 [label="ref" style=dotted];
+6 -> 22 [label="" style=solid];
+7 -> 22 [label="recv" style=dotted];
+9 -> 22 [label="dep" style=dotted];
+9 -> 22 [label="para" style=dotted];
+8 -> 22 [label="dep" style=dotted];
+6 -> 24 [label="" style=solid];
+11 -> 24 [label="para" style=dotted];
+8 -> 24 [label="dep" style=dotted];
+6 -> 25 [label="" style=solid];
+31 -> 25 [label="para" style=dotted];
+33 -> 26 [label="def" style=dotted];
+6 -> 27 [label="" style=solid];
+19 -> 27 [label="para" style=dotted];
+28 -> 27 [label="para" style=dotted];
+8 -> 27 [label="dep" style=dotted];
+2 -> 29 [label="def" style=dotted];
+6 -> 30 [label="" style=solid];
+14 -> 30 [label="dep" style=dotted];
+14 -> 30 [label="para" style=dotted];
+10 -> 30 [label="para" style=dotted];
+2 -> 30 [label="dep" style=dotted];
+25 -> 32 [label="def" style=dotted];
+6 -> 33 [label="" style=solid];
+1 -> 33 [label="para" style=dotted];
+25 -> 33 [label="dep" style=dotted];
+}

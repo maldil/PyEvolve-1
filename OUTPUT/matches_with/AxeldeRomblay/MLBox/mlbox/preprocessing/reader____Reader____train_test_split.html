@@ -1,0 +1,600 @@
+<link rel="stylesheet" href="../../../..//default.css">
+<script src="../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/AxeldeRomblay/MLBox/blob/master/mlbox/preprocessing/reader.py#L305">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/MLBox/blob/master/mlbox/preprocessing/reader.py#L305">GitMyHubLink</a>
+
+&#47&#47 coding: utf-8
+&#47&#47 Author: Axel ARONIO DE ROMBLAY &lt;axelderomblay@gmail.com&gt;
+&#47&#47 License: BSD 3 clause
+import sys
+import pickle
+import os
+import time
+import warnings
+import numpy as np
+import pandas as pd
+from sklearn.preprocessing import LabelEncoder
+from joblib import Parallel, delayed
+
+
+def convert_list(serie):
+
+    Converts lists in a pandas serie into a dataframe
+    where which element of a list is a column
+
+    Parameters
+    ----------
+    serie : pandas Serie
+        The serie you want to cast into a dataframe
+
+    Returns
+    -------
+    pandas DataFrame
+        The converted dataframe
+    
+
+    import numpy
+    import pandas
+
+    if (serie.apply(lambda x: type(x) == list).sum() &gt; 0):
+
+        serie = serie.apply(lambda x: [x] if type(x) != list else x)
+        cut = int(numpy.percentile(serie.apply(len), 90))  &#47&#47 TODO: To test
+
+        serie = serie.apply(lambda x: x[:cut])
+
+        return pandas.DataFrame(serie.tolist(),
+                                index=serie.index,
+                                columns=[serie.name + "_item" + str(i + 1)
+                                         for i in range(cut)]
+                                )
+
+    else:
+
+        return serie
+
+
+def convert_float_and_dates(serie):
+
+    Converts into float if possible and converts dates.
+
+    Creates timestamp from 01/01/2017, year, month, day, day_of_week and hour
+
+    Parameters
+    ----------
+    serie : pandas Serie
+        The serie you want to convert
+
+    Returns
+    -------
+    pandas DataFrame
+        The converted dataframe
+    
+
+    import pandas
+
+    &#47&#47 dtype is already a date
+
+    if (serie.dtype == &quotdatetime64[ns]&quot):
+
+        df = pandas.DataFrame([], index=serie.index)
+        df[serie.name + "_TIMESTAMP"] = (pandas.DatetimeIndex(serie) -
+                                         pandas.datetime(2017, 1, 1)
+                                         ).total_seconds()
+
+        df[serie.name + "_YEAR"] = pandas.DatetimeIndex(serie).year.astype(  &#47&#47 noqa
+            float)  &#47&#47 TODO: be careful with nan ! object or float ??
+
+        df[serie.name + "_MONTH"] = pandas.DatetimeIndex(serie).month.astype(  &#47&#47 noqa
+            float)  &#47&#47 TODO: be careful with nan ! object or float ??
+
+        df[serie.name + "_DAY"] = pandas.DatetimeIndex(serie).day.astype(
+            float)  &#47&#47 TODO: be careful with nan ! object or float ??
+
+        df[serie.name + "_DAYOFWEEK"] = pandas.DatetimeIndex(serie).dayofweek.astype(  &#47&#47 noqa
+            float)  &#47&#47 TODO: be careful with nan ! object or float ??
+
+        df[serie.name + "_HOUR"] = pandas.DatetimeIndex(serie).hour.astype(float) + \
+                                   pandas.DatetimeIndex(serie).minute.astype(float)/60. + \
+                                   pandas.DatetimeIndex(serie).second.astype(float)/3600.
+
+        return df
+
+    else:
+
+        &#47&#47 Convert float
+
+        try:
+            serie = serie.apply(float)
+
+        except:
+            pass
+
+        &#47&#47 Cleaning/converting dates
+
+        if (serie.dtype != &quotobject&quot):
+            return serie
+
+        else:
+            &#47&#47 trying to cast into date
+            df = pandas.DataFrame([], index=serie.index)
+
+            try:
+
+                serie_to_df = pandas.DatetimeIndex(pd.to_datetime(serie))
+
+                df[serie.name + "_TIMESTAMP"] = (serie_to_df -
+                                                 pandas.datetime(2017, 1, 1)
+                                                 ).total_seconds()
+
+                df[serie.name + "_YEAR"] = serie_to_df.year.astype(
+                    float)  &#47&#47 TODO: be careful with nan ! object or float??
+
+                df[serie.name + "_MONTH"] = serie_to_df.month.astype(
+                    float)  &#47&#47 TODO: be careful with nan ! object or float??
+
+                df[serie.name + "_DAY"] = serie_to_df.day.astype(
+                    float)  &#47&#47 TODO: be careful with nan ! object or float??
+
+                df[serie.name + "_DAYOFWEEK"] = serie_to_df.dayofweek.astype(
+                    float)  &#47&#47 TODO: be careful with nan ! object or float??
+
+                df[serie.name + "_HOUR"] = serie_to_df.hour.astype(float) + \
+                                           serie_to_df.minute.astype(float)/60. + \
+                                           serie_to_df.second.astype(float) / 3600.
+
+                return df
+
+            except:
+
+                return serie
+
+
+class Reader():
+
+    Reads and cleans data
+
+    Parameters
+    ----------
+    sep : str, defaut = None
+         Delimiter to use when reading a csv file.
+
+    header : int or None, default = 0.
+        If header=0, the first line is considered as a header.
+        Otherwise, there is no header.
+        Useful for csv and xls files.
+
+    to_hdf5 : bool, default = True
+        If True, dumps each file to hdf5 format.
+
+    to_path : str, default = "save"
+        Name of the folder where files and encoders are saved.
+
+    verbose : bool, defaut = True
+        Verbose mode
+    
+
+    def __init__(self,
+                 sep=None,
+                 header=0,
+                 to_hdf5=False,
+                 to_path="save",
+                 verbose=True):
+
+        self.sep = sep
+        self.header = header
+        self.to_hdf5 = to_hdf5
+        self.to_path = to_path
+        self.verbose = verbose
+
+    def clean(self, path, drop_duplicate=False):
+
+        Reads and cleans data (accepted formats : csv, xls, json and h5):
+
+        - del Unnamed columns
+        - casts lists into variables
+        - try to cast variables into float
+        - cleans dates and extracts timestamp from 01/01/2017, year, month, day, day_of_week and hour
+        - drop duplicates (if drop_duplicate=True)
+
+        Parameters
+        ----------
+        path : str
+            The path to the dataset.
+
+        drop_duplicate: bool, default = False
+            If True, drop duplicates when reading each file.
+
+        Returns
+        -------
+        pandas dataframe
+            Cleaned dataset.
+        
+
+        &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+        &#47&#47                           Reading
+        &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+
+        start_time = time.time()
+
+        if (path is None):
+
+            raise ValueError("You must specify the path to load the data")
+
+        else:
+
+            type_doc = path.split(".")[-1]
+
+            if (type_doc == &quotcsv&quot):
+
+                if (self.sep is None):
+                    raise ValueError("You must specify the separator "
+                                     "for a csv file")
+                else:
+                    if (self.verbose):
+                        print("")
+                        print("reading csv : " + path.split("/")[-1] + " ...")
+                    df = pd.read_csv(path,
+                                     sep=self.sep,
+                                     header=self.header,
+                                     engine=&quotc&quot,
+                                     error_bad_lines=False)
+
+            elif (type_doc == &quotxls&quot):
+
+                if (self.verbose):
+                    print("")
+                    print("reading xls : " + path.split("/")[-1] + " ...")
+                df = pd.read_excel(path, header=self.header)
+
+            elif (type_doc == &quoth5&quot):
+                if (sys.platform == "win32" and sys.version_info[0] &lt;=3 and sys.version_info[1] &lt;=5):
+                    raise ValueError("h5 format not supported for python under 3.6 on windows. Please upgrade python")
+                if (self.verbose):
+                    print("")
+                    print("reading hdf5 : " + path.split("/")[-1] + " ...")
+
+                df = pd.read_hdf(path)
+
+            elif (type_doc == &quotjson&quot):
+                if (sys.platform == "win32" and sys.version_info[0] &lt;=3 and sys.version_info[1] &lt;=5):
+                    raise ValueError("json format not supported for python under 3.6 on windows. Please upgrade python")
+                if (self.verbose):
+                    print("")
+                    print("reading json : " + path.split("/")[-1] + " ...")
+
+                df = pd.read_json(path)
+
+            else:
+
+                raise ValueError("The document extension cannot be handled")
+
+        &#47&#47 Deleting unknown column
+
+        try:
+            del df["Unnamed: 0"]
+        except:
+            pass
+
+        &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+        &#47&#47             Cleaning lists, floats and dates
+        &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+
+        if (self.verbose):
+            print("cleaning data ...")
+
+        if (sys.platform == "win32"):
+            df = pd.concat([convert_list(df[col]) for col in df.columns], axis=1)
+            df = pd.concat([convert_float_and_dates(df[col]) for col in df.columns], axis=1)
+        else:
+            df = pd.concat(Parallel(n_jobs=-1)(delayed(convert_list)(df[col]) for col in df.columns),
+                           axis=1)
+
+            df = pd.concat(Parallel(n_jobs=-1)(delayed(convert_float_and_dates)(df[col]) for col in df.columns),
+                           axis=1)
+
+        &#47&#47 Drop duplicates
+
+        if (drop_duplicate):
+            if (self.verbose):
+                print("dropping duplicates")
+            df = df.drop_duplicates()
+        else:
+            pass
+
+        if (self.verbose):
+            print("CPU time: %s seconds" % (time.time() - start_time))
+
+        return df
+
+    def train_test_split(self, Lpath, target_name):
+
+        Creates train and test datasets
+
+        Given a list of several paths and a target name, automatically creates and cleans train and test datasets.
+        IMPORTANT: a dataset is considered as a test set if it does not contain the target value. Otherwise it is
+        considered as part of a train set.
+        Also determines the task and encodes the target (classification problem only).
+
+        Finally dumps the datasets to hdf5, and eventually the target encoder.
+
+        Parameters
+        ----------
+        Lpath : list, defaut = None
+            List of str paths to load the data
+
+        target_name : str, default = None
+            The name of the target. Works for both classification
+            (multiclass or not) and regression.
+
+        Returns
+        -------
+        dict
+            Dictionnary containing :
+
+            - &quottrain&quot : pandas dataframe for train dataset
+            - &quottest&quot : pandas dataframe for test dataset
+            - &quottarget&quot : encoded pandas Serie for the target on train set (with dtype=&quotfloat&quot for a regression or dtype=&quotint&quot for a classification)
+
+        
+
+        col = []
+        <a id="change">col_train</a> = []
+        <a id="change">col_test</a> = []
+        <a id="change">df_train</a> = dict()
+        <a id="change">df_test</a> = dict()
+        <a id="change">y_train</a> = dict()
+
+        if (type(Lpath) != list):
+
+            raise ValueError("You must specify a list of paths "
+                             "to load all the data")
+
+        elif (self.to_path is None):
+
+            raise ValueError("You must specify a path to save your data "
+                             "and make sure your files are not already saved")
+
+        else:
+
+            &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+            &#47&#47                    Reading the files
+            &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+
+            for <a id="change">path</a> in Lpath:
+
+                &#47&#47 Reading each file
+
+                <a id="change">df</a> = self.clean(path, drop_duplicate=False)
+
+                &#47&#47 Checking if the target exists to split into test and train
+
+                if (target_name in df.columns):
+
+                    <a id="change">is_null</a> = df[target_name].isnull()
+
+                    df_train[path] = df[~is_null].drop(target_name, axis=1)
+                    df_test[path] = df[is_null].drop(target_name, axis=1)
+                    y_train[path] = df[target_name][~is_null]
+
+                else:
+
+                    df_test[path] = df
+
+            del df
+
+            &#47&#47 Exceptions
+
+            if (sum([df_train[path].shape[0]
+                     for <a id="change">path</a> in df_train.keys()]) == 0):
+                raise ValueError("You have no train dataset. "
+                                 "Please check that the "
+                                 "target name is correct.")
+
+            if ((sum([df_test[path].shape[0]
+                      for <a id="change">path</a> in df_test.keys()]) == 0) & (self.verbose)):
+                print("")
+                print("You have no test dataset !")
+
+            &#47&#47 Finding the common subset of features
+
+            for <a id="change">i</a>, <a id="change">df</a> in enumerate(df_train.values()):
+
+                if (i == 0):
+                    <a id="change">col_train</a> = df.columns
+                else:
+                    <a id="change">col_train</a> = list(set(col_train) & set(df.columns))
+
+            for <a id="change">i</a>, <a id="change">df</a> in enumerate(df_test.values()):
+
+                if (i == 0):
+                    <a id="change">col_test</a> = df.columns
+                else:
+                    <a id="change">col_test</a> = list(set(col_test) & set(df.columns))
+
+            &#47&#47 Subset of common features
+
+            <a id="change">col</a> = sorted(list(set(col_train) & set(col_test)))
+
+            if (self.verbose):
+                print("")
+                print("&gt; Number of common features : " + str(len(col)))
+
+                &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+                &#47&#47          Creating train, test and target dataframes
+                &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+
+                print("")
+                print("gathering and crunching for train and test datasets ...")
+
+            &#47&#47 TODO: Optimize
+            <a id="change">df_train</a> = pd.concat([df[col] for <a id="change">df</a> in df_train.values()])
+            <a id="change">df_test</a> = pd.concat([df[col] for <a id="change">df</a> in df_test.values()])
+            <a id="change">y_train</a> = pd.concat([y for <a id="change">y</a> in y_train.values()])  &#47&#47 optimiser !!
+
+            &#47&#47 Checking shape of the target
+
+            if (type(y_train) == pd.core.frame.DataFrame):
+                raise ValueError("Your target contains more than two columns !"
+                                 " Please check that only one column "
+                                 "is named " + target_name)
+
+            else:
+                pass
+
+            &#47&#47 Handling indices
+
+            if (self.verbose):
+                print("reindexing for train and test datasets ...")
+
+            if (df_train.index.nunique() &lt; df_train.shape[0]):
+                df_train.index = range(df_train.shape[0])
+
+            if (df_test.index.nunique() &lt; df_test.shape[0]):
+                df_test.index = range(df_test.shape[0])
+
+            if (y_train.index.nunique() &lt; y_train.shape[0]):
+                y_train.index = range(y_train.shape[0])
+
+            &#47&#47 Dropping duplicates
+
+            if (self.verbose):
+                print("dropping training duplicates ...")
+
+            &#47&#47 Temp adding target to check (x,y) duplicates...
+            df_train[target_name] = y_train.values
+            <a id="change">df_train</a> = df_train.drop_duplicates()
+            del df_train[target_name]
+            <a id="change">y_train</a> = y_train.loc[df_train.index]  &#47&#47 TODO: Need to reindex ?
+
+            &#47&#47 Deleting constant variables
+
+            if (self.verbose):
+                print("dropping constant variables on training set ...")
+            for <a id="change">var</a> in col:
+                if (df_train[var].nunique(dropna=False) == 1):
+                    del df_train[var]
+                    del df_test[var]
+
+            &#47&#47 Missing values
+
+            <a id="change">sparse_features</a> = (df_train.isnull().sum() *
+                               100. / df_train.shape[0]
+                               ).sort_values(ascending=False)
+            <a id="change">sparse</a> = True
+            if(sparse_features.max() == 0.0):
+                <a id="change">sparse</a> = False
+
+            &#47&#47 Print information
+
+            if (self.verbose):
+                print("")
+                print("&gt; Number of categorical features:"
+                      " " + str(len(df_train.dtypes[df_train.dtypes == &quotobject&quot].index)))  &#47&#47 noqa
+                print("&gt; Number of numerical features:"
+                      " " + str(len(df_train.dtypes[df_train.dtypes != &quotobject&quot].index)))  &#47&#47 noqa
+                print("&gt; Number of training samples : " + str(df_train.shape[0]))
+                print("&gt; Number of test samples : " + str(df_test.shape[0]))
+
+                if(sparse):
+                    print("")
+                    print("&gt; Top sparse features "
+                          "(% missing values on train set):")
+                    print(np.round(sparse_features[sparse_features &gt; 0.0][:5],
+                                   1))
+
+                else:
+                    print("")
+                    print("&gt; You have no missing values on train set...")
+
+            &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+            &#47&#47                    Encoding target
+            &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+
+            <a id="change">task</a> = "regression"
+            <a id="change">count</a> = y_train.nunique()
+
+            if (count &lt;= 2):
+                <a id="change">task</a> = "classification"
+
+            else:
+                if (y_train.dtype == object):
+                    <a id="change">task</a> = "classification"
+                else:
+                    &#47&#47 no needs to convert into float
+                    pass
+
+            if (self.verbose):
+                print("")
+                print("&gt; Task : " + task)
+
+            if (task == "classification"):
+                if (self.verbose):
+                    print(y_train.value_counts())
+                    print("")
+                    print("encoding target ...")
+                <a id="change">enc</a> = LabelEncoder()
+                <a id="change">y_train</a> = pd.Series(enc.fit_transform(y_train.values),
+                                    index=y_train.index,
+                                    name=target_name,
+                                    dtype=&quotint&quot)
+
+                if count == 1:
+                    warnings.warn("Your target set has only one class ! Please check it is correct, "
+                                  "otherwise there is no need to use MLBox...")
+
+            else:
+                if (self.verbose):
+                    print(y_train.describe())
+
+            &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+            &#47&#47                         Dumping
+            &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+
+            &#47&#47 Creating a folder to save the files and target encoder
+
+            try:
+                os.mkdir(self.to_path)
+            except OSError:
+                pass
+
+            if (self.to_hdf5):
+
+                <a id="change">start_time</a> = time.time()
+
+                if (self.verbose):
+                    print("")
+                    print("dumping files into directory : " + self.to_path)
+
+                &#47&#47 Temp adding target to dump train file...
+                df_train[target_name] = y_train.values
+                df_train.to_hdf(self.to_path + &quot/df_train.h5&quot, &quottrain&quot)
+                del df_train[target_name]
+
+                if (self.verbose):
+                    print("train dumped")
+
+                df_test.to_hdf(self.to_path + &quot/df_test.h5&quot, &quottest&quot)
+
+                if (self.verbose):
+                    print("test dumped")
+                    print("CPU time: %s seconds" % (time.time() - start_time))
+
+            else:
+                pass
+
+            if (task == "classification"):
+                <a id="change">fhand</a><a id="change"> = open(self.to_path + &quot/target_encoder.obj&quot, &quotwb&quot)</a>
+                pickle.dump(enc, fhand)
+                <a id="change">fhand</a><a id="change">.close()</a>
+            else:
+                pass
+
+            return {"train": df_train,
+                    "test": df_test,
+                    &quottarget&quot: y_train}
+</code></pre>

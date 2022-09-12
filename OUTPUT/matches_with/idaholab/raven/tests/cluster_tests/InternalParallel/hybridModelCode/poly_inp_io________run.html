@@ -1,0 +1,61 @@
+<link rel="stylesheet" href="../../../../../..//default.css">
+<script src="../../../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/idaholab/raven/blob/devel/tests/cluster_tests/InternalParallel/hybridModelCode/poly_inp_io.py#L25">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/raven/blob/devel/tests/cluster_tests/InternalParallel/hybridModelCode/poly_inp_io.py#L25">GitMyHubLink</a>
+
+&#47&#47 Copyright 2017 Battelle Energy Alliance, LLC
+&#47&#47
+&#47&#47 Licensed under the Apache License, Version 2.0 (the "License");
+&#47&#47 you may not use this file except in compliance with the License.
+&#47&#47 You may obtain a copy of the License at
+&#47&#47
+&#47&#47 http://www.apache.org/licenses/LICENSE-2.0
+&#47&#47
+&#47&#47 Unless required by applicable law or agreed to in writing, software
+&#47&#47 distributed under the License is distributed on an "AS IS" BASIS,
+&#47&#47 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+&#47&#47 See the License for the specific language governing permissions and
+&#47&#47 limitations under the License.
+import numpy as np
+
+def eval(x,y):
+  dat=[]
+  c = 0
+  for i in [0.3,0.5,0.7,1.0]:
+    for j in [1.3,1.5,1.7,2.0]:
+      c+=1
+      dat.append([c,i,j,x,y,(i-x)*(j-y)])
+  return dat
+
+def run(xin):
+  <a id="change">inx = open(xin,&quotr&quot)</a>
+  for line in inx:
+    if   line.startswith(&quotx =&quot      ):
+      x=float(line.split(&quot=&quot)[1])
+    elif line.startswith(&quotcase =&quot   ):
+      case=line.split(&quot=&quot)[1].strip()
+    elif line.startswith(&quotauxfile =&quot):
+      aux=line.split(&quot=&quot)[1].strip()
+  <a id="change">iny = open(aux,&quotr&quot)</a>
+  for line in iny:
+    if line.startswith(&quoty =&quot):
+      y=float(line.split(&quot=&quot)[1])
+
+  dat = eval(x,y)
+
+  <a id="change">outf = open(case+&quot.csv&quot,&quotw&quot)</a>
+  outf.writelines(&quotstep,i,j,x,y,poly\n&quot)
+  for e in dat:
+    outf.writelines(&quot,&quot.join(str(i) for i in e)+&quot\n&quot)
+  <a id="change">outf</a><a id="change">.close()</a>
+
+if __name__==&quot__main__&quot:
+  import sys
+  args = sys.argv
+  inp1 = args[args.index(&quot-i&quot)+1] if &quot-i&quot in args else None
+  run(inp1)
+</code></pre>

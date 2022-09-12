@@ -1,0 +1,119 @@
+<link rel="stylesheet" href="../..//default.css">
+<script src="../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/nl8590687/ASRT_SpeechRecognition/blob/master/speech_recorder.py#L30">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/ASRT_SpeechRecognition/blob/master/speech_recorder.py#L30">GitMyHubLink</a>
+
+&#47&#47!/usr/bin/env python3
+&#47&#47 -*- coding: utf-8 -*-
+&#47&#47
+&#47&#47 Copyright 2016-2099 Ailemon.net
+&#47&#47
+&#47&#47 This file is part of ASRT Speech Recognition Tool.
+&#47&#47
+&#47&#47 ASRT is free software: you can redistribute it and/or modify
+&#47&#47 it under the terms of the GNU General Public License as published by
+&#47&#47 the Free Software Foundation, either version 3 of the License, or
+&#47&#47 (at your option) any later version.
+&#47&#47 ASRT is distributed in the hope that it will be useful,
+&#47&#47 but WITHOUT ANY WARRANTY; without even the implied warranty of
+&#47&#47 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+&#47&#47 GNU General Public License for more details.
+&#47&#47
+&#47&#47 You should have received a copy of the GNU General Public License
+&#47&#47 along with ASRT.  If not, see &lt;https://www.gnu.org/licenses/&gt;.
+&#47&#47 ============================================================================
+
+
+@author: nl8590687
+一个配置为可用于ASRT语音识别系统的录音程序
+
+
+import wave
+import pyaudio
+
+
+def record_wave(wavfile,
+                duration=10,
+                channels=1,
+                sampling_rate=16000,
+                sampling_bits=16,
+                chunk_size=1024,
+                keyboard_interrupt=&quotkeep_audio&quot):
+    Record audio using the default audio device by PyAudio and Wave
+
+    <a id="change">format_</a> = None
+    if sampling_bits == 8:
+        <a id="change">format_</a> = pyaudio.paInt8
+    if sampling_bits == 16:
+        <a id="change">format_</a> = pyaudio.paInt16
+    elif sampling_bits == 24:
+        <a id="change">format_</a> = pyaudio.paInt24
+    elif sampling_bits == 32:
+        <a id="change">format_</a> = pyaudio.paFloat32
+    else:
+        raise ValueError(&quotUnsupported sampling bits&quot)
+
+    <a id="change">audio</a> = pyaudio.PyAudio()
+    <a id="change">stream</a><a id="change"> = audio.open(format=format_,
+                    channels=channels,
+                    rate=sampling_rate,
+                    input=True,
+                    frames_per_buffer=chunk_size)</a>
+
+    <a id="change">frames</a> = []
+
+    print(&quotStart to record with {}-seconds audio\n&quot
+          &quotType Ctrl-C to get an early stop (a shorter audio)&quot
+          .format(duration))
+    try:
+        for <a id="change">_</a> in range(0, int(sampling_rate / chunk_size * duration)):
+            <a id="change">data</a> = stream.read(chunk_size)
+            frames.append(data)
+            print(&quot.&quot, end=&quot&quot, flush=True)
+    except KeyboardInterrupt:
+        if keyboard_interrupt == &quotkeep_audio&quot:
+            <a id="change">used_seconds</a> = int(len(frames) * chunk_size / sampling_rate)
+            print(&quot\n-*- Early stop with {} seconds&quot.format(used_seconds))
+        else:
+            raise
+    print(&quot\nRecording finished&quot)
+
+    stream.stop_stream()
+    <a id="change">stream</a><a id="change">.close()</a>
+    audio.terminate()
+
+    print(&quotConvert PCM frames to WAV... &quot, end=&quot&quot)
+    <a id="change">wavfp</a><a id="change"> = wave.open(wavfile, &quotwb&quot)</a>
+    wavfp.setnchannels(channels)
+    wavfp.setsampwidth(audio.get_sample_size(format_))
+    wavfp.setframerate(sampling_rate)
+    wavfp.writeframes(b&quot&quot.join(frames))
+    <a id="change">wavfp</a><a id="change">.close()</a>
+    print(&quotOK&quot)
+
+
+if __name__ == "__main__":
+    from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
+
+    parser = ArgumentParser(description=&quotSimple Wave Audio Recorder&quot,
+                            formatter_class=ArgumentDefaultsHelpFormatter)
+    parser.add_argument(&quot-d&quot, &quot--duration&quot, type=int,
+                        default=10, help=&quotmaximum duration in seconds&quot)
+    parser.add_argument(&quot-r&quot, &quot--sampling-rate&quot, type=int,
+                        default=16000, help=&quotsampling rate&quot)
+    parser.add_argument(&quot-b&quot, &quot--sampling-bits&quot, type=int,
+                        default=16, choices=(8, 16, 24, 32), help=&quotsampling bits&quot)
+    parser.add_argument(&quot-c&quot, &quot--channels&quot, type=int,
+                        default=1, help=&quotaudio channels&quot)
+    parser.add_argument(&quotoutput&quot, nargs=&quot?&quot, default=&quotoutput.wav&quot,
+                        help=&quotaudio file to store audio stream&quot)
+    args = parser.parse_args()
+    record_wave(args.output, duration=args.duration,
+                channels=args.channels,
+                sampling_bits=args.sampling_bits,
+                sampling_rate=args.sampling_rate)
+</code></pre>

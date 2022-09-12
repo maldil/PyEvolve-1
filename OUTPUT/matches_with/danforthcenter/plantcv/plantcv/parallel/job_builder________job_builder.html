@@ -1,0 +1,101 @@
+<link rel="stylesheet" href="../../../..//default.css">
+<script src="../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/danforthcenter/plantcv/blob/master/plantcv/parallel/job_builder.py#L9">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/plantcv/blob/master/plantcv/parallel/job_builder.py#L9">GitMyHubLink</a>
+
+import os
+import sys
+import json
+from copy import deepcopy
+
+
+&#47&#47 Build job list
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+def job_builder(meta, config):
+    Build a list of image processing jobs.
+
+    Inputs:
+    meta:         Dictionary of processed image metadata.
+    config:       plantcv.parallel.WorkflowConfig object.
+
+    Returns:
+    jobs:         List of image processing commands.
+
+    :param meta: dict
+    :param config: plantcv.parallel.WorkflowConfig
+    :return job_stack: list
+    
+    &#47&#47 Overall job stack. List of list of jobs
+    <a id="change">jobs</a> = []
+
+    &#47&#47 Get the list of images
+    &#47&#47 images = list(meta.keys())
+    <a id="change">images</a> = []
+    for <a id="change">img</a> in list(meta.keys()):
+        if config.coprocess is not None:
+            if meta[img][&quotimgtype&quot] != config.coprocess:
+                images.append(img)
+        else:
+            images.append(img)
+
+    &#47&#47 Log the number of jobs to be run
+    n_jobs = len(images)
+    print(f"Job list will include {n_jobs} images", file=sys.stderr)
+
+    &#47&#47 For each image
+    for <a id="change">img</a> in images:
+        &#47&#47 Create JSON templates for each image
+        <a id="change">img_meta</a> = {"metadata": deepcopy(config.metadata_terms), "observations": {}}
+        <a id="change">coimg_meta</a> = {"metadata": deepcopy(config.metadata_terms), "observations": {}}
+
+        &#47&#47 If there is an image co-processed with the image
+        if (config.coprocess is not None) and (&quotcoimg&quot in meta[img]):
+            &#47&#47 Create an output file to store the co-image processing results and populate with metadata
+            <a id="change">coimg</a> = meta[meta[img][&quotcoimg&quot]]
+            <a id="change">coout</a><a id="change"> = open(os.path.join(config.tmp_dir, meta[img]["coimg"] + ".txt"), &quotw&quot)</a>
+            &#47&#47 Store metadata in JSON
+            coimg_meta["metadata"]["image"] = {
+                "label": "image file",
+                "datatype": "&lt;class &quotstr&quot&gt;",
+                "value": coimg[&quotpath&quot]
+            }
+            &#47&#47 Valid metadata
+            for <a id="change">m</a> in list(config.metadata_terms.keys()):
+                coimg_meta["metadata"][m]["value"] = coimg[m]
+            json.dump(coimg_meta, coout)
+            <a id="change">coout</a><a id="change">.close()</a>
+
+        &#47&#47 Create an output file to store the image processing results and populate with metadata
+        <a id="change">outfile</a><a id="change"> = open(os.path.join(config.tmp_dir, img + ".txt"), &quotw&quot)</a>
+        &#47&#47 Store metadata in JSON
+        img_meta["metadata"]["image"] = {
+                "label": "image file",
+                "datatype": "&lt;class &quotstr&quot&gt;",
+                "value": meta[img][&quotpath&quot]
+            }
+        &#47&#47 Valid metadata
+        for <a id="change">m</a> in list(config.metadata_terms.keys()):
+            img_meta["metadata"][m]["value"] = meta[img][m]
+        json.dump(img_meta, outfile)
+        <a id="change">outfile</a><a id="change">.close()</a>
+
+        &#47&#47 Build job
+        <a id="change">job_parts</a> = ["python", config.workflow, "--image", meta[img][&quotpath&quot],
+                     "--outdir", config.img_outdir, "--result",
+                     os.path.join(config.tmp_dir, img) + ".txt"]
+        &#47&#47 Add job to list
+        if config.coprocess is not None and (&quotcoimg&quot in meta[img]):
+            <a id="change">job_parts</a> = job_parts + ["--coresult", os.path.join(config.tmp_dir, meta[img][&quotcoimg&quot]) + ".txt"]
+        if config.writeimg:
+            job_parts.append("--writeimg")
+        if config.other_args:
+            <a id="change">job_parts</a> = job_parts + config.other_args
+        jobs.append(job_parts)
+
+    return jobs
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+</code></pre>

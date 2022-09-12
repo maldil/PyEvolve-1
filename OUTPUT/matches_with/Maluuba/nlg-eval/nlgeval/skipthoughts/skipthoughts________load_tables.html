@@ -1,0 +1,451 @@
+<link rel="stylesheet" href="../../../..//default.css">
+<script src="../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/Maluuba/nlg-eval/blob/master/nlgeval/skipthoughts/skipthoughts.py#L75">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/nlg-eval/blob/master/nlgeval/skipthoughts/skipthoughts.py#L75">GitMyHubLink</a>
+
+&quot&quot&quot
+Skip-thought vectors
+&quot&quot&quot
+import copy
+import os
+from collections import OrderedDict, defaultdict
+
+import nltk
+import numpy
+import six
+import theano
+import theano.tensor as tensor
+from nltk.tokenize import word_tokenize
+from scipy.linalg import norm
+from six.moves import cPickle as pkl
+from nlgeval.utils import get_data_dir
+import logging
+
+profile = False
+
+&#47&#47-----------------------------------------------------------------------------&#47&#47
+&#47&#47 Specify model and table locations here
+&#47&#47-----------------------------------------------------------------------------&#47&#47
+path_to_models = get_data_dir()
+path_to_tables = get_data_dir()
+&#47&#47-----------------------------------------------------------------------------&#47&#47
+
+path_to_umodel = os.path.join(path_to_models, &quotuni_skip.npz&quot)
+path_to_bmodel = os.path.join(path_to_models, &quotbi_skip.npz&quot)
+
+
+def load_model():
+    
+    Load the model with saved tables
+    
+    &#47&#47 Load model options
+    &#47&#47 print &quotLoading model parameters...&quot
+    with open(&quot%s.pkl&quot%path_to_umodel, &quotrb&quot) as f:
+        uoptions = pkl.load(f)
+    with open(&quot%s.pkl&quot%path_to_bmodel, &quotrb&quot) as f:
+        boptions = pkl.load(f)
+
+    &#47&#47 Load parameters
+    uparams = init_params(uoptions)
+    uparams = load_params(path_to_umodel, uparams)
+    utparams = init_tparams(uparams)
+    bparams = init_params_bi(boptions)
+    bparams = load_params(path_to_bmodel, bparams)
+    btparams = init_tparams(bparams)
+
+    &#47&#47 Extractor functions
+    &#47&#47 print &quotCompiling encoders...&quot
+    embedding, x_mask, ctxw2v = build_encoder(utparams, uoptions)
+    f_w2v = theano.function([embedding, x_mask], ctxw2v, name=&quotf_w2v&quot)
+    embedding, x_mask, ctxw2v = build_encoder_bi(btparams, boptions)
+    f_w2v2 = theano.function([embedding, x_mask], ctxw2v, name=&quotf_w2v2&quot)
+
+    &#47&#47 Tables
+    &#47&#47 print &quotLoading tables...&quot
+    utable, btable = load_tables()
+
+    &#47&#47 Store everything we need in a dictionary
+    &#47&#47 print &quotPacking up...&quot
+    model = {}
+    model[&quotuoptions&quot] = uoptions
+    model[&quotboptions&quot] = boptions
+    model[&quotutable&quot] = utable
+    model[&quotbtable&quot] = btable
+    model[&quotf_w2v&quot] = f_w2v
+    model[&quotf_w2v2&quot] = f_w2v2
+
+    return model
+
+
+def load_tables():
+    
+    Load the tables
+    
+    words = []
+    utable = numpy.load(os.path.join(path_to_tables, &quotutable.npy&quot), allow_pickle=True, encoding=&quotbytes&quot)
+    btable = numpy.load(os.path.join(path_to_tables, &quotbtable.npy&quot), allow_pickle=True,  encoding=&quotbytes&quot)
+    <a id="change">f</a><a id="change"> = open(os.path.join(path_to_tables, &quotdictionary.txt&quot), &quotrb&quot)</a>
+    for line in f:
+        <a id="change">words</a>.append(<a id="change">line</a>.decode(&quotutf-8&quot).strip())
+    <a id="change">f</a><a id="change">.close()</a>
+    utable = OrderedDict(zip(words, utable))
+    btable = OrderedDict(zip(words, btable))
+    return utable, btable
+
+
+class Encoder(object):
+    
+    Sentence encoder.
+    
+
+    def __init__(self, model):
+      self._model = model
+
+    def encode(self, X, use_norm=True, verbose=True, batch_size=128, use_eos=False):
+      
+      Encode sentences in the list X. Each entry will return a vector
+      
+      return encode(self._model, X, use_norm, verbose, batch_size, use_eos)
+
+
+def encode(model, X, use_norm=True, verbose=True, batch_size=128, use_eos=False):
+    
+    Encode sentences in the list X. Each entry will return a vector
+    
+    &#47&#47 first, do preprocessing
+    X = preprocess(X)
+
+    &#47&#47 word dictionary and init
+    d = defaultdict(lambda : 0)
+    for w in model[&quotutable&quot].keys():
+        d[w] = 1
+    ufeatures = numpy.zeros((len(X), model[&quotuoptions&quot][&quotdim&quot]), dtype=&quotfloat32&quot)
+    bfeatures = numpy.zeros((len(X), 2 * model[&quotboptions&quot][&quotdim&quot]), dtype=&quotfloat32&quot)
+
+    &#47&#47 length dictionary
+    ds = defaultdict(list)
+    captions = [s.split() for s in X]
+    for i,s in enumerate(captions):
+        ds[len(s)].append(i)
+
+    &#47&#47 Get features. This encodes by length, in order to avoid wasting computation
+    for k in ds.keys():
+        if verbose:
+            print(k)
+        numbatches = int(len(ds[k]) / batch_size + 1)
+        for minibatch in range(numbatches):
+            caps = ds[k][minibatch::numbatches]
+
+            if use_eos:
+                uembedding = numpy.zeros((k+1, len(caps), model[&quotuoptions&quot][&quotdim_word&quot]), dtype=&quotfloat32&quot)
+                bembedding = numpy.zeros((k+1, len(caps), model[&quotboptions&quot][&quotdim_word&quot]), dtype=&quotfloat32&quot)
+            else:
+                uembedding = numpy.zeros((k, len(caps), model[&quotuoptions&quot][&quotdim_word&quot]), dtype=&quotfloat32&quot)
+                bembedding = numpy.zeros((k, len(caps), model[&quotboptions&quot][&quotdim_word&quot]), dtype=&quotfloat32&quot)
+            for ind, c in enumerate(caps):
+                caption = captions[c]
+                for j in range(len(caption)):
+                    if d[caption[j]] &gt; 0:
+                        uembedding[j,ind] = model[&quotutable&quot][caption[j]]
+                        bembedding[j,ind] = model[&quotbtable&quot][caption[j]]
+                    else:
+                        uembedding[j,ind] = model[&quotutable&quot][&quotUNK&quot]
+                        bembedding[j,ind] = model[&quotbtable&quot][&quotUNK&quot]
+                if use_eos:
+                    uembedding[-1,ind] = model[&quotutable&quot][&quot&lt;eos&gt;&quot]
+                    bembedding[-1,ind] = model[&quotbtable&quot][&quot&lt;eos&gt;&quot]
+            if use_eos:
+                uff = model[&quotf_w2v&quot](uembedding, numpy.ones((len(caption)+1,len(caps)), dtype=&quotfloat32&quot))
+                bff = model[&quotf_w2v2&quot](bembedding, numpy.ones((len(caption)+1,len(caps)), dtype=&quotfloat32&quot))
+            else:
+                uff = model[&quotf_w2v&quot](uembedding, numpy.ones((len(caption),len(caps)), dtype=&quotfloat32&quot))
+                bff = model[&quotf_w2v2&quot](bembedding, numpy.ones((len(caption),len(caps)), dtype=&quotfloat32&quot))
+            if use_norm:
+                for j in range(len(uff)):
+                    uff[j] /= norm(uff[j])
+                    bff[j] /= norm(bff[j])
+            for ind, c in enumerate(caps):
+                ufeatures[c] = uff[ind]
+                bfeatures[c] = bff[ind]
+    
+    features = numpy.c_[ufeatures, bfeatures]
+    return features
+
+
+def preprocess(text):
+    
+    Preprocess text for encoder
+    
+    X = []
+    sent_detector = nltk.data.load(&quottokenizers/punkt/english.pickle&quot)
+    for t in text:
+        sents = sent_detector.tokenize(t)
+        result = &quot&quot
+        for s in sents:
+            tokens = word_tokenize(s)
+            result += &quot &quot + &quot &quot.join(tokens)
+        X.append(result)
+    return X
+
+
+def nn(model, text, vectors, query, k=5):
+    
+    Return the nearest neighbour sentences to query
+    text: list of sentences
+    vectors: the corresponding representations for text
+    query: a string to search
+    
+    qf = encode(model, [query])
+    qf /= norm(qf)
+    scores = numpy.dot(qf, vectors.T).flatten()
+    sorted_args = numpy.argsort(scores)[::-1]
+    sentences = [text[a] for a in sorted_args[:k]]
+    print(&quotQUERY: &quot + query)
+    print(&quotNEAREST: &quot)
+    for i, s in enumerate(sentences):
+        print(s, sorted_args[i])
+
+
+def word_features(table):
+    
+    Extract word features into a normalized matrix
+    
+    features = numpy.zeros((len(table), 620), dtype=&quotfloat32&quot)
+    keys = table.keys()
+    for i in range(len(table)):
+        f = table[keys[i]]
+        features[i] = f / norm(f)
+    return features
+
+
+def nn_words(table, wordvecs, query, k=10):
+    
+    Get the nearest neighbour words
+    
+    keys = table.keys()
+    qf = table[query]
+    scores = numpy.dot(qf, wordvecs.T).flatten()
+    sorted_args = numpy.argsort(scores)[::-1]
+    words = [keys[a] for a in sorted_args[:k]]
+    print(&quotQUERY: &quot + query)
+    print(&quotNEAREST: &quot)
+    for i, w in enumerate(words):
+        print(w)
+
+
+def _p(pp, name):
+    
+    make prefix-appended name
+    
+    return &quot%s_%s&quot%(pp, name)
+
+
+def init_tparams(params):
+    
+    initialize Theano shared variables according to the initial parameters
+    
+    tparams = OrderedDict()
+    for kk, pp in six.iteritems(params):
+        tparams[kk] = theano.shared(params[kk], name=kk)
+    return tparams
+
+
+def load_params(path, params):
+    
+    load parameters
+    
+    pp = numpy.load(path)
+    for kk, vv in six.iteritems(params):
+        if kk not in pp:
+            logging.warning(&quot%s is not in the archive&quot, kk)
+            continue
+        params[kk] = pp[kk]
+    return params
+
+
+&#47&#47 layers: &quotname&quot: (&quotparameter initializer&quot, &quotfeedforward&quot)
+layers = {&quotgru&quot: (&quotparam_init_gru&quot, &quotgru_layer&quot)}
+
+def get_layer(name):
+    fns = layers[name]
+    return (eval(fns[0]), eval(fns[1]))
+
+
+def init_params(options):
+    
+    initialize all parameters needed for the encoder
+    
+    params = OrderedDict()
+
+    &#47&#47 embedding
+    params[&quotWemb&quot] = norm_weight(options[&quotn_words_src&quot], options[&quotdim_word&quot])
+
+    &#47&#47 encoder: GRU
+    params = get_layer(options[&quotencoder&quot])[0](options, params, prefix=&quotencoder&quot,
+                                              nin=options[&quotdim_word&quot], dim=options[&quotdim&quot])
+    return params
+
+
+def init_params_bi(options):
+    
+    initialize all paramters needed for bidirectional encoder
+    
+    params = OrderedDict()
+
+    &#47&#47 embedding
+    params[&quotWemb&quot] = norm_weight(options[&quotn_words_src&quot], options[&quotdim_word&quot])
+
+    &#47&#47 encoder: GRU
+    params = get_layer(options[&quotencoder&quot])[0](options, params, prefix=&quotencoder&quot,
+                                              nin=options[&quotdim_word&quot], dim=options[&quotdim&quot])
+    params = get_layer(options[&quotencoder&quot])[0](options, params, prefix=&quotencoder_r&quot,
+                                              nin=options[&quotdim_word&quot], dim=options[&quotdim&quot])
+    return params
+
+
+def build_encoder(tparams, options):
+    
+    build an encoder, given pre-computed word embeddings
+    
+    &#47&#47 word embedding (source)
+    embedding = tensor.tensor3(&quotembedding&quot, dtype=&quotfloat32&quot)
+    x_mask = tensor.matrix(&quotx_mask&quot, dtype=&quotfloat32&quot)
+
+    &#47&#47 encoder
+    proj = get_layer(options[&quotencoder&quot])[1](tparams, embedding, options,
+                                            prefix=&quotencoder&quot,
+                                            mask=x_mask)
+    ctx = proj[0][-1]
+
+    return embedding, x_mask, ctx
+
+
+def build_encoder_bi(tparams, options):
+    
+    build bidirectional encoder, given pre-computed word embeddings
+    
+    &#47&#47 word embedding (source)
+    embedding = tensor.tensor3(&quotembedding&quot, dtype=&quotfloat32&quot)
+    embeddingr = embedding[::-1]
+    x_mask = tensor.matrix(&quotx_mask&quot, dtype=&quotfloat32&quot)
+    xr_mask = x_mask[::-1]
+
+    &#47&#47 encoder
+    proj = get_layer(options[&quotencoder&quot])[1](tparams, embedding, options,
+                                            prefix=&quotencoder&quot,
+                                            mask=x_mask)
+    projr = get_layer(options[&quotencoder&quot])[1](tparams, embeddingr, options,
+                                             prefix=&quotencoder_r&quot,
+                                             mask=xr_mask)
+
+    ctx = tensor.concatenate([proj[0][-1], projr[0][-1]], axis=1)
+
+    return embedding, x_mask, ctx
+
+
+&#47&#47 some utilities
+def ortho_weight(ndim):
+    W = numpy.random.randn(ndim, ndim)
+    u, s, v = numpy.linalg.svd(W)
+    return u.astype(&quotfloat32&quot)
+
+
+def norm_weight(nin,nout=None, scale=0.1, ortho=True):
+    if nout == None:
+        nout = nin
+    if nout == nin and ortho:
+        W = ortho_weight(nin)
+    else:
+        W = numpy.random.uniform(low=-scale, high=scale, size=(nin, nout))
+    return W.astype(&quotfloat32&quot)
+
+
+def param_init_gru(options, params, prefix=&quotgru&quot, nin=None, dim=None):
+    
+    parameter init for GRU
+    
+    if nin == None:
+        nin = options[&quotdim_proj&quot]
+    if dim == None:
+        dim = options[&quotdim_proj&quot]
+    W = numpy.concatenate([norm_weight(nin,dim),
+                           norm_weight(nin,dim)], axis=1)
+    params[_p(prefix,&quotW&quot)] = W
+    params[_p(prefix,&quotb&quot)] = numpy.zeros((2 * dim,)).astype(&quotfloat32&quot)
+    U = numpy.concatenate([ortho_weight(dim),
+                           ortho_weight(dim)], axis=1)
+    params[_p(prefix,&quotU&quot)] = U
+
+    Wx = norm_weight(nin, dim)
+    params[_p(prefix,&quotWx&quot)] = Wx
+    Ux = ortho_weight(dim)
+    params[_p(prefix,&quotUx&quot)] = Ux
+    params[_p(prefix,&quotbx&quot)] = numpy.zeros((dim,)).astype(&quotfloat32&quot)
+
+    return params
+
+
+def gru_layer(tparams, state_below, options, prefix=&quotgru&quot, mask=None, **kwargs):
+    
+    Forward pass through GRU layer
+    
+    nsteps = state_below.shape[0]
+    if state_below.ndim == 3:
+        n_samples = state_below.shape[1]
+    else:
+        n_samples = 1
+
+    dim = tparams[_p(prefix,&quotUx&quot)].shape[1]
+
+    if mask == None:
+        mask = tensor.alloc(1., state_below.shape[0], 1)
+
+    def _slice(_x, n, dim):
+        if _x.ndim == 3:
+            return _x[:, :, n*dim:(n+1)*dim]
+        return _x[:, n*dim:(n+1)*dim]
+
+    state_below_ = tensor.dot(state_below, tparams[_p(prefix, &quotW&quot)]) + tparams[_p(prefix, &quotb&quot)]
+    state_belowx = tensor.dot(state_below, tparams[_p(prefix, &quotWx&quot)]) + tparams[_p(prefix, &quotbx&quot)]
+    U = tparams[_p(prefix, &quotU&quot)]
+    Ux = tparams[_p(prefix, &quotUx&quot)]
+
+    def _step_slice(m_, x_, xx_, h_, U, Ux):
+        preact = tensor.dot(h_, U)
+        preact += x_
+
+        r = tensor.nnet.sigmoid(_slice(preact, 0, dim))
+        u = tensor.nnet.sigmoid(_slice(preact, 1, dim))
+
+        preactx = tensor.dot(h_, Ux)
+        preactx = preactx * r
+        preactx = preactx + xx_
+
+        h = tensor.tanh(preactx)
+
+        h = u * h_ + (1. - u) * h
+        h = m_[:,None] * h + (1. - m_)[:,None] * h_
+
+        return h
+
+    seqs = [mask, state_below_, state_belowx]
+    _step = _step_slice
+
+    rval, updates = theano.scan(_step,
+                                sequences=seqs,
+                                outputs_info = [tensor.alloc(0., n_samples, dim)],
+                                non_sequences = [tparams[_p(prefix, &quotU&quot)],
+                                                 tparams[_p(prefix, &quotUx&quot)]],
+                                name=_p(prefix, &quot_layers&quot),
+                                n_steps=nsteps,
+                                profile=profile,
+                                strict=True)
+    rval = [rval]
+    return rval
+
+
+</code></pre>

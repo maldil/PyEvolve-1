@@ -1,0 +1,125 @@
+<link rel="stylesheet" href="../../..//default.css">
+<script src="../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/nltk/nltk/blob/develop/tools/nltk_term_index.py#L63">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/nltk/blob/develop/tools/nltk_term_index.py#L63">GitMyHubLink</a>
+
+import re
+import sys
+
+import epydoc.cli
+import epydoc.docbuilder
+from epydoc import log
+
+import nltk
+
+STOPLIST = "../../tools/nltk_term_index.stoplist"
+FILENAMES = ["ch%02d.xml" % n for n in range(13)]
+TARGET_DIR = "nlp/"
+&#47&#47 FILENAMES = [&quot../doc/book/ll.xml&quot]
+
+logger = epydoc.cli.ConsoleLogger(0)
+logger._verbosity = 5
+log.register_logger(logger)
+
+
+def find_all_names(stoplist):
+    ROOT = ["nltk"]
+    logger._verbosity = 0
+    docindex = epydoc.docbuilder.build_doc_index(ROOT, add_submodules=True)
+    valdocs = sorted(
+        docindex.reachable_valdocs(
+            imports=False,
+            &#47&#47 packages=False, bases=False, submodules=False,
+            &#47&#47 subclasses=False,
+            private=False,
+        )
+    )
+    logger._verbosity = 5
+    names = nltk.defaultdict(list)
+    n = 0
+    for valdoc in valdocs:
+        name = valdoc.canonical_name
+        if name is not epydoc.apidoc.UNKNOWN and name is not None and name[0] == "nltk":
+            n += 1
+            for i in range(len(name)):
+                key = str(name[i:])
+                if len(key) == 1:
+                    continue
+                if key in stoplist:
+                    continue
+                names[key].append(valdoc)
+
+    log.info(f"Found {len(names)} names from {n} objects")
+
+    return names
+
+
+SCAN_RE1 = r"&lt;programlisting&gt;[\s\S]*?&lt;/programlisting&gt;"
+SCAN_RE2 = r"&lt;literal&gt;[\s\S]*?&lt;/literal&gt;"
+SCAN_RE = re.compile(f"({SCAN_RE1})|({SCAN_RE2})")
+
+TOKEN_RE = re.compile(r"[\w\.]+")
+
+LINE_RE = re.compile(".*")
+
+INDEXTERM = &quot&lt;indexterm type="nltk"&gt;&lt;primary&gt;%s&lt;/primary&gt;&lt;/indexterm&gt;&quot
+
+
+def scan_xml(<a id="change">filenames</a>, <a id="change">names</a>):
+    <a id="change">fdist = nltk.FreqDist()</a>
+
+    def linesub(match):
+        line = match.group()
+        for token in TOKEN_RE.findall(line):
+            if token in names:
+                targets = names[token]
+                fdist.inc(token)
+                if len(targets) &gt; 1:
+                    log.warning(
+                        "{} is ambiguous: {}".format(
+                            token,
+                            ", ".join(str(v.canonical_name) for v in names[token]),
+                        )
+                    )
+                line += INDEXTERM % token
+                &#47&#47 line += INDEXTERM % names[token][0].canonical_name
+        return line
+
+    def scansub(match):
+        return LINE_RE.sub(linesub, match.group())
+
+    for filename in filenames:
+        log.info(f"  {filename}")
+        <a id="change">src = open(filename, "rb").read()</a>
+        <a id="change">src = SCAN_RE.sub(scansub, src)</a>
+        &#47&#47        out = open(filename[:-4]+&quot.li.xml&quot, &quotwb&quot)
+        <a id="change">out = open(TARGET_DIR + filename, "wb")</a>
+        out.write(src)
+        <a id="change">out</a><a id="change">.close()</a>
+
+    for word in fdist:
+        <a id="change">namestr = ("\n" + 38 * " ").join(
+            [str(v.canonical_name[:-1]) for v in names[word][:1]]
+        )</a>
+        print("[%3d]  %-30s %s" % (fdist[word], word, namestr))
+        sys.stdout.flush()
+
+
+def main():
+    log.info("Loading stoplist...")
+    stoplist = open(STOPLIST).read().split()
+    log.info(f"  Stoplist contains {len(stoplist)} words")
+
+    log.info("Running epydoc to build a name index...")
+    names = find_all_names(stoplist)
+
+    log.info("Scanning xml files...")
+    scan_xml(FILENAMES, names)
+
+
+main()
+</code></pre>

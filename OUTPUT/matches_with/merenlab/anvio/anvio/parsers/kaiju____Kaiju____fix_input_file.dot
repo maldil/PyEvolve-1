@@ -1,0 +1,204 @@
+digraph G {
+1 [label="(49762445)IO[Union[str, bytes]](input_file)" shape=ellipse style=dashed color=blue fontcolor=blue]
+2 [label="(49762455)Union[str, bytes](line)" shape=ellipse style=dashed]
+3 [label="(49762473)=" shape=box style=dashed]
+4 [label="(49762492)return" shape=box style=dashed]
+5 [label="(49762461)split" shape=box style=dashed]
+6 [label="(49762480)int(num_correct_lines)" shape=ellipse style=dashed]
+7 [label="(49762442)Any(corrected_temp_file_path)" shape=ellipse style=dashed]
+8 [label="(49762457)For" shape=diamond style=dashed]
+9 [label="(49762452)=" shape=box style=dashed]
+10 [label="(49762463)number(8)" shape=ellipse style=dashed]
+11 [label="(49762428)Kaiju(self)" shape=ellipse style=dashed]
+12 [label="(49762478)Kaiju.progress(progress)" shape=ellipse style=dashed]
+13 [label="(49762464)Eq" shape=box style=dashed]
+14 [label="(49762476)close" shape=box style=dashed color=red fontcolor=red]
+15 [label="(49762437)anvio.filesnpaths(filesnpaths)" shape=ellipse style=dashed]
+16 [label="(49762470)int(num_correct_lines)" shape=ellipse style=dashed]
+17 [label="(49762485)remove" shape=box style=dashed]
+18 [label="(49762481)Not" shape=box style=dashed]
+19 [label="(49762462)String(lit(	))" shape=ellipse style=dashed]
+20 [label="(49762466)empty" shape=box style=dashed]
+21 [label="(49762471)number(1)" shape=ellipse style=dashed]
+22 [label="(49762420)Any(input_file_path)" shape=ellipse style=dashed]
+23 [label="(49762446)open" shape=box style=dashed color=blue fontcolor=blue]
+24 [label="(49762483)empty" shape=box style=dashed]
+25 [label="(49762459)len" shape=box style=dashed]
+26 [label="(49762477)Kaiju(self)" shape=ellipse style=dashed]
+27 [label="(49762482)If" shape=diamond style=dashed]
+28 [label="(49762491)Any(corrected_temp_file_path)" shape=ellipse style=dashed]
+29 [label="(49762422)=" shape=box style=dashed]
+30 [label="(49762416)Kaiju(self)" shape=ellipse style=dashed]
+31 [label="(49762468)write" shape=box style=dashed]
+32 [label="(49762430)new" shape=box style=dashed]
+33 [label="(49762469)Union[str, bytes](line)" shape=ellipse style=dashed]
+34 [label="(49762475)TextIO(corrected_temp_file)" shape=ellipse style=dashed color=red fontcolor=red]
+35 [label="(49762415)START" style=dashed]
+36 [label="(49762493)END" style=dashed]
+37 [label="(49762433)Kaiju.progress(progress)" shape=ellipse style=dashed]
+38 [label="(49762425)anvio.filesnpaths(filesnpaths)" shape=ellipse style=dashed]
+39 [label="(49762429)Kaiju.progress(progress)" shape=ellipse style=dashed]
+40 [label="(49762438)get_temp_file_path" shape=box style=dashed]
+41 [label="(49762427)Any(input_file_path)" shape=ellipse style=dashed]
+42 [label="(49762450)int(num_correct_lines)" shape=ellipse style=dashed]
+43 [label="(49762426)is_file_exists" shape=box style=dashed]
+44 [label="(49762448)String(lit(rU))" shape=ellipse style=dashed color=blue fontcolor=blue]
+45 [label="(49762460)Union[str, bytes](line)" shape=ellipse style=dashed]
+46 [label="(49762451)number(0)" shape=ellipse style=dashed]
+47 [label="(49762490)empty" shape=box style=dashed]
+48 [label="(49762456)Union[str, bytes](line)" shape=ellipse style=dashed]
+49 [label="(49762432)Kaiju(self)" shape=ellipse style=dashed]
+50 [label="(49762435)String(lit(...))" shape=ellipse style=dashed]
+51 [label="(49762440)TextIO(corrected_temp_file)" shape=ellipse style=dashed color=red fontcolor=red]
+52 [label="(49762417)(null)" shape=ellipse style=dashed]
+53 [label="(49762454)readlines" shape=box style=dashed]
+54 [label="(49762453)IO[Union[str, bytes]](input_file)" shape=ellipse style=dashed]
+55 [label="(49762472)=Add" shape=box style=dashed]
+56 [label="(49762439)=" shape=box style=dashed]
+57 [label="(49762421)(null)" shape=ellipse style=dashed]
+58 [label="(49762443)String(lit(w))" shape=ellipse style=dashed color=red fontcolor=red]
+59 [label="(49762458)empty" shape=box style=dashed]
+60 [label="(49762488)ConfigError" shape=box style=dashed]
+61 [label="(49762431)String(lit(Fixing the broken kaiju output))" shape=ellipse style=dashed]
+62 [label="(49762447)Any(input_file_path)" shape=ellipse style=dashed]
+63 [label="(49762487)raise" shape=box style=dashed]
+64 [label="(49762465)If" shape=diamond style=dashed]
+65 [label="(49762484)os(os)" shape=ellipse style=dashed]
+66 [label="(49762486)Any(corrected_temp_file_path)" shape=ellipse style=dashed]
+67 [label="(49762436)Any(corrected_temp_file_path)" shape=ellipse style=dashed]
+68 [label="(49762434)update" shape=box style=dashed]
+69 [label="(49762479)end" shape=box style=dashed]
+70 [label="(49762444)=" shape=box style=dashed color=red fontcolor=red]
+71 [label="(49762418)=" shape=box style=dashed]
+72 [label="(49762474)empty" shape=box style=dashed]
+73 [label="(49762467)TextIO(corrected_temp_file)" shape=ellipse style=dashed]
+74 [label="(49762441)open" shape=box style=dashed color=red fontcolor=red]
+75 [label="(49762489)String(lit(Something must have been wrong with you input file. Not a single line in it matched to what the kaiju parsers expects (a proper file should have eight TAB-delimited columns).))" shape=ellipse style=dashed]
+76 [label="(49762449)=" shape=box style=dashed color=blue fontcolor=blue]
+76 -> 1 [label="def" style=dotted];
+53 -> 2 [label="def" style=dotted];
+64 -> 3 [label="T"];
+55 -> 3 [label="dep" style=dotted];
+55 -> 3 [label="para" style=dotted];
+27 -> 4 [label="F"];
+28 -> 4 [label="para" style=dotted];
+47 -> 4 [label="dep" style=dotted];
+8 -> 5 [label="" style=solid];
+45 -> 5 [label="recv" style=dotted];
+19 -> 5 [label="para" style=dotted];
+59 -> 5 [label="dep" style=dotted];
+42 -> 6 [label="ref" style=dotted];
+67 -> 7 [label="ref" style=dotted];
+35 -> 8 [label="" style=solid];
+53 -> 8 [label="dep" style=dotted];
+48 -> 8 [label="cond" style=dotted];
+35 -> 9 [label="" style=solid];
+46 -> 9 [label="para" style=dotted];
+76 -> 9 [label="dep" style=dotted];
+26 -> 12 [label="qual" style=dotted];
+8 -> 13 [label="" style=solid];
+25 -> 13 [label="dep" style=dotted];
+25 -> 13 [label="para" style=dotted];
+10 -> 13 [label="para" style=dotted];
+59 -> 13 [label="dep" style=dotted];
+35 -> 14 [label="" style=solid];
+34 -> 14 [label="recv" style=dotted];
+3 -> 14 [label="dep" style=dotted];
+72 -> 14 [label="dep" style=dotted];
+42 -> 16 [label="ref" style=dotted];
+27 -> 17 [label="T"];
+65 -> 17 [label="recv" style=dotted];
+66 -> 17 [label="para" style=dotted];
+24 -> 17 [label="dep" style=dotted];
+35 -> 18 [label="" style=solid];
+6 -> 18 [label="para" style=dotted];
+69 -> 18 [label="dep" style=dotted];
+64 -> 20 [label="T"];
+29 -> 22 [label="def" style=dotted];
+35 -> 23 [label="" style=solid];
+62 -> 23 [label="para" style=dotted];
+44 -> 23 [label="para" style=dotted];
+70 -> 23 [label="dep" style=dotted];
+27 -> 24 [label="T"];
+8 -> 25 [label="" style=solid];
+5 -> 25 [label="dep" style=dotted];
+5 -> 25 [label="para" style=dotted];
+59 -> 25 [label="dep" style=dotted];
+35 -> 27 [label="" style=solid];
+18 -> 27 [label="dep" style=dotted];
+18 -> 27 [label="cond" style=dotted];
+67 -> 28 [label="ref" style=dotted];
+35 -> 29 [label="" style=solid];
+57 -> 29 [label="para" style=dotted];
+71 -> 29 [label="dep" style=dotted];
+71 -> 30 [label="def" style=dotted];
+64 -> 31 [label="T"];
+73 -> 31 [label="recv" style=dotted];
+33 -> 31 [label="para" style=dotted];
+20 -> 31 [label="dep" style=dotted];
+35 -> 32 [label="" style=solid];
+39 -> 32 [label="recv" style=dotted];
+61 -> 32 [label="para" style=dotted];
+43 -> 32 [label="dep" style=dotted];
+2 -> 33 [label="ref" style=dotted];
+51 -> 34 [label="ref" style=dotted];
+4 -> 36 [label="dep" style=dotted];
+49 -> 37 [label="qual" style=dotted];
+11 -> 39 [label="qual" style=dotted];
+35 -> 40 [label="" style=solid];
+15 -> 40 [label="recv" style=dotted];
+68 -> 40 [label="dep" style=dotted];
+9 -> 42 [label="def" style=dotted];
+35 -> 43 [label="" style=solid];
+38 -> 43 [label="recv" style=dotted];
+41 -> 43 [label="para" style=dotted];
+29 -> 43 [label="dep" style=dotted];
+2 -> 45 [label="ref" style=dotted];
+27 -> 47 [label="F"];
+2 -> 48 [label="ref" style=dotted];
+70 -> 51 [label="def" style=dotted];
+35 -> 53 [label="" style=solid];
+54 -> 53 [label="recv" style=dotted];
+9 -> 53 [label="dep" style=dotted];
+1 -> 54 [label="ref" style=dotted];
+64 -> 55 [label="T"];
+16 -> 55 [label="para" style=dotted];
+21 -> 55 [label="para" style=dotted];
+31 -> 55 [label="dep" style=dotted];
+35 -> 56 [label="" style=solid];
+40 -> 56 [label="dep" style=dotted];
+40 -> 56 [label="para" style=dotted];
+8 -> 59 [label="" style=solid];
+27 -> 60 [label="T"];
+75 -> 60 [label="para" style=dotted];
+17 -> 60 [label="dep" style=dotted];
+27 -> 63 [label="T"];
+60 -> 63 [label="dep" style=dotted];
+60 -> 63 [label="para" style=dotted];
+8 -> 64 [label="" style=solid];
+13 -> 64 [label="dep" style=dotted];
+13 -> 64 [label="cond" style=dotted];
+67 -> 66 [label="ref" style=dotted];
+56 -> 67 [label="def" style=dotted];
+35 -> 68 [label="" style=solid];
+37 -> 68 [label="recv" style=dotted];
+50 -> 68 [label="para" style=dotted];
+32 -> 68 [label="dep" style=dotted];
+35 -> 69 [label="" style=solid];
+12 -> 69 [label="recv" style=dotted];
+14 -> 69 [label="dep" style=dotted];
+35 -> 70 [label="" style=solid];
+74 -> 70 [label="dep" style=dotted];
+74 -> 70 [label="para" style=dotted];
+35 -> 71 [label="" style=solid];
+52 -> 71 [label="para" style=dotted];
+64 -> 72 [label="F"];
+51 -> 73 [label="ref" style=dotted];
+35 -> 74 [label="" style=solid];
+7 -> 74 [label="para" style=dotted];
+58 -> 74 [label="para" style=dotted];
+56 -> 74 [label="dep" style=dotted];
+35 -> 76 [label="" style=solid];
+23 -> 76 [label="dep" style=dotted];
+23 -> 76 [label="para" style=dotted];
+}

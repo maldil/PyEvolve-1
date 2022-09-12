@@ -1,0 +1,440 @@
+<link rel="stylesheet" href="../../../..//default.css">
+<script src="../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/Eric-mingjie/rethinking-network-pruning/blob/master/cifar/soft-filter-pruning/pruning_cifar10_pretrain.py#L61">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/rethinking-network-pruning/blob/master/cifar/soft-filter-pruning/pruning_cifar10_pretrain.py#L61">GitMyHubLink</a>
+
+from __future__ import division
+
+import os, sys, shutil, time, random
+import argparse
+import torch
+import torch.backends.cudnn as cudnn
+import torchvision.datasets as dset
+import torchvision.transforms as transforms
+from utils import AverageMeter, RecorderMeter, time_string, convert_secs2time
+import models
+import numpy as np
+
+
+model_names = sorted(name for name in models.__dict__
+    if name.islower() and not name.startswith("__")
+    and callable(models.__dict__[name]))
+
+parser = argparse.ArgumentParser(description=&quotTrains ResNeXt on CIFAR or ImageNet&quot, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+parser.add_argument(&quotdata_path&quot, type=str, help=&quotPath to dataset&quot)
+parser.add_argument(&quot--dataset&quot, type=str, choices=[&quotcifar10&quot, &quotcifar100&quot, &quotimagenet&quot, &quotsvhn&quot, &quotstl10&quot], help=&quotChoose between Cifar10/100 and ImageNet.&quot)
+parser.add_argument(&quot--arch&quot, metavar=&quotARCH&quot, default=&quotresnet18&quot, choices=model_names, help=&quotmodel architecture: &quot + &quot | &quot.join(model_names) + &quot (default: resnext29_8_64)&quot)
+&#47&#47 Optimization options
+parser.add_argument(&quot--epochs&quot, type=int, default=300, help=&quotNumber of epochs to train.&quot)
+parser.add_argument(&quot--batch_size&quot, type=int, default=128, help=&quotBatch size.&quot)
+parser.add_argument(&quot--learning_rate&quot, type=float, default=0.1, help=&quotThe Learning Rate.&quot)
+parser.add_argument(&quot--momentum&quot, type=float, default=0.9, help=&quotMomentum.&quot)
+parser.add_argument(&quot--decay&quot, type=float, default=0.0005, help=&quotWeight decay (L2 penalty).&quot)
+parser.add_argument(&quot--schedule&quot, type=int, nargs=&quot+&quot, default=[150, 225], help=&quotDecrease learning rate at these epochs.&quot)
+parser.add_argument(&quot--gammas&quot, type=float, nargs=&quot+&quot, default=[0.1, 0.1], help=&quotLR is multiplied by gamma on schedule, number of gammas should be equal to schedule&quot)
+&#47&#47 Checkpoints
+parser.add_argument(&quot--print_freq&quot, default=200, type=int, metavar=&quotN&quot, help=&quotprint frequency (default: 200)&quot)
+parser.add_argument(&quot--save_path&quot, type=str, default=&quot./&quot, help=&quotFolder to save checkpoints and log.&quot)
+parser.add_argument(&quot--resume&quot, default=&quot&quot, type=str, metavar=&quotPATH&quot, help=&quotpath to latest checkpoint (default: none)&quot)
+parser.add_argument(&quot--start_epoch&quot, default=0, type=int, metavar=&quotN&quot, help=&quotmanual epoch number (useful on restarts)&quot)
+parser.add_argument(&quot--evaluate&quot, dest=&quotevaluate&quot, action=&quotstore_true&quot, help=&quotevaluate model on validation set&quot)
+&#47&#47 Acceleration
+parser.add_argument(&quot--ngpu&quot, type=int, default=1, help=&quot0 = CPU.&quot)
+parser.add_argument(&quot--workers&quot, type=int, default=2, help=&quotnumber of data loading workers (default: 2)&quot)
+&#47&#47 random seed
+parser.add_argument(&quot--manualSeed&quot, type=int, help=&quotmanual seed&quot)
+&#47&#47compress rate
+parser.add_argument(&quot--rate&quot, type=float, default=0.9, help=&quotcompress rate of model&quot)
+parser.add_argument(&quot--layer_begin&quot, type=int, default=1,  help=&quotcompress layer of model&quot)
+parser.add_argument(&quot--layer_end&quot, type=int, default=1,  help=&quotcompress layer of model&quot)
+parser.add_argument(&quot--layer_inter&quot, type=int, default=1,  help=&quotcompress layer of model&quot)
+parser.add_argument(&quot--epoch_prune&quot, type=int, default=1,  help=&quotcompress layer of model&quot)
+parser.add_argument(&quot--use_state_dict&quot, dest=&quotuse_state_dict&quot, action=&quotstore_true&quot, help=&quotuse state dcit or not&quot)
+
+
+args = parser.parse_args()
+args.use_cuda = args.ngpu&gt;0 and torch.cuda.is_available()
+
+if args.manualSeed is None:
+    args.manualSeed = random.randint(1, 10000)
+random.seed(args.manualSeed)
+torch.manual_seed(args.manualSeed)
+if args.use_cuda:
+    torch.cuda.manual_seed_all(args.manualSeed)
+cudnn.benchmark = True
+
+def main():
+    &#47&#47 Init logger
+    if not os.path.isdir(args.save_path):
+        os.makedirs(args.save_path)
+    <a id="change">log</a><a id="change"> = open(os.path.join(args.save_path, &quotlog_seed_{}.txt&quot.format(args.manualSeed)), &quotw&quot)</a>
+    print_log(&quotsave path : {}&quot.format(args.save_path), log)
+    state = {k: v for k, v in args._get_kwargs()}
+    print_log(state, log)
+    print_log("Random Seed: {}".format(args.manualSeed), log)
+    print_log("python version : {}".format(sys.version.replace(&quot\n&quot, &quot &quot)), log)
+    print_log("torch  version : {}".format(torch.__version__), log)
+    print_log("cudnn  version : {}".format(torch.backends.cudnn.version()), log)
+    print_log("Compress Rate: {}".format(args.rate), log)
+    print_log("Layer Begin: {}".format(args.layer_begin), log)
+    print_log("Layer End: {}".format(args.layer_end), log)
+    print_log("Layer Inter: {}".format(args.layer_inter), log)
+    print_log("Epoch prune: {}".format(args.epoch_prune), log)
+    &#47&#47 Init dataset
+    if not os.path.isdir(args.data_path):
+        os.makedirs(args.data_path)
+
+    if args.dataset == &quotcifar10&quot:
+        mean = [x / 255 for x in [125.3, 123.0, 113.9]]
+        std = [x / 255 for x in [63.0, 62.1, 66.7]]
+    elif args.dataset == &quotcifar100&quot:
+        mean = [x / 255 for x in [129.3, 124.1, 112.4]]
+        std = [x / 255 for x in [68.2, 65.4, 70.4]]
+    else:
+        assert False, "Unknow dataset : {}".format(args.dataset)
+
+    train_transform = transforms.Compose(
+        [transforms.RandomHorizontalFlip(), transforms.RandomCrop(32, padding=4), transforms.ToTensor(),
+         transforms.Normalize(mean, std)])
+    test_transform = transforms.Compose(
+        [transforms.ToTensor(), transforms.Normalize(mean, std)])
+
+    if args.dataset == &quotcifar10&quot:
+        train_data = dset.CIFAR10(args.data_path, train=True, transform=train_transform, download=True)
+        test_data = dset.CIFAR10(args.data_path, train=False, transform=test_transform, download=True)
+        num_classes = 10
+    elif args.dataset == &quotcifar100&quot:
+        train_data = dset.CIFAR100(args.data_path, train=True, transform=train_transform, download=True)
+        test_data = dset.CIFAR100(args.data_path, train=False, transform=test_transform, download=True)
+        num_classes = 100
+    elif args.dataset == &quotsvhn&quot:
+        train_data = dset.SVHN(args.data_path, split=&quottrain&quot, transform=train_transform, download=True)
+        test_data = dset.SVHN(args.data_path, split=&quottest&quot, transform=test_transform, download=True)
+        num_classes = 10
+    elif args.dataset == &quotstl10&quot:
+        train_data = dset.STL10(args.data_path, split=&quottrain&quot, transform=train_transform, download=True)
+        test_data = dset.STL10(args.data_path, split=&quottest&quot, transform=test_transform, download=True)
+        num_classes = 10
+    elif args.dataset == &quotimagenet&quot:
+        assert False, &quotDo not finish imagenet code&quot
+    else:
+        assert False, &quotDo not support dataset : {}&quot.format(args.dataset)
+
+    train_loader = torch.utils.data.DataLoader(train_data, batch_size=args.batch_size, shuffle=True,
+                                                 num_workers=args.workers, pin_memory=True)
+    test_loader = torch.utils.data.DataLoader(test_data, batch_size=args.batch_size, shuffle=False,
+                                                num_workers=args.workers, pin_memory=True)
+
+    print_log("=&gt; creating model &quot{}&quot".format(args.arch), log)
+    &#47&#47 Init model, criterion, and optimizer
+    net = models.__dict__[args.arch](num_classes)
+    print_log("=&gt; network :\n {}".format(net), log)
+
+    net = torch.nn.DataParallel(net, device_ids=list(range(args.ngpu)))
+
+    &#47&#47 define loss function (criterion) and optimizer
+    criterion = torch.nn.CrossEntropyLoss()
+
+    optimizer = torch.optim.SGD(<a id="change">net</a>.parameters(), state[&quotlearning_rate&quot], momentum=state[&quotmomentum&quot],
+                                weight_decay=state[&quotdecay&quot], nesterov=True)
+
+    if args.use_cuda:
+        <a id="change">net</a>.cuda()
+        <a id="change">criterion</a>.cuda()
+
+    recorder = RecorderMeter(args.epochs)
+    &#47&#47 optionally resume from a checkpoint
+    if args.resume:
+        if os.path.isfile(args.resume):
+            print_log("=&gt; loading checkpoint &quot{}&quot".format(args.resume), log)
+            checkpoint = torch.load(args.resume)
+            if args.use_state_dict:
+                <a id="change">net</a>.load_state_dict(checkpoint[&quotstate_dict&quot])
+            else:
+                net = checkpoint[&quotstate_dict&quot]
+
+            print_log("=&gt; loaded checkpoint &quot{}&quot (epoch {})" .format(args.resume, checkpoint[&quotepoch&quot]), log)
+        else:
+            print_log("=&gt; no checkpoint found at &quot{}&quot".format(args.resume), log)
+    else:
+        print_log("=&gt; do not use any checkpoint for {} model".format(args.arch), log)
+
+    if args.evaluate:
+        time1 = time.time()
+        validate(test_loader, net, criterion, log)
+        time2 = time.time()
+        print (&quotfunction took %0.3f ms&quot % ((time2-time1)*1000.0))
+        return
+
+    comp_rate =  args.rate
+    print("-"*10+"one epoch begin"+"-"*10)
+    print("the compression rate now is %f" % comp_rate)
+
+    val_acc_1,   val_los_1   = validate(test_loader, net, criterion, log)
+
+    print(" accu before is: %.3f %%" % val_acc_1)
+
+    &#47&#47 Main loop
+    start_time = time.time()
+    epoch_time = AverageMeter()
+    for epoch in range(args.start_epoch, args.epochs):
+        current_learning_rate = adjust_learning_rate(optimizer, epoch, args.gammas, args.schedule)
+
+        need_hour, need_mins, need_secs = convert_secs2time(epoch_time.avg * (args.epochs-epoch))
+        need_time = &quot[Need: {:02d}:{:02d}:{:02d}]&quot.format(need_hour, need_mins, need_secs)
+
+        print_log(&quot\n==&gt;&gt;{:s} [Epoch={:03d}/{:03d}] {:s} [learning_rate={:6.4f}]&quot.format(time_string(), epoch, args.epochs, need_time, current_learning_rate) \
+                                + &quot [Best : Accuracy={:.2f}, Error={:.2f}]&quot.format(<a id="change">recorder</a>.max_accuracy(False), 100-<a id="change">recorder</a>.max_accuracy(False)), log)
+
+        &#47&#47 train for one epoch
+        train_acc, train_los = train(train_loader, net, criterion, optimizer, epoch, log)
+
+        &#47&#47 evaluate on validation set
+        val_acc_1,   val_los_1   = validate(test_loader, net, criterion, log)
+        
+        is_best = <a id="change">recorder</a>.update(epoch, train_los, train_acc, val_los_1, val_acc_1)
+
+        save_checkpoint({
+            &quotepoch&quot: epoch + 1,
+            &quotarch&quot: args.arch,
+            &quotstate_dict&quot: net,
+            &quotrecorder&quot: recorder,
+            &quotoptimizer&quot : <a id="change">optimizer</a>.state_dict(),
+        }, is_best, args.save_path, &quotcheckpoint.pth.tar&quot)
+
+        &#47&#47 measure elapsed time
+        <a id="change">epoch_time</a>.update(time.time() - start_time)
+        start_time = time.time()
+
+    <a id="change">log</a><a id="change">.close()</a>
+
+&#47&#47 train function (forward, backward, update)
+def train(train_loader, model, criterion, optimizer, epoch, log):
+    batch_time = AverageMeter()
+    data_time = AverageMeter()
+    losses = AverageMeter()
+    top1 = AverageMeter()
+    top5 = AverageMeter()
+    &#47&#47 switch to train mode
+    model.train()
+
+    end = time.time()
+    for i, (input, target) in enumerate(train_loader):
+        &#47&#47 measure data loading time
+        data_time.update(time.time() - end)
+
+        if args.use_cuda:
+            target = target.cuda(async=True)
+            input = input.cuda()
+        input_var = torch.autograd.Variable(input)
+        target_var = torch.autograd.Variable(target)
+
+        &#47&#47 compute output
+        output = model(input_var)
+        loss = criterion(output, target_var)
+
+        &#47&#47 measure accuracy and record loss
+        prec1, prec5 = accuracy(output.data, target, topk=(1, 5))
+        losses.update(loss.data[0], input.size(0))
+        top1.update(prec1[0], input.size(0))
+        top5.update(prec5[0], input.size(0))
+
+        &#47&#47 compute gradient and do SGD step
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        &#47&#47 measure elapsed time
+        batch_time.update(time.time() - end)
+        end = time.time()
+
+        if i % args.print_freq == 0:
+            print_log(&quot  Epoch: [{:03d}][{:03d}/{:03d}]   &quot
+                        &quotTime {batch_time.val:.3f} ({batch_time.avg:.3f})   &quot
+                        &quotData {data_time.val:.3f} ({data_time.avg:.3f})   &quot
+                        &quotLoss {loss.val:.4f} ({loss.avg:.4f})   &quot
+                        &quotPrec@1 {top1.val:.3f} ({top1.avg:.3f})   &quot
+                        &quotPrec@5 {top5.val:.3f} ({top5.avg:.3f})   &quot.format(
+                        epoch, i, len(train_loader), batch_time=batch_time,
+                        data_time=data_time, loss=losses, top1=top1, top5=top5) + time_string(), log)
+    print_log(&quot  **Train** Prec@1 {top1.avg:.3f} Prec@5 {top5.avg:.3f} Error@1 {error1:.3f}&quot.format(top1=top1, top5=top5, error1=100-top1.avg), log)
+    return top1.avg, losses.avg
+
+def validate(val_loader, model, criterion, log):
+    losses = AverageMeter()
+    top1 = AverageMeter()
+    top5 = AverageMeter()
+
+    &#47&#47 switch to evaluate mode
+    model.eval()
+
+    for i, (input, target) in enumerate(val_loader):
+        if args.use_cuda:
+            target = target.cuda(async=True)
+            input = input.cuda()
+        input_var = torch.autograd.Variable(input, volatile=True)
+        target_var = torch.autograd.Variable(target, volatile=True)
+
+        &#47&#47 compute output
+        output = model(input_var)
+        loss = criterion(output, target_var)
+
+        &#47&#47 measure accuracy and record loss
+        prec1, prec5 = accuracy(output.data, target, topk=(1, 5))
+        losses.update(loss.data[0], input.size(0))
+        top1.update(prec1[0], input.size(0))
+        top5.update(prec5[0], input.size(0))
+
+    print_log(&quot  **Test** Prec@1 {top1.avg:.3f} Prec@5 {top5.avg:.3f} Error@1 {error1:.3f}&quot.format(top1=top1, top5=top5, error1=100-top1.avg), log)
+
+    return top1.avg, losses.avg
+
+def print_log(print_string, log):
+    print("{}".format(print_string))
+    log.write(&quot{}\n&quot.format(print_string))
+    log.flush()
+
+def save_checkpoint(state, is_best, save_path, filename):
+    filename = os.path.join(save_path, filename)
+    torch.save(state, filename)
+    if is_best:
+        bestname = os.path.join(save_path, &quotmodel_best.pth.tar&quot)
+        shutil.copyfile(filename, bestname)
+
+def adjust_learning_rate(optimizer, epoch, gammas, schedule):
+    Sets the learning rate to the initial LR decayed by 10 every 30 epochs
+    lr = args.learning_rate
+    assert len(gammas) == len(schedule), "length of gammas and schedule should be equal"
+    for (gamma, step) in zip(gammas, schedule):
+        if (epoch &gt;= step):
+            lr = lr * gamma
+        else:
+            break
+    for param_group in optimizer.param_groups:
+        param_group[&quotlr&quot] = lr
+    return lr
+
+def accuracy(output, target, topk=(1,)):
+    Computes the precision@k for the specified values of k
+    maxk = max(topk)
+    batch_size = target.size(0)
+
+    _, pred = output.topk(maxk, 1, True, True)
+    pred = pred.t()
+    correct = pred.eq(target.view(1, -1).expand_as(pred))
+
+    res = []
+    for k in topk:
+        correct_k = correct[:k].view(-1).float().sum(0)
+        res.append(correct_k.mul_(100.0 / batch_size))
+    return res
+
+
+class Mask:
+    def __init__(self,model):
+        self.model_size = {}
+        self.model_length = {}
+        self.compress_rate = {}
+        self.mat = {}
+        self.model = model
+        self.mask_index = []
+        
+    
+    def get_codebook(self, weight_torch,compress_rate,length):
+        weight_vec = weight_torch.view(length)
+        weight_np = weight_vec.cpu().numpy()
+    
+        weight_abs = np.abs(weight_np)
+        weight_sort = np.sort(weight_abs)
+        
+        threshold = weight_sort[int (length * (1-compress_rate) )]
+        weight_np [weight_np &lt;= -threshold  ] = 1
+        weight_np [weight_np &gt;= threshold  ] = 1
+        weight_np [weight_np !=1  ] = 0
+        
+        print("codebook done")
+        return weight_np
+
+    def get_filter_codebook(self, weight_torch,compress_rate,length):
+        codebook = np.ones(length)
+        if len( weight_torch.size())==4:
+            filter_pruned_num = int(weight_torch.size()[0]*(1-compress_rate))
+            weight_vec = weight_torch.view(weight_torch.size()[0],-1)
+            norm2 = torch.norm(weight_vec,2,1)
+            norm2_np = norm2.cpu().numpy()
+            filter_index = norm2_np.argsort()[:filter_pruned_num]
+&#47&#47            norm1_sort = np.sort(norm1_np)
+&#47&#47            threshold = norm1_sort[int (weight_torch.size()[0] * (1-compress_rate) )]
+            kernel_length = weight_torch.size()[1] *weight_torch.size()[2] *weight_torch.size()[3]
+            for x in range(0,len(filter_index)):
+                codebook [filter_index[x] *kernel_length : (filter_index[x]+1) *kernel_length] = 0
+
+            print("filter codebook done")
+        else:
+            pass
+        return codebook
+    
+    def convert2tensor(self,x):
+        x = torch.FloatTensor(x)
+        return x
+    
+    def init_length(self):
+        for index, item in enumerate(self.model.parameters()):
+            self.model_size [index] = item.size()
+        
+        for index1 in self.model_size:
+            for index2 in range(0,len(self.model_size[index1])):
+                if index2 ==0:
+                    self.model_length[index1] = self.model_size[index1][0]
+                else:
+                    self.model_length[index1] *= self.model_size[index1][index2]
+                    
+    def init_rate(self, layer_rate):
+        for index, item in enumerate(self.model.parameters()):
+            self.compress_rate [index] = 1
+        for key in range(args.layer_begin, args.layer_end + 1, args.layer_inter):
+            self.compress_rate[key]= layer_rate
+        &#47&#47different setting for  different architecture
+        if args.arch == &quotresnet20&quot:
+            last_index = 57
+        elif args.arch == &quotresnet32&quot:
+            last_index = 93
+        elif args.arch == &quotresnet56&quot:
+            last_index = 165
+        elif args.arch == &quotresnet110&quot:
+            last_index = 327
+        self.mask_index =  [x for x in range (0,last_index,3)]
+        
+    def init_mask(self,layer_rate):
+        self.init_rate(layer_rate)
+        for index, item in enumerate(self.model.parameters()):
+            if(index in self.mask_index):
+                self.mat[index] = self.get_filter_codebook(item.data, self.compress_rate[index],self.model_length[index] )
+                self.mat[index] = self.convert2tensor(self.mat[index])
+                if args.use_cuda:
+                    self.mat[index] = self.mat[index].cuda()
+        print("mask Ready")
+
+    def do_mask(self):
+        for index, item in enumerate(self.model.parameters()):
+            if(index in self.mask_index):
+                a = item.data.view(self.model_length[index])
+                b = a * self.mat[index]
+                item.data = b.view(self.model_size[index])
+        print("mask Done")
+
+    def if_zero(self):
+        for index, item in enumerate(self.model.parameters()):
+&#47&#47            if(index in self.mask_index):
+            if(index ==0):
+                a = item.data.view(self.model_length[index])
+                b = a.cpu().numpy()
+                
+                print("number of nonzero weight is %d, zero is %d" %( np.count_nonzero(b),len(b)- np.count_nonzero(b)))
+        
+if __name__ == &quot__main__&quot:
+    main()</code></pre>

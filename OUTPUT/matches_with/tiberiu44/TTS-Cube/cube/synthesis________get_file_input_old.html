@@ -1,0 +1,289 @@
+<link rel="stylesheet" href="../../..//default.css">
+<script src="../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/tiberiu44/TTS-Cube/blob/master/cube/synthesis.py#L24">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/TTS-Cube/blob/master/cube/synthesis.py#L24">GitMyHubLink</a>
+
+&#47&#47
+&#47&#47 Author: Tiberiu Boros
+&#47&#47
+&#47&#47 Licensed under the Apache License, Version 2.0 (the "License");
+&#47&#47 you may not use this file except in compliance with the License.
+&#47&#47 You may obtain a copy of the License at
+&#47&#47
+&#47&#47 http://www.apache.org/licenses/LICENSE-2.0
+&#47&#47
+&#47&#47 Unless required by applicable law or agreed to in writing, software
+&#47&#47 distributed under the License is distributed on an "AS IS" BASIS,
+&#47&#47 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+&#47&#47 See the License for the specific language governing permissions and
+&#47&#47 limitations under the License.
+&#47&#47
+
+import dynet_config
+import optparse
+import sys
+import numpy as np
+from os.path import exists
+
+
+def get_file_input_old(<a id="change">txt_file</a>):
+    <a id="change">fin = open(txt_file, &quotr&quot)</a>
+    <a id="change">line = fin.readline().strip().replace(&quot\t&quot, &quot &quot)</a>
+
+    while True:
+        <a id="change">nl = line.replace(&quot  &quot, &quot &quot)</a>
+        if nl == line:
+            break
+        <a id="change">line = nl</a>
+
+    <a id="change">fin</a><a id="change">.close()</a>
+    return line
+
+
+def get_file_input(txt_file):
+    with open(txt_file, &quotrt&quot, encoding=&quotutf-8&quot) as f:
+        return &quot &quot.join(&quot &quot.join(f.readlines()).split())
+
+
+def get_phone_input_from_text(text, speaker_identity, g2p=None):
+    from io_modules.dataset import PhoneInfo
+    speaker = &quotSPEAKER:&quot + speaker_identity
+    seq = [PhoneInfo(&quotSTART&quot, [], 0, 0)]
+    if g2p is not None:
+        w = &quot&quot
+        for char in text:
+            l_char = char.lower()
+            if l_char == l_char.upper():  &#47&#47 symbol
+                &#47&#47 append word, then symbol
+                if w.strip() != &quot&quot:
+                    transcription = g2p.transcribe(w)
+                    first = True
+                    for phon in transcription:
+                        if first and w[0].upper() == w[0]:
+                            style = &quotCASE:upper&quot
+                            first = False
+                        else:
+                            style = &quotCASE:lower&quot
+
+                        &#47&#47 fout.write(phon + &quot\t&quot + speaker + &quot\t&quot + style + &quot\n&quot)
+                        seq.append(PhoneInfo(phon, [speaker, style], 0, 0))
+                w = &quot&quot
+                &#47&#47 fout.write(l_char + &quot\t&quot + speaker + &quot\tCASE:symb\n&quot)
+                seq.append(PhoneInfo(l_char, [speaker, "CASE:symb"], 0, 0))
+            else:
+                w += l_char
+        if w.strip() != &quot&quot:
+            transcription = g2p.transcribe(w)
+            first = True
+            for phon in transcription:
+                if first and w[0].upper() == w[0]:
+                    style = &quotCASE:upper&quot
+                    first = False
+                else:
+                    style = &quotCASE:lower&quot
+
+                &#47&#47 fout.write(phon + &quot\t&quot + speaker + &quot\t&quot + style + &quot\n&quot)
+                seq.append(PhoneInfo(phon, [speaker, style], 0, 0))
+            w = &quot&quot
+    else:
+        for char in text:
+            l_char = char.lower()
+            style = &quotCASE:lower&quot
+            if l_char == l_char.upper():
+                style = &quotCASE:symb&quot
+            elif l_char != char:
+                style = &quotCASE:upper&quot
+
+            seq.append(PhoneInfo(l_char, [speaker, style], 0, 0))
+
+    seq.append(PhoneInfo(&quotSTOP&quot, [], 0, 0))
+
+    return seq
+
+
+def create_lab_input(txt_file, speaker_ident):
+    line = get_file_input(txt_file)
+
+    return get_phone_input_from_text(line, speaker_ident)
+
+
+def _render_spectrogram(mgc, output_file):
+    bitmap = np.zeros((mgc.shape[1], mgc.shape[0], 3), dtype=np.uint8)
+    &#47&#47 mgc_min = mgc.min()
+    &#47&#47 mgc_max = mgc.max()
+
+    for x in range(mgc.shape[0]):
+        for y in range(mgc.shape[1]):
+            val = np.clip(mgc[x, y] * 255, 0, 255)  &#47&#47 (mgc[x, y] - mgc_min) / (mgc_max - mgc_min)
+
+            color = val
+            bitmap[mgc.shape[1] - y - 1, x] = [color, color, color]
+    import scipy.misc as smp
+
+    img = smp.toimage(bitmap)
+    img.save(output_file)
+
+
+def load_encoder(params, base_path=&quotdata/models&quot):
+    from io_modules.dataset import Encodings
+    from models.encoder import Encoder
+
+    encodings = Encodings()
+    encodings.load(&quot%s/encoder.encodings&quot % base_path)
+
+    encoder = Encoder(params, encodings, runtime=True)
+    encoder.load(&quot%s/rnn_encoder&quot % base_path)
+
+    return encoder
+
+
+def load_vocoder(params, base_path=&quotdata/models&quot):
+    if params.vocoder == &quotclarinet&quot:
+        from models.vocoder import ClarinetVocoder
+        from models.vocoder import WavenetVocoder
+        vocoder = WavenetVocoder(params)
+        vocoder.load(&quot%s/nn_vocoder&quot % base_path)
+        pvocoder = ClarinetVocoder(params, vocoder=vocoder)
+        pvocoder.load(&quot%s/pnn_vocoder&quot % base_path)
+        return pvocoder, None
+      
+    elif params.vocoder == &quotwavenet&quot:
+        from models.vocoder import WavenetVocoder
+        vocoder = WavenetVocoder(params)
+        vocoder.load(&quot%s/nn_vocoder&quot % base_path)
+        return vocoder, None
+    else:
+        from models.vocoder import WaveGlowVocoder
+        vocoder = WaveGlowVocoder(params)
+        vocoder.load(&quot%s/waveglow_vocoder.network&quot % base_path)
+        if params.vocoder == &quotwaveglow_denoised&quot:
+            from models.denoiser import Denoiser
+            denoiser = Denoiser(vocoder.waveglow)
+        else:
+            denoiser = None
+        return vocoder, denoiser
+
+
+def synthesize_text_old(text, encoder, vocoder, speaker, params, output_file, g2p=None, denoiser=None):
+    print("[Encoding]")
+    seq = get_phone_input_from_text(text, speaker, g2p=g2p)
+    mgc, att = encoder.generate(seq)
+    _render_spectrogram(mgc, output_file + &quot.png&quot)
+
+    print("[Vocoding]")
+
+    import time
+    start = time.time()
+    import torch
+    with torch.no_grad():
+        signal = vocoder.synthesize(mgc, batch_size=params.batch_size, temperature=params.temperature)
+        if denoiser is not None:
+            signal = torch.tensor(signal, dtype=torch.float32) / 32768
+            signal = denoiser(signal.unsqueeze(0), 0.1)
+            signal = (signal.squeeze().cpu().numpy() * 32768).astype(&quotint16&quot)
+    stop = time.time()
+    sys.stdout.write(" execution time=" + str(stop - start))
+    sys.stdout.write(&quot\n&quot)
+    sys.stdout.flush()
+
+    return signal
+
+
+def synthesize_text(text, encoder, vocoder, speaker_identity, g2p=None):
+    seq = get_phone_input_from_text(text, speaker_identity, g2p=g2p)
+    mgc, _ = encoder.generate(seq)
+
+    import torch
+    with torch.no_grad():
+        signal = vocoder.synthesize(mgc, batch_size=32)
+
+    return signal
+
+
+def write_signal_to_file(signal, output_file, params):
+    from io_modules.dataset import DatasetIO
+    dio = DatasetIO()
+
+    dio.write_wave(output_file, signal, params.target_sample_rate, dtype=signal.dtype)
+
+def synthesize(speaker, input_file, output_file, params, g2p=None):
+    from models.vocoder import device
+    print(device)
+    print(params)
+
+    encoder = load_encoder(params)
+    vocoder, denoiser = load_vocoder(params)
+
+    text = get_file_input(input_file)
+
+    signal = synthesize_text_old(text, encoder, vocoder, speaker, params, output_file, g2p=g2p, denoiser=denoiser)
+    signal = signal.astype(&quotfloat32&quot) / 32768
+
+    write_signal_to_file(signal, output_file, params)
+
+
+if __name__ == &quot__main__&quot:
+    parser = optparse.OptionParser()
+    parser.add_option(&quot--input-file&quot, action=&quotstore&quot, dest=&quottxt_file&quot,
+                      help=&quotPath to the text file that will be synthesized&quot)
+    parser.add_option(&quot--speaker&quot, action=&quotstore&quot, dest=&quotspeaker&quot,
+                      help=&quotSpeaker identity&quot)
+    parser.add_option(&quot--output-file&quot, action=&quotstore&quot, dest=&quotoutput_file&quot,
+                      help=&quotOutput WAVE file&quot)
+    parser.add_option("--batch-size", action=&quotstore&quot, dest=&quotbatch_size&quot, default=&quot32&quot, type=&quotint&quot,
+                      help=&quotnumber of samples in a single batch (default=32)&quot)
+    parser.add_option("--set-mem", action=&quotstore&quot, dest=&quotmemory&quot, default=&quot2048&quot, type=&quotint&quot,
+                      help=&quotpreallocate memory for batch training (default 2048)&quot)
+    parser.add_option("--use-gpu", action=&quotstore_true&quot, dest=&quotgpu&quot,
+                      help=&quotturn on/off GPU support&quot)
+    parser.add_option("--non-parallel", action=&quotstore_true&quot, dest=&quotnon_parallel&quot,
+                      help=&quotUse sequencial speech generation instead of parallel&quot)
+    parser.add_option("--sample", action=&quotstore_true&quot, dest=&quotsample&quot,
+                      help=&quotUse random sampling&quot)
+    parser.add_option(&quot--mgc-order&quot, action=&quotstore&quot, dest=&quotmgc_order&quot, type=&quotint&quot,
+                      help=&quotOrder of MGC parameters (default=80)&quot, default=80)
+    parser.add_option(&quot--temperature&quot, action=&quotstore&quot, dest=&quottemperature&quot, type=&quotfloat&quot,
+                      help=&quotExploration parameter (max 1.0, default 0.7)&quot, default=0.7)
+    parser.add_option(&quot--target-sample-rate&quot, action=&quotstore&quot, dest=&quottarget_sample_rate&quot,
+                      help=&quotResample input files at this rate (default=24000)&quot, type=&quotint&quot, default=24000)
+    parser.add_option(&quot--g2p-model&quot, dest=&quotg2p&quot, action=&quotstore&quot,
+                      help=&quotUse this G2P model for processing&quot)
+    parser.add_option(&quot--vocoder&quot, action=&quotstore&quot, dest=&quotvocoder&quot, default=&quotclarinet&quot,
+                      choices=[&quotclarinet&quot, &quotwavenet&quot, &quotwaveglow&quot, &quotwaveglow_denoised&quot],
+                      help=&quotWhat vocoder to use: clarinet, wavenet, waveglow or waveglow_denoised&quot)
+
+    (params, _) = parser.parse_args(sys.argv)
+
+    if not params.speaker:
+        print("Speaker identity is mandatory")
+    elif not params.txt_file:
+        print("Input file is mandatory")
+    elif not params.output_file:
+        print("Output file is mandatory")
+
+    memory = int(params.memory)
+    &#47&#47 for compatibility we have to add this paramater
+    params.learning_rate = 0.0001
+    dynet_config.set(mem=memory, random_seed=9)
+    if params.gpu:
+        dynet_config.set_gpu()
+
+    if params.g2p is not None:
+        from models.g2p import G2P
+        from io_modules.encodings import Encodings
+
+        g2p_encodings = Encodings()
+        g2p_encodings.load(params.g2p + &quot.encodings&quot)
+        g2p = G2P(g2p_encodings)
+        g2p.load(params.g2p + &quot-bestAcc.network&quot)
+        if exists(params.g2p + &quot.lexicon&quot):
+            g2p.load_lexicon(params.g2p + &quot.lexicon&quot)
+    else:
+        g2p = None
+
+    synthesize(params.speaker, params.txt_file, params.output_file, params, g2p=g2p)
+</code></pre>

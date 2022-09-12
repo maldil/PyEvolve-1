@@ -1,0 +1,335 @@
+<link rel="stylesheet" href="../../..//default.css">
+<script src="../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/daniellerch/aletheia/blob/master/aletheialib/stegosim.py#L212">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/aletheia/blob/master/aletheialib/stegosim.py#L212">GitMyHubLink</a>
+
+import os
+import sys
+import scipy
+import logging
+import numpy
+import string
+import tempfile
+import shutil
+import numpy
+import subprocess
+import random
+
+import numpy as np
+
+from scipy.io import savemat, loadmat
+from PIL import Image
+
+from aletheialib import utils
+from aletheialib import octave_interface 
+
+import multiprocessing
+&#47&#47from multiprocessing.dummy import Pool as ThreadPool 
+from multiprocessing import Pool as ThreadPool 
+from multiprocessing import cpu_count
+
+from imageio import imread, imwrite
+
+
+&#47&#47 {{{ embed_message()
+
+def embed(params):
+    i, path, output_dir, payload, dst_path, embed_fn_saving, embed_fn = params
+    try:
+        basename=os.path.basename(path)
+        dst_path=os.path.join(output_dir, basename)
+        numpy.random.seed(i)
+
+        if embed_fn_saving:
+            if "-" in payload:
+                rng = payload.split(&quot-&quot)
+                rini = float(rng[0])
+                rend = float(rng[1])
+                rnd_payload = numpy.random.uniform(rini, rend)
+                print("rnd_payload:", rnd_payload)
+                embed_fn(path, rnd_payload, dst_path)
+            else:
+                embed_fn(path, payload, dst_path)
+        else:
+            if "-" in payload:
+                rng = payload.split(&quot-&quot)
+                rini = float(rng[0])
+                rend = float(rng[1])
+                rnd_payload = numpy.random.uniform(rini, rend)
+                print("rnd_payload:", rnd_payload)
+                X=embed_fn(path, rnd_payload)
+            else:
+                X=embed_fn(path, payload)
+            try:
+                imwrite(dst_path, X.astype(&quotuint8&quot))
+            except Exception as e:
+                print(str(e))
+
+    except Exception as e:
+        print(str(e))
+
+
+def embed_message(embed_fn, path, payload, output_dir, 
+                  embed_fn_saving=False):
+
+    path=utils.absolute_path(path)
+
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    output_dir=utils.absolute_path(output_dir)
+
+    &#47&#47 Read filenames
+    files=[]
+    if os.path.isdir(path):
+        for dirpath,_,filenames in os.walk(path):
+            for f in filenames:
+                path=os.path.abspath(os.path.join(dirpath, f))
+                if not utils.is_valid_image(path):
+                    print("Warning, please provide a valid image: ", f)
+                else:
+                    files.append(path)
+    else:
+        files=[path]
+    
+    &#47&#47 remove fileas already generated in a previous execution
+    filtered_files = []
+    for f in files:
+        basename=os.path.basename(f)
+        dst_path=os.path.join(output_dir, basename)
+        if os.path.exists(dst_path):
+            print("Warning! file already exists, ignored:", dst_path)
+            continue
+        filtered_files.append(f)
+    files = filtered_files
+    del filtered_files
+
+
+    params = []
+    i = 0
+    for f in files:
+        params.append( (i, f, output_dir, payload, dst_path, embed_fn_saving, embed_fn) )
+        i += 1
+
+
+    &#47&#47 Process thread pool in batches
+    batch=1000
+    for i in range(0, len(params), batch):
+        params_batch = params[i:i+batch]
+        n_core=cpu_count()
+        print("Using", n_core, "threads")
+        pool = ThreadPool(n_core)
+        results = pool.map(embed, params_batch)
+        pool.close()
+        pool.terminate()
+        pool.join()
+
+
+&#47&#47 }}}
+
+
+
+
+def wow(path, payload):
+    return octave_interface.embed(&quotwow&quot, path, payload)
+
+def s_uniward(path, payload):
+    return octave_interface.embed(&quots_uniward&quot, path, payload)
+
+def s_uniward_color(path, payload):
+    return octave_interface.embed(&quots_uniward_color&quot, path, payload)
+
+def j_uniward(path, payload, dst_path):
+    return octave_interface.embed(&quotj_uniward&quot, path, payload, dst_path)
+
+def j_uniward_color(path, payload, dst_path):
+    return octave_interface.embed(&quotj_uniward_color&quot, path, payload, dst_path)
+
+def hugo(path, payload):
+    return octave_interface.embed(&quothugo&quot, path, payload)
+
+def hill(path, payload):
+    return octave_interface.embed(&quothill&quot, path, payload)
+
+def ebs(path, payload, dst_path):
+    return octave_interface.embed(&quotebs&quot, path, payload, dst_path)
+
+def ebs_color(path, payload, dst_path):
+    return octave_interface.embed(&quotebs_color&quot, path, payload, dst_path)
+
+def ued(path, payload, dst_path):
+    return octave_interface.embed(&quotued&quot, path, payload, dst_path)
+
+def ued_color(path, payload, dst_path):
+    return octave_interface.embed(&quotued_color&quot, path, payload, dst_path)
+
+def nsf5(path, payload, dst_path):
+    return octave_interface.embed(&quotnsf5&quot, path, payload, dst_path)
+
+def nsf5_color(path, payload, dst_path):
+    return octave_interface.embed(&quotnsf5_color&quot, path, payload, dst_path)
+
+def experimental(path, payload):
+    return octave_interface.embed(&quotexperimental&quot, path, payload)
+
+def custom(path, command, dst_path):
+    bn = os.path.basename(path)
+    shutil.copyfile(path, dst_path)
+    cmd = command.replace("&lt;IMAGE&gt;", dst_path)
+    FNUL = open(os.devnull, &quotw&quot)
+    p=subprocess.Popen(cmd, stdout=FNUL, stderr=FNUL, shell=True)
+    &#47&#47output, err = p.communicate()
+    status = p.wait()
+
+
+
+&#47&#47 {{{ lsbm()
+def lsbm(path, payload):
+    s = int.from_bytes(os.urandom(4), &quotbig&quot)
+    numpy.random.seed(s)
+    payload = float(payload)
+    X = imread(path).astype(&quotint16&quot)
+    Z = X.copy()
+    prob = np.random.uniform(low=0., high=1, size=X.shape)
+    msg = np.random.randint(0, 2, size=X.shape).astype(&quotint16&quot)
+    sign = np.random.choice([-1, 1], size=X.shape).astype(&quotint16&quot)
+    sign[X%2==msg] = 0
+    sign[(X==0)&(sign==-1)] = 1
+    sign[(X==255)&(sign==1)] = -1
+    X[prob&lt;payload] += sign[prob&lt;payload]
+    return X.astype(&quotuint8&quot)
+&#47&#47 }}}
+
+&#47&#47 {{{ lsbr()
+def lsbr(path, payload):
+    s = int.from_bytes(os.urandom(4), &quotbig&quot)
+    numpy.random.seed(s)
+    payload = float(payload)
+    X = imread(path)
+    Z = X.copy()
+    prob = np.random.uniform(low=0., high=1, size=X.shape)
+    msg = np.random.randint(0, 2, size=X.shape).astype(&quotuint8&quot)
+    X[prob&lt;payload] = X[prob&lt;payload] - X[prob&lt;payload]%2 + msg[prob&lt;payload]
+    return X
+&#47&#47 }}}
+
+&#47&#47 {{{ steghide()
+def steghide(path, payload, dst_path):
+
+    <a id="change">p</a>=subprocess.Popen("LANG=en_US && steghide info "+path, \
+                       shell=True,  
+                       stdout=subprocess.PIPE,   
+                       stdin=subprocess.PIPE, 
+                       stderr=subprocess.DEVNULL) 
+    output, err = p.communicate(input=b&quotn&quot)   
+    status = p.wait() 
+    <a id="change">output</a> = output.decode()   
+ 
+    <a id="change">found</a> = False
+    <a id="change">capacity</a> = 0.0
+    for <a id="change">line</a> in output.splitlines():
+        if "capacity" in line:  
+            <a id="change">m</a> = 1 
+            <a id="change">line</a> = line.replace("capacity: ", "") 
+            if "KB" in line: 
+                <a id="change">line</a> = line.replace("KB", "") 
+                <a id="change">m</a> = 1024  
+            elif "MB" in line:  
+                <a id="change">line</a> = line.replace("MB", "") 
+                <a id="change">m</a> = 1024*1024 
+            elif "Byte" in line: 
+                <a id="change">line</a> = line.replace("Byte", "")  
+     
+            <a id="change">capacity</a> = int(float(line)*m) 
+            <a id="change">found</a> = True
+            break
+
+    if not found:
+        print("ERROR: can not get capacity for", path)
+        sys.exit(0)
+
+    <a id="change">nbytes</a> = int(capacity*float(payload));
+
+    <a id="change">password</a> = &quot&quot.join(random.sample(string.ascii_letters+string.digits, 8))
+
+    <a id="change">secret</a><a id="change"> = open("/tmp/secret-"+password+".data", "wb")</a>                     
+    secret.write(os.urandom(nbytes))                                         
+    <a id="change">secret</a><a id="change">.close()</a>     
+
+
+    <a id="change">cmd</a> = "steghide embed -cf "+path+" -ef /tmp/secret-"+password+".data -sf " \
+          +dst_path+" -p "+password+" -Z -q"
+    os.system(cmd)                                                           
+    os.remove("/tmp/secret-"+password+".data")  
+
+&#47&#47 }}}
+
+&#47&#47 {{{ steganogan()
+def steganogan(path, payload, dst_path):
+
+    I = imread(path)
+    capacity = 1
+    for m in I.shape:
+        capacity *= m
+    nbytes = int(capacity*float(payload)/8);
+    &#47&#47print("nbytes:", nbytes)
+
+    msg = &quot&quot.join(random.choice(string.ascii_letters+string.digits) for i in range(nbytes))
+    &#47&#47cmd = "steganogan encode --cpu "+path+" "+msg+" -o "+dst_path
+    cmd = "steganogan encode "+path+" "+msg+" -o "+dst_path
+    os.system(cmd)                                                           
+
+&#47&#47 }}}
+
+
+&#47&#47 {{{ embedding_fn()
+def embedding_fn(name):
+    if name=="lsbr-sim":
+        return lsbr
+    if name=="lsbm-sim":
+        return lsbm
+    if name=="hugo-sim":
+        return hugo
+    if name=="wow-sim":
+        return wow
+    if name=="s-uniward-sim":
+        return s_uniward
+    if name=="s-uniward-color-sim":
+        return s_uniward_color
+    if name=="j-uniward-sim":
+        return j_uniward
+    if name=="j-uniward-color-sim":
+        return j_uniward_color
+    if name=="hill-sim":
+        return hill
+    if name=="ebs-sim":
+        return ebs
+    if name=="ebs-color-sim":
+        return ebs_color
+    if name=="ued-sim":
+        return ued
+    if name=="ueb-color-sim":
+        return ued_color
+    if name=="nsf5-sim":
+        return nsf5
+    if name=="nsf5-color-sim":
+        return nsf5_color
+    if name=="steghide-sim":
+        return steghide
+    if name=="steganogan-sim":
+        return steganogan
+
+    print("Unknown simulator:", name)
+    sys.exit(0)
+&#47&#47 }}}
+
+
+
+
+
+
+</code></pre>

@@ -1,0 +1,112 @@
+<link rel="stylesheet" href="../../..//default.css">
+<script src="../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/idaholab/raven/blob/devel/developer_tools/createSQAtracebilityMatrix.py#L42">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/raven/blob/devel/developer_tools/createSQAtracebilityMatrix.py#L42">GitMyHubLink</a>
+
+&#47&#47 Copyright 2017 Battelle Energy Alliance, LLC
+&#47&#47
+&#47&#47 Licensed under the Apache License, Version 2.0 (the "License");
+&#47&#47 you may not use this file except in compliance with the License.
+&#47&#47 You may obtain a copy of the License at
+&#47&#47
+&#47&#47 http://www.apache.org/licenses/LICENSE-2.0
+&#47&#47
+&#47&#47 Unless required by applicable law or agreed to in writing, software
+&#47&#47 distributed under the License is distributed on an "AS IS" BASIS,
+&#47&#47 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+&#47&#47 See the License for the specific language governing permissions and
+&#47&#47 limitations under the License.
+
+ Created on October 20, 2018
+
+ @author: alfoa
+
+import os
+from glob import glob
+import inspect
+import xml.etree.ElementTree as ET
+import copy
+import sys
+from collections import OrderedDict, defaultdict
+&#47&#47 import utility functions
+import readRequirementsAndCreateLatex as readRequirements
+from createRegressionTestDocumentation import testDescription as regressionTests
+
+def contructRequirementMapWithTests(requirementDict):
+  
+    Method to construct the link between requirements&quot ids and tests
+    @ In, requirementDict, dict, the requirement dictionary
+    @ Out, reqDictionary, dict, the requirement mapping ({&quotreq id&quot:[test1,test2,etc]})
+  
+  reqDictionary = defaultdict(list)
+  for testName,req in requirementDict.items():
+    for reqId in req.find("requirements").text.split():
+      reqDictionary[reqId.strip()].append(testName)
+  return reqDictionary
+
+def createLatexFile(reqDictionary,reqDocument,outputLatex):
+  
+    Method to write a section containing the requirement matrix in LateX
+    @ In, reqDictionary, dict, the requirement mapping ({&quotreq id&quot:[test1,test2,etc]})
+    @ In, reqDocument, tuple, (app name, the requirement dictionary)
+    @ In, outputLatex, string, the output latex file
+    @ Out, None
+  
+  app, allGroups = reqDocument
+  <a id="change">fileObject = open(outputLatex,"w+")</a>
+  fileObject.write(" \\section{"+app.strip().upper()+":SYSTEM REQUIREMENTS} \n")
+  fileObject.write(" \\subsection{Requirements Traceability Matrix} \n")
+  fileObject.write(" This section contains all of the requirements, requirements&quot description, and \n")
+  fileObject.write(" requirement test cases. The requirement tests are automatically tested for each \n")
+  fileObject.write(" CR (Change Request) by the CIS (Continuous Integration System). \n")
+  fileObject.write(" \\newcolumntype{b}{X} \n")
+  fileObject.write(" \\newcolumntype{s}{&gt;{\\hsize=.5\\hsize}X} \n")
+
+  for group, groupDict in allGroups.items():
+    fileObject.write(" \\subsubsection{"+group.strip()+"} \n")
+    for reqSetName,reqSet in groupDict.items():
+      &#47&#47 create table here
+      fileObject.write("\\begin{tabularx}{\\textwidth}{|s|s|b|} \n")
+      fileObject.write("\\hline \n")
+      fileObject.write("\\textbf{Requirment ID} & \\textbf{Requirment Description} & \\textbf{Test(s)}  \\\ \hline \n")
+      fileObject.write("\\hline \n")
+      ravenPath =    os.path.realpath(os.path.join(os.path.realpath(__file__) ,"..","..",".."))
+      for reqName,req in reqSet.items():
+        requirementTests = reqDictionary.get(reqName)
+        if requirementTests is None:
+          source = req.get("source")
+          if source is not None:
+            requirementTests = source
+        requirementTests = [] if requirementTests is None else requirementTests
+        for i in range(len(requirementTests)):
+          requirementTests[i] = str(i+1) + ")" + requirementTests[i].replace(ravenPath,"").replace("_","\_").strip()
+        fileObject.write(" \\hspace{0pt}"+reqName.strip()+" & \\hspace{0pt}"+req[&quotdescription&quot]+" & \\hspace{0pt}"+ &quot &quot.join(requirementTests)+" \\\ \hline \n")
+        fileObject.write("\\hline \n")
+      fileObject.write("\\caption*{"+reqSetName.strip()+"}\n")
+      fileObject.write("\\end{tabularx} \n")
+  fileObject.write("\\end{document}")
+  <a id="change">fileObject</a><a id="change">.close()</a>
+
+
+if __name__ == &quot__main__&quot:
+  try:
+    index = sys.argv.index("-i")
+    requirementFile = sys.argv[index+1].strip()
+  except ValueError:
+    raise ValueError("Not found command line argument -i")
+  try:
+    index = sys.argv.index("-o")
+    outputLatex = sys.argv[index+1].strip()
+  except ValueError:
+    raise ValueError("Not found command line argument -o")
+
+  reqDocument = readRequirements.readRequirementsXml(requirementFile)
+  descriptionClass = regressionTests()
+  _, _, requirementDict = descriptionClass.splitTestDescription()
+  reqDictionary = contructRequirementMapWithTests(requirementDict)
+  createLatexFile(reqDictionary,reqDocument,outputLatex)
+</code></pre>

@@ -1,0 +1,33 @@
+<link rel="stylesheet" href="../../../..//default.css">
+<script src="../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/autonomio/talos/blob/master/talos/utils/load_model.py#L4">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/talos/blob/master/talos/utils/load_model.py#L4">GitMyHubLink</a>
+
+from tensorflow.keras.models import model_from_json
+
+
+def load_model(saved_model):
+
+    &quot&quot&quotLoad a Model from local disk
+
+    Takes as input .json and .h5 file with model
+    and weights and returns a model that can be then
+    used for predictions.
+
+    saved_model :: name of the saved model without
+    suffix (e.g. &quotiris_model&quot and not &quotiris_model.json&quot)
+
+    &quot&quot&quot
+
+    <a id="change">json_file</a><a id="change"> = open(saved_model + ".json", &quotr&quot)</a>
+    loaded_model_json = <a id="change">json_file</a>.read()
+    <a id="change">json_file</a><a id="change">.close()</a>
+    model = model_from_json(loaded_model_json)
+    <a id="change">model</a>.load_weights(saved_model + &quot.h5&quot)
+
+    return model
+</code></pre>

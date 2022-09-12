@@ -1,0 +1,2070 @@
+digraph G {
+1 [label="(47328251)Any(conf)" shape=ellipse style=dashed]
+2 [label="(47327980)plasma.models.builder(builder)" shape=ellipse style=dashed]
+3 [label="(47328108)If" shape=diamond style=dashed]
+4 [label="(47328106)String(lit(optimizer))" shape=ellipse style=dashed]
+5 [label="(47328434)String(lit(monitor_times))" shape=ellipse style=dashed]
+6 [label="(47328454)write_unique" shape=box style=dashed]
+7 [label="(47328458)ListComp" shape=diamond style=dashed]
+8 [label="(47327972)Any(conf)" shape=ellipse style=dashed]
+9 [label="(47328291)If" shape=diamond style=dashed]
+10 [label="(47328462)Any(times)" shape=ellipse style=dashed]
+11 [label="(47328071)Any(Subscript)" shape=ellipse style=dashed]
+12 [label="(47328304)Pow" shape=box style=dashed]
+13 [label="(47327953)Any(shot_list_validate)" shape=ellipse style=dashed]
+14 [label="(47328305)Mult" shape=box style=dashed]
+15 [label="(47328166)Any(tensorboard_save_path)" shape=ellipse style=dashed]
+16 [label="(47328048)Any[.](Subscript)" shape=ellipse style=dashed]
+17 [label="(47328645)number(1)" shape=ellipse style=dashed]
+18 [label="(47328029)Any(Subscript)" shape=ellipse style=dashed]
+19 [label="(47328023)String(lit(num_epochs))" shape=ellipse style=dashed]
+20 [label="(47328316)Any(e)" shape=ellipse style=dashed]
+21 [label="(47328655)empty" shape=box style=dashed]
+22 [label="(47328325)Any(e)" shape=ellipse style=dashed]
+23 [label="(47328652)round" shape=box style=dashed]
+24 [label="(47328570)If" shape=diamond style=dashed]
+25 [label="(47328588)Dict[str, Any](epoch_logs)" shape=ellipse style=dashed]
+26 [label="(47328247){new}" shape=box style=dashed]
+27 [label="(47328585)int" shape=box style=dashed]
+28 [label="(47328475)IsNot" shape=box style=dashed]
+29 [label="(47328018)Any(num_epochs)" shape=ellipse style=dashed]
+30 [label="(47328089)Any[.](Subscript)" shape=ellipse style=dashed]
+31 [label="(47328364)List[Any](_)" shape=ellipse style=dashed]
+32 [label="(47328037)String(lit(batch_size))" shape=ellipse style=dashed]
+33 [label="(47328209)MPIModel(mpi_model)" shape=ellipse style=dashed]
+34 [label="(47328579)Any(roc_area_train)" shape=ellipse style=dashed]
+35 [label="(47328268)empty" shape=box style=dashed]
+36 [label="(47328375)Any[.](Subscript)" shape=ellipse style=dashed]
+37 [label="(47328237)set_params" shape=box style=dashed]
+38 [label="(47328515)Dict[str, Any](epoch_logs)" shape=ellipse style=dashed]
+39 [label="(47328269)Any(best_so_far)" shape=ellipse style=dashed]
+40 [label="(47328659)bcast" shape=box style=dashed]
+41 [label="(47328432)String(lit(callbacks))" shape=ellipse style=dashed]
+42 [label="(47328653)Any(e)" shape=ellipse style=dashed]
+43 [label="(47328052)=" shape=box style=dashed]
+44 [label="(47328416)String(lit(monitor_test))" shape=ellipse style=dashed]
+45 [label="(47328143)MPIModel(mpi_model)" shape=ellipse style=dashed color=blue fontcolor=blue]
+46 [label="(47328219)Any(callbacks)" shape=ellipse style=dashed]
+47 [label="(47328369)mpi_make_predictions_and_evaluate" shape=box style=dashed]
+48 [label="(47328673)String(lit(Stopping training due to early stopping))" shape=ellipse style=dashed]
+49 [label="(47328608)String(lit(monitor))" shape=ellipse style=dashed]
+50 [label="(47328651)int" shape=box style=dashed]
+51 [label="(47328538)=" shape=box style=dashed]
+52 [label="(47328040)Any(conf)" shape=ellipse style=dashed]
+53 [label="(47328200)MPIModel(mpi_model)" shape=ellipse style=dashed]
+54 [label="(47328556)String(lit(Validation Loss: {:.3e}))" shape=ellipse style=dashed]
+55 [label="(47328028)String(lit(model))" shape=ellipse style=dashed]
+56 [label="(47328072)String(lit(optimizer))" shape=ellipse style=dashed]
+57 [label="(47328671)plasma.global_vars(g)" shape=ellipse style=dashed]
+58 [label="(47328043)Any(Subscript)" shape=ellipse style=dashed]
+59 [label="(47328386)List[Any](_)" shape=ellipse style=dashed]
+60 [label="(47328524)=" shape=box style=dashed]
+61 [label="(47328684)on_train_end" shape=box style=dashed]
+62 [label="(47328603)Any(Subscript)" shape=ellipse style=dashed]
+63 [label="(47328015)Any(e_old)" shape=ellipse style=dashed]
+64 [label="(47327996)number(0)" shape=ellipse style=dashed]
+65 [label="(47328222)Any(conf)" shape=ellipse style=dashed]
+66 [label="(47328390)mpi_make_predictions_and_evaluate" shape=box style=dashed]
+67 [label="(47328441)Any(conf)" shape=ellipse style=dashed]
+68 [label="(47328639)partial" shape=box style=dashed]
+69 [label="(47328622)Any(Subscript)" shape=ellipse style=dashed]
+70 [label="(47328064)Any(Subscript)" shape=ellipse style=dashed]
+71 [label="(47328279)While" shape=diamond style=dashed]
+72 [label="(47328330)=" shape=box style=dashed]
+73 [label="(47328430)Any(conf)" shape=ellipse style=dashed]
+74 [label="(47328110)MPIMomentumSGD(optimizer)" shape=ellipse style=dashed]
+75 [label="(47328196)sys(sys)" shape=ellipse style=dashed]
+76 [label="(47328282)write_unique" shape=box style=dashed]
+77 [label="(47328096)empty" shape=box style=dashed]
+78 [label="(47328663)write_unique" shape=box style=dashed]
+79 [label="(47328063)String(lit(training))" shape=ellipse style=dashed]
+80 [label="(47328274)Callable(min)" shape=ellipse style=dashed]
+81 [label="(47328146)Any[.](Subscript)" shape=ellipse style=dashed]
+82 [label="(47328066)=" shape=box style=dashed]
+83 [label="(47328456)String(lit( ))" shape=ellipse style=dashed]
+84 [label="(47328017)=" shape=box style=dashed]
+85 [label="(47328296)round" shape=box style=dashed]
+86 [label="(47328607)Any(Subscript)" shape=ellipse style=dashed]
+87 [label="(47328660)Any(stop_training)" shape=ellipse style=dashed]
+88 [label="(47327954)(null)" shape=ellipse style=dashed]
+89 [label="(47328391)Any(conf)" shape=ellipse style=dashed]
+90 [label="(47328076)MPIAdam(optimizer)" shape=ellipse style=dashed]
+91 [label="(47328578)format" shape=box style=dashed]
+92 [label="(47328157)None(tensorboard)" shape=ellipse style=dashed]
+93 [label="(47328625)empty" shape=box style=dashed]
+94 [label="(47328630)String(lit(Not saving model weights))" shape=ellipse style=dashed]
+95 [label="(47328179)=" shape=box style=dashed]
+96 [label="(47328038)=" shape=box style=dashed]
+97 [label="(47328662)plasma.global_vars(g)" shape=ellipse style=dashed]
+98 [label="(47328519)=" shape=box style=dashed]
+99 [label="(47328265)Callable(cmp_fn)" shape=ellipse style=dashed]
+100 [label="(47328317)Any(e_old)" shape=ellipse style=dashed]
+101 [label="(47328197)sys.stdout(stdout)" shape=ellipse style=dashed]
+102 [label="(47328228)MPIModel.model(model)" shape=ellipse style=dashed]
+103 [label="(47328332)plasma.global_vars.task_index(task_index)" shape=ellipse style=dashed]
+104 [label="(47328012)load_model_weights" shape=box style=dashed]
+105 [label="(47328256)String(lit(max))" shape=ellipse style=dashed]
+106 [label="(47328496)zip" shape=box style=dashed]
+107 [label="(47328348)String(lit(no_validation))" shape=ellipse style=dashed]
+108 [label="(47328576)print" shape=box style=dashed]
+109 [label="(47327975)plasma.global_vars(g)" shape=ellipse style=dashed]
+110 [label="(47328360)Any(e)" shape=ellipse style=dashed]
+111 [label="(47328598)MPIModel.model.stop_training(stop_training)" shape=ellipse style=dashed]
+112 [label="(47328473)Any(shot_list_test)" shape=ellipse style=dashed]
+113 [label="(47328632)delete_model_weights" shape=box style=dashed]
+114 [label="(47328261)numpy(np)" shape=ellipse style=dashed]
+115 [label="(47328486)Any(times)" shape=ellipse style=dashed]
+116 [label="(47327999)Any(tf)" shape=ellipse style=dashed]
+117 [label="(47328597)MPIModel.model(model)" shape=ellipse style=dashed]
+118 [label="(47328478)boolean(dummy_)" shape=ellipse style=dashed]
+119 [label="(47328396)partial" shape=box style=dashed]
+120 [label="(47328493)ListComp" shape=diamond style=dashed]
+121 [label="(47328341)round" shape=box style=dashed]
+122 [label="(47328615)Any[.](Subscript)" shape=ellipse style=dashed]
+123 [label="(47328517)String(lit(val_loss))" shape=ellipse style=dashed]
+124 [label="(47328472)Add" shape=box style=dashed]
+125 [label="(47328353)Dict[str, Any](epoch_logs)" shape=ellipse style=dashed]
+126 [label="(47328514)=" shape=box style=dashed]
+127 [label="(47328582)String(lit(======================== ))" shape=ellipse style=dashed]
+128 [label="(47327985)plasma.global_vars.tf_ver(tf_ver)" shape=ellipse style=dashed]
+129 [label="(47328149)String(lit(optimizer))" shape=ellipse style=dashed]
+130 [label="(47328577)String(lit(Training ROC: {:.4f}))" shape=ellipse style=dashed]
+131 [label="(47328465)String(lit(val_roc_{} = {}))" shape=ellipse style=dashed]
+132 [label="(47328270)numpy(np)" shape=ellipse style=dashed]
+133 [label="(47328443)Any(loader)" shape=ellipse style=dashed]
+134 [label="(47328263)USub" shape=box style=dashed]
+135 [label="(47328389)()" shape=box style=dashed]
+136 [label="(47328471)String(lit(
+))" shape=ellipse style=dashed]
+137 [label="(47328612)And" shape=box style=dashed]
+138 [label="(47328199)=" shape=box style=dashed]
+139 [label="(47328350)empty" shape=box style=dashed]
+140 [label="(47328439)()" shape=box style=dashed]
+141 [label="(47328131)String(lit(warmup steps = {}))" shape=ellipse style=dashed]
+142 [label="(47328025)Any(lr_decay)" shape=ellipse style=dashed]
+143 [label="(47328505)Add" shape=box style=dashed]
+144 [label="(47328510)Dict[str, Any](epoch_logs)" shape=ellipse style=dashed]
+145 [label="(47328003)Any.logging(logging)" shape=ellipse style=dashed]
+146 [label="(47327955)=" shape=box style=dashed]
+147 [label="(47328642)" shape=box style=dashed]
+148 [label="(47328073)In" shape=box style=dashed]
+149 [label="(47328641)Any.training_batch_generator(training_batch_generator)" shape=ellipse style=dashed]
+150 [label="(47328447)String(lit(epoch {}, ))" shape=ellipse style=dashed]
+151 [label="(47328229)Any(callback_metrics)" shape=ellipse style=dashed]
+152 [label="(47328262)numpy.inf(inf)" shape=ellipse style=dashed]
+153 [label="(47328586)round" shape=box style=dashed]
+154 [label="(47327979)plasma.models.builder.ModelBuilder(specific_builder)" shape=ellipse style=dashed]
+155 [label="(47328307)int(step)" shape=ellipse style=dashed]
+156 [label="(47328286)Any(num_epochs)" shape=ellipse style=dashed]
+157 [label="(47328306)boolean(dummy_)" shape=ellipse style=dashed]
+158 [label="(47328176)String(lit(callbacks))" shape=ellipse style=dashed]
+159 [label="(47328253)String(lit(callbacks))" shape=ellipse style=dashed]
+160 [label="(47328606)String(lit(callbacks))" shape=ellipse style=dashed]
+161 [label="(47327949)Any(shot_list_train)" shape=ellipse style=dashed]
+162 [label="(47328246)Any(batch_size)" shape=ellipse style=dashed]
+163 [label="(47328621)String(lit(callbacks))" shape=ellipse style=dashed]
+164 [label="(47327951)=" shape=box style=dashed]
+165 [label="(47328476)If" shape=diamond style=dashed]
+166 [label="(47328403)=" shape=box style=dashed]
+167 [label="(47328189)String(lit(model_architecture.log))" shape=ellipse style=dashed color=blue fontcolor=blue]
+168 [label="(47328292)empty" shape=box style=dashed]
+169 [label="(47328566)Any(Subscript)" shape=ellipse style=dashed]
+170 [label="(47328104)String(lit(model))" shape=ellipse style=dashed]
+171 [label="(47328036)Any(Subscript)" shape=ellipse style=dashed]
+172 [label="(47328460)Any(roc)" shape=ellipse style=dashed]
+173 [label="(47328488)plasma.global_vars(g)" shape=ellipse style=dashed]
+174 [label="(47328133)Any(warmup_steps)" shape=ellipse style=dashed]
+175 [label="(47328387)Any(roc_area_train)" shape=ellipse style=dashed]
+176 [label="(47327947)=" shape=box style=dashed]
+177 [label="(47328116)exit()" shape=box style=dashed]
+178 [label="(47328148)Any(Subscript)" shape=ellipse style=dashed]
+179 [label="(47328545)If" shape=diamond style=dashed]
+180 [label="(47328183)TensorBoard(tensorboard)" shape=ellipse style=dashed color=red fontcolor=red]
+181 [label="(47328509)empty" shape=box style=dashed]
+182 [label="(47328521)Any(Subscript)" shape=ellipse style=dashed]
+183 [label="(47328554)Any(ave_loss)" shape=ellipse style=dashed]
+184 [label="(47328120)format" shape=box style=dashed]
+185 [label="(47328407)MPIModel(mpi_model)" shape=ellipse style=dashed]
+186 [label="(47328129)plasma.global_vars(g)" shape=ellipse style=dashed]
+187 [label="(47328658)plasma.global_vars.comm(comm)" shape=ellipse style=dashed]
+188 [label="(47328300)set_lr" shape=box style=dashed]
+189 [label="(47328479)List[Any](areas)" shape=ellipse style=dashed]
+190 [label="(47328558)Any(loss)" shape=ellipse style=dashed]
+191 [label="(47328049)String(lit(model))" shape=ellipse style=dashed]
+192 [label="(47328264)=" shape=box style=dashed]
+193 [label="(47328525)Any(best_so_far)" shape=ellipse style=dashed]
+194 [label="(47328170)Any(Subscript)" shape=ellipse style=dashed]
+195 [label="(47328294)on_epoch_begin" shape=box style=dashed]
+196 [label="(47328680)Eq" shape=box style=dashed]
+197 [label="(47328482)mpi_make_predictions_and_evaluate_multiple_times" shape=box style=dashed]
+198 [label="(47328266)Callable(max)" shape=ellipse style=dashed]
+199 [label="(47328276)Any(e)" shape=ellipse style=dashed]
+200 [label="(47328513)Any(roc_area)" shape=ellipse style=dashed]
+201 [label="(47328101)String(lit(momentum_sgd))" shape=ellipse style=dashed]
+202 [label="(47328571)empty" shape=box style=dashed]
+203 [label="(47327970)set_inference_mode" shape=box style=dashed]
+204 [label="(47328093)String(lit(tf_sgd))" shape=ellipse style=dashed]
+205 [label="(47328512)String(lit(val_roc))" shape=ellipse style=dashed]
+206 [label="(47328686)on_train_end" shape=box style=dashed]
+207 [label="(47328060)Any(num_batches_minimum)" shape=ellipse style=dashed]
+208 [label="(47328503)Any(roc)" shape=ellipse style=dashed]
+209 [label="(47328529)Any(conf)" shape=ellipse style=dashed]
+210 [label="(47328065)String(lit(num_batches_minimum))" shape=ellipse style=dashed]
+211 [label="(47328180)TensorBoard(tensorboard)" shape=ellipse style=dashed]
+212 [label="(47327990)empty" shape=box style=dashed]
+213 [label="(47328100)empty" shape=box style=dashed]
+214 [label="(47328194)sys.stdout(stdout)" shape=ellipse style=dashed]
+215 [label="(47328365)List[Any](_)" shape=ellipse style=dashed]
+216 [label="(47327961)Any(callbacks_list)" shape=ellipse style=dashed]
+217 [label="(47328030)String(lit(lr_decay))" shape=ellipse style=dashed]
+218 [label="(47328105)Any(Subscript)" shape=ellipse style=dashed]
+219 [label="(47328470)Add" shape=box style=dashed]
+220 [label="(47328046)Any(clipnorm)" shape=ellipse style=dashed]
+221 [label="(47328490)str(epoch_str)" shape=ellipse style=dashed]
+222 [label="(47328683)Any(callbacks)" shape=ellipse style=dashed]
+223 [label="(47328293)Any(callbacks)" shape=ellipse style=dashed]
+224 [label="(47328160)plasma.global_vars(g)" shape=ellipse style=dashed]
+225 [label="(47328244)key:null,value:null(key:Str,value:Name)" shape=ellipse style=dashed]
+226 [label="(47328523)Any(ave_loss)" shape=ellipse style=dashed]
+227 [label="(47328020)Any[.](Subscript)" shape=ellipse style=dashed]
+228 [label="(47328177)Any(Subscript)" shape=ellipse style=dashed]
+229 [label="(47328225)Any(callbacks)" shape=ellipse style=dashed color=red fontcolor=red]
+230 [label="(47328111)MPIMomentumSGD" shape=box style=dashed]
+231 [label="(47328337)plasma.models.builder.ModelBuilder(specific_builder)" shape=ellipse style=dashed color=black fontcolor=black]
+232 [label="(47328412)MPIModel(mpi_model)" shape=ellipse style=dashed color=yellow fontcolor=yellow]
+233 [label="(47328034)Any[.](Subscript)" shape=ellipse style=dashed]
+234 [label="(47328050)Any(Subscript)" shape=ellipse style=dashed]
+235 [label="(47328327)Any(loader)" shape=ellipse style=dashed]
+236 [label="(47328033)Any(conf)" shape=ellipse style=dashed]
+237 [label="(47328098)MPISGD" shape=box style=dashed]
+238 [label="(47328311)Any(effective_epochs)" shape=ellipse style=dashed]
+239 [label="(47328580)empty" shape=box style=dashed]
+240 [label="(47328277)Any(num_epochs)" shape=ellipse style=dashed]
+241 [label="(47328601)Any(best_so_far)" shape=ellipse style=dashed]
+242 [label="(47328372)Any(loader)" shape=ellipse style=dashed]
+243 [label="(47328381)If" shape=diamond style=dashed]
+244 [label="(47328541)plasma.global_vars(g)" shape=ellipse style=dashed]
+245 [label="(47328498)List[Any](areas)" shape=ellipse style=dashed]
+246 [label="(47328420)keys" shape=box style=dashed]
+247 [label="(47328161)plasma.global_vars.task_index(task_index)" shape=ellipse style=dashed]
+248 [label="(47328565)String(lit(training))" shape=ellipse style=dashed]
+249 [label="(47328053)Any(warmup_steps)" shape=ellipse style=dashed]
+250 [label="(47327988)GtE" shape=box style=dashed]
+251 [label="(47328125)partial" shape=box style=dashed]
+252 [label="(47328130)print_unique" shape=box style=dashed]
+253 [label="(47328243)Any(callback_metrics)" shape=ellipse style=dashed]
+254 [label="(47328254)Any(Subscript)" shape=ellipse style=dashed]
+255 [label="(47328144)compile" shape=box style=dashed]
+256 [label="(47328284)format" shape=box style=dashed]
+257 [label="(47328318)Any(effective_epochs)" shape=ellipse style=dashed]
+258 [label="(47328054)Any(conf)" shape=ellipse style=dashed]
+259 [label="(47328464)comprehension" shape=diamond style=dashed]
+260 [label="(47328184)set_model" shape=box style=dashed]
+261 [label="(47328600)empty" shape=box style=dashed]
+262 [label="(47328322)write_unique" shape=box style=dashed]
+263 [label="(47328484)Any(shot_list_test)" shape=ellipse style=dashed]
+264 [label="(47328589)hasattr" shape=box style=dashed]
+265 [label="(47328085)String(lit(optimizer))" shape=ellipse style=dashed]
+266 [label="(47328140)functools.partial[nothing](batch_generator)" shape=ellipse style=dashed]
+267 [label="(47328147)String(lit(model))" shape=ellipse style=dashed]
+268 [label="(47328402)functools.partial[nothing](batch_generator)" shape=ellipse style=dashed]
+269 [label="(47328535)=" shape=box style=dashed]
+270 [label="(47328648)on_epoch_end" shape=box style=dashed]
+271 [label="(47328137)Union[MPIMomentumSGD, MPISGD, MPIAdam](optimizer)" shape=ellipse style=dashed]
+272 [label="(47328687)empty" shape=box style=dashed]
+273 [label="(47328549)format" shape=box style=dashed]
+274 [label="(47328195)=" shape=box style=dashed]
+275 [label="(47328272)=" shape=box style=dashed]
+276 [label="(47327997)=" shape=box style=dashed]
+277 [label="(47328497)Any(times)" shape=ellipse style=dashed]
+278 [label="(47328506)String(lit(
+))" shape=ellipse style=dashed]
+279 [label="(47328399)=" shape=box style=dashed]
+280 [label="(47328187)TextIO(fr)" shape=ellipse style=dashed color=blue fontcolor=blue]
+281 [label="(47328343)empty" shape=box style=dashed]
+282 [label="(47328070)String(lit(model))" shape=ellipse style=dashed]
+283 [label="(47328530)Any[.](Subscript)" shape=ellipse style=dashed]
+284 [label="(47328303)Any(e)" shape=ellipse style=dashed]
+285 [label="(47328431)Any[.](Subscript)" shape=ellipse style=dashed]
+286 [label="(47328449)int" shape=box style=dashed]
+287 [label="(47328374)Any(conf)" shape=ellipse style=dashed]
+288 [label="(47327976)plasma.global_vars.comm(comm)" shape=ellipse style=dashed]
+289 [label="(47328310)Any(num_so_far)" shape=ellipse style=dashed]
+290 [label="(47328583)Any(callbacks)" shape=ellipse style=dashed]
+291 [label="(47328414)empty" shape=box style=dashed]
+292 [label="(47328383)boolean(dummy_)" shape=ellipse style=dashed]
+293 [label="(47328404)MPIModel(mpi_model)" shape=ellipse style=dashed]
+294 [label="(47328163)Eq" shape=box style=dashed]
+295 [label="(47328421)In" shape=box style=dashed]
+296 [label="(47328437)List[Any](areas)" shape=ellipse style=dashed]
+297 [label="(47328236)Any(callbacks)" shape=ellipse style=dashed color=blue fontcolor=blue]
+298 [label="(47328516)Any(Subscript)" shape=ellipse style=dashed]
+299 [label="(47328245)String(lit(batch_size))" shape=ellipse style=dashed]
+300 [label="(47328371)Any(shot_list_validate)" shape=ellipse style=dashed]
+301 [label="(47328088)Any(conf)" shape=ellipse style=dashed]
+302 [label="(47328344)Any(conf)" shape=ellipse style=dashed]
+303 [label="(47328440)mpi_make_predictions_and_evaluate_multiple_times" shape=box style=dashed]
+304 [label="(47328289)number(0)" shape=ellipse style=dashed]
+305 [label="(47328427)If" shape=diamond style=dashed]
+306 [label="(47328226)set_model" shape=box style=dashed]
+307 [label="(47328211)summary" shape=box style=dashed]
+308 [label="(47328461)zip" shape=box style=dashed]
+309 [label="(47328145)Any(conf)" shape=ellipse style=dashed]
+310 [label="(47328591)MPIModel.model(model)" shape=ellipse style=dashed]
+311 [label="(47328595)Any(stop_training)" shape=ellipse style=dashed]
+312 [label="(47328242)String(lit(metrics))" shape=ellipse style=dashed]
+313 [label="(47328425)Any(Subscript)" shape=ellipse style=dashed]
+314 [label="(47328666)Any(e)" shape=ellipse style=dashed]
+315 [label="(47328193)sys(sys)" shape=ellipse style=dashed]
+316 [label="(47328078)=" shape=box style=dashed]
+317 [label="(47328401)MPIModel.batch_iterator(batch_iterator)" shape=ellipse style=dashed]
+318 [label="(47328616)String(lit(callbacks))" shape=ellipse style=dashed]
+319 [label="(47328481)()" shape=box style=dashed]
+320 [label="(47328002)Any(tf)" shape=ellipse style=dashed]
+321 [label="(47328252)Any[.](Subscript)" shape=ellipse style=dashed]
+322 [label="(47328511)Any(Subscript)" shape=ellipse style=dashed]
+323 [label="(47328522)String(lit(train_loss))" shape=ellipse style=dashed]
+324 [label="(47328674)break" shape=box style=dashed]
+325 [label="(47328561)format" shape=box style=dashed]
+326 [label="(47328281)plasma.global_vars(g)" shape=ellipse style=dashed]
+327 [label="(47328156)Any.loss(loss)" shape=ellipse style=dashed]
+328 [label="(47328354){new}" shape=box style=dashed]
+329 [label="(47328312)()" shape=box style=dashed]
+330 [label="(47328442)Any(shot_list_validate)" shape=ellipse style=dashed]
+331 [label="(47328483)Any(conf)" shape=ellipse style=dashed]
+332 [label="(47328153)String(lit(data))" shape=ellipse style=dashed]
+333 [label="(47328689)close" shape=box style=dashed color=black fontcolor=black]
+334 [label="(47328233)Any(Subscript)" shape=ellipse style=dashed]
+335 [label="(47328690)END" style=dashed]
+336 [label="(47328539)plasma.global_vars(g)" shape=ellipse style=dashed]
+337 [label="(47327995)Any._PER_MODULE_WARNING_LIMIT(_PER_MODULE_WARNING_LIMIT)" shape=ellipse style=dashed]
+338 [label="(47328117)plasma.global_vars(g)" shape=ellipse style=dashed]
+339 [label="(47328302)Any(lr_decay)" shape=ellipse style=dashed]
+340 [label="(47328492)join" shape=box style=dashed]
+341 [label="(47328676)empty" shape=box style=dashed]
+342 [label="(47328368)()" shape=box style=dashed]
+343 [label="(47327974)String(lit(num_workers))" shape=ellipse style=dashed]
+344 [label="(47328340)int" shape=box style=dashed]
+345 [label="(47328380)NotEq" shape=box style=dashed]
+346 [label="(47328295)int" shape=box style=dashed]
+347 [label="(47328459)Any(t)" shape=ellipse style=dashed]
+348 [label="(47328092)String(lit(optimizer))" shape=ellipse style=dashed]
+349 [label="(47328426)String(lit(monitor_test))" shape=ellipse style=dashed]
+350 [label="(47328665)format" shape=box style=dashed]
+351 [label="(47328435)=" shape=box style=dashed]
+352 [label="(47328097)MPISGD(optimizer)" shape=ellipse style=dashed]
+353 [label="(47327965)Any(shot_list_test)" shape=ellipse style=dashed]
+354 [label="(47328654)Dict[str, Any](epoch_logs)" shape=ellipse style=dashed]
+355 [label="(47328563)Any(conf)" shape=ellipse style=dashed]
+356 [label="(47328004)Any.logging.ERROR(ERROR)" shape=ellipse style=dashed]
+357 [label="(47328041)Any[.](Subscript)" shape=ellipse style=dashed]
+358 [label="(47328283)String(lit(
+Begin training from epoch {:.2f}/{}))" shape=ellipse style=dashed]
+359 [label="(47328419)String(lit(callbacks))" shape=ellipse style=dashed]
+360 [label="(47328347)Any(Subscript)" shape=ellipse style=dashed]
+361 [label="(47328042)String(lit(model))" shape=ellipse style=dashed]
+362 [label="(47328172)=" shape=box style=dashed]
+363 [label="(47328328)Any.verbose(verbose)" shape=ellipse style=dashed]
+364 [label="(47328005)Any(train_model)" shape=ellipse style=dashed]
+365 [label="(47328142)=" shape=box style=dashed]
+366 [label="(47328082)Any[.](Subscript)" shape=ellipse style=dashed]
+367 [label="(47328326)Any(num_epochs)" shape=ellipse style=dashed]
+368 [label="(47327946)(null)" shape=ellipse style=dashed]
+369 [label="(47328338)save_model_weights" shape=box style=dashed]
+370 [label="(47328257)Eq" shape=box style=dashed]
+371 [label="(47328551)print" shape=box style=dashed]
+372 [label="(47328297)Any(e)" shape=ellipse style=dashed]
+373 [label="(47328532)Any(Subscript)" shape=ellipse style=dashed]
+374 [label="(47328480)List[Any](_)" shape=ellipse style=dashed]
+375 [label="(47328191)=" shape=box style=dashed color=blue fontcolor=blue]
+376 [label="(47328436)boolean(dummy_)" shape=ellipse style=dashed]
+377 [label="(47328178)String(lit(write_grads))" shape=ellipse style=dashed]
+378 [label="(47328134)MPIModel(mpi_model)" shape=ellipse style=dashed color=black fontcolor=black]
+379 [label="(47328168)Any[.](Subscript)" shape=ellipse style=dashed]
+380 [label="(47328388)Any(loss_train)" shape=ellipse style=dashed]
+381 [label="(47328124)functools.partial[nothing](batch_generator)" shape=ellipse style=dashed]
+382 [label="(47327991)TryExcept" shape=diamond style=dashed]
+383 [label="(47328103)Any[.](Subscript)" shape=ellipse style=dashed]
+384 [label="(47328508)empty" shape=box style=dashed]
+385 [label="(47328413)set_batch_iterator_func" shape=box style=dashed]
+386 [label="(47328114)print" shape=box style=dashed]
+387 [label="(47328239)String(lit(epochs))" shape=ellipse style=dashed]
+388 [label="(47328596)MPIModel(mpi_model)" shape=ellipse style=dashed]
+389 [label="(47327962)(null)" shape=ellipse style=dashed]
+390 [label="(47328135)MPIModel" shape=box style=dashed]
+391 [label="(47328342)Any(e)" shape=ellipse style=dashed]
+392 [label="(47328543)number(0)" shape=ellipse style=dashed]
+393 [label="(47328000)Any.logging(logging)" shape=ellipse style=dashed]
+394 [label="(47328154)Any(Subscript)" shape=ellipse style=dashed]
+395 [label="(47328171)String(lit(tensorboard_save_path))" shape=ellipse style=dashed]
+396 [label="(47328649)nothing(val_generator)" shape=ellipse style=dashed]
+397 [label="(47328080)Or" shape=box style=dashed]
+398 [label="(47328334)Eq" shape=box style=dashed]
+399 [label="(47328039)Any(lr)" shape=ellipse style=dashed]
+400 [label="(47328212)empty" shape=box style=dashed]
+401 [label="(47328424)String(lit(callbacks))" shape=ellipse style=dashed]
+402 [label="(47328362)boolean(dummy_)" shape=ellipse style=dashed]
+403 [label="(47328548)String(lit(=========Summary======== for epoch {:.2f}))" shape=ellipse style=dashed]
+404 [label="(47328408)MPIModel.num_so_far_accum(num_so_far_accum)" shape=ellipse style=dashed]
+405 [label="(47328204)sys.stdout(stdout)" shape=ellipse style=dashed]
+406 [label="(47328550)Any(e)" shape=ellipse style=dashed]
+407 [label="(47328640)Any(loader)" shape=ellipse style=dashed]
+408 [label="(47328164)If" shape=diamond style=dashed]
+409 [label="(47328068)Any(conf)" shape=ellipse style=dashed]
+410 [label="(47328099)=" shape=box style=dashed]
+411 [label="(47328016)Any(e)" shape=ellipse style=dashed]
+412 [label="(47328158)None(None)" shape=ellipse style=dashed]
+413 [label="(47328231)Any[.](Subscript)" shape=ellipse style=dashed]
+414 [label="(47328285)Any(e)" shape=ellipse style=dashed]
+415 [label="(47328637)empty" shape=box style=dashed]
+416 [label="(47327981)ModelBuilder" shape=box style=dashed]
+417 [label="(47328418)Any[.](Subscript)" shape=ellipse style=dashed]
+418 [label="(47328081)Any(conf)" shape=ellipse style=dashed]
+419 [label="(47328087)Eq" shape=box style=dashed]
+420 [label="(47328213)plasma.global_vars(g)" shape=ellipse style=dashed]
+421 [label="(47328290)Eq" shape=box style=dashed]
+422 [label="(47328333)number(0)" shape=ellipse style=dashed]
+423 [label="(47328056)String(lit(model))" shape=ellipse style=dashed]
+424 [label="(47328559)print" shape=box style=dashed]
+425 [label="(47328077)MPIAdam" shape=box style=dashed]
+426 [label="(47328491)String(lit( ))" shape=ellipse style=dashed]
+427 [label="(47328501)format" shape=box style=dashed]
+428 [label="(47328007)build_model" shape=box style=dashed]
+429 [label="(47328633)Any(train_model)" shape=ellipse style=dashed]
+430 [label="(47328240)Any(num_epochs)" shape=ellipse style=dashed]
+431 [label="(47328223)Any(callbacks_list)" shape=ellipse style=dashed]
+432 [label="(47328001)set_verbosity" shape=box style=dashed]
+433 [label="(47328181)TensorBoard" shape=box style=dashed]
+434 [label="(47328485)Any(loader)" shape=ellipse style=dashed]
+435 [label="(47328139)plasma.global_vars.comm(comm)" shape=ellipse style=dashed]
+436 [label="(47328581)print" shape=box style=dashed]
+437 [label="(47328031)=" shape=box style=dashed]
+438 [label="(47328006)plasma.models.builder.ModelBuilder(specific_builder)" shape=ellipse style=dashed color=red fontcolor=red]
+439 [label="(47328604)Any(conf)" shape=ellipse style=dashed]
+440 [label="(47328205)TextIO(ori)" shape=ellipse style=dashed]
+441 [label="(47328249)on_train_begin" shape=box style=dashed]
+442 [label="(47328544)Eq" shape=box style=dashed]
+443 [label="(47328061)Any(conf)" shape=ellipse style=dashed]
+444 [label="(47328455)str(epoch_str)" shape=ellipse style=dashed]
+445 [label="(47328487)=" shape=box style=dashed]
+446 [label="(47328074)If" shape=diamond style=dashed]
+447 [label="(47328214)plasma.global_vars.task_index(task_index)" shape=ellipse style=dashed]
+448 [label="(47328593)If" shape=diamond style=dashed]
+449 [label="(47327993)empty" shape=box style=dashed]
+450 [label="(47328359)format" shape=box style=dashed]
+451 [label="(47328500)String(lit(test_roc_{} = {}))" shape=ellipse style=dashed]
+452 [label="(47328206)=" shape=box style=dashed]
+453 [label="(47328155)String(lit(target))" shape=ellipse style=dashed]
+454 [label="(47328560)String(lit(Validation ROC: {:.4f}))" shape=ellipse style=dashed]
+455 [label="(47328313)MPIModel(mpi_model)" shape=ellipse style=dashed color=red fontcolor=red]
+456 [label="(47328646)=" shape=box style=dashed]
+457 [label="(47328259)empty" shape=box style=dashed]
+458 [label="(47328190)String(lit(a))" shape=ellipse style=dashed color=blue fontcolor=blue]
+459 [label="(47328058)String(lit(warmup_steps))" shape=ellipse style=dashed]
+460 [label="(47328688)MPIModel(mpi_model)" shape=ellipse style=dashed color=black fontcolor=black]
+461 [label="(47328605)Any[.](Subscript)" shape=ellipse style=dashed]
+462 [label="(47328260)Any(best_so_far)" shape=ellipse style=dashed]
+463 [label="(47328370)Any(conf)" shape=ellipse style=dashed]
+464 [label="(47328288)plasma.global_vars.task_index(task_index)" shape=ellipse style=dashed]
+465 [label="(47328123)Sub" shape=box style=dashed]
+466 [label="(47328590)MPIModel(mpi_model)" shape=ellipse style=dashed]
+467 [label="(47328610)If" shape=diamond style=dashed]
+468 [label="(47328366)Any(roc_area)" shape=ellipse style=dashed]
+469 [label="(47328429)Any(times)" shape=ellipse style=dashed]
+470 [label="(47327957)Any(loader)" shape=ellipse style=dashed]
+471 [label="(47328400)MPIModel(mpi_model)" shape=ellipse style=dashed]
+472 [label="(47328379)number(1.0)" shape=ellipse style=dashed]
+473 [label="(47327973)Any[.](Subscript)" shape=ellipse style=dashed]
+474 [label="(47328230)Any(conf)" shape=ellipse style=dashed]
+475 [label="(47328672)write_unique" shape=box style=dashed]
+476 [label="(47328235)=" shape=box style=dashed]
+477 [label="(47328489)write_unique" shape=box style=dashed]
+478 [label="(47328635)round" shape=box style=dashed]
+479 [label="(47328319)Add" shape=box style=dashed]
+480 [label="(47328620)Any[.](Subscript)" shape=ellipse style=dashed]
+481 [label="(47328192)TextIO(ori)" shape=ellipse style=dashed]
+482 [label="(47328255)String(lit(mode))" shape=ellipse style=dashed]
+483 [label="(47328102)Any(conf)" shape=ellipse style=dashed]
+484 [label="(47328112)=" shape=box style=dashed]
+485 [label="(47328540)flush_all_inorder" shape=box style=dashed]
+486 [label="(47328363)List[Any](_)" shape=ellipse style=dashed]
+487 [label="(47327986)parse_version" shape=box style=dashed]
+488 [label="(47328463)List[Any](areas)" shape=ellipse style=dashed]
+489 [label="(47328047)Any(conf)" shape=ellipse style=dashed]
+490 [label="(47327967)=" shape=box style=dashed]
+491 [label="(47328527)Dict[str, Any](epoch_logs)" shape=ellipse style=dashed]
+492 [label="(47328450)round" shape=box style=dashed]
+493 [label="(47328175)Any[.](Subscript)" shape=ellipse style=dashed]
+494 [label="(47327978)=" shape=box style=dashed]
+495 [label="(47328013)Any(train_model)" shape=ellipse style=dashed]
+496 [label="(47328320)=" shape=box style=dashed]
+497 [label="(47328553)format" shape=box style=dashed]
+498 [label="(47328009)=" shape=box style=dashed]
+499 [label="(47328167)Any(conf)" shape=ellipse style=dashed]
+500 [label="(47328267)=" shape=box style=dashed]
+501 [label="(47328115)String(lit(Optimizer not implemented yet))" shape=ellipse style=dashed]
+502 [label="(47328324)format" shape=box style=dashed]
+503 [label="(47327958)(null)" shape=ellipse style=dashed]
+504 [label="(47328308)Any(ave_loss)" shape=ellipse style=dashed]
+505 [label="(47328466)format" shape=box style=dashed]
+506 [label="(47327950)(null)" shape=ellipse style=dashed]
+507 [label="(47328095)If" shape=diamond style=dashed]
+508 [label="(47328409)MPIModel(mpi_model)" shape=ellipse style=dashed]
+509 [label="(47328495)Any(roc)" shape=ellipse style=dashed]
+510 [label="(47328678)plasma.global_vars.task_index(task_index)" shape=ellipse style=dashed]
+511 [label="(47328474)None(None)" shape=ellipse style=dashed]
+512 [label="(47328091)Any(Subscript)" shape=ellipse style=dashed]
+513 [label="(47328448)format" shape=box style=dashed]
+514 [label="(47328457)join" shape=box style=dashed]
+515 [label="(47328681)If" shape=diamond style=dashed]
+516 [label="(47328542)plasma.global_vars.task_index(task_index)" shape=ellipse style=dashed]
+517 [label="(47328668)Any(stop_training)" shape=ellipse style=dashed]
+518 [label="(47327998)empty" shape=box style=dashed]
+519 [label="(47328021)String(lit(training))" shape=ellipse style=dashed]
+520 [label="(47328216)Eq" shape=box style=dashed]
+521 [label="(47328301)Any(lr)" shape=ellipse style=dashed]
+522 [label="(47328298)empty" shape=box style=dashed]
+523 [label="(47328572)print" shape=box style=dashed]
+524 [label="(47328059)=" shape=box style=dashed]
+525 [label="(47328159)=" shape=box style=dashed]
+526 [label="(47328682)empty" shape=box style=dashed]
+527 [label="(47328650)int(val_steps)" shape=ellipse style=dashed]
+528 [label="(47328664)String(lit(Finished evaluation of epoch {:.2f}/{}))" shape=ellipse style=dashed]
+529 [label="(47328382)empty" shape=box style=dashed]
+530 [label="(47328339)Any(train_model)" shape=ellipse style=dashed]
+531 [label="(47328644)int(val_steps)" shape=ellipse style=dashed]
+532 [label="(47328636)Any(e)" shape=ellipse style=dashed]
+533 [label="(47328218)empty" shape=box style=dashed]
+534 [label="(47328411)=" shape=box style=dashed]
+535 [label="(47328611)empty" shape=box style=dashed]
+536 [label="(47328618)In" shape=box style=dashed]
+537 [label="(47328210)MPIModel.model(model)" shape=ellipse style=dashed]
+538 [label="(47328045)=" shape=box style=dashed]
+539 [label="(47327982)Any(conf)" shape=ellipse style=dashed]
+540 [label="(47328127)Any.training_batch_generator_partial_reset(training_batch_generator_partial_reset)" shape=ellipse style=dashed]
+541 [label="(47328599)=" shape=box style=dashed]
+542 [label="(47328609)NotEq" shape=box style=dashed]
+543 [label="(47328670)empty" shape=box style=dashed]
+544 [label="(47327983)=" shape=box style=dashed]
+545 [label="(47328174)Any(conf)" shape=ellipse style=dashed]
+546 [label="(47328250)empty" shape=box style=dashed]
+547 [label="(47328594)empty" shape=box style=dashed]
+548 [label="(47328394)=" shape=box style=dashed]
+549 [label="(47327987)String(lit(1.14.0))" shape=ellipse style=dashed]
+550 [label="(47328186)MPIModel.model(model)" shape=ellipse style=dashed]
+551 [label="(47328278)Lt" shape=box style=dashed]
+552 [label="(47328469)empty" shape=box style=dashed]
+553 [label="(47328438)List[Any](_)" shape=ellipse style=dashed]
+554 [label="(47328121)Any(num_epochs)" shape=ellipse style=dashed]
+555 [label="(47328026)Any(conf)" shape=ellipse style=dashed]
+556 [label="(47328358)String(lit(Begin evaluation of epoch {:.2f}/{}
+))" shape=ellipse style=dashed]
+557 [label="(47327944)START" style=dashed]
+558 [label="(47328614)Any(conf)" shape=ellipse style=dashed]
+559 [label="(47328248)Any(callbacks)" shape=ellipse style=dashed color=yellow fontcolor=yellow]
+560 [label="(47328271)numpy.inf(inf)" shape=ellipse style=dashed]
+561 [label="(47328273)Callable(cmp_fn)" shape=ellipse style=dashed]
+562 [label="(47328634)int" shape=box style=dashed]
+563 [label="(47328010)Any(e)" shape=ellipse style=dashed]
+564 [label="(47328203)sys(sys)" shape=ellipse style=dashed]
+565 [label="(47328602)Dict[str, Any](epoch_logs)" shape=ellipse style=dashed]
+566 [label="(47327969)Any(loader)" shape=ellipse style=dashed]
+567 [label="(47328627)String(lit(No improvement, saving model weights anyways))" shape=ellipse style=dashed]
+568 [label="(47328315)=" shape=box style=dashed]
+569 [label="(47328138)plasma.global_vars(g)" shape=ellipse style=dashed]
+570 [label="(47328533)String(lit(monitor))" shape=ellipse style=dashed]
+571 [label="(47328202)summary" shape=box style=dashed]
+572 [label="(47328661)=" shape=box style=dashed]
+573 [label="(47328351)break" shape=box style=dashed]
+574 [label="(47328624)If" shape=diamond style=dashed]
+575 [label="(47328568)number(1.0)" shape=ellipse style=dashed]
+576 [label="(47328027)Any[.](Subscript)" shape=ellipse style=dashed]
+577 [label="(47328109)empty" shape=box style=dashed]
+578 [label="(47328398)Any.training_batch_generator_partial_reset(training_batch_generator_partial_reset)" shape=ellipse style=dashed]
+579 [label="(47328314)train_epoch" shape=box style=dashed]
+580 [label="(47328667)Any(num_epochs)" shape=ellipse style=dashed]
+581 [label="(47328376)String(lit(training))" shape=ellipse style=dashed]
+582 [label="(47328014)=" shape=box style=dashed]
+583 [label="(47328520)Dict[str, Any](epoch_logs)" shape=ellipse style=dashed]
+584 [label="(47328221)build_callbacks" shape=box style=dashed]
+585 [label="(47328019)Any(conf)" shape=ellipse style=dashed]
+586 [label="(47328657)plasma.global_vars(g)" shape=ellipse style=dashed]
+587 [label="(47328628)empty" shape=box style=dashed]
+588 [label="(47328165)empty" shape=box style=dashed]
+589 [label="(47328451)Any(e)" shape=ellipse style=dashed]
+590 [label="(47328241)key:null,value:null(key:Str,value:Name)" shape=ellipse style=dashed]
+591 [label="(47327945)Any(conf)" shape=ellipse style=dashed]
+592 [label="(47328428)empty" shape=box style=dashed]
+593 [label="(47328677)plasma.global_vars(g)" shape=ellipse style=dashed]
+594 [label="(47328067)String(lit(adam))" shape=ellipse style=dashed]
+595 [label="(47328208)close" shape=box style=dashed color=blue fontcolor=blue]
+596 [label="(47328227)MPIModel(mpi_model)" shape=ellipse style=dashed]
+597 [label="(47328079)empty" shape=box style=dashed]
+598 [label="(47328169)String(lit(paths))" shape=ellipse style=dashed]
+599 [label="(47328446)str(epoch_str)" shape=ellipse style=dashed]
+600 [label="(47328011)plasma.models.builder.ModelBuilder(specific_builder)" shape=ellipse style=dashed color=blue fontcolor=blue]
+601 [label="(47328467)Any(t)" shape=ellipse style=dashed]
+602 [label="(47328162)number(0)" shape=ellipse style=dashed]
+603 [label="(47328349)If" shape=diamond style=dashed]
+604 [label="(47328132)format" shape=box style=dashed]
+605 [label="(47328367)Any(loss)" shape=ellipse style=dashed]
+606 [label="(47328075)empty" shape=box style=dashed]
+607 [label="(47328217)If" shape=diamond style=dashed]
+608 [label="(47328393)Any(loader)" shape=ellipse style=dashed]
+609 [label="(47328631)plasma.models.builder.ModelBuilder(specific_builder)" shape=ellipse style=dashed color=red fontcolor=red]
+610 [label="(47328584)on_epoch_end" shape=box style=dashed]
+611 [label="(47328094)Eq" shape=box style=dashed]
+612 [label="(47328445)=" shape=box style=dashed]
+613 [label="(47328647)TensorBoard(tensorboard)" shape=ellipse style=dashed color=red fontcolor=red]
+614 [label="(47328035)String(lit(training))" shape=ellipse style=dashed]
+615 [label="(47328422)Any(conf)" shape=ellipse style=dashed]
+616 [label="(47328220)MPIModel(mpi_model)" shape=ellipse style=dashed color=black fontcolor=black]
+617 [label="(47328275)=" shape=box style=dashed]
+618 [label="(47328562)Any(roc_area)" shape=ellipse style=dashed]
+619 [label="(47328356)plasma.global_vars(g)" shape=ellipse style=dashed]
+620 [label="(47328534)Any(best_so_far)" shape=ellipse style=dashed]
+621 [label="(47328055)Any[.](Subscript)" shape=ellipse style=dashed]
+622 [label="(47328141)Any(batch_size)" shape=ellipse style=dashed]
+623 [label="(47328617)keys" shape=box style=dashed]
+624 [label="(47328044)String(lit(lr))" shape=ellipse style=dashed]
+625 [label="(47328321)plasma.global_vars(g)" shape=ellipse style=dashed]
+626 [label="(47328024)=" shape=box style=dashed]
+627 [label="(47328234)String(lit(metrics))" shape=ellipse style=dashed]
+628 [label="(47328126)Any(loader)" shape=ellipse style=dashed]
+629 [label="(47328623)String(lit(monitor_test))" shape=ellipse style=dashed]
+630 [label="(47327992)AST" shape=diamond style=dashed]
+631 [label="(47328113)empty" shape=box style=dashed]
+632 [label="(47328201)MPIModel.model(model)" shape=ellipse style=dashed]
+633 [label="(47328084)Any(Subscript)" shape=ellipse style=dashed]
+634 [label="(47328188)open" shape=box style=dashed color=blue fontcolor=blue]
+635 [label="(47328232)String(lit(callbacks))" shape=ellipse style=dashed]
+636 [label="(47328238)key:null,value:null(key:Str,value:Name)" shape=ellipse style=dashed]
+637 [label="(47328537)False(False)" shape=ellipse style=dashed]
+638 [label="(47328507)Add" shape=box style=dashed]
+639 [label="(47328331)plasma.global_vars(g)" shape=ellipse style=dashed]
+640 [label="(47328468)Any(roc)" shape=ellipse style=dashed]
+641 [label="(47328151)Any(conf)" shape=ellipse style=dashed]
+642 [label="(47328504)empty" shape=box style=dashed]
+643 [label="(47328555)print" shape=box style=dashed]
+644 [label="(47328656)Any(stop_training)" shape=ellipse style=dashed]
+645 [label="(47328564)Any[.](Subscript)" shape=ellipse style=dashed]
+646 [label="(47328547)print" shape=box style=dashed]
+647 [label="(47328573)String(lit(Training Loss: {:.3e}))" shape=ellipse style=dashed]
+648 [label="(47327966)(null)" shape=ellipse style=dashed]
+649 [label="(47328355)=" shape=box style=dashed]
+650 [label="(47328669)If" shape=diamond style=dashed]
+651 [label="(47328224)=" shape=box style=dashed]
+652 [label="(47328323)String(lit(Finished training of epoch {:.2f}/{}
+))" shape=ellipse style=dashed]
+653 [label="(47328280)empty" shape=box style=dashed]
+654 [label="(47328410)MPIModel.num_so_far_indiv(num_so_far_indiv)" shape=ellipse style=dashed]
+655 [label="(47328629)print" shape=box style=dashed]
+656 [label="(47328546)empty" shape=box style=dashed]
+657 [label="(47327977)Get_size" shape=box style=dashed]
+658 [label="(47328215)number(0)" shape=ellipse style=dashed]
+659 [label="(47328518)Any(loss)" shape=ellipse style=dashed]
+660 [label="(47328613)String(lit(monitor_test))" shape=ellipse style=dashed]
+661 [label="(47328378)String(lit(ranking_difficulty_fac))" shape=ellipse style=dashed]
+662 [label="(47328567)String(lit(ranking_difficulty_fac))" shape=ellipse style=dashed]
+663 [label="(47328069)Any[.](Subscript)" shape=ellipse style=dashed]
+664 [label="(47328119)String(lit({} epoch(s) left to go))" shape=ellipse style=dashed]
+665 [label="(47328499)comprehension" shape=diamond style=dashed]
+666 [label="(47328062)Any[.](Subscript)" shape=ellipse style=dashed]
+667 [label="(47328536)bool(stop_training)" shape=ellipse style=dashed]
+668 [label="(47328675)empty" shape=box style=dashed]
+669 [label="(47328415)And" shape=box style=dashed]
+670 [label="(47328198)TextIO(fr)" shape=ellipse style=dashed]
+671 [label="(47328083)String(lit(model))" shape=ellipse style=dashed]
+672 [label="(47327994)Any(depr)" shape=ellipse style=dashed]
+673 [label="(47328557)format" shape=box style=dashed]
+674 [label="(47328452)=" shape=box style=dashed]
+675 [label="(47328477)empty" shape=box style=dashed]
+676 [label="(47328173)Any(write_grads)" shape=ellipse style=dashed]
+677 [label="(47328309)Any(curr_loss)" shape=ellipse style=dashed]
+678 [label="(47328406)__exit__" shape=box style=dashed]
+679 [label="(47328685)TensorBoard(tensorboard)" shape=ellipse style=dashed color=yellow fontcolor=yellow]
+680 [label="(47328329)False(False)" shape=ellipse style=dashed]
+681 [label="(47328397)Any(loader)" shape=ellipse style=dashed]
+682 [label="(47328032)Any(batch_size)" shape=ellipse style=dashed]
+683 [label="(47328626)print" shape=box style=dashed]
+684 [label="(47328423)Any[.](Subscript)" shape=ellipse style=dashed]
+685 [label="(47327959)=" shape=box style=dashed]
+686 [label="(47328619)Any(conf)" shape=ellipse style=dashed]
+687 [label="(47328118)print_unique" shape=box style=dashed]
+688 [label="(47328287)plasma.global_vars(g)" shape=ellipse style=dashed]
+689 [label="(47328150)Any(clipnorm)" shape=ellipse style=dashed]
+690 [label="(47328207)TextIO(fr)" shape=ellipse style=dashed color=blue fontcolor=blue]
+691 [label="(47328352)empty" shape=box style=dashed]
+692 [label="(47328182)=" shape=box style=dashed]
+693 [label="(47328136)Any(train_model)" shape=ellipse style=dashed]
+694 [label="(47328299)MPIModel(mpi_model)" shape=ellipse style=dashed color=red fontcolor=red]
+695 [label="(47328090)String(lit(model))" shape=ellipse style=dashed]
+696 [label="(47328552)String(lit(Training Loss numpy: {:.3e}))" shape=ellipse style=dashed]
+697 [label="(47328377)Any(Subscript)" shape=ellipse style=dashed]
+698 [label="(47328086)String(lit(sgd))" shape=ellipse style=dashed]
+699 [label="(47328258)If" shape=diamond style=dashed]
+700 [label="(47328336)empty" shape=box style=dashed]
+701 [label="(47328335)If" shape=diamond style=dashed]
+702 [label="(47328405)MPIModel.batch_iterator_func(batch_iterator_func)" shape=ellipse style=dashed]
+703 [label="(47327963)=" shape=box style=dashed]
+704 [label="(47328453)plasma.global_vars(g)" shape=ellipse style=dashed]
+705 [label="(47328587)Any(e)" shape=ellipse style=dashed]
+706 [label="(47328494)Any(t)" shape=ellipse style=dashed]
+707 [label="(47328528)Any(Subscript)" shape=ellipse style=dashed]
+708 [label="(47328433)Any(Subscript)" shape=ellipse style=dashed]
+709 [label="(47328346)String(lit(training))" shape=ellipse style=dashed]
+710 [label="(47328526)cmp_fn" shape=box style=dashed]
+711 [label="(47328022)Any(Subscript)" shape=ellipse style=dashed]
+712 [label="(47328373)=" shape=box style=dashed]
+713 [label="(47328417)Any(conf)" shape=ellipse style=dashed]
+714 [label="(47328574)format" shape=box style=dashed]
+715 [label="(47328051)String(lit(clipnorm))" shape=ellipse style=dashed]
+716 [label="(47328638)nothing(val_generator)" shape=ellipse style=dashed]
+717 [label="(47328679)number(0)" shape=ellipse style=dashed]
+718 [label="(47328107)In" shape=box style=dashed]
+719 [label="(47328385)List[Any](_)" shape=ellipse style=dashed]
+720 [label="(47328152)Any[.](Subscript)" shape=ellipse style=dashed]
+721 [label="(47328185)MPIModel(mpi_model)" shape=ellipse style=dashed]
+722 [label="(47328122)Any(e)" shape=ellipse style=dashed]
+723 [label="(47328345)Any[.](Subscript)" shape=ellipse style=dashed]
+724 [label="(47328643)=" shape=box style=dashed]
+725 [label="(47328444)Any(times)" shape=ellipse style=dashed]
+726 [label="(47328502)Any(t)" shape=ellipse style=dashed]
+727 [label="(47327989)If" shape=diamond style=dashed]
+728 [label="(47328384)List[Any](_)" shape=ellipse style=dashed]
+729 [label="(47328008)False(False)" shape=ellipse style=dashed]
+730 [label="(47328357)write_unique" shape=box style=dashed]
+731 [label="(47328575)Any(loss_train)" shape=ellipse style=dashed]
+732 [label="(47328392)Any(shot_list_train)" shape=ellipse style=dashed]
+733 [label="(47327971)False(False)" shape=ellipse style=dashed]
+734 [label="(47328395)functools.partial[nothing](batch_generator)" shape=ellipse style=dashed]
+735 [label="(47328569)NotEq" shape=box style=dashed]
+736 [label="(47328057)Any(Subscript)" shape=ellipse style=dashed]
+737 [label="(47328128)=" shape=box style=dashed]
+738 [label="(47328531)String(lit(callbacks))" shape=ellipse style=dashed]
+739 [label="(47327984)plasma.global_vars(g)" shape=ellipse style=dashed]
+740 [label="(47328592)String(lit(stop_training))" shape=ellipse style=dashed]
+741 [label="(47328361)Any(num_epochs)" shape=ellipse style=dashed]
+473 -> 1 [label="ref" style=dotted];
+507 -> 3 [label="F"];
+718 -> 3 [label="dep" style=dotted];
+718 -> 3 [label="cond" style=dotted];
+305 -> 6 [label="T"];
+704 -> 6 [label="recv" style=dotted];
+124 -> 6 [label="dep" style=dotted];
+124 -> 6 [label="para" style=dotted];
+674 -> 6 [label="dep" style=dotted];
+305 -> 7 [label="T"];
+505 -> 7 [label="dep" style=dotted];
+505 -> 7 [label="cond" style=dotted];
+552 -> 7 [label="dep" style=dotted];
+552 -> 7 [label="para" style=dotted];
+71 -> 9 [label="T"];
+421 -> 9 [label="dep" style=dotted];
+421 -> 9 [label="cond" style=dotted];
+469 -> 10 [label="ref" style=dotted];
+663 -> 11 [label="qual" style=dotted];
+56 -> 11 [label="para" style=dotted];
+473 -> 11 [label="ref" style=dotted];
+71 -> 12 [label="T"];
+339 -> 12 [label="para" style=dotted];
+284 -> 12 [label="para" style=dotted];
+195 -> 12 [label="dep" style=dotted];
+522 -> 12 [label="dep" style=dotted];
+146 -> 13 [label="def" style=dotted];
+71 -> 14 [label="T"];
+521 -> 14 [label="para" style=dotted];
+12 -> 14 [label="dep" style=dotted];
+12 -> 14 [label="para" style=dotted];
+195 -> 14 [label="dep" style=dotted];
+522 -> 14 [label="dep" style=dotted];
+362 -> 15 [label="def" style=dotted];
+489 -> 16 [label="qual" style=dotted];
+191 -> 16 [label="para" style=dotted];
+473 -> 16 [label="ref" style=dotted];
+576 -> 18 [label="qual" style=dotted];
+217 -> 18 [label="para" style=dotted];
+473 -> 18 [label="ref" style=dotted];
+496 -> 20 [label="def" style=dotted];
+563 -> 20 [label="re_def" style=dotted color=red];
+179 -> 21 [label="F"];
+20 -> 22 [label="ref" style=dotted];
+179 -> 23 [label="T"];
+42 -> 23 [label="para" style=dotted];
+456 -> 23 [label="dep" style=dotted];
+179 -> 24 [label="T"];
+735 -> 24 [label="dep" style=dotted];
+735 -> 24 [label="cond" style=dotted];
+182 -> 25 [label="ref" style=dotted];
+607 -> 26 [label="T"];
+636 -> 26 [label="para" style=dotted];
+590 -> 26 [label="para" style=dotted];
+225 -> 26 [label="para" style=dotted];
+476 -> 26 [label="dep" style=dotted];
+179 -> 27 [label="T"];
+153 -> 27 [label="dep" style=dotted];
+153 -> 27 [label="para" style=dotted];
+436 -> 27 [label="dep" style=dotted];
+305 -> 28 [label="T"];
+112 -> 28 [label="para" style=dotted];
+511 -> 28 [label="para" style=dotted];
+6 -> 28 [label="dep" style=dotted];
+626 -> 29 [label="def" style=dotted];
+301 -> 30 [label="qual" style=dotted];
+695 -> 30 [label="para" style=dotted];
+473 -> 30 [label="ref" style=dotted];
+378 -> 33 [label="ref" style=dotted];
+699 -> 35 [label="F"];
+287 -> 36 [label="qual" style=dotted];
+581 -> 36 [label="para" style=dotted];
+473 -> 36 [label="ref" style=dotted];
+607 -> 37 [label="T"];
+297 -> 37 [label="recv" style=dotted];
+26 -> 37 [label="dep" style=dotted];
+26 -> 37 [label="para" style=dotted];
+476 -> 37 [label="dep" style=dotted];
+322 -> 38 [label="ref" style=dotted];
+275 -> 39 [label="def" style=dotted];
+603 -> 40 [label="F"];
+187 -> 40 [label="recv" style=dotted];
+87 -> 40 [label="para" style=dotted];
+21 -> 40 [label="dep" style=dotted];
+270 -> 40 [label="dep" style=dotted];
+20 -> 42 [label="ref" style=dotted];
+557 -> 43 [label="" style=solid];
+234 -> 43 [label="para" style=dotted];
+538 -> 43 [label="dep" style=dotted];
+378 -> 45 [label="ref" style=dotted];
+651 -> 46 [label="def" style=dotted];
+603 -> 47 [label="F"];
+463 -> 47 [label="para" style=dotted];
+300 -> 47 [label="para" style=dotted];
+242 -> 47 [label="para" style=dotted];
+730 -> 47 [label="dep" style=dotted];
+179 -> 50 [label="T"];
+23 -> 50 [label="dep" style=dotted];
+23 -> 50 [label="para" style=dotted];
+456 -> 50 [label="dep" style=dotted];
+603 -> 51 [label="F"];
+637 -> 51 [label="para" style=dotted];
+269 -> 51 [label="dep" style=dotted];
+473 -> 52 [label="ref" style=dotted];
+378 -> 53 [label="ref" style=dotted];
+357 -> 58 [label="qual" style=dotted];
+624 -> 58 [label="para" style=dotted];
+473 -> 58 [label="ref" style=dotted];
+603 -> 60 [label="F"];
+226 -> 60 [label="para" style=dotted];
+98 -> 60 [label="dep" style=dotted];
+515 -> 61 [label="T"];
+222 -> 61 [label="recv" style=dotted];
+526 -> 61 [label="dep" style=dotted];
+565 -> 62 [label="qual" style=dotted];
+86 -> 62 [label="para" style=dotted];
+182 -> 62 [label="ref" style=dotted];
+84 -> 63 [label="def" style=dotted];
+473 -> 65 [label="ref" style=dotted];
+243 -> 66 [label="T"];
+89 -> 66 [label="para" style=dotted];
+732 -> 66 [label="para" style=dotted];
+608 -> 66 [label="para" style=dotted];
+529 -> 66 [label="dep" style=dotted];
+473 -> 67 [label="ref" style=dotted];
+179 -> 68 [label="T"];
+149 -> 68 [label="para" style=dotted];
+683 -> 68 [label="dep" style=dotted];
+113 -> 68 [label="dep" style=dotted];
+415 -> 68 [label="dep" style=dotted];
+480 -> 69 [label="qual" style=dotted];
+629 -> 69 [label="para" style=dotted];
+473 -> 69 [label="ref" style=dotted];
+666 -> 70 [label="qual" style=dotted];
+210 -> 70 [label="para" style=dotted];
+473 -> 70 [label="ref" style=dotted];
+557 -> 71 [label="" style=solid];
+551 -> 71 [label="dep" style=dotted];
+551 -> 71 [label="cond" style=dotted];
+71 -> 72 [label="T"];
+680 -> 72 [label="para" style=dotted];
+262 -> 72 [label="dep" style=dotted];
+473 -> 73 [label="ref" style=dotted];
+484 -> 74 [label="def" style=dotted];
+71 -> 76 [label="T"];
+326 -> 76 [label="recv" style=dotted];
+256 -> 76 [label="dep" style=dotted];
+256 -> 76 [label="para" style=dotted];
+653 -> 76 [label="dep" style=dotted];
+507 -> 77 [label="T"];
+603 -> 78 [label="F"];
+97 -> 78 [label="recv" style=dotted];
+350 -> 78 [label="dep" style=dotted];
+350 -> 78 [label="para" style=dotted];
+572 -> 78 [label="dep" style=dotted];
+309 -> 81 [label="qual" style=dotted];
+267 -> 81 [label="para" style=dotted];
+473 -> 81 [label="ref" style=dotted];
+557 -> 82 [label="" style=solid];
+70 -> 82 [label="para" style=dotted];
+524 -> 82 [label="dep" style=dotted];
+557 -> 84 [label="" style=solid];
+411 -> 84 [label="para" style=dotted];
+582 -> 84 [label="dep" style=dotted];
+9 -> 85 [label="T"];
+372 -> 85 [label="para" style=dotted];
+168 -> 85 [label="dep" style=dotted];
+461 -> 86 [label="qual" style=dotted];
+49 -> 86 [label="para" style=dotted];
+473 -> 86 [label="ref" style=dotted];
+311 -> 87 [label="ref" style=dotted];
+667 -> 87 [label="ref" style=dotted];
+473 -> 89 [label="ref" style=dotted];
+316 -> 90 [label="def" style=dotted];
+24 -> 91 [label="T"];
+130 -> 91 [label="recv" style=dotted];
+34 -> 91 [label="para" style=dotted];
+523 -> 91 [label="dep" style=dotted];
+525 -> 92 [label="def" style=dotted];
+574 -> 93 [label="T"];
+408 -> 95 [label="T"];
+228 -> 95 [label="para" style=dotted];
+362 -> 95 [label="dep" style=dotted];
+557 -> 96 [label="" style=solid];
+171 -> 96 [label="para" style=dotted];
+437 -> 96 [label="dep" style=dotted];
+603 -> 98 [label="F"];
+659 -> 98 [label="para" style=dotted];
+126 -> 98 [label="dep" style=dotted];
+500 -> 99 [label="def" style=dotted];
+63 -> 100 [label="ref" style=dotted];
+75 -> 101 [label="qual" style=dotted];
+138 -> 101 [label="def" style=dotted];
+596 -> 102 [label="qual" style=dotted];
+639 -> 103 [label="qual" style=dotted];
+557 -> 104 [label="" style=solid];
+600 -> 104 [label="recv" style=dotted];
+495 -> 104 [label="para" style=dotted];
+498 -> 104 [label="dep" style=dotted];
+165 -> 106 [label="T"];
+277 -> 106 [label="para" style=dotted];
+245 -> 106 [label="para" style=dotted];
+445 -> 106 [label="dep" style=dotted];
+24 -> 108 [label="T"];
+91 -> 108 [label="dep" style=dotted];
+91 -> 108 [label="para" style=dotted];
+523 -> 108 [label="dep" style=dotted];
+20 -> 110 [label="ref" style=dotted];
+117 -> 111 [label="qual" style=dotted];
+574 -> 113 [label="F"];
+609 -> 113 [label="recv" style=dotted];
+429 -> 113 [label="para" style=dotted];
+562 -> 113 [label="dep" style=dotted];
+562 -> 113 [label="para" style=dotted];
+655 -> 113 [label="dep" style=dotted];
+469 -> 115 [label="ref" style=dotted];
+388 -> 117 [label="qual" style=dotted];
+319 -> 118 [label="def" style=dotted];
+445 -> 118 [label="def" style=dotted];
+243 -> 119 [label="T"];
+578 -> 119 [label="para" style=dotted];
+548 -> 119 [label="dep" style=dotted];
+165 -> 120 [label="T"];
+427 -> 120 [label="dep" style=dotted];
+427 -> 120 [label="cond" style=dotted];
+642 -> 120 [label="dep" style=dotted];
+642 -> 120 [label="para" style=dotted];
+701 -> 121 [label="T"];
+391 -> 121 [label="para" style=dotted];
+700 -> 121 [label="dep" style=dotted];
+558 -> 122 [label="qual" style=dotted];
+318 -> 122 [label="para" style=dotted];
+473 -> 122 [label="ref" style=dotted];
+305 -> 124 [label="T"];
+219 -> 124 [label="dep" style=dotted];
+219 -> 124 [label="para" style=dotted];
+136 -> 124 [label="para" style=dotted];
+674 -> 124 [label="dep" style=dotted];
+649 -> 125 [label="def" style=dotted];
+603 -> 126 [label="F"];
+200 -> 126 [label="para" style=dotted];
+477 -> 126 [label="dep" style=dotted];
+181 -> 126 [label="dep" style=dotted];
+384 -> 126 [label="dep" style=dotted];
+739 -> 128 [label="qual" style=dotted];
+699 -> 134 [label="T"];
+152 -> 134 [label="para" style=dotted];
+457 -> 134 [label="dep" style=dotted];
+243 -> 135 [label="T"];
+728 -> 135 [label="para" style=dotted];
+719 -> 135 [label="para" style=dotted];
+59 -> 135 [label="para" style=dotted];
+175 -> 135 [label="para" style=dotted];
+380 -> 135 [label="para" style=dotted];
+529 -> 135 [label="dep" style=dotted];
+467 -> 137 [label="T"];
+536 -> 137 [label="dep" style=dotted];
+536 -> 137 [label="para" style=dotted];
+69 -> 137 [label="para" style=dotted];
+535 -> 137 [label="dep" style=dotted];
+408 -> 138 [label="T"];
+670 -> 138 [label="para" style=dotted];
+274 -> 138 [label="dep" style=dotted];
+603 -> 139 [label="T"];
+305 -> 140 [label="T"];
+296 -> 140 [label="para" style=dotted];
+553 -> 140 [label="para" style=dotted];
+351 -> 140 [label="dep" style=dotted];
+437 -> 142 [label="def" style=dotted];
+165 -> 143 [label="T"];
+221 -> 143 [label="para" style=dotted];
+340 -> 143 [label="dep" style=dotted];
+340 -> 143 [label="para" style=dotted];
+445 -> 143 [label="dep" style=dotted];
+125 -> 144 [label="ref" style=dotted];
+320 -> 145 [label="qual" style=dotted];
+557 -> 146 [label="" style=solid];
+88 -> 146 [label="para" style=dotted];
+164 -> 146 [label="dep" style=dotted];
+179 -> 147 [label="T"];
+68 -> 147 [label="dep" style=dotted];
+68 -> 147 [label="recv" style=dotted];
+557 -> 148 [label="" style=solid];
+594 -> 148 [label="para" style=dotted];
+11 -> 148 [label="para" style=dotted];
+82 -> 148 [label="dep" style=dotted];
+407 -> 149 [label="qual" style=dotted];
+476 -> 151 [label="def" style=dotted];
+114 -> 152 [label="qual" style=dotted];
+179 -> 153 [label="T"];
+705 -> 153 [label="para" style=dotted];
+436 -> 153 [label="dep" style=dotted];
+544 -> 154 [label="def" style=dotted];
+29 -> 156 [label="ref" style=dotted];
+329 -> 157 [label="def" style=dotted];
+568 -> 157 [label="def" style=dotted];
+164 -> 161 [label="def" style=dotted];
+682 -> 162 [label="ref" style=dotted];
+557 -> 164 [label="" style=solid];
+506 -> 164 [label="para" style=dotted];
+176 -> 164 [label="dep" style=dotted];
+305 -> 165 [label="T"];
+28 -> 165 [label="dep" style=dotted];
+28 -> 165 [label="cond" style=dotted];
+243 -> 166 [label="T"];
+268 -> 166 [label="para" style=dotted];
+279 -> 166 [label="dep" style=dotted];
+9 -> 168 [label="T"];
+645 -> 169 [label="qual" style=dotted];
+662 -> 169 [label="para" style=dotted];
+473 -> 169 [label="ref" style=dotted];
+233 -> 171 [label="qual" style=dotted];
+32 -> 171 [label="para" style=dotted];
+473 -> 171 [label="ref" style=dotted];
+347 -> 172 [label="def" style=dotted];
+249 -> 174 [label="ref" style=dotted];
+557 -> 176 [label="" style=solid];
+368 -> 176 [label="para" style=dotted];
+3 -> 177 [label="F"];
+386 -> 177 [label="dep" style=dotted];
+81 -> 178 [label="qual" style=dotted];
+129 -> 178 [label="para" style=dotted];
+473 -> 178 [label="ref" style=dotted];
+603 -> 179 [label="F"];
+442 -> 179 [label="dep" style=dotted];
+442 -> 179 [label="cond" style=dotted];
+211 -> 180 [label="ref" style=dotted];
+305 -> 181 [label="F"];
+583 -> 182 [label="qual" style=dotted];
+323 -> 182 [label="para" style=dotted];
+60 -> 182 [label="def" style=dotted];
+298 -> 182 [label="re_def" style=dotted color=red];
+557 -> 184 [label="" style=solid];
+664 -> 184 [label="recv" style=dotted];
+465 -> 184 [label="dep" style=dotted];
+465 -> 184 [label="para" style=dotted];
+410 -> 184 [label="dep" style=dotted];
+484 -> 184 [label="dep" style=dotted];
+316 -> 184 [label="dep" style=dotted];
+378 -> 185 [label="ref" style=dotted];
+586 -> 187 [label="qual" style=dotted];
+71 -> 188 [label="T"];
+694 -> 188 [label="recv" style=dotted];
+14 -> 188 [label="dep" style=dotted];
+14 -> 188 [label="para" style=dotted];
+195 -> 188 [label="dep" style=dotted];
+522 -> 188 [label="dep" style=dotted];
+699 -> 192 [label="T"];
+134 -> 192 [label="dep" style=dotted];
+134 -> 192 [label="para" style=dotted];
+269 -> 193 [label="def" style=dotted];
+379 -> 194 [label="qual" style=dotted];
+395 -> 194 [label="para" style=dotted];
+473 -> 194 [label="ref" style=dotted];
+9 -> 195 [label="T"];
+223 -> 195 [label="recv" style=dotted];
+346 -> 195 [label="dep" style=dotted];
+346 -> 195 [label="para" style=dotted];
+168 -> 195 [label="dep" style=dotted];
+557 -> 196 [label="" style=solid];
+510 -> 196 [label="para" style=dotted];
+717 -> 196 [label="para" style=dotted];
+341 -> 196 [label="dep" style=dotted];
+668 -> 196 [label="dep" style=dotted];
+165 -> 197 [label="T"];
+331 -> 197 [label="para" style=dotted];
+263 -> 197 [label="para" style=dotted];
+434 -> 197 [label="para" style=dotted];
+115 -> 197 [label="para" style=dotted];
+675 -> 197 [label="dep" style=dotted];
+563 -> 199 [label="ref" style=dotted];
+24 -> 202 [label="T"];
+557 -> 203 [label="" style=solid];
+566 -> 203 [label="recv" style=dotted];
+733 -> 203 [label="para" style=dotted];
+490 -> 203 [label="dep" style=dotted];
+515 -> 206 [label="T"];
+679 -> 206 [label="recv" style=dotted];
+61 -> 206 [label="dep" style=dotted];
+82 -> 207 [label="def" style=dotted];
+509 -> 208 [label="ref" style=dotted];
+473 -> 209 [label="ref" style=dotted];
+692 -> 211 [label="def" style=dotted];
+92 -> 211 [label="re_def" style=dotted color=red];
+727 -> 212 [label="T"];
+507 -> 213 [label="F"];
+315 -> 214 [label="qual" style=dotted];
+703 -> 216 [label="def" style=dotted];
+591 -> 216 [label="re_def" style=dotted color=red];
+383 -> 218 [label="qual" style=dotted];
+4 -> 218 [label="para" style=dotted];
+473 -> 218 [label="ref" style=dotted];
+305 -> 219 [label="T"];
+444 -> 219 [label="para" style=dotted];
+514 -> 219 [label="dep" style=dotted];
+514 -> 219 [label="para" style=dotted];
+674 -> 219 [label="dep" style=dotted];
+43 -> 220 [label="def" style=dotted];
+599 -> 221 [label="ref" style=dotted];
+299 -> 225 [label="para" style=dotted];
+162 -> 225 [label="para" style=dotted];
+585 -> 227 [label="qual" style=dotted];
+519 -> 227 [label="para" style=dotted];
+473 -> 227 [label="ref" style=dotted];
+493 -> 228 [label="qual" style=dotted];
+377 -> 228 [label="para" style=dotted];
+473 -> 228 [label="ref" style=dotted];
+46 -> 229 [label="ref" style=dotted];
+3 -> 230 [label="T"];
+577 -> 230 [label="dep" style=dotted];
+154 -> 231 [label="ref" style=dotted];
+378 -> 232 [label="ref" style=dotted];
+236 -> 233 [label="qual" style=dotted];
+614 -> 233 [label="para" style=dotted];
+473 -> 233 [label="ref" style=dotted];
+16 -> 234 [label="qual" style=dotted];
+715 -> 234 [label="para" style=dotted];
+473 -> 234 [label="ref" style=dotted];
+473 -> 236 [label="ref" style=dotted];
+507 -> 237 [label="T"];
+77 -> 237 [label="dep" style=dotted];
+24 -> 239 [label="F"];
+29 -> 240 [label="ref" style=dotted];
+193 -> 241 [label="ref" style=dotted];
+603 -> 243 [label="F"];
+345 -> 243 [label="dep" style=dotted];
+345 -> 243 [label="cond" style=dotted];
+603 -> 246 [label="F"];
+417 -> 246 [label="recv" style=dotted];
+291 -> 246 [label="dep" style=dotted];
+385 -> 246 [label="dep" style=dotted];
+224 -> 247 [label="qual" style=dotted];
+524 -> 249 [label="def" style=dotted];
+557 -> 250 [label="" style=solid];
+128 -> 250 [label="para" style=dotted];
+487 -> 250 [label="dep" style=dotted];
+487 -> 250 [label="para" style=dotted];
+544 -> 250 [label="dep" style=dotted];
+557 -> 251 [label="" style=solid];
+540 -> 251 [label="para" style=dotted];
+687 -> 251 [label="dep" style=dotted];
+557 -> 252 [label="" style=solid];
+186 -> 252 [label="recv" style=dotted];
+604 -> 252 [label="dep" style=dotted];
+604 -> 252 [label="para" style=dotted];
+737 -> 252 [label="dep" style=dotted];
+151 -> 253 [label="ref" style=dotted];
+321 -> 254 [label="qual" style=dotted];
+482 -> 254 [label="para" style=dotted];
+473 -> 254 [label="ref" style=dotted];
+557 -> 255 [label="" style=solid];
+45 -> 255 [label="recv" style=dotted];
+178 -> 255 [label="para" style=dotted];
+689 -> 255 [label="para" style=dotted];
+327 -> 255 [label="para" style=dotted];
+365 -> 255 [label="dep" style=dotted];
+71 -> 256 [label="T"];
+358 -> 256 [label="recv" style=dotted];
+414 -> 256 [label="para" style=dotted];
+156 -> 256 [label="para" style=dotted];
+653 -> 256 [label="dep" style=dotted];
+473 -> 258 [label="ref" style=dotted];
+305 -> 259 [label="T"];
+308 -> 259 [label="dep" style=dotted];
+172 -> 259 [label="cond" style=dotted];
+408 -> 260 [label="T"];
+180 -> 260 [label="recv" style=dotted];
+550 -> 260 [label="para" style=dotted];
+692 -> 260 [label="dep" style=dotted];
+448 -> 261 [label="F"];
+71 -> 262 [label="T"];
+625 -> 262 [label="recv" style=dotted];
+502 -> 262 [label="dep" style=dotted];
+502 -> 262 [label="para" style=dotted];
+496 -> 262 [label="dep" style=dotted];
+179 -> 264 [label="T"];
+310 -> 264 [label="para" style=dotted];
+740 -> 264 [label="para" style=dotted];
+610 -> 264 [label="dep" style=dotted];
+381 -> 266 [label="ref" style=dotted];
+734 -> 268 [label="ref" style=dotted];
+603 -> 269 [label="F"];
+710 -> 269 [label="dep" style=dotted];
+710 -> 269 [label="para" style=dotted];
+179 -> 270 [label="T"];
+613 -> 270 [label="recv" style=dotted];
+396 -> 270 [label="para" style=dotted];
+527 -> 270 [label="para" style=dotted];
+50 -> 270 [label="dep" style=dotted];
+50 -> 270 [label="para" style=dotted];
+354 -> 270 [label="para" style=dotted];
+456 -> 270 [label="dep" style=dotted];
+515 -> 272 [label="F"];
+179 -> 273 [label="T"];
+403 -> 273 [label="recv" style=dotted];
+406 -> 273 [label="para" style=dotted];
+656 -> 273 [label="dep" style=dotted];
+408 -> 274 [label="T"];
+214 -> 274 [label="para" style=dotted];
+375 -> 274 [label="dep" style=dotted];
+699 -> 275 [label="F"];
+560 -> 275 [label="para" style=dotted];
+35 -> 275 [label="dep" style=dotted];
+630 -> 276 [label="" style=solid];
+64 -> 276 [label="para" style=dotted];
+449 -> 276 [label="dep" style=dotted];
+469 -> 277 [label="ref" style=dotted];
+243 -> 279 [label="T"];
+119 -> 279 [label="dep" style=dotted];
+119 -> 279 [label="para" style=dotted];
+375 -> 280 [label="def" style=dotted];
+701 -> 281 [label="F"];
+209 -> 283 [label="qual" style=dotted];
+738 -> 283 [label="para" style=dotted];
+473 -> 283 [label="ref" style=dotted];
+563 -> 284 [label="ref" style=dotted];
+73 -> 285 [label="qual" style=dotted];
+41 -> 285 [label="para" style=dotted];
+473 -> 285 [label="ref" style=dotted];
+305 -> 286 [label="T"];
+492 -> 286 [label="dep" style=dotted];
+492 -> 286 [label="para" style=dotted];
+612 -> 286 [label="dep" style=dotted];
+473 -> 287 [label="ref" style=dotted];
+109 -> 288 [label="qual" style=dotted];
+243 -> 291 [label="F"];
+135 -> 292 [label="def" style=dotted];
+548 -> 292 [label="def" style=dotted];
+378 -> 293 [label="ref" style=dotted];
+557 -> 294 [label="" style=solid];
+247 -> 294 [label="para" style=dotted];
+602 -> 294 [label="para" style=dotted];
+525 -> 294 [label="dep" style=dotted];
+603 -> 295 [label="F"];
+44 -> 295 [label="para" style=dotted];
+246 -> 295 [label="dep" style=dotted];
+246 -> 295 [label="para" style=dotted];
+291 -> 295 [label="dep" style=dotted];
+385 -> 295 [label="dep" style=dotted];
+46 -> 297 [label="ref" style=dotted];
+38 -> 298 [label="qual" style=dotted];
+123 -> 298 [label="para" style=dotted];
+98 -> 298 [label="def" style=dotted];
+322 -> 298 [label="re_def" style=dotted color=red];
+473 -> 301 [label="ref" style=dotted];
+473 -> 302 [label="ref" style=dotted];
+305 -> 303 [label="T"];
+67 -> 303 [label="para" style=dotted];
+330 -> 303 [label="para" style=dotted];
+133 -> 303 [label="para" style=dotted];
+725 -> 303 [label="para" style=dotted];
+351 -> 303 [label="dep" style=dotted];
+603 -> 305 [label="F"];
+669 -> 305 [label="dep" style=dotted];
+669 -> 305 [label="cond" style=dotted];
+607 -> 306 [label="T"];
+229 -> 306 [label="recv" style=dotted];
+102 -> 306 [label="para" style=dotted];
+651 -> 306 [label="dep" style=dotted];
+408 -> 307 [label="T"];
+537 -> 307 [label="recv" style=dotted];
+595 -> 307 [label="dep" style=dotted];
+305 -> 308 [label="T"];
+10 -> 308 [label="para" style=dotted];
+488 -> 308 [label="para" style=dotted];
+674 -> 308 [label="dep" style=dotted];
+473 -> 309 [label="ref" style=dotted];
+466 -> 310 [label="qual" style=dotted];
+541 -> 311 [label="def" style=dotted];
+667 -> 311 [label="re_def" style=dotted color=red];
+684 -> 313 [label="qual" style=dotted];
+349 -> 313 [label="para" style=dotted];
+473 -> 313 [label="ref" style=dotted];
+20 -> 314 [label="ref" style=dotted];
+446 -> 316 [label="T"];
+425 -> 316 [label="dep" style=dotted];
+425 -> 316 [label="para" style=dotted];
+471 -> 317 [label="qual" style=dotted];
+166 -> 317 [label="def" style=dotted];
+165 -> 319 [label="T"];
+189 -> 319 [label="para" style=dotted];
+374 -> 319 [label="para" style=dotted];
+675 -> 319 [label="dep" style=dotted];
+1 -> 321 [label="qual" style=dotted];
+159 -> 321 [label="para" style=dotted];
+473 -> 321 [label="ref" style=dotted];
+144 -> 322 [label="qual" style=dotted];
+205 -> 322 [label="para" style=dotted];
+126 -> 322 [label="def" style=dotted];
+125 -> 322 [label="re_def" style=dotted color=red];
+650 -> 324 [label="T"];
+475 -> 324 [label="dep" style=dotted];
+179 -> 325 [label="T"];
+454 -> 325 [label="recv" style=dotted];
+618 -> 325 [label="para" style=dotted];
+643 -> 325 [label="dep" style=dotted];
+394 -> 327 [label="qual" style=dotted];
+603 -> 328 [label="F"];
+691 -> 328 [label="dep" style=dotted];
+71 -> 329 [label="T"];
+155 -> 329 [label="para" style=dotted];
+504 -> 329 [label="para" style=dotted];
+677 -> 329 [label="para" style=dotted];
+289 -> 329 [label="para" style=dotted];
+238 -> 329 [label="para" style=dotted];
+188 -> 329 [label="dep" style=dotted];
+473 -> 331 [label="ref" style=dotted];
+557 -> 333 [label="" style=solid];
+460 -> 333 [label="recv" style=dotted];
+206 -> 333 [label="dep" style=dotted];
+272 -> 333 [label="dep" style=dotted];
+413 -> 334 [label="qual" style=dotted];
+627 -> 334 [label="para" style=dotted];
+473 -> 334 [label="ref" style=dotted];
+177 -> 335 [label="dep" style=dotted];
+333 -> 335 [label="dep" style=dotted];
+672 -> 337 [label="qual" style=dotted];
+276 -> 337 [label="def" style=dotted];
+142 -> 339 [label="ref" style=dotted];
+165 -> 340 [label="T"];
+426 -> 340 [label="recv" style=dotted];
+120 -> 340 [label="dep" style=dotted];
+120 -> 340 [label="para" style=dotted];
+445 -> 340 [label="dep" style=dotted];
+71 -> 341 [label="F"];
+603 -> 342 [label="F"];
+486 -> 342 [label="para" style=dotted];
+31 -> 342 [label="para" style=dotted];
+215 -> 342 [label="para" style=dotted];
+468 -> 342 [label="para" style=dotted];
+605 -> 342 [label="para" style=dotted];
+730 -> 342 [label="dep" style=dotted];
+701 -> 344 [label="T"];
+121 -> 344 [label="dep" style=dotted];
+121 -> 344 [label="para" style=dotted];
+700 -> 344 [label="dep" style=dotted];
+603 -> 345 [label="F"];
+697 -> 345 [label="para" style=dotted];
+472 -> 345 [label="para" style=dotted];
+712 -> 345 [label="dep" style=dotted];
+9 -> 346 [label="T"];
+85 -> 346 [label="dep" style=dotted];
+85 -> 346 [label="para" style=dotted];
+168 -> 346 [label="dep" style=dotted];
+308 -> 347 [label="def" style=dotted];
+603 -> 350 [label="F"];
+528 -> 350 [label="recv" style=dotted];
+314 -> 350 [label="para" style=dotted];
+580 -> 350 [label="para" style=dotted];
+572 -> 350 [label="dep" style=dotted];
+305 -> 351 [label="T"];
+708 -> 351 [label="para" style=dotted];
+592 -> 351 [label="dep" style=dotted];
+410 -> 352 [label="def" style=dotted];
+490 -> 353 [label="def" style=dotted];
+182 -> 354 [label="ref" style=dotted];
+473 -> 355 [label="ref" style=dotted];
+145 -> 356 [label="qual" style=dotted];
+52 -> 357 [label="qual" style=dotted];
+361 -> 357 [label="para" style=dotted];
+473 -> 357 [label="ref" style=dotted];
+723 -> 360 [label="qual" style=dotted];
+107 -> 360 [label="para" style=dotted];
+473 -> 360 [label="ref" style=dotted];
+408 -> 362 [label="T"];
+194 -> 362 [label="para" style=dotted];
+588 -> 362 [label="dep" style=dotted];
+235 -> 363 [label="qual" style=dotted];
+72 -> 363 [label="def" style=dotted];
+498 -> 364 [label="def" style=dotted];
+557 -> 365 [label="" style=solid];
+390 -> 365 [label="dep" style=dotted];
+390 -> 365 [label="para" style=dotted];
+418 -> 366 [label="qual" style=dotted];
+671 -> 366 [label="para" style=dotted];
+473 -> 366 [label="ref" style=dotted];
+29 -> 367 [label="ref" style=dotted];
+701 -> 369 [label="T"];
+231 -> 369 [label="recv" style=dotted];
+530 -> 369 [label="para" style=dotted];
+344 -> 369 [label="dep" style=dotted];
+344 -> 369 [label="para" style=dotted];
+700 -> 369 [label="dep" style=dotted];
+557 -> 370 [label="" style=solid];
+254 -> 370 [label="para" style=dotted];
+105 -> 370 [label="para" style=dotted];
+441 -> 370 [label="dep" style=dotted];
+546 -> 370 [label="dep" style=dotted];
+179 -> 371 [label="T"];
+497 -> 371 [label="dep" style=dotted];
+497 -> 371 [label="para" style=dotted];
+646 -> 371 [label="dep" style=dotted];
+563 -> 372 [label="ref" style=dotted];
+283 -> 373 [label="qual" style=dotted];
+570 -> 373 [label="para" style=dotted];
+473 -> 373 [label="ref" style=dotted];
+408 -> 375 [label="T"];
+634 -> 375 [label="dep" style=dotted];
+634 -> 375 [label="para" style=dotted];
+140 -> 376 [label="def" style=dotted];
+612 -> 376 [label="def" style=dotted];
+365 -> 378 [label="def" style=dotted];
+499 -> 379 [label="qual" style=dotted];
+598 -> 379 [label="para" style=dotted];
+473 -> 379 [label="ref" style=dotted];
+737 -> 381 [label="def" style=dotted];
+727 -> 382 [label="T"];
+212 -> 382 [label="dep" style=dotted];
+483 -> 383 [label="qual" style=dotted];
+170 -> 383 [label="para" style=dotted];
+473 -> 383 [label="ref" style=dotted];
+165 -> 384 [label="F"];
+243 -> 385 [label="T"];
+232 -> 385 [label="recv" style=dotted];
+534 -> 385 [label="dep" style=dotted];
+3 -> 386 [label="F"];
+501 -> 386 [label="para" style=dotted];
+631 -> 386 [label="dep" style=dotted];
+378 -> 388 [label="ref" style=dotted];
+557 -> 390 [label="" style=solid];
+693 -> 390 [label="para" style=dotted];
+271 -> 390 [label="para" style=dotted];
+435 -> 390 [label="para" style=dotted];
+266 -> 390 [label="para" style=dotted];
+622 -> 390 [label="para" style=dotted];
+252 -> 390 [label="dep" style=dotted];
+20 -> 391 [label="ref" style=dotted];
+116 -> 393 [label="qual" style=dotted];
+720 -> 394 [label="qual" style=dotted];
+453 -> 394 [label="para" style=dotted];
+473 -> 394 [label="ref" style=dotted];
+716 -> 396 [label="ref" style=dotted];
+446 -> 397 [label="F"];
+419 -> 397 [label="dep" style=dotted];
+419 -> 397 [label="para" style=dotted];
+611 -> 397 [label="dep" style=dotted];
+611 -> 397 [label="para" style=dotted];
+71 -> 398 [label="T"];
+103 -> 398 [label="para" style=dotted];
+422 -> 398 [label="para" style=dotted];
+72 -> 398 [label="dep" style=dotted];
+538 -> 399 [label="def" style=dotted];
+408 -> 400 [label="F"];
+342 -> 402 [label="def" style=dotted];
+712 -> 402 [label="def" style=dotted];
+185 -> 404 [label="qual" style=dotted];
+534 -> 404 [label="def" style=dotted];
+564 -> 405 [label="qual" style=dotted];
+452 -> 405 [label="def" style=dotted];
+101 -> 405 [label="re_def" style=dotted color=red];
+20 -> 406 [label="ref" style=dotted];
+557 -> 408 [label="" style=solid];
+294 -> 408 [label="dep" style=dotted];
+294 -> 408 [label="cond" style=dotted];
+473 -> 409 [label="ref" style=dotted];
+507 -> 410 [label="T"];
+237 -> 410 [label="dep" style=dotted];
+237 -> 410 [label="para" style=dotted];
+563 -> 411 [label="ref" style=dotted];
+474 -> 413 [label="qual" style=dotted];
+635 -> 413 [label="para" style=dotted];
+473 -> 413 [label="ref" style=dotted];
+563 -> 414 [label="ref" style=dotted];
+467 -> 415 [label="F"];
+557 -> 416 [label="" style=solid];
+2 -> 416 [label="recv" style=dotted];
+539 -> 416 [label="para" style=dotted];
+494 -> 416 [label="dep" style=dotted];
+713 -> 417 [label="qual" style=dotted];
+359 -> 417 [label="para" style=dotted];
+473 -> 417 [label="ref" style=dotted];
+473 -> 418 [label="ref" style=dotted];
+446 -> 419 [label="F"];
+633 -> 419 [label="para" style=dotted];
+698 -> 419 [label="para" style=dotted];
+597 -> 419 [label="dep" style=dotted];
+71 -> 421 [label="T"];
+464 -> 421 [label="para" style=dotted];
+304 -> 421 [label="para" style=dotted];
+76 -> 421 [label="dep" style=dotted];
+179 -> 424 [label="T"];
+325 -> 424 [label="dep" style=dotted];
+325 -> 424 [label="para" style=dotted];
+643 -> 424 [label="dep" style=dotted];
+446 -> 425 [label="T"];
+606 -> 425 [label="dep" style=dotted];
+165 -> 427 [label="T"];
+451 -> 427 [label="recv" style=dotted];
+726 -> 427 [label="para" style=dotted];
+208 -> 427 [label="para" style=dotted];
+665 -> 427 [label="dep" style=dotted];
+557 -> 428 [label="" style=solid];
+438 -> 428 [label="recv" style=dotted];
+729 -> 428 [label="para" style=dotted];
+276 -> 428 [label="dep" style=dotted];
+432 -> 428 [label="dep" style=dotted];
+364 -> 429 [label="ref" style=dotted];
+29 -> 430 [label="ref" style=dotted];
+727 -> 432 [label="F"];
+393 -> 432 [label="recv" style=dotted];
+356 -> 432 [label="para" style=dotted];
+518 -> 432 [label="dep" style=dotted];
+408 -> 433 [label="T"];
+95 -> 433 [label="dep" style=dotted];
+569 -> 435 [label="qual" style=dotted];
+179 -> 436 [label="T"];
+127 -> 436 [label="para" style=dotted];
+108 -> 436 [label="dep" style=dotted];
+239 -> 436 [label="dep" style=dotted];
+557 -> 437 [label="" style=solid];
+18 -> 437 [label="para" style=dotted];
+626 -> 437 [label="dep" style=dotted];
+154 -> 438 [label="ref" style=dotted];
+473 -> 439 [label="ref" style=dotted];
+481 -> 440 [label="ref" style=dotted];
+607 -> 441 [label="T"];
+559 -> 441 [label="recv" style=dotted];
+37 -> 441 [label="dep" style=dotted];
+603 -> 442 [label="F"];
+516 -> 442 [label="para" style=dotted];
+392 -> 442 [label="para" style=dotted];
+485 -> 442 [label="dep" style=dotted];
+473 -> 443 [label="ref" style=dotted];
+599 -> 444 [label="ref" style=dotted];
+165 -> 445 [label="T"];
+197 -> 445 [label="dep" style=dotted];
+197 -> 445 [label="para" style=dotted];
+557 -> 446 [label="" style=solid];
+148 -> 446 [label="dep" style=dotted];
+148 -> 446 [label="cond" style=dotted];
+420 -> 447 [label="qual" style=dotted];
+179 -> 448 [label="T"];
+264 -> 448 [label="dep" style=dotted];
+264 -> 448 [label="cond" style=dotted];
+630 -> 449 [label="" style=solid];
+603 -> 450 [label="F"];
+556 -> 450 [label="recv" style=dotted];
+110 -> 450 [label="para" style=dotted];
+741 -> 450 [label="para" style=dotted];
+649 -> 450 [label="dep" style=dotted];
+408 -> 452 [label="T"];
+440 -> 452 [label="para" style=dotted];
+571 -> 452 [label="dep" style=dotted];
+378 -> 455 [label="ref" style=dotted];
+179 -> 456 [label="T"];
+17 -> 456 [label="para" style=dotted];
+724 -> 456 [label="dep" style=dotted];
+699 -> 457 [label="T"];
+378 -> 460 [label="ref" style=dotted];
+439 -> 461 [label="qual" style=dotted];
+160 -> 461 [label="para" style=dotted];
+473 -> 461 [label="ref" style=dotted];
+192 -> 462 [label="def" style=dotted];
+473 -> 463 [label="ref" style=dotted];
+688 -> 464 [label="qual" style=dotted];
+557 -> 465 [label="" style=solid];
+554 -> 465 [label="para" style=dotted];
+722 -> 465 [label="para" style=dotted];
+410 -> 465 [label="dep" style=dotted];
+484 -> 465 [label="dep" style=dotted];
+316 -> 465 [label="dep" style=dotted];
+378 -> 466 [label="ref" style=dotted];
+179 -> 467 [label="T"];
+542 -> 467 [label="dep" style=dotted];
+542 -> 467 [label="cond" style=dotted];
+351 -> 469 [label="def" style=dotted];
+685 -> 470 [label="def" style=dotted];
+378 -> 471 [label="ref" style=dotted];
+8 -> 473 [label="qual" style=dotted];
+343 -> 473 [label="para" style=dotted];
+494 -> 473 [label="def" style=dotted];
+473 -> 474 [label="ref" style=dotted];
+650 -> 475 [label="T"];
+57 -> 475 [label="recv" style=dotted];
+48 -> 475 [label="para" style=dotted];
+543 -> 475 [label="dep" style=dotted];
+607 -> 476 [label="T"];
+334 -> 476 [label="para" style=dotted];
+306 -> 476 [label="dep" style=dotted];
+165 -> 477 [label="T"];
+173 -> 477 [label="recv" style=dotted];
+638 -> 477 [label="dep" style=dotted];
+638 -> 477 [label="para" style=dotted];
+445 -> 477 [label="dep" style=dotted];
+574 -> 478 [label="F"];
+532 -> 478 [label="para" style=dotted];
+655 -> 478 [label="dep" style=dotted];
+71 -> 479 [label="T"];
+100 -> 479 [label="para" style=dotted];
+257 -> 479 [label="para" style=dotted];
+568 -> 479 [label="dep" style=dotted];
+686 -> 480 [label="qual" style=dotted];
+163 -> 480 [label="para" style=dotted];
+473 -> 480 [label="ref" style=dotted];
+274 -> 481 [label="def" style=dotted];
+473 -> 483 [label="ref" style=dotted];
+3 -> 484 [label="T"];
+230 -> 484 [label="dep" style=dotted];
+230 -> 484 [label="para" style=dotted];
+603 -> 485 [label="F"];
+336 -> 485 [label="recv" style=dotted];
+51 -> 485 [label="dep" style=dotted];
+557 -> 487 [label="" style=solid];
+549 -> 487 [label="para" style=dotted];
+544 -> 487 [label="dep" style=dotted];
+473 -> 489 [label="ref" style=dotted];
+557 -> 490 [label="" style=solid];
+648 -> 490 [label="para" style=dotted];
+703 -> 490 [label="dep" style=dotted];
+182 -> 491 [label="ref" style=dotted];
+305 -> 492 [label="T"];
+589 -> 492 [label="para" style=dotted];
+612 -> 492 [label="dep" style=dotted];
+545 -> 493 [label="qual" style=dotted];
+158 -> 493 [label="para" style=dotted];
+473 -> 493 [label="ref" style=dotted];
+557 -> 494 [label="" style=solid];
+657 -> 494 [label="dep" style=dotted];
+657 -> 494 [label="para" style=dotted];
+364 -> 495 [label="ref" style=dotted];
+71 -> 496 [label="T"];
+479 -> 496 [label="dep" style=dotted];
+479 -> 496 [label="para" style=dotted];
+179 -> 497 [label="T"];
+696 -> 497 [label="recv" style=dotted];
+183 -> 497 [label="para" style=dotted];
+646 -> 497 [label="dep" style=dotted];
+557 -> 498 [label="" style=solid];
+428 -> 498 [label="dep" style=dotted];
+428 -> 498 [label="para" style=dotted];
+473 -> 499 [label="ref" style=dotted];
+699 -> 500 [label="T"];
+198 -> 500 [label="para" style=dotted];
+192 -> 500 [label="dep" style=dotted];
+71 -> 502 [label="T"];
+652 -> 502 [label="recv" style=dotted];
+22 -> 502 [label="para" style=dotted];
+367 -> 502 [label="para" style=dotted];
+496 -> 502 [label="dep" style=dotted];
+305 -> 505 [label="T"];
+131 -> 505 [label="recv" style=dotted];
+601 -> 505 [label="para" style=dotted];
+640 -> 505 [label="para" style=dotted];
+259 -> 505 [label="dep" style=dotted];
+446 -> 507 [label="F"];
+397 -> 507 [label="dep" style=dotted];
+397 -> 507 [label="cond" style=dotted];
+378 -> 508 [label="ref" style=dotted];
+706 -> 509 [label="def" style=dotted];
+593 -> 510 [label="qual" style=dotted];
+30 -> 512 [label="qual" style=dotted];
+348 -> 512 [label="para" style=dotted];
+473 -> 512 [label="ref" style=dotted];
+305 -> 513 [label="T"];
+150 -> 513 [label="recv" style=dotted];
+286 -> 513 [label="dep" style=dotted];
+286 -> 513 [label="para" style=dotted];
+612 -> 513 [label="dep" style=dotted];
+305 -> 514 [label="T"];
+83 -> 514 [label="recv" style=dotted];
+7 -> 514 [label="dep" style=dotted];
+7 -> 514 [label="para" style=dotted];
+674 -> 514 [label="dep" style=dotted];
+557 -> 515 [label="" style=solid];
+196 -> 515 [label="dep" style=dotted];
+196 -> 515 [label="cond" style=dotted];
+244 -> 516 [label="qual" style=dotted];
+644 -> 517 [label="ref" style=dotted];
+727 -> 518 [label="F"];
+557 -> 520 [label="" style=solid];
+447 -> 520 [label="para" style=dotted];
+658 -> 520 [label="para" style=dotted];
+307 -> 520 [label="dep" style=dotted];
+400 -> 520 [label="dep" style=dotted];
+399 -> 521 [label="ref" style=dotted];
+9 -> 522 [label="F"];
+24 -> 523 [label="T"];
+714 -> 523 [label="dep" style=dotted];
+714 -> 523 [label="para" style=dotted];
+202 -> 523 [label="dep" style=dotted];
+557 -> 524 [label="" style=solid];
+736 -> 524 [label="para" style=dotted];
+43 -> 524 [label="dep" style=dotted];
+557 -> 525 [label="" style=solid];
+412 -> 525 [label="para" style=dotted];
+255 -> 525 [label="dep" style=dotted];
+515 -> 526 [label="T"];
+531 -> 527 [label="ref" style=dotted];
+243 -> 529 [label="T"];
+364 -> 530 [label="ref" style=dotted];
+456 -> 531 [label="def" style=dotted];
+20 -> 532 [label="ref" style=dotted];
+607 -> 533 [label="T"];
+243 -> 534 [label="T"];
+654 -> 534 [label="para" style=dotted];
+678 -> 534 [label="dep" style=dotted];
+467 -> 535 [label="T"];
+467 -> 536 [label="T"];
+660 -> 536 [label="para" style=dotted];
+623 -> 536 [label="dep" style=dotted];
+623 -> 536 [label="para" style=dotted];
+535 -> 536 [label="dep" style=dotted];
+33 -> 537 [label="qual" style=dotted];
+557 -> 538 [label="" style=solid];
+58 -> 538 [label="para" style=dotted];
+96 -> 538 [label="dep" style=dotted];
+473 -> 539 [label="ref" style=dotted];
+628 -> 540 [label="qual" style=dotted];
+448 -> 541 [label="T"];
+111 -> 541 [label="para" style=dotted];
+547 -> 541 [label="dep" style=dotted];
+179 -> 542 [label="T"];
+241 -> 542 [label="para" style=dotted];
+62 -> 542 [label="para" style=dotted];
+541 -> 542 [label="dep" style=dotted];
+261 -> 542 [label="dep" style=dotted];
+650 -> 543 [label="T"];
+557 -> 544 [label="" style=solid];
+416 -> 544 [label="dep" style=dotted];
+416 -> 544 [label="para" style=dotted];
+473 -> 545 [label="ref" style=dotted];
+607 -> 546 [label="F"];
+448 -> 547 [label="T"];
+243 -> 548 [label="T"];
+66 -> 548 [label="dep" style=dotted];
+66 -> 548 [label="para" style=dotted];
+721 -> 550 [label="qual" style=dotted];
+557 -> 551 [label="" style=solid];
+199 -> 551 [label="para" style=dotted];
+240 -> 551 [label="para" style=dotted];
+500 -> 551 [label="dep" style=dotted];
+617 -> 551 [label="dep" style=dotted];
+259 -> 552 [label="" style=solid];
+29 -> 554 [label="ref" style=dotted];
+473 -> 555 [label="ref" style=dotted];
+473 -> 558 [label="ref" style=dotted];
+46 -> 559 [label="ref" style=dotted];
+132 -> 560 [label="qual" style=dotted];
+617 -> 561 [label="def" style=dotted];
+574 -> 562 [label="F"];
+478 -> 562 [label="dep" style=dotted];
+478 -> 562 [label="para" style=dotted];
+655 -> 562 [label="dep" style=dotted];
+582 -> 563 [label="def" style=dotted];
+182 -> 565 [label="ref" style=dotted];
+71 -> 568 [label="T"];
+579 -> 568 [label="dep" style=dotted];
+579 -> 568 [label="para" style=dotted];
+408 -> 571 [label="T"];
+632 -> 571 [label="recv" style=dotted];
+138 -> 571 [label="dep" style=dotted];
+603 -> 572 [label="F"];
+40 -> 572 [label="dep" style=dotted];
+40 -> 572 [label="para" style=dotted];
+603 -> 573 [label="T"];
+139 -> 573 [label="dep" style=dotted];
+467 -> 574 [label="T"];
+137 -> 574 [label="dep" style=dotted];
+137 -> 574 [label="cond" style=dotted];
+555 -> 576 [label="qual" style=dotted];
+55 -> 576 [label="para" style=dotted];
+473 -> 576 [label="ref" style=dotted];
+3 -> 577 [label="T"];
+681 -> 578 [label="qual" style=dotted];
+71 -> 579 [label="T"];
+455 -> 579 [label="recv" style=dotted];
+188 -> 579 [label="dep" style=dotted];
+29 -> 580 [label="ref" style=dotted];
+557 -> 582 [label="" style=solid];
+104 -> 582 [label="dep" style=dotted];
+104 -> 582 [label="para" style=dotted];
+298 -> 583 [label="ref" style=dotted];
+607 -> 584 [label="T"];
+616 -> 584 [label="recv" style=dotted];
+65 -> 584 [label="para" style=dotted];
+431 -> 584 [label="para" style=dotted];
+533 -> 584 [label="dep" style=dotted];
+473 -> 585 [label="ref" style=dotted];
+574 -> 587 [label="F"];
+408 -> 588 [label="T"];
+20 -> 589 [label="ref" style=dotted];
+312 -> 590 [label="para" style=dotted];
+253 -> 590 [label="para" style=dotted];
+176 -> 591 [label="def" style=dotted];
+305 -> 592 [label="T"];
+408 -> 595 [label="T"];
+690 -> 595 [label="recv" style=dotted];
+452 -> 595 [label="dep" style=dotted];
+378 -> 596 [label="ref" style=dotted];
+446 -> 597 [label="F"];
+674 -> 599 [label="def" style=dotted];
+154 -> 600 [label="ref" style=dotted];
+347 -> 601 [label="ref" style=dotted];
+71 -> 603 [label="T"];
+360 -> 603 [label="cond" style=dotted];
+369 -> 603 [label="dep" style=dotted];
+281 -> 603 [label="dep" style=dotted];
+557 -> 604 [label="" style=solid];
+141 -> 604 [label="recv" style=dotted];
+174 -> 604 [label="para" style=dotted];
+737 -> 604 [label="dep" style=dotted];
+446 -> 606 [label="T"];
+557 -> 607 [label="" style=solid];
+520 -> 607 [label="dep" style=dotted];
+520 -> 607 [label="cond" style=dotted];
+154 -> 609 [label="ref" style=dotted];
+179 -> 610 [label="T"];
+290 -> 610 [label="recv" style=dotted];
+27 -> 610 [label="dep" style=dotted];
+27 -> 610 [label="para" style=dotted];
+25 -> 610 [label="para" style=dotted];
+436 -> 610 [label="dep" style=dotted];
+446 -> 611 [label="F"];
+512 -> 611 [label="para" style=dotted];
+204 -> 611 [label="para" style=dotted];
+597 -> 611 [label="dep" style=dotted];
+305 -> 612 [label="T"];
+303 -> 612 [label="dep" style=dotted];
+303 -> 612 [label="para" style=dotted];
+92 -> 613 [label="ref" style=dotted];
+211 -> 613 [label="ref" style=dotted];
+473 -> 615 [label="ref" style=dotted];
+378 -> 616 [label="ref" style=dotted];
+699 -> 617 [label="F"];
+80 -> 617 [label="para" style=dotted];
+275 -> 617 [label="dep" style=dotted];
+258 -> 621 [label="qual" style=dotted];
+423 -> 621 [label="para" style=dotted];
+473 -> 621 [label="ref" style=dotted];
+682 -> 622 [label="ref" style=dotted];
+467 -> 623 [label="T"];
+122 -> 623 [label="recv" style=dotted];
+535 -> 623 [label="dep" style=dotted];
+557 -> 626 [label="" style=solid];
+711 -> 626 [label="para" style=dotted];
+84 -> 626 [label="dep" style=dotted];
+382 -> 630 [label="F"];
+3 -> 631 [label="F"];
+53 -> 632 [label="qual" style=dotted];
+366 -> 633 [label="qual" style=dotted];
+265 -> 633 [label="para" style=dotted];
+473 -> 633 [label="ref" style=dotted];
+408 -> 634 [label="T"];
+167 -> 634 [label="para" style=dotted];
+458 -> 634 [label="para" style=dotted];
+260 -> 634 [label="dep" style=dotted];
+387 -> 636 [label="para" style=dotted];
+430 -> 636 [label="para" style=dotted];
+165 -> 638 [label="T"];
+143 -> 638 [label="dep" style=dotted];
+143 -> 638 [label="para" style=dotted];
+278 -> 638 [label="para" style=dotted];
+445 -> 638 [label="dep" style=dotted];
+172 -> 640 [label="ref" style=dotted];
+473 -> 641 [label="ref" style=dotted];
+665 -> 642 [label="" style=solid];
+179 -> 643 [label="T"];
+673 -> 643 [label="dep" style=dotted];
+673 -> 643 [label="para" style=dotted];
+371 -> 643 [label="dep" style=dotted];
+572 -> 644 [label="def" style=dotted];
+311 -> 644 [label="re_def" style=dotted color=red];
+667 -> 644 [label="re_def" style=dotted color=red];
+355 -> 645 [label="qual" style=dotted];
+248 -> 645 [label="para" style=dotted];
+473 -> 645 [label="ref" style=dotted];
+179 -> 646 [label="T"];
+273 -> 646 [label="dep" style=dotted];
+273 -> 646 [label="para" style=dotted];
+656 -> 646 [label="dep" style=dotted];
+603 -> 649 [label="F"];
+328 -> 649 [label="dep" style=dotted];
+328 -> 649 [label="para" style=dotted];
+603 -> 650 [label="F"];
+517 -> 650 [label="cond" style=dotted];
+78 -> 650 [label="dep" style=dotted];
+607 -> 651 [label="T"];
+584 -> 651 [label="dep" style=dotted];
+584 -> 651 [label="para" style=dotted];
+71 -> 653 [label="T"];
+508 -> 654 [label="qual" style=dotted];
+574 -> 655 [label="F"];
+94 -> 655 [label="para" style=dotted];
+587 -> 655 [label="dep" style=dotted];
+179 -> 656 [label="T"];
+557 -> 657 [label="" style=solid];
+288 -> 657 [label="recv" style=dotted];
+203 -> 657 [label="dep" style=dotted];
+409 -> 663 [label="qual" style=dotted];
+282 -> 663 [label="para" style=dotted];
+473 -> 663 [label="ref" style=dotted];
+165 -> 665 [label="T"];
+106 -> 665 [label="dep" style=dotted];
+509 -> 665 [label="cond" style=dotted];
+443 -> 666 [label="qual" style=dotted];
+79 -> 666 [label="para" style=dotted];
+473 -> 666 [label="ref" style=dotted];
+51 -> 667 [label="def" style=dotted];
+650 -> 668 [label="F"];
+603 -> 669 [label="F"];
+295 -> 669 [label="dep" style=dotted];
+295 -> 669 [label="para" style=dotted];
+313 -> 669 [label="para" style=dotted];
+291 -> 669 [label="dep" style=dotted];
+385 -> 669 [label="dep" style=dotted];
+280 -> 670 [label="ref" style=dotted];
+179 -> 673 [label="T"];
+54 -> 673 [label="recv" style=dotted];
+190 -> 673 [label="para" style=dotted];
+371 -> 673 [label="dep" style=dotted];
+305 -> 674 [label="T"];
+513 -> 674 [label="dep" style=dotted];
+513 -> 674 [label="para" style=dotted];
+165 -> 675 [label="T"];
+95 -> 676 [label="def" style=dotted];
+243 -> 678 [label="T"];
+702 -> 678 [label="recv" style=dotted];
+166 -> 678 [label="dep" style=dotted];
+92 -> 679 [label="ref" style=dotted];
+211 -> 679 [label="ref" style=dotted];
+96 -> 682 [label="def" style=dotted];
+574 -> 683 [label="T"];
+567 -> 683 [label="para" style=dotted];
+93 -> 683 [label="dep" style=dotted];
+615 -> 684 [label="qual" style=dotted];
+401 -> 684 [label="para" style=dotted];
+473 -> 684 [label="ref" style=dotted];
+557 -> 685 [label="" style=solid];
+503 -> 685 [label="para" style=dotted];
+146 -> 685 [label="dep" style=dotted];
+473 -> 686 [label="ref" style=dotted];
+557 -> 687 [label="" style=solid];
+338 -> 687 [label="recv" style=dotted];
+184 -> 687 [label="dep" style=dotted];
+184 -> 687 [label="para" style=dotted];
+410 -> 687 [label="dep" style=dotted];
+484 -> 687 [label="dep" style=dotted];
+316 -> 687 [label="dep" style=dotted];
+220 -> 689 [label="ref" style=dotted];
+280 -> 690 [label="ref" style=dotted];
+603 -> 691 [label="F"];
+408 -> 692 [label="T"];
+433 -> 692 [label="dep" style=dotted];
+433 -> 692 [label="para" style=dotted];
+364 -> 693 [label="ref" style=dotted];
+378 -> 694 [label="ref" style=dotted];
+36 -> 697 [label="qual" style=dotted];
+661 -> 697 [label="para" style=dotted];
+473 -> 697 [label="ref" style=dotted];
+557 -> 699 [label="" style=solid];
+370 -> 699 [label="dep" style=dotted];
+370 -> 699 [label="cond" style=dotted];
+701 -> 700 [label="T"];
+71 -> 701 [label="T"];
+398 -> 701 [label="dep" style=dotted];
+398 -> 701 [label="cond" style=dotted];
+293 -> 702 [label="qual" style=dotted];
+557 -> 703 [label="" style=solid];
+389 -> 703 [label="para" style=dotted];
+685 -> 703 [label="dep" style=dotted];
+20 -> 705 [label="ref" style=dotted];
+106 -> 706 [label="def" style=dotted];
+491 -> 707 [label="qual" style=dotted];
+373 -> 707 [label="para" style=dotted];
+182 -> 707 [label="ref" style=dotted];
+285 -> 708 [label="qual" style=dotted];
+5 -> 708 [label="para" style=dotted];
+473 -> 708 [label="ref" style=dotted];
+603 -> 710 [label="F"];
+707 -> 710 [label="para" style=dotted];
+620 -> 710 [label="para" style=dotted];
+60 -> 710 [label="dep" style=dotted];
+227 -> 711 [label="qual" style=dotted];
+19 -> 711 [label="para" style=dotted];
+473 -> 711 [label="ref" style=dotted];
+603 -> 712 [label="F"];
+47 -> 712 [label="dep" style=dotted];
+47 -> 712 [label="para" style=dotted];
+473 -> 713 [label="ref" style=dotted];
+24 -> 714 [label="T"];
+647 -> 714 [label="recv" style=dotted];
+731 -> 714 [label="para" style=dotted];
+202 -> 714 [label="dep" style=dotted];
+724 -> 716 [label="def" style=dotted];
+507 -> 718 [label="F"];
+201 -> 718 [label="para" style=dotted];
+218 -> 718 [label="para" style=dotted];
+213 -> 718 [label="dep" style=dotted];
+641 -> 720 [label="qual" style=dotted];
+332 -> 720 [label="para" style=dotted];
+473 -> 720 [label="ref" style=dotted];
+378 -> 721 [label="ref" style=dotted];
+563 -> 722 [label="ref" style=dotted];
+302 -> 723 [label="qual" style=dotted];
+709 -> 723 [label="para" style=dotted];
+473 -> 723 [label="ref" style=dotted];
+179 -> 724 [label="T"];
+147 -> 724 [label="dep" style=dotted];
+147 -> 724 [label="para" style=dotted];
+469 -> 725 [label="ref" style=dotted];
+706 -> 726 [label="ref" style=dotted];
+557 -> 727 [label="" style=solid];
+250 -> 727 [label="dep" style=dotted];
+250 -> 727 [label="cond" style=dotted];
+603 -> 730 [label="F"];
+619 -> 730 [label="recv" style=dotted];
+450 -> 730 [label="dep" style=dotted];
+450 -> 730 [label="para" style=dotted];
+649 -> 730 [label="dep" style=dotted];
+279 -> 734 [label="def" style=dotted];
+381 -> 734 [label="re_def" style=dotted color=red];
+179 -> 735 [label="T"];
+169 -> 735 [label="para" style=dotted];
+575 -> 735 [label="para" style=dotted];
+424 -> 735 [label="dep" style=dotted];
+621 -> 736 [label="qual" style=dotted];
+459 -> 736 [label="para" style=dotted];
+473 -> 736 [label="ref" style=dotted];
+557 -> 737 [label="" style=solid];
+251 -> 737 [label="dep" style=dotted];
+251 -> 737 [label="para" style=dotted];
+29 -> 741 [label="ref" style=dotted];
+}

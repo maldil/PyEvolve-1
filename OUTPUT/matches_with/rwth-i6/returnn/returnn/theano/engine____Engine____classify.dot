@@ -1,0 +1,91 @@
+digraph G {
+1 [label="(11253438)TextIO(out)" shape=ellipse style=dashed color=yellow fontcolor=yellow]
+2 [label="(11253427)(null)" shape=ellipse style=dashed]
+3 [label="(11253426)Engine(self)" shape=ellipse style=dashed]
+4 [label="(11253441)String(lit(w))" shape=ellipse style=dashed color=yellow fontcolor=yellow]
+5 [label="(11253440)Any(output_file)" shape=ellipse style=dashed]
+6 [label="(11253454)Any(batches)" shape=ellipse style=dashed]
+7 [label="(11253434)Any(output_file)" shape=ellipse style=dashed]
+8 [label="(11253455)=" shape=box style=dashed color=blue fontcolor=blue]
+9 [label="(11253460)returnn.theano.engine_task.ClassificationTaskThread.output(output)" shape=ellipse style=dashed]
+10 [label="(11253446)=" shape=box style=dashed color=red fontcolor=red]
+11 [label="(11253457)join" shape=box style=dashed]
+12 [label="(11253459)returnn.theano.engine_task.ClassificationTaskThread(forwarder)" shape=ellipse style=dashed]
+13 [label="(11253448)ClassificationTaskThread" shape=box style=dashed]
+14 [label="(11253428)=" shape=box style=dashed color=red fontcolor=red]
+15 [label="(11253449)Engine(self)" shape=ellipse style=dashed]
+16 [label="(11253452)Engine.devices(devices)" shape=ellipse style=dashed]
+17 [label="(11253430)Any(data)" shape=ellipse style=dashed]
+18 [label="(11253436)=" shape=box style=dashed color=black fontcolor=black]
+19 [label="(11253442)=" shape=box style=dashed color=yellow fontcolor=yellow]
+20 [label="(11253445)generate_batches" shape=box style=dashed]
+21 [label="(11253425)START" style=dashed]
+22 [label="(11253444)Any(data)" shape=ellipse style=dashed]
+23 [label="(11253462)close" shape=box style=dashed color=yellow fontcolor=yellow]
+24 [label="(11253458)print" shape=box style=dashed]
+25 [label="(11253461)TextIO(out)" shape=ellipse style=dashed color=yellow fontcolor=yellow]
+26 [label="(11253463)END" style=dashed]
+27 [label="(11253456)returnn.theano.engine_task.ClassificationTaskThread(forwarder)" shape=ellipse style=dashed]
+28 [label="(11253447)returnn.theano.engine_task.ClassificationTaskThread(forwarder)" shape=ellipse style=dashed]
+29 [label="(11253435)(null)" shape=ellipse style=dashed]
+30 [label="(11253439)open" shape=box style=dashed color=yellow fontcolor=yellow]
+31 [label="(11253443)Any(batches)" shape=ellipse style=dashed]
+32 [label="(11253451)Engine(self)" shape=ellipse style=dashed]
+33 [label="(11253432)=" shape=box style=dashed color=blue fontcolor=blue]
+34 [label="(11253450)Engine.network(network)" shape=ellipse style=dashed]
+35 [label="(11253431)(null)" shape=ellipse style=dashed]
+36 [label="(11253453)Any(data)" shape=ellipse style=dashed]
+19 -> 1 [label="def" style=dotted];
+14 -> 3 [label="def" style=dotted];
+31 -> 6 [label="ref" style=dotted];
+18 -> 7 [label="def" style=dotted];
+21 -> 8 [label="" style=solid];
+13 -> 8 [label="dep" style=dotted];
+13 -> 8 [label="para" style=dotted];
+12 -> 9 [label="qual" style=dotted];
+21 -> 10 [label="" style=solid];
+20 -> 10 [label="dep" style=dotted];
+20 -> 10 [label="para" style=dotted];
+21 -> 11 [label="" style=solid];
+27 -> 11 [label="recv" style=dotted];
+8 -> 11 [label="dep" style=dotted];
+28 -> 12 [label="ref" style=dotted];
+21 -> 13 [label="" style=solid];
+34 -> 13 [label="para" style=dotted];
+16 -> 13 [label="para" style=dotted];
+36 -> 13 [label="para" style=dotted];
+6 -> 13 [label="para" style=dotted];
+10 -> 13 [label="dep" style=dotted];
+21 -> 14 [label="" style=solid];
+2 -> 14 [label="para" style=dotted];
+32 -> 16 [label="qual" style=dotted];
+33 -> 17 [label="def" style=dotted];
+21 -> 18 [label="" style=solid];
+29 -> 18 [label="para" style=dotted];
+33 -> 18 [label="dep" style=dotted];
+21 -> 19 [label="" style=solid];
+30 -> 19 [label="dep" style=dotted];
+30 -> 19 [label="para" style=dotted];
+21 -> 20 [label="" style=solid];
+22 -> 20 [label="recv" style=dotted];
+19 -> 20 [label="dep" style=dotted];
+21 -> 23 [label="" style=solid];
+25 -> 23 [label="recv" style=dotted];
+24 -> 23 [label="dep" style=dotted];
+21 -> 24 [label="" style=solid];
+9 -> 24 [label="para" style=dotted];
+11 -> 24 [label="dep" style=dotted];
+1 -> 25 [label="ref" style=dotted];
+23 -> 26 [label="dep" style=dotted];
+28 -> 27 [label="ref" style=dotted];
+8 -> 28 [label="def" style=dotted];
+21 -> 30 [label="" style=solid];
+5 -> 30 [label="para" style=dotted];
+4 -> 30 [label="para" style=dotted];
+18 -> 30 [label="dep" style=dotted];
+10 -> 31 [label="def" style=dotted];
+21 -> 33 [label="" style=solid];
+35 -> 33 [label="para" style=dotted];
+14 -> 33 [label="dep" style=dotted];
+15 -> 34 [label="qual" style=dotted];
+}

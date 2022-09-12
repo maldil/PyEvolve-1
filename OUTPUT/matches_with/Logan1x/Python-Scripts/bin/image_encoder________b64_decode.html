@@ -1,0 +1,38 @@
+<link rel="stylesheet" href="../../..//default.css">
+<script src="../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/Logan1x/Python-Scripts/blob/master/bin/image_encoder.py#L21">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/Python-Scripts/blob/master/bin/image_encoder.py#L21">GitMyHubLink</a>
+
+import base64
+import json
+import time
+
+
+def b64_encode(source_filepath):
+    with open(source_filepath, &quotrb&quot) as f:
+        data = f.read()
+    dest = open(&quotImageData/encodeData.json&quot, &quotr&quot)
+    flag = json.loads(dest.read())
+    key = (str(int(time.time()))).decode(&quotutf-8&quot)
+    d = {"data": base64.b64encode(data).decode(
+        &quotutf-8&quot), "ext": source_filepath[source_filepath.index(&quot.&quot):]}
+    flag[key] = d
+    dest.close()
+    dest = open(&quotImageData/encodeData.json&quot, &quotw&quot)
+    json.dump(flag, dest)
+    return key
+
+
+def b64_decode(key, dest_path):
+    source = open(&quotImageData/encodeData.json&quot, &quotr&quot)
+    flag = json.loads(<a id="change">source</a>.read())
+    name = key+str(flag[key]["ext"])
+    <a id="change">dest</a><a id="change"> = open(dest_path+name, &quotwb&quot)</a>
+    <a id="change">dest</a>.write(base64.b64decode((flag[key]["data"]).encode(&quotutf-8&quot)))
+    <a id="change">dest</a><a id="change">.close()</a>
+    return dest_path+name
+</code></pre>

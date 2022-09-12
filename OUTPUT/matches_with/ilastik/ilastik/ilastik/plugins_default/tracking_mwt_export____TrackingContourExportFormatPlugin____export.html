@@ -1,0 +1,285 @@
+<link rel="stylesheet" href="../../../..//default.css">
+<script src="../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/ilastik/ilastik/blob/main/ilastik/plugins_default/tracking_mwt_export.py#L24">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/ilastik/blob/main/ilastik/plugins_default/tracking_mwt_export.py#L24">GitMyHubLink</a>
+
+from __future__ import division
+from builtins import range
+from past.utils import old_div
+import os.path
+import numpy as np
+from ilastik.plugins import TrackingExportFormatPlugin
+import vigra
+
+from functools import partial
+from lazyflow.request import Request, RequestPool
+
+from skimage import measure
+
+
+class TrackingContourExportFormatPlugin(TrackingExportFormatPlugin):
+    MWT export
+
+    exportsToFile = True
+
+    def checkFilesExist(self, filename):
+         Check whether the files we want to export are already present 
+        return os.path.exists(filename + ".outline")
+
+    def export(<a id="change">self</a>, <a id="change">filename</a>, <a id="change">hypothesesGraph</a>, <a id="change">pluginExportContext</a>):
+        
+        Export the Multi-Worm-Tracker .summary and .blobs files.
+
+        :param filename: string of the FILE where to save the result (different .xml files were)
+        :param hypothesesGraph: hytra.core.hypothesesgraph.HypothesesGraph filled with a solution
+        :param pluginExportContext: instance of ilastik.plugins.PluginExportContext containing:
+            objectFeaturesSlot (required here),  labelImageSlot (required here)
+            as well as  rawImageSlot, additionalPluginArgumentsSlot
+
+        :returns: True on success, False otherwise
+        
+        &#47&#47 Get object features
+        <a id="change">features = pluginExportContext.objectFeaturesSlot([]).wait()</a>
+
+        <a id="change">contoursDict = {}</a>
+
+        <a id="change">summaryDict = {}</a>
+
+        <a id="change">labelImageSlot = pluginExportContext.labelImageSlot</a>
+        <a id="change">tIndex = labelImageSlot.meta.axistags.index("t")</a>
+        <a id="change">tMax = labelImageSlot.meta.shape[tIndex]</a>
+
+        &#47&#47 Method to compute contours for single frame (called in parallel by a request parallel)
+        def compute_dicts_for_frame(tIndex, t, labelImageSlot, hypothesesGraph, contoursDict):
+            roi = [slice(None) for i in range(len(labelImageSlot.meta.shape))]
+            roi[tIndex] = slice(t, t + 1)
+            roi = tuple(roi)
+
+            frame = labelImageSlot[roi].wait()
+            frame = frame.squeeze()
+
+            for idx in vigra.analysis.unique(frame):
+                nodeId = (t, idx)
+
+                if hypothesesGraph.hasNode(nodeId) and "lineageId" in hypothesesGraph._graph.node[nodeId]:
+                    if t in summaryDict:
+                        summaryDict[t]["objectsNumber"] += 1
+                        summaryDict[t]["validObjectsNumber"] += 1
+                        summaryDict[t]["averageDuration"] = 0.0
+                        summaryDict[t]["averageSpeed"] = 0.0
+                        summaryDict[t]["averageAngularSpeed"] = 0.0
+                        summaryDict[t]["averageLength"] += features[t]["Standard Object Features"]["RegionRadii"][
+                            idx, 0
+                        ]
+                        summaryDict[t]["averageRelativeLength"] = summaryDict[t]["averageLength"]
+                        summaryDict[t]["averageWidth"] += features[t]["Standard Object Features"]["RegionRadii"][idx, 1]
+                        summaryDict[t]["averageRelativeWidth"] = summaryDict[t]["averageWidth"]
+                        summaryDict[t]["averageAspectRatio"] += old_div(
+                            features[t]["Standard Object Features"]["RegionRadii"][idx, 0],
+                            features[t]["Standard Object Features"]["RegionRadii"][idx, 1],
+                        )
+                        summaryDict[t]["averageRelativeAspectRatio"] = summaryDict[t]["averageAspectRatio"]
+                        summaryDict[t]["endWiggle"] = 0.0
+                    else:
+                        summaryDict[t] = {}
+                        summaryDict[t]["objectsNumber"] = 1
+                        summaryDict[t]["validObjectsNumber"] = 1
+                        summaryDict[t]["averageDuration"] = 0.0
+                        summaryDict[t]["averageSpeed"] = 0.0
+                        summaryDict[t]["averageAngularSpeed"] = 0.0
+                        summaryDict[t]["averageLength"] = features[t]["Standard Object Features"]["RegionRadii"][idx, 0]
+                        summaryDict[t]["averageRelativeLength"] = summaryDict[t]["averageLength"]
+                        summaryDict[t]["averageWidth"] = features[t]["Standard Object Features"]["RegionRadii"][idx, 1]
+                        summaryDict[t]["averageRelativeWidth"] = summaryDict[t]["averageWidth"]
+                        summaryDict[t]["averageAspectRatio"] = old_div(
+                            features[t]["Standard Object Features"]["RegionRadii"][idx, 0],
+                            features[t]["Standard Object Features"]["RegionRadii"][idx, 1],
+                        )
+                        summaryDict[t]["averageRelativeAspectRatio"] = summaryDict[t]["averageAspectRatio"]
+                        summaryDict[t]["endWiggle"] = 0.0
+
+                &#47&#47 Generate frame with single label idx
+                frameSingleLabel = np.zeros(frame.shape).astype(np.uint8)
+                frameSingleLabel[frame == idx] = 1
+
+                &#47&#47 Find contours using skimage marching squares
+                contours = measure._find_contours.find_contours(frameSingleLabel, 0)
+
+                &#47&#47 Save contours to dictionary
+                if idx in contoursDict:
+                    contoursDict[idx][t] = contours[0]
+                else:
+                    contoursDict[idx] = {t: contours[0]}
+
+        &#47&#47 Compute the contours in parallel
+        <a id="change">pool = RequestPool()</a>
+
+        for t in range(tMax):
+            pool.add(
+                Request(partial(compute_dicts_for_frame, tIndex, t, labelImageSlot, hypothesesGraph, contoursDict))
+            )
+
+        pool.wait()
+
+        &#47&#47 Generate .summary file
+        <a id="change">summaryFile = open(filename + ".summary", "w")</a>
+
+        for t in sorted(summaryDict):
+            summaryDict[t]["averageLength"] /= summaryDict[t]["objectsNumber"]
+            <a id="change">summaryDict[t]["averageRelativeLength"] = summaryDict[t]["averageLength"]</a>
+            summaryDict[t]["averageWidth"] /= summaryDict[t]["objectsNumber"]
+            <a id="change">summaryDict[t]["averageRelativeWidth"] = summaryDict[t]["averageWidth"]</a>
+            summaryDict[t]["averageAspectRatio"] /= summaryDict[t]["objectsNumber"]
+            <a id="change">summaryDict[t]["averageRelativeAspectRatio"] = summaryDict[t]["averageAspectRatio"]</a>
+
+            summaryFile.write(
+                "{} {} {} {} {} {} {} {} {} {} {} {} {} {}\n".format(
+                    t + 1,
+                    t,
+                    summaryDict[t]["objectsNumber"],
+                    summaryDict[t]["validObjectsNumber"],
+                    summaryDict[t]["averageDuration"],
+                    summaryDict[t]["averageSpeed"],
+                    summaryDict[t]["averageAngularSpeed"],
+                    summaryDict[t]["averageLength"],
+                    summaryDict[t]["averageRelativeLength"],
+                    summaryDict[t]["averageWidth"],
+                    summaryDict[t]["averageRelativeWidth"],
+                    summaryDict[t]["averageAspectRatio"],
+                    summaryDict[t]["averageRelativeAspectRatio"],
+                    summaryDict[t]["endWiggle"],
+                )
+            )
+
+        <a id="change">summaryFile</a><a id="change">.close()</a>
+
+        &#47&#47 Generate contour string and save .blobs file
+        <a id="change">blobsFile = open(filename + ".blobs", "w")</a>
+
+        for idx in sorted(contoursDict):
+            &#47&#47 blobsFile.write(&quot%{}\n&quot.format(int(idx)))
+
+            <a id="change">count = 0</a>
+            for t in sorted(contoursDict[idx]):
+
+                nodeId = (t, idx)
+
+                if hypothesesGraph.hasNode(nodeId) and "lineageId" in hypothesesGraph._graph.node[nodeId]:
+                    <a id="change">lineageId = hypothesesGraph._graph.node[nodeId]["lineageId"]</a>
+
+                    <a id="change">contour = contoursDict[idx][t]</a>
+
+                    count += 1
+                    <a id="change">time = t</a>
+                    <a id="change">xCoord = features[t]["Standard Object Features"]["RegionCenter"][idx, 0]</a>
+                    <a id="change">yCoord = features[t]["Standard Object Features"]["RegionCenter"][idx, 1]</a>
+                    <a id="change">area = features[t]["Standard Object Features"]["Count"][idx, 0]</a>
+                    <a id="change">xMajorAxis = (
+                        features[t]["Standard Object Features"]["RegionAxes"][idx, 0]
+                        * features[t]["Standard Object Features"]["RegionRadii"][idx, 0]
+                    )</a>
+                    <a id="change">yMajorAxis = (
+                        features[t]["Standard Object Features"]["RegionAxes"][idx, 1]
+                        * features[t]["Standard Object Features"]["RegionRadii"][idx, 0]
+                    )</a>
+                    <a id="change">std = np.mean(
+                        [
+                            features[t]["Standard Object Features"]["RegionRadii"][idx, 0],
+                            features[t]["Standard Object Features"]["RegionRadii"][idx, 1],
+                        ]
+                    )</a>
+                    <a id="change">length = features[t]["Standard Object Features"]["RegionRadii"][idx, 0]</a>
+                    <a id="change">width = features[t]["Standard Object Features"]["RegionRadii"][idx, 1]</a>
+
+                    <a id="change">xOffset = contour[0, 0]</a>
+                    <a id="change">yOffset = contour[0, 1]</a>
+
+                    &#47&#47 Generate contour string
+                    <a id="change">prevPoint = []</a>
+                    <a id="change">contourLength = 0</a>
+                    <a id="change">binaryString = ""</a>
+                    <a id="change">pointsString = ""</a>
+
+                    for i, point in enumerate(contour):
+                        if len(prevPoint) &gt; 0:
+                            &#47&#47 4-way connected points
+                            if point[0] - prevPoint[0] == -1 and point[1] - prevPoint[1] == 0:
+                                binaryString += "00"
+                                contourLength += 1
+                            elif point[0] - prevPoint[0] == 1 and point[1] - prevPoint[1] == 0:
+                                binaryString += "01"
+                                contourLength += 1
+                            elif point[0] - prevPoint[0] == 0 and point[1] - prevPoint[1] == -1:
+                                binaryString += "10"
+                                contourLength += 1
+                            elif point[0] - prevPoint[0] == 0 and point[1] - prevPoint[1] == 1:
+                                binaryString += "11"
+                                contourLength += 1
+                            &#47&#47 Diagonal points
+                            elif point[0] - prevPoint[0] == -1 and point[1] - prevPoint[1] == -1:
+                                binaryString += "00"
+                                binaryString += "10"
+                                contourLength += 2
+                            elif point[0] - prevPoint[0] == -1 and point[1] - prevPoint[1] == 1:
+                                binaryString += "00"
+                                binaryString += "11"
+                                contourLength += 2
+                            elif point[0] - prevPoint[0] == 1 and point[1] - prevPoint[1] == -1:
+                                binaryString += "01"
+                                binaryString += "10"
+                                contourLength += 2
+                            elif point[0] - prevPoint[0] == 1 and point[1] - prevPoint[1] == 1:
+                                binaryString += "01"
+                                binaryString += "11"
+                                contourLength += 2
+
+                        if len(binaryString) == 6:
+                            pointsString += chr(int(binaryString, 2) + ord("0"))
+                            <a id="change">binaryString = ""</a>
+                        elif len(binaryString) &gt; 6:
+                            <a id="change">diff = len(binaryString) - 6</a>
+                            pointsString += chr(int(binaryString[:-diff], 2) + ord("0"))
+                            <a id="change">binaryString = binaryString[-diff:]</a>
+                        elif i &gt;= contour.shape[0] - 1:
+                            if len(binaryString) == 2:
+                                binaryString += "00001"
+                                pointsString += chr(int(binaryString, 2) + ord("0"))
+                                <a id="change">binaryString = ""</a>
+                            elif len(binaryString) == 4:
+                                binaryString += "00"
+                                pointsString += chr(int(binaryString, 2) + ord("0"))
+                                <a id="change">binaryString = ""</a>
+
+                        <a id="change">prevPoint = point</a>
+
+                    &#47&#47 Create contour string and append to file
+                    <a id="change">contourString = "{} {} {} {} {} {} {} {} {} {} %% {} {} {} ".format(
+                        count,
+                        time,
+                        xCoord,
+                        yCoord,
+                        area,
+                        xMajorAxis,
+                        yMajorAxis,
+                        std,
+                        length,
+                        width,
+                        xOffset,
+                        yOffset,
+                        contourLength + 1,
+                    )</a>
+                    contourString += pointsString
+
+                    if count == 1:
+                        blobsFile.write("% {}\n".format(int(idx)))
+
+                    blobsFile.write(contourString + "\n")
+
+        <a id="change">blobsFile</a><a id="change">.close()</a>
+
+        return True
+</code></pre>

@@ -1,0 +1,82 @@
+<link rel="stylesheet" href="../../../../../..//default.css">
+<script src="../../../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/polyaxon/polyaxon/blob/master/traceml/traceml/processors/events_processors/events_audio_processors.py#L37">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/polyaxon/blob/master/traceml/traceml/processors/events_processors/events_audio_processors.py#L37">GitMyHubLink</a>
+
+&#47&#47!/usr/bin/python
+&#47&#47
+&#47&#47 Copyright 2018-2022 Polyaxon, Inc.
+&#47&#47
+&#47&#47 Licensed under the Apache License, Version 2.0 (the "License");
+&#47&#47 you may not use this file except in compliance with the License.
+&#47&#47 You may obtain a copy of the License at
+&#47&#47
+&#47&#47      http://www.apache.org/licenses/LICENSE-2.0
+&#47&#47
+&#47&#47 Unless required by applicable law or agreed to in writing, software
+&#47&#47 distributed under the License is distributed on an "AS IS" BASIS,
+&#47&#47 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+&#47&#47 See the License for the specific language governing permissions and
+&#47&#47 limitations under the License.
+
+from polyaxon.constants.globals import UNKNOWN
+from polyaxon.utils.np_utils import to_np
+from polyaxon.utils.path_utils import check_or_create_path, copy_file_path
+from traceml.events import V1EventAudio
+from traceml.logger import logger
+from traceml.processors.errors import NUMPY_ERROR_MESSAGE
+
+try:
+    import numpy as np
+except ImportError:
+    np = None
+
+
+def audio_path(
+    from_path: str, asset_path: str, content_type=None, asset_rel_path: str = None
+) -&gt; V1EventAudio:
+    copy_file_path(from_path, asset_path)
+    return V1EventAudio(path=asset_rel_path or asset_path, content_type=content_type)
+
+
+def audio(asset_path: str, tensor, sample_rate=44100, asset_rel_path: str = None):
+    if not np:
+        logger.warning(NUMPY_ERROR_MESSAGE)
+        return UNKNOWN
+
+    tensor = to_np(tensor)
+    tensor = <a id="change">tensor</a>.squeeze()
+    if abs(tensor).max() &gt; 1:
+        print("warning: audio amplitude out of range, auto clipped.")
+        tensor = <a id="change">tensor</a>.clip(-1, 1)
+    assert tensor.ndim == 1, "input tensor should be 1 dimensional."
+
+    tensor_list = [int(32767.0 * x) for x in tensor]
+
+    import struct
+    import wave
+
+    check_or_create_path(asset_path, is_dir=False)
+
+    <a id="change">wave_write</a><a id="change"> = wave.open(asset_path, "wb")</a>
+    <a id="change">wave_write</a>.setnchannels(1)
+    <a id="change">wave_write</a>.setsampwidth(2)
+    <a id="change">wave_write</a>.setframerate(sample_rate)
+    tensor_enc = b""
+    for v in tensor_list:
+        tensor_enc += struct.pack("&lt;h", v)
+
+    <a id="change">wave_write</a>.writeframes(tensor_enc)
+    <a id="change">wave_write</a><a id="change">.close()</a>
+    return V1EventAudio(
+        sample_rate=sample_rate,
+        num_channels=1,
+        length_frames=len(tensor_list),
+        path=asset_rel_path or asset_path,
+        content_type="audio/wav",
+    )
+</code></pre>

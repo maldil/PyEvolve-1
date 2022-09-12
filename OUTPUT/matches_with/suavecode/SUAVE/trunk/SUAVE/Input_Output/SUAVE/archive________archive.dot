@@ -1,0 +1,71 @@
+digraph G {
+1 [label="(199428437)collections.OrderedDict[Any, Optional[Union[Any, collections.OrderedDict[Any, Any]]]](res_dict)" shape=ellipse style=dashed color=blue fontcolor=blue]
+2 [label="(199428432)Any(filename)" shape=ellipse style=dashed]
+3 [label="(199428445)=" shape=box style=dashed]
+4 [label="(199428454)TextIO(f)" shape=ellipse style=dashed color=red fontcolor=red]
+5 [label="(199428451)TextIO(f)" shape=ellipse style=dashed]
+6 [label="(199428453)str(res_string)" shape=ellipse style=dashed]
+7 [label="(199428443)dumps" shape=box style=dashed]
+8 [label="(199428450)=" shape=box style=dashed color=red fontcolor=red]
+9 [label="(199428449)String(lit(w))" shape=ellipse style=dashed color=red fontcolor=red]
+10 [label="(199428455)close" shape=box style=dashed color=red fontcolor=red]
+11 [label="(199428439)Any(data)" shape=ellipse style=dashed]
+12 [label="(199428440)=" shape=box style=dashed]
+13 [label="(199428448)Any(filename)" shape=ellipse style=dashed]
+14 [label="(199428452)write" shape=box style=dashed]
+15 [label="(199428444)collections.OrderedDict[Any, Optional[Union[Any, collections.OrderedDict[Any, Any]]]](res_dict)" shape=ellipse style=dashed]
+16 [label="(199428433)(null)" shape=ellipse style=dashed]
+17 [label="(199428434)=" shape=box style=dashed]
+18 [label="(199428441)str(res_string)" shape=ellipse style=dashed color=red fontcolor=red]
+19 [label="(199428430)=" shape=box style=dashed]
+20 [label="(199428456)END" style=dashed]
+21 [label="(199428442)json(json)" shape=ellipse style=dashed]
+22 [label="(199428429)(null)" shape=ellipse style=dashed]
+23 [label="(199428438)build_dict_base" shape=box style=dashed]
+24 [label="(199428447)open" shape=box style=dashed color=red fontcolor=red]
+25 [label="(199428428)Any(data)" shape=ellipse style=dashed]
+26 [label="(199428446)TextIO(f)" shape=ellipse style=dashed color=red fontcolor=red]
+27 [label="(199428427)START" style=dashed]
+12 -> 1 [label="def" style=dotted];
+17 -> 2 [label="def" style=dotted];
+27 -> 3 [label="" style=solid];
+7 -> 3 [label="dep" style=dotted];
+7 -> 3 [label="para" style=dotted];
+26 -> 4 [label="ref" style=dotted];
+26 -> 5 [label="ref" style=dotted];
+18 -> 6 [label="ref" style=dotted];
+27 -> 7 [label="" style=solid];
+21 -> 7 [label="recv" style=dotted];
+15 -> 7 [label="para" style=dotted];
+12 -> 7 [label="dep" style=dotted];
+27 -> 8 [label="" style=solid];
+24 -> 8 [label="dep" style=dotted];
+24 -> 8 [label="para" style=dotted];
+27 -> 10 [label="" style=solid];
+4 -> 10 [label="recv" style=dotted];
+14 -> 10 [label="dep" style=dotted];
+27 -> 12 [label="" style=solid];
+23 -> 12 [label="dep" style=dotted];
+23 -> 12 [label="para" style=dotted];
+27 -> 14 [label="" style=solid];
+5 -> 14 [label="recv" style=dotted];
+6 -> 14 [label="para" style=dotted];
+8 -> 14 [label="dep" style=dotted];
+1 -> 15 [label="ref" style=dotted];
+27 -> 17 [label="" style=solid];
+16 -> 17 [label="para" style=dotted];
+19 -> 17 [label="dep" style=dotted];
+3 -> 18 [label="def" style=dotted];
+27 -> 19 [label="" style=solid];
+22 -> 19 [label="para" style=dotted];
+10 -> 20 [label="dep" style=dotted];
+27 -> 23 [label="" style=solid];
+11 -> 23 [label="para" style=dotted];
+17 -> 23 [label="dep" style=dotted];
+27 -> 24 [label="" style=solid];
+13 -> 24 [label="para" style=dotted];
+9 -> 24 [label="para" style=dotted];
+3 -> 24 [label="dep" style=dotted];
+19 -> 25 [label="def" style=dotted];
+8 -> 26 [label="def" style=dotted];
+}

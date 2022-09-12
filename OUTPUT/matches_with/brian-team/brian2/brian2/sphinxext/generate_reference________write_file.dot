@@ -1,0 +1,82 @@
+digraph G {
+1 [label="(115255407)=" shape=box style=dashed]
+2 [label="(115255426)String(lit('{name}.{suffix}))" shape=ellipse style=dashed]
+3 [label="(115255431)open" shape=box style=dashed color=blue fontcolor=blue]
+4 [label="(115255406)(null)" shape=ellipse style=dashed]
+5 [label="(115255432)str(fname)" shape=ellipse style=dashed]
+6 [label="(115255414)(null)" shape=ellipse style=dashed]
+7 [label="(115255404)START" style=dashed]
+8 [label="(115255430)TextIO(f)" shape=ellipse style=dashed color=blue fontcolor=blue]
+9 [label="(115255424)join" shape=box style=dashed]
+10 [label="(115255423)os.path(path)" shape=ellipse style=dashed]
+11 [label="(115255425)Any(destdir)" shape=ellipse style=dashed]
+12 [label="(115255405)Any(name)" shape=ellipse style=dashed]
+13 [label="(115255410)(null)" shape=ellipse style=dashed]
+14 [label="(115255419)=" shape=box style=dashed]
+15 [label="(115255413)Any(destdir)" shape=ellipse style=dashed]
+16 [label="(115255435)TryFinally" shape=diamond style=dashed]
+17 [label="(115255411)=" shape=box style=dashed]
+18 [label="(115255433)String(lit(w))" shape=ellipse style=dashed color=blue fontcolor=blue]
+19 [label="(115255437)write" shape=box style=dashed]
+20 [label="(115255415)=" shape=box style=dashed]
+21 [label="(115255429)String(lit('Creating file {fname}.))" shape=ellipse style=dashed]
+22 [label="(115255438)str(text)" shape=ellipse style=dashed]
+23 [label="(115255436)TextIO(f)" shape=ellipse style=dashed]
+24 [label="(115255409)str(text)" shape=ellipse style=dashed]
+25 [label="(115255418)(null)" shape=ellipse style=dashed]
+26 [label="(115255441)END" style=dashed]
+27 [label="(115255428)print" shape=box style=dashed]
+28 [label="(115255434)=" shape=box style=dashed color=blue fontcolor=blue]
+29 [label="(115255440)close" shape=box style=dashed color=blue fontcolor=blue]
+30 [label="(115255439)TextIO(f)" shape=ellipse style=dashed color=blue fontcolor=blue]
+31 [label="(115255427)=" shape=box style=dashed]
+32 [label="(115255417)Any(suffix)" shape=ellipse style=dashed]
+33 [label="(115255422)str(fname)" shape=ellipse style=dashed color=red fontcolor=red]
+7 -> 1 [label="" style=solid];
+4 -> 1 [label="para" style=dotted];
+7 -> 3 [label="" style=solid];
+5 -> 3 [label="para" style=dotted];
+18 -> 3 [label="para" style=dotted];
+27 -> 3 [label="dep" style=dotted];
+33 -> 5 [label="ref" style=dotted];
+28 -> 8 [label="def" style=dotted];
+7 -> 9 [label="" style=solid];
+10 -> 9 [label="recv" style=dotted];
+11 -> 9 [label="para" style=dotted];
+2 -> 9 [label="para" style=dotted];
+14 -> 9 [label="dep" style=dotted];
+1 -> 12 [label="def" style=dotted];
+7 -> 14 [label="" style=solid];
+25 -> 14 [label="para" style=dotted];
+20 -> 14 [label="dep" style=dotted];
+20 -> 15 [label="def" style=dotted];
+7 -> 16 [label="" style=solid];
+28 -> 16 [label="dep" style=dotted];
+7 -> 17 [label="" style=solid];
+13 -> 17 [label="para" style=dotted];
+1 -> 17 [label="dep" style=dotted];
+16 -> 19 [label="T"];
+23 -> 19 [label="recv" style=dotted];
+22 -> 19 [label="para" style=dotted];
+7 -> 20 [label="" style=solid];
+6 -> 20 [label="para" style=dotted];
+17 -> 20 [label="dep" style=dotted];
+8 -> 23 [label="ref" style=dotted];
+17 -> 24 [label="def" style=dotted];
+19 -> 26 [label="dep" style=dotted];
+29 -> 26 [label="dep" style=dotted];
+7 -> 27 [label="" style=solid];
+21 -> 27 [label="para" style=dotted];
+31 -> 27 [label="dep" style=dotted];
+7 -> 28 [label="" style=solid];
+3 -> 28 [label="dep" style=dotted];
+3 -> 28 [label="para" style=dotted];
+16 -> 29 [label="F"];
+30 -> 29 [label="recv" style=dotted];
+8 -> 30 [label="ref" style=dotted];
+7 -> 31 [label="" style=solid];
+9 -> 31 [label="dep" style=dotted];
+9 -> 31 [label="para" style=dotted];
+14 -> 32 [label="def" style=dotted];
+31 -> 33 [label="def" style=dotted];
+}

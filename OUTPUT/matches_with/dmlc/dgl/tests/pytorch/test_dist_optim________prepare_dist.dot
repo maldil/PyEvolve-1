@@ -1,0 +1,49 @@
+digraph G {
+1 [label="(194095116)open" shape=box style=dashed color=red fontcolor=red]
+2 [label="(194095117)String(lit(optim_ip_config.txt))" shape=ellipse style=dashed color=red fontcolor=red]
+3 [label="(194095119)=" shape=box style=dashed color=red fontcolor=red]
+4 [label="(194095120)Any(ip_addr)" shape=ellipse style=dashed]
+5 [label="(194095122)=" shape=box style=dashed]
+6 [label="(194095127)Any(ip_addr)" shape=ellipse style=dashed]
+7 [label="(194095125)String(lit({}
+))" shape=ellipse style=dashed]
+8 [label="(194095115)TextIO(ip_config)" shape=ellipse style=dashed color=red fontcolor=red]
+9 [label="(194095124)write" shape=box style=dashed]
+10 [label="(194095114)START" style=dashed]
+11 [label="(194095118)String(lit(w))" shape=ellipse style=dashed color=red fontcolor=red]
+12 [label="(194095130)END" style=dashed]
+13 [label="(194095123)TextIO(ip_config)" shape=ellipse style=dashed color=blue fontcolor=blue]
+14 [label="(194095126)format" shape=box style=dashed]
+15 [label="(194095129)close" shape=box style=dashed color=red fontcolor=red]
+16 [label="(194095128)TextIO(ip_config)" shape=ellipse style=dashed color=red fontcolor=red]
+17 [label="(194095121)get_local_usable_addr" shape=box style=dashed]
+10 -> 1 [label="" style=solid];
+2 -> 1 [label="para" style=dotted];
+11 -> 1 [label="para" style=dotted];
+10 -> 3 [label="" style=solid];
+1 -> 3 [label="dep" style=dotted];
+1 -> 3 [label="para" style=dotted];
+5 -> 4 [label="def" style=dotted];
+10 -> 5 [label="" style=solid];
+17 -> 5 [label="dep" style=dotted];
+17 -> 5 [label="para" style=dotted];
+4 -> 6 [label="ref" style=dotted];
+3 -> 8 [label="def" style=dotted];
+10 -> 9 [label="" style=solid];
+13 -> 9 [label="recv" style=dotted];
+14 -> 9 [label="dep" style=dotted];
+14 -> 9 [label="para" style=dotted];
+5 -> 9 [label="dep" style=dotted];
+15 -> 12 [label="dep" style=dotted];
+8 -> 13 [label="ref" style=dotted];
+10 -> 14 [label="" style=solid];
+7 -> 14 [label="recv" style=dotted];
+6 -> 14 [label="para" style=dotted];
+5 -> 14 [label="dep" style=dotted];
+10 -> 15 [label="" style=solid];
+16 -> 15 [label="recv" style=dotted];
+9 -> 15 [label="dep" style=dotted];
+8 -> 16 [label="ref" style=dotted];
+10 -> 17 [label="" style=solid];
+3 -> 17 [label="dep" style=dotted];
+}

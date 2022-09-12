@@ -1,0 +1,339 @@
+digraph G {
+1 [label="(151131672)=" shape=box style=dashed]
+2 [label="(151131602)Any(tmp_dir)" shape=ellipse style=dashed]
+3 [label="(151131610)=" shape=box style=dashed]
+4 [label="(151131684)Any(outfile)" shape=ellipse style=dashed]
+5 [label="(151131630)Any(vocab_path)" shape=ellipse style=dashed]
+6 [label="(151131643)empty" shape=box style=dashed]
+7 [label="(151131646)tensorflow.compat.v1(tf)" shape=ellipse style=dashed]
+8 [label="(151131660)reader" shape=box style=dashed]
+9 [label="(151131664)ListComp" shape=diamond style=dashed]
+10 [label="(151131658)_csv._reader(reader)" shape=ellipse style=dashed]
+11 [label="(151131647)tensorflow.compat.v1.gfile(gfile)" shape=ellipse style=dashed]
+12 [label="(151131569)START" style=dashed]
+13 [label="(151131620)os.path(path)" shape=ellipse style=dashed]
+14 [label="(151131615)close" shape=box style=dashed]
+15 [label="(151131651)join" shape=box style=dashed]
+16 [label="(151131673)List[str](words)" shape=ellipse style=dashed]
+17 [label="(151131629)close" shape=box style=dashed color=red fontcolor=red]
+18 [label="(151131588)tensorflow.compat.v1.gfile(gfile)" shape=ellipse style=dashed]
+19 [label="(151131668)List[str](row)" shape=ellipse style=dashed]
+20 [label="(151131683)With" shape=diamond style=dashed]
+21 [label="(151131642)If" shape=diamond style=dashed]
+22 [label="(151131625)tarfile.TarFile(tar_train)" shape=ellipse style=dashed]
+23 [label="(151131676)List[str](words)" shape=ellipse style=dashed]
+24 [label="(151131608)open" shape=box style=dashed color=blue fontcolor=blue]
+25 [label="(151131574)Any(data_dir)" shape=ellipse style=dashed]
+26 [label="(151131592)If" shape=diamond style=dashed]
+27 [label="(151131678)Any(vocab_size)" shape=ellipse style=dashed]
+28 [label="(151131598)empty" shape=box style=dashed]
+29 [label="(151131591)Not" shape=box style=dashed]
+30 [label="(151131636)=" shape=box style=dashed]
+31 [label="(151131681)=" shape=box style=dashed]
+32 [label="(151131695)String(lit(
+))" shape=ellipse style=dashed]
+33 [label="(151131654)String(lit(r))" shape=ellipse style=dashed]
+34 [label="(151131590)Any(data_dir)" shape=ellipse style=dashed]
+35 [label="(151131691)Any(outfile)" shape=ellipse style=dashed]
+36 [label="(151131631)os(os)" shape=ellipse style=dashed]
+37 [label="(151131671)empty" shape=box style=dashed]
+38 [label="(151131619)os(os)" shape=ellipse style=dashed]
+39 [label="(151131600)tensor2tensor.data_generators.generator_utils(generator_utils)" shape=ellipse style=dashed]
+40 [label="(151131687)GFile" shape=box style=dashed]
+41 [label="(151131688)Any(vocab_path)" shape=ellipse style=dashed]
+42 [label="(151131696)join" shape=box style=dashed]
+43 [label="(151131578)Any(vocab_size)" shape=ellipse style=dashed]
+44 [label="(151131587)tensorflow.compat.v1(tf)" shape=ellipse style=dashed]
+45 [label="(151131645)Any(infile)" shape=ellipse style=dashed]
+46 [label="(151131693)Any(outfile)" shape=ellipse style=dashed]
+47 [label="(151131601)maybe_download" shape=box style=dashed]
+48 [label="(151131686)tensorflow.compat.v1.gfile(gfile)" shape=ellipse style=dashed]
+49 [label="(151131698)empty" shape=box style=dashed]
+50 [label="(151131666)_csv._reader(reader)" shape=ellipse style=dashed]
+51 [label="(151131571)(null)" shape=ellipse style=dashed]
+52 [label="(151131682)empty" shape=box style=dashed]
+53 [label="(151131669)Any(Subscript)" shape=ellipse style=dashed]
+54 [label="(151131627)Any(tmp_dir)" shape=ellipse style=dashed]
+55 [label="(151131576)=" shape=box style=dashed]
+56 [label="(151131611)tarfile.TarFile(tar_all)" shape=ellipse style=dashed]
+57 [label="(151131605)=" shape=box style=dashed]
+58 [label="(151131628)tarfile.TarFile(tar_train)" shape=ellipse style=dashed color=red fontcolor=red]
+59 [label="(151131663)List[str](words)" shape=ellipse style=dashed]
+60 [label="(151131639)Exists" shape=box style=dashed]
+61 [label="(151131617)tarfile(tarfile)" shape=ellipse style=dashed]
+62 [label="(151131599)Any(file_path)" shape=ellipse style=dashed]
+63 [label="(151131621)join" shape=box style=dashed]
+64 [label="(151131597)Any(data_dir)" shape=ellipse style=dashed]
+65 [label="(151131689)String(lit(w))" shape=ellipse style=dashed]
+66 [label="(151131579)(null)" shape=ellipse style=dashed]
+67 [label="(151131580)=" shape=box style=dashed]
+68 [label="(151131697)List[str](words)" shape=ellipse style=dashed]
+69 [label="(151131613)Any(tmp_dir)" shape=ellipse style=dashed]
+70 [label="(151131661)Any(infile)" shape=ellipse style=dashed]
+71 [label="(151131655)AS" shape=box style=dashed]
+72 [label="(151131657)empty" shape=box style=dashed]
+73 [label="(151131699)empty" shape=box style=dashed]
+74 [label="(151131633)join" shape=box style=dashed]
+75 [label="(151131638)tensorflow.compat.v1.gfile(gfile)" shape=ellipse style=dashed]
+76 [label="(151131649)os(os)" shape=ellipse style=dashed]
+77 [label="(151131583)(null)" shape=ellipse style=dashed]
+78 [label="(151131637)tensorflow.compat.v1(tf)" shape=ellipse style=dashed]
+79 [label="(151131665)List[str](row)" shape=ellipse style=dashed]
+80 [label="(151131623)String(lit(train-novels.tar))" shape=ellipse style=dashed color=red fontcolor=red]
+81 [label="(151131679)Slice" shape=box style=dashed]
+82 [label="(151131607)tarfile(tarfile)" shape=ellipse style=dashed]
+83 [label="(151131662)=" shape=box style=dashed]
+84 [label="(151131667)comprehension" shape=diamond style=dashed]
+85 [label="(151131570)Any(tmp_dir)" shape=ellipse style=dashed]
+86 [label="(151131622)Any(tmp_dir)" shape=ellipse style=dashed]
+87 [label="(151131700)END" style=dashed]
+88 [label="(151131635)Any(vocab_filename)" shape=ellipse style=dashed]
+89 [label="(151131609)Any(file_path)" shape=ellipse style=dashed]
+90 [label="(151131680)Add" shape=box style=dashed]
+91 [label="(151131616)tarfile.TarFile(tar_train)" shape=ellipse style=dashed color=red fontcolor=red]
+92 [label="(151131632)os.path(path)" shape=ellipse style=dashed]
+93 [label="(151131596)MakeDirs" shape=box style=dashed]
+94 [label="(151131653)str(_VOCAB)" shape=ellipse style=dashed]
+95 [label="(151131674)str(_UNK)" shape=ellipse style=dashed]
+96 [label="(151131694)write" shape=box style=dashed]
+97 [label="(151131575)(null)" shape=ellipse style=dashed]
+98 [label="(151131582)Any(vocab_filename)" shape=ellipse style=dashed]
+99 [label="(151131675)[list]" shape=box style=dashed]
+100 [label="(151131690)AS" shape=box style=dashed]
+101 [label="(151131614)tarfile.TarFile(tar_all)" shape=ellipse style=dashed]
+102 [label="(151131640)Any(vocab_path)" shape=ellipse style=dashed]
+103 [label="(151131624)=" shape=box style=dashed color=red fontcolor=red]
+104 [label="(151131603)str(_TAR)" shape=ellipse style=dashed]
+105 [label="(151131595)tensorflow.compat.v1.gfile(gfile)" shape=ellipse style=dashed]
+106 [label="(151131685)tensorflow.compat.v1(tf)" shape=ellipse style=dashed]
+107 [label="(151131572)=" shape=box style=dashed]
+108 [label="(151131648)GFile" shape=box style=dashed]
+109 [label="(151131692)empty" shape=box style=dashed]
+110 [label="(151131594)tensorflow.compat.v1(tf)" shape=ellipse style=dashed]
+111 [label="(151131634)Any(data_dir)" shape=ellipse style=dashed]
+112 [label="(151131641)Not" shape=box style=dashed]
+113 [label="(151131659)csv(csv)" shape=ellipse style=dashed]
+114 [label="(151131589)Exists" shape=box style=dashed]
+115 [label="(151131584)=" shape=box style=dashed]
+116 [label="(151131604)str(_URL)" shape=ellipse style=dashed]
+117 [label="(151131670)number(0)" shape=ellipse style=dashed]
+118 [label="(151131618)open" shape=box style=dashed color=red fontcolor=red]
+119 [label="(151131612)extractall" shape=box style=dashed]
+120 [label="(151131677)Any(Subscript)" shape=ellipse style=dashed]
+121 [label="(151131644)With" shape=diamond style=dashed]
+122 [label="(151131626)extractall" shape=box style=dashed]
+123 [label="(151131606)tarfile.TarFile(tar_all)" shape=ellipse style=dashed]
+124 [label="(151131650)os.path(path)" shape=ellipse style=dashed]
+125 [label="(151131656)Any(infile)" shape=ellipse style=dashed]
+126 [label="(151131593)empty" shape=box style=dashed]
+127 [label="(151131652)Any(tmp_dir)" shape=ellipse style=dashed]
+121 -> 1 [label="T"];
+9 -> 1 [label="dep" style=dotted];
+9 -> 1 [label="para" style=dotted];
+12 -> 3 [label="" style=solid];
+24 -> 3 [label="dep" style=dotted];
+24 -> 3 [label="para" style=dotted];
+100 -> 4 [label="def" style=dotted];
+30 -> 5 [label="def" style=dotted];
+21 -> 6 [label="T"];
+121 -> 8 [label="T"];
+113 -> 8 [label="recv" style=dotted];
+70 -> 8 [label="para" style=dotted];
+72 -> 8 [label="dep" style=dotted];
+121 -> 9 [label="T"];
+53 -> 9 [label="cond" style=dotted];
+84 -> 9 [label="dep" style=dotted];
+37 -> 9 [label="dep" style=dotted];
+37 -> 9 [label="para" style=dotted];
+83 -> 10 [label="def" style=dotted];
+7 -> 11 [label="qual" style=dotted];
+38 -> 13 [label="qual" style=dotted];
+12 -> 14 [label="" style=solid];
+101 -> 14 [label="recv" style=dotted];
+119 -> 14 [label="dep" style=dotted];
+21 -> 15 [label="T"];
+124 -> 15 [label="recv" style=dotted];
+127 -> 15 [label="para" style=dotted];
+94 -> 15 [label="para" style=dotted];
+6 -> 15 [label="dep" style=dotted];
+31 -> 16 [label="def" style=dotted];
+59 -> 16 [label="re_def" style=dotted color=red];
+12 -> 17 [label="" style=solid];
+58 -> 17 [label="recv" style=dotted];
+122 -> 17 [label="dep" style=dotted];
+44 -> 18 [label="qual" style=dotted];
+79 -> 19 [label="ref" style=dotted];
+21 -> 20 [label="T"];
+100 -> 20 [label="dep" style=dotted];
+35 -> 20 [label="para" style=dotted];
+12 -> 21 [label="" style=solid];
+112 -> 21 [label="dep" style=dotted];
+112 -> 21 [label="cond" style=dotted];
+91 -> 22 [label="ref" style=dotted];
+59 -> 23 [label="ref" style=dotted];
+12 -> 24 [label="" style=solid];
+82 -> 24 [label="recv" style=dotted];
+89 -> 24 [label="para" style=dotted];
+57 -> 24 [label="dep" style=dotted];
+55 -> 25 [label="def" style=dotted];
+12 -> 26 [label="" style=solid];
+29 -> 26 [label="dep" style=dotted];
+29 -> 26 [label="cond" style=dotted];
+26 -> 28 [label="F"];
+12 -> 29 [label="" style=solid];
+114 -> 29 [label="dep" style=dotted];
+114 -> 29 [label="para" style=dotted];
+12 -> 30 [label="" style=solid];
+74 -> 30 [label="dep" style=dotted];
+74 -> 30 [label="para" style=dotted];
+121 -> 31 [label="T"];
+90 -> 31 [label="dep" style=dotted];
+90 -> 31 [label="para" style=dotted];
+4 -> 35 [label="ref" style=dotted];
+84 -> 37 [label="" style=solid];
+21 -> 40 [label="T"];
+48 -> 40 [label="recv" style=dotted];
+41 -> 40 [label="para" style=dotted];
+65 -> 40 [label="para" style=dotted];
+52 -> 40 [label="dep" style=dotted];
+31 -> 40 [label="dep" style=dotted];
+5 -> 41 [label="ref" style=dotted];
+20 -> 42 [label="T"];
+32 -> 42 [label="recv" style=dotted];
+68 -> 42 [label="para" style=dotted];
+109 -> 42 [label="dep" style=dotted];
+67 -> 43 [label="def" style=dotted];
+71 -> 45 [label="def" style=dotted];
+4 -> 46 [label="ref" style=dotted];
+12 -> 47 [label="" style=solid];
+39 -> 47 [label="recv" style=dotted];
+2 -> 47 [label="para" style=dotted];
+104 -> 47 [label="para" style=dotted];
+116 -> 47 [label="para" style=dotted];
+28 -> 47 [label="dep" style=dotted];
+93 -> 47 [label="dep" style=dotted];
+106 -> 48 [label="qual" style=dotted];
+20 -> 49 [label="F"];
+10 -> 50 [label="ref" style=dotted];
+121 -> 52 [label="F"];
+19 -> 53 [label="qual" style=dotted];
+117 -> 53 [label="para" style=dotted];
+12 -> 55 [label="" style=solid];
+97 -> 55 [label="para" style=dotted];
+107 -> 55 [label="dep" style=dotted];
+123 -> 56 [label="ref" style=dotted];
+12 -> 57 [label="" style=solid];
+47 -> 57 [label="dep" style=dotted];
+47 -> 57 [label="para" style=dotted];
+91 -> 58 [label="ref" style=dotted];
+1 -> 59 [label="def" style=dotted];
+12 -> 60 [label="" style=solid];
+75 -> 60 [label="recv" style=dotted];
+102 -> 60 [label="para" style=dotted];
+30 -> 60 [label="dep" style=dotted];
+57 -> 62 [label="def" style=dotted];
+12 -> 63 [label="" style=solid];
+13 -> 63 [label="recv" style=dotted];
+86 -> 63 [label="para" style=dotted];
+80 -> 63 [label="para" style=dotted];
+14 -> 63 [label="dep" style=dotted];
+12 -> 67 [label="" style=solid];
+66 -> 67 [label="para" style=dotted];
+55 -> 67 [label="dep" style=dotted];
+45 -> 70 [label="ref" style=dotted];
+21 -> 71 [label="T"];
+108 -> 71 [label="dep" style=dotted];
+108 -> 71 [label="para" style=dotted];
+121 -> 72 [label="T"];
+21 -> 73 [label="F"];
+12 -> 74 [label="" style=solid];
+92 -> 74 [label="recv" style=dotted];
+111 -> 74 [label="para" style=dotted];
+88 -> 74 [label="para" style=dotted];
+17 -> 74 [label="dep" style=dotted];
+78 -> 75 [label="qual" style=dotted];
+50 -> 79 [label="def" style=dotted];
+27 -> 81 [label="para" style=dotted];
+121 -> 83 [label="T"];
+8 -> 83 [label="dep" style=dotted];
+8 -> 83 [label="para" style=dotted];
+121 -> 84 [label="T"];
+79 -> 84 [label="cond" style=dotted];
+83 -> 84 [label="dep" style=dotted];
+107 -> 85 [label="def" style=dotted];
+96 -> 87 [label="dep" style=dotted];
+73 -> 87 [label="dep" style=dotted];
+49 -> 87 [label="dep" style=dotted];
+62 -> 89 [label="ref" style=dotted];
+121 -> 90 [label="T"];
+99 -> 90 [label="dep" style=dotted];
+99 -> 90 [label="para" style=dotted];
+120 -> 90 [label="para" style=dotted];
+1 -> 90 [label="dep" style=dotted];
+103 -> 91 [label="def" style=dotted];
+36 -> 92 [label="qual" style=dotted];
+26 -> 93 [label="T"];
+105 -> 93 [label="recv" style=dotted];
+64 -> 93 [label="para" style=dotted];
+126 -> 93 [label="dep" style=dotted];
+20 -> 96 [label="T"];
+46 -> 96 [label="recv" style=dotted];
+42 -> 96 [label="dep" style=dotted];
+42 -> 96 [label="para" style=dotted];
+109 -> 96 [label="dep" style=dotted];
+115 -> 98 [label="def" style=dotted];
+121 -> 99 [label="T"];
+95 -> 99 [label="para" style=dotted];
+1 -> 99 [label="dep" style=dotted];
+21 -> 100 [label="T"];
+40 -> 100 [label="dep" style=dotted];
+40 -> 100 [label="para" style=dotted];
+123 -> 101 [label="ref" style=dotted];
+5 -> 102 [label="ref" style=dotted];
+12 -> 103 [label="" style=solid];
+118 -> 103 [label="dep" style=dotted];
+118 -> 103 [label="para" style=dotted];
+110 -> 105 [label="qual" style=dotted];
+12 -> 107 [label="" style=solid];
+51 -> 107 [label="para" style=dotted];
+21 -> 108 [label="T"];
+11 -> 108 [label="recv" style=dotted];
+15 -> 108 [label="dep" style=dotted];
+15 -> 108 [label="para" style=dotted];
+33 -> 108 [label="para" style=dotted];
+6 -> 108 [label="dep" style=dotted];
+20 -> 109 [label="T"];
+12 -> 112 [label="" style=solid];
+60 -> 112 [label="dep" style=dotted];
+60 -> 112 [label="para" style=dotted];
+12 -> 114 [label="" style=solid];
+18 -> 114 [label="recv" style=dotted];
+34 -> 114 [label="para" style=dotted];
+115 -> 114 [label="dep" style=dotted];
+12 -> 115 [label="" style=solid];
+77 -> 115 [label="para" style=dotted];
+67 -> 115 [label="dep" style=dotted];
+12 -> 118 [label="" style=solid];
+61 -> 118 [label="recv" style=dotted];
+63 -> 118 [label="dep" style=dotted];
+63 -> 118 [label="para" style=dotted];
+14 -> 118 [label="dep" style=dotted];
+12 -> 119 [label="" style=solid];
+56 -> 119 [label="recv" style=dotted];
+69 -> 119 [label="para" style=dotted];
+3 -> 119 [label="dep" style=dotted];
+23 -> 120 [label="qual" style=dotted];
+81 -> 120 [label="para" style=dotted];
+59 -> 120 [label="ref" style=dotted];
+21 -> 121 [label="T"];
+71 -> 121 [label="dep" style=dotted];
+125 -> 121 [label="para" style=dotted];
+12 -> 122 [label="" style=solid];
+22 -> 122 [label="recv" style=dotted];
+54 -> 122 [label="para" style=dotted];
+103 -> 122 [label="dep" style=dotted];
+3 -> 123 [label="def" style=dotted];
+76 -> 124 [label="qual" style=dotted];
+45 -> 125 [label="ref" style=dotted];
+26 -> 126 [label="T"];
+}

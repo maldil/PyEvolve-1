@@ -1,0 +1,94 @@
+<link rel="stylesheet" href="../../../..//default.css">
+<script src="../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/autonomio/talos/blob/master/talos/callbacks/experiment_log.py#L43">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/talos/blob/master/talos/callbacks/experiment_log.py#L43">GitMyHubLink</a>
+
+from tensorflow.keras.callbacks import Callback
+
+
+class ExperimentLog(Callback):
+
+    def __init__(self,
+                 experiment_name,
+                 params):
+
+        &quot&quot&quotTakes as input the name of the experiment which will be
+        used for creating a .log file with the outputs and the params
+        dictionary from the input model in `Scan()`
+
+        experiment_name | str | must match the experiment_name in `Scan()`
+
+        &quot&quot&quot
+
+        super(ExperimentLog, self).__init__()
+
+        import glob
+        import os
+
+        &#47&#47 get the experiment id first
+        list_of_files = glob.glob(&quot./&quot + experiment_name + &quot/*.csv&quot)
+        try:
+            latest_file = max(list_of_files, key=os.path.getmtime)
+        except ValueError:
+            print("\n TALOS ERROR: `experiment_name` has to match `Scan(experiment_name)`\n")
+
+        self.name = latest_file.replace(&quot.csv&quot, &quot&quot) + &quot.log&quot
+
+        &#47&#47 rest of the config variables
+        self.params = params
+        self.counter = 1
+        self.new_file = True
+
+    def on_train_begin(self, logs={}):
+
+        import random
+        self.hash = hex(abs(hash(str(random.random()))))
+        self.final_out = []
+
+    def on_train_end(self, logs={}):
+
+        <a id="change">f</a><a id="change"> = open(self.name, &quota+&quot)</a>
+        [<a id="change">f</a>.write(&quot,&quot.join(map(str, i)) + &quot\n&quot) for i in self.final_out]
+        <a id="change">f</a><a id="change">.close()</a>
+
+    def on_epoch_begin(self, epoch, logs={}):
+
+        self.epoch_out = []
+
+    def on_epoch_end(self, epoch, logs={}):
+
+        if len(self.final_out) == 0:
+
+            try:
+                open(self.name, &quotr&quot)
+            except FileNotFoundError:
+
+                self.epoch_out.append(&quotid&quot)
+                self.epoch_out.append(&quotepoch&quot)
+
+                for key in logs.keys():
+
+                    &#47&#47 add to the epoch out list
+                    self.epoch_out.append(key)
+
+                self.final_out.append(self.epoch_out)
+                self.epoch_out = []
+
+        self.epoch_out.append(self.hash)
+        self.epoch_out.append(epoch + 1)
+
+        for key in logs.keys():
+
+            &#47&#47 round the values
+            rounded = round(logs[key], 4)
+
+            &#47&#47 add to the epoch out list
+            self.epoch_out.append(rounded)
+
+        &#47&#47 add to the final out list
+        self.final_out.append(self.epoch_out)
+</code></pre>

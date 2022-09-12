@@ -1,0 +1,158 @@
+<link rel="stylesheet" href="../../../../..//default.css">
+<script src="../../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/clarkkev/deep-coref/blob/master/modified_keras/keras/datasets/reuters.py#L85">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/deep-coref/blob/master/modified_keras/keras/datasets/reuters.py#L85">GitMyHubLink</a>
+
+&#47&#47 -*- coding: utf-8 -*-
+from __future__ import absolute_import
+from __future__ import print_function
+from .data_utils import get_file
+import string
+import random
+import os
+from six.moves import cPickle
+from six.moves import zip
+import numpy as np
+
+
+def make_reuters_dataset(path=os.path.join(&quotdatasets&quot, &quottemp&quot, &quotreuters21578&quot), min_samples_per_topic=15):
+    import re
+    from ..preprocessing.text import Tokenizer
+
+    wire_topics = []
+    topic_counts = {}
+    wire_bodies = []
+
+    for fname in os.listdir(path):
+        if &quotsgm&quot in fname:
+            s = open(os.path.join(path, fname)).read()
+            tag = &quot&lt;TOPICS&gt;&quot
+            while tag in s:
+                s = s[s.find(tag)+len(tag):]
+                topics = s[:s.find(&quot&lt;/&quot)]
+                if topics and &quot&lt;/D&gt;&lt;D&gt;&quot not in topics:
+                    topic = topics.replace(&quot&lt;D&gt;&quot, &quot&quot).replace(&quot&lt;/D&gt;&quot, &quot&quot)
+                    wire_topics.append(topic)
+                    topic_counts[topic] = topic_counts.get(topic, 0) + 1
+                else:
+                    continue
+
+                bodytag = &quot&lt;BODY&gt;&quot
+                body = s[s.find(bodytag)+len(bodytag):]
+                body = body[:body.find(&quot&lt;/&quot)]
+                wire_bodies.append(body)
+
+    &#47&#47 only keep most common topics
+    items = list(topic_counts.items())
+    items.sort(key=lambda x: x[1])
+    kept_topics = set()
+    for x in items:
+        print(x[0] + &quot: &quot + str(x[1]))
+        if x[1] &gt;= min_samples_per_topic:
+            kept_topics.add(x[0])
+    print(&quot-&quot)
+    print(&quotKept topics:&quot, len(kept_topics))
+
+    &#47&#47 filter wires with rare topics
+    kept_wires = []
+    labels = []
+    topic_indexes = {}
+    for t, b in zip(wire_topics, wire_bodies):
+        if t in kept_topics:
+            if t not in topic_indexes:
+                topic_index = len(topic_indexes)
+                topic_indexes[t] = topic_index
+            else:
+                topic_index = topic_indexes[t]
+
+            labels.append(topic_index)
+            kept_wires.append(b)
+
+    &#47&#47 vectorize wires
+    tokenizer = Tokenizer()
+    tokenizer.fit_on_texts(kept_wires)
+    X = tokenizer.texts_to_sequences(kept_wires)
+
+    print(&quotSanity check:&quot)
+    for w in ["banana", "oil", "chocolate", "the", "dsft"]:
+        print(&quot...index of&quot, w, &quot:&quot, tokenizer.word_index.get(w))
+    print(&quottext reconstruction:&quot)
+    reverse_word_index = dict([(v, k) for k, v in tokenizer.word_index.items()])
+    print(&quot &quot.join(reverse_word_index[i] for i in X[10]))
+
+    dataset = (X, labels)
+    print(&quot-&quot)
+    print(&quotSaving...&quot)
+    cPickle.dump(dataset, open(os.path.join(&quotdatasets&quot, &quotdata&quot, &quotreuters.pkl&quot), &quotw&quot))
+    cPickle.dump(tokenizer.word_index, open(os.path.join(&quotdatasets&quot, &quotdata&quot, &quotreuters_word_index.pkl&quot), &quotw&quot))
+
+
+def load_data(path="reuters.pkl", nb_words=None, skip_top=0, maxlen=None, test_split=0.2, seed=113,
+              start_char=1, oov_char=2, index_from=3):
+
+    <a id="change">path</a> = get_file(path, origin="https://s3.amazonaws.com/text-datasets/reuters.pkl")
+    <a id="change">f</a><a id="change"> = open(path, &quotrb&quot)</a>
+
+    X, labels = cPickle.load(f)
+    <a id="change">f</a><a id="change">.close()</a>
+
+    np.random.seed(seed)
+    np.random.shuffle(X)
+    np.random.seed(seed)
+    np.random.shuffle(labels)
+
+    if start_char is not None:
+        X = [[start_char] + [w + index_from for <a id="change">w</a> in x] for <a id="change">x</a> in X]
+    elif index_from:
+        X = [[w + index_from for <a id="change">w</a> in x] for <a id="change">x</a> in X]
+
+    if maxlen:
+        <a id="change">new_X</a> = []
+        <a id="change">new_labels</a> = []
+        for <a id="change">x</a>, <a id="change">y</a> in zip(X, labels):
+            if len(x) &lt; maxlen:
+                new_X.append(x)
+                new_labels.append(y)
+        X = new_X
+        labels = new_labels
+
+    if not nb_words:
+        <a id="change">nb_words</a> = max([max(x) for <a id="change">x</a> in X])
+
+    &#47&#47 by convention, use 2 as OOV word
+    &#47&#47 reserve &quotindex_from&quot (=3 by default) characters: 0 (padding), 1 (start), 2 (OOV)
+    if oov_char is not None:
+        X = [[oov_char if (w &gt;= nb_words or w &lt; skip_top) else w for <a id="change">w</a> in x] for <a id="change">x</a> in X]
+    else:
+        <a id="change">nX</a> = []
+        for <a id="change">x</a> in X:
+            <a id="change">nx</a> = []
+            for <a id="change">w</a> in x:
+                if (w &gt;= nb_words or w &lt; skip_top):
+                    nx.append(w)
+            nX.append(nx)
+        X = nX
+
+    <a id="change">X_train</a> = X[:int(len(X)*(1-test_split))]
+    <a id="change">y_train</a> = labels[:int(len(X)*(1-test_split))]
+
+    <a id="change">X_test</a> = X[int(len(X)*(1-test_split)):]
+    <a id="change">y_test</a> = labels[int(len(X)*(1-test_split)):]
+
+    return (X_train, y_train), (X_test, y_test)
+
+
+def get_word_index(path="reuters_word_index.pkl"):
+    path = get_file(path, origin="https://s3.amazonaws.com/text-datasets/reuters_word_index.pkl")
+    f = open(path, &quotrb&quot)
+    return cPickle.load(f)
+
+
+if __name__ == "__main__":
+    make_reuters_dataset()
+    (X_train, y_train), (X_test, y_test) = load_data()
+</code></pre>

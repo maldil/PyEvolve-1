@@ -1,0 +1,159 @@
+<link rel="stylesheet" href="../../..//default.css">
+<script src="../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/MTG/freesound/blob/master/utils/test_helpers.py#L33">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/freesound/blob/master/utils/test_helpers.py#L33">GitMyHubLink</a>
+
+&#47&#47
+&#47&#47 Freesound is (c) MUSIC TECHNOLOGY GROUP, UNIVERSITAT POMPEU FABRA
+&#47&#47
+&#47&#47 Freesound is free software: you can redistribute it and/or modify
+&#47&#47 it under the terms of the GNU Affero General Public License as
+&#47&#47 published by the Free Software Foundation, either version 3 of the
+&#47&#47 License, or (at your option) any later version.
+&#47&#47
+&#47&#47 Freesound is distributed in the hope that it will be useful,
+&#47&#47 but WITHOUT ANY WARRANTY; without even the implied warranty of
+&#47&#47 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+&#47&#47 GNU Affero General Public License for more details.
+&#47&#47
+&#47&#47 You should have received a copy of the GNU Affero General Public License
+&#47&#47 along with this program.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
+&#47&#47
+&#47&#47 Authors:
+&#47&#47     See AUTHORS file.
+&#47&#47
+
+import os
+from functools import partial, wraps
+from itertools import count
+
+from django.contrib.auth.models import User
+from django.test.utils import override_settings
+
+from sounds.models import Sound, Pack, License
+from utils.filesystem import create_directories, TemporaryDirectory
+from utils.tags import clean_and_split_tags
+
+
+def create_test_files(filenames=None, directory=None, paths=None, n_bytes=1024):
+    
+    This function generates test files ith random content and saves them in the specified directory.
+    :param filenames: list of names for the files to generate
+    :param directory: folder where to store the files
+    :param paths: if provided, then files are created in the indicated paths regardless of filenames and direcotry args
+    :param n_bytes: numnber of bytes of each generated file
+    
+    if paths is None:
+        create_directories(directory)
+        for <a id="change">filename</a> in filenames:
+            <a id="change">f</a><a id="change"> = open(os.path.join(directory, filename), &quotw&quot)</a>
+            f.write(os.urandom(n_bytes))
+            <a id="change">f</a><a id="change">.close()</a>
+    else:
+        for <a id="change">path</a> in paths:
+            create_directories(os.path.dirname(path))
+            <a id="change">f</a><a id="change"> = open(path, &quotw&quot)</a>
+            f.write(os.urandom(n_bytes))
+            <a id="change">f</a><a id="change">.close()</a>
+
+
+sound_counter = count()  &#47&#47 Used in create_user_and_sounds to avoid repeating sound names
+
+
+def create_user_and_sounds(num_sounds=1, num_packs=0, user=None, count_offset=0, tags=None,
+                           processing_state=&quotPE&quot, moderation_state=&quotPE&quot, type=&quotwav&quot):
+    Creates User, Sound and Pack objects useful for testing.
+
+    A counter is used to make sound names unique as well as other fields like md5 (see `sound_counter` variable).
+    NOTE: creating sounds requires License objects to exist in DB. Do that by making sure your test case loads
+    &quotlicenses&quot fixture, i.e. "fixtures = [&quotlicenses&quot]".
+
+    Args:
+        num_sounds (int): N sounds to generate.
+        num_packs (int): N packs in which the sounds above will be grouped.
+        user (User): user owner of the created sounds (if not provided, a new user will be created).
+        count_offset (int): start counting sounds at X.
+        tags (str or None): string of tags to be added to the sounds (all sounds will have the same tags).
+        processing_state (str): processing state of the created sounds.
+        moderation_state (str): moderation state of the created sounds.
+        type (str): type of the sounds to be created (e.g. &quotwav&quot).
+
+    Returns:
+        (Tuple(User, List[Pack], List[Sound]): 3-element tuple containing the user owning the sounds,
+            a list of the packs created and a list of the sounds created.
+    
+    count_offset = count_offset + next(sound_counter)
+    if user is None:
+        user = User.objects.create_user("testuser", password="testpass", email=&quotemail@freesound.org&quot)
+    packs = list()
+    for i in range(0, num_packs):
+        pack = Pack.objects.create(user=user, name="Test pack %i" % (i + count_offset))
+        packs.append(pack)
+    sounds = list()
+    for i in range(0, num_sounds):
+        pack = None
+        if packs:
+            pack = packs[i % len(packs)]
+        sound = Sound.objects.create(user=user,
+                                     original_filename="Test sound %i" % (i + count_offset),
+                                     base_filename_slug="test_sound_%i" % (i + count_offset),
+                                     license=License.objects.all()[0],
+                                     pack=pack,
+                                     md5="fakemd5_%i" % (i + count_offset),
+                                     type=type,
+                                     processing_state=processing_state,
+                                     moderation_state=moderation_state)
+
+        if tags is not None:
+            sound.set_tags(clean_and_split_tags(tags))
+        sounds.append(sound)
+    return user, packs, sounds
+
+
+def override_path_with_temp_directory(fun, settings_path_name):
+    
+    Decorator that wraps a function inside two context managers which i) create a temporary directory; and ii) override
+    a settings path to that temporary directory. When the wrapped function exits, the created temporary will be
+    deleted and the settings override reverted. This will happen even if the function exists with an Exception. This
+    is useful in unit tests which write files to disk and we want to make sure these are deleted after the test has
+    finished running.
+
+    Code adapted from: https://stackoverflow.com/a/25827070
+    
+
+    @wraps(fun)
+    def ret_fun(*args, **kwargs):
+        with TemporaryDirectory() as tmpfolder:
+            with override_settings(**{settings_path_name: tmpfolder}):
+                return fun(*args, **kwargs)
+    return ret_fun
+
+
+override_uploads_path_with_temp_directory = \
+    partial(override_path_with_temp_directory, settings_path_name=&quotUPLOADS_PATH&quot)
+
+override_csv_path_with_temp_directory = \
+    partial(override_path_with_temp_directory, settings_path_name=&quotCSV_PATH&quot)
+
+override_avatars_path_with_temp_directory = \
+    partial(override_path_with_temp_directory, settings_path_name=&quotAVATARS_PATH&quot)
+
+override_analysis_path_with_temp_directory = \
+    partial(override_path_with_temp_directory, settings_path_name=&quotANALYSIS_PATH&quot)
+
+override_sounds_path_with_temp_directory = \
+    partial(override_path_with_temp_directory, settings_path_name=&quotSOUNDS_PATH&quot)
+
+override_previews_path_with_temp_directory = \
+    partial(override_path_with_temp_directory, settings_path_name=&quotPREVIEWS_PATH&quot)
+
+override_displays_path_with_temp_directory = \
+    partial(override_path_with_temp_directory, settings_path_name=&quotDISPLAYS_PATH&quot)
+
+override_processing_tmp_path_with_temp_directory = \
+    partial(override_path_with_temp_directory, settings_path_name=&quotPROCESSING_TEMP_DIR&quot)
+</code></pre>

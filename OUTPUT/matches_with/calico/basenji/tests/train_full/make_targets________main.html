@@ -1,0 +1,109 @@
+<link rel="stylesheet" href="../../../..//default.css">
+<script src="../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/calico/basenji/blob/master/tests/train_full/make_targets.py#L19">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/basenji/blob/master/tests/train_full/make_targets.py#L19">GitMyHubLink</a>
+
+&#47&#47!/usr/bin/env python
+from optparse import OptionParser
+import glob
+import os
+import subprocess
+import sys
+
+import pandas as pd
+
+&quot&quot&quot
+make_targets.py
+
+Make targets table for generating TF Records.
+&quot&quot&quot
+
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+&#47&#47 main
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+def main():
+    <a id="change">usage = &quotusage: %prog [options] arg&quot</a>
+    <a id="change">parser = OptionParser(usage)</a>
+    &#47&#47parser.add_option()
+    <a id="change">(options,args) = parser.parse_args()</a>
+
+    <a id="change">species = [&quothuman&quot]</a>
+    <a id="change">assays = [&quotDNASE&quot,&quotATAC&quot,&quotCAGE&quot]</a>
+
+    &#47&#47 sources = [&quotencode&quot, &quotfantom&quot, &quotgeo&quot, &quotuw-atlas&quot]
+    <a id="change">sources = [&quotencode&quot, &quotfantom&quot]</a>
+    <a id="change">source_clip = {&quotencode&quot:32, &quotfantom&quot:384, &quotgeo&quot:64, &quotuw-atlas&quot:32}</a>
+    <a id="change">source_scale = {&quotencode&quot:2, &quotfantom&quot:1, &quotgeo&quot:1, &quotuw-atlas&quot:4}</a>
+    <a id="change">source_sum = {&quotencode&quot:&quotmean&quot, &quotfantom&quot:&quotsum&quot, &quotgeo&quot:&quotsum&quot, &quotuw-atlas&quot:&quotmean&quot}</a>
+
+    <a id="change">targets_file = &quottargets.txt&quot</a>
+    <a id="change">targets_out = open(targets_file, &quotw&quot)</a>
+    print(&quot\t&quot.join([&quotindex&quot, &quotgenome&quot, &quotidentifier&quot, &quotfile&quot, &quotclip&quot, &quotscale&quot, &quotsum_stat&quot, &quotdescription&quot]), file=targets_out)
+
+    <a id="change">ti = 0</a>
+
+    for si in range(len(species)):
+        for assay in assays:
+            for source in sources:
+                &#47&#47 collect w5 files
+                <a id="change">w5_files = sorted(glob.glob(&quot%s/datasets/%s/%s/%s/*/summary/*.w5&quot % (os.environ[&quotTILLAGE&quot], species[si], assay.lower(), source)))</a>
+                if len(w5_files) &gt; 0:
+                    print(&quot%s %s %s %d datasets&quot % (species[si], assay, source, len(w5_files)))
+
+                &#47&#47 parse and write each w5 file
+                for w5_file in w5_files:
+                    <a id="change">w5_dir = os.path.split(w5_file)[0]</a>
+                    <a id="change">meta_file = &quot%s/metadata.txt&quot % w5_dir</a>
+                    &#47&#47 source = meta_file.split(&quot/&quot)[-4]
+
+                    &#47&#47 read meta dict
+                    <a id="change">meta_dict = read_meta(meta_file)</a>
+
+                    &#47&#47 check retirement
+                    if meta_dict.get(&quotstatus&quot,&quotactive&quot) != &quotretired&quot:
+                        &#47&#47 augment description
+                        <a id="change">assay = assay_succinct(meta_dict[&quotassay&quot])</a>
+                        if assay == &quotCHIP&quot:
+                            <a id="change">desc = &quot%s:%s:%s&quot % (assay, meta_dict[&quottarget&quot], meta_dict[&quotdescription&quot])</a>
+                        else:
+                            <a id="change">desc = &quot%s:%s&quot % (assay, meta_dict[&quotdescription&quot])</a>
+
+                        <a id="change">cols = [str(ti), str(si), meta_dict[&quotidentifier&quot], w5_file, str(source_clip[source]), str(source_scale[source]), source_sum[source], desc]</a>
+                        print(&quot\t&quot.join(cols), file=targets_out)
+
+                        ti += 1
+
+    <a id="change">targets_out</a><a id="change">.close()</a>
+
+
+    &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+    &#47&#47 tests
+
+    <a id="change">targets_df = pd.read_table(targets_file, index_col=0)</a>
+    <a id="change">unique_ids = set(targets_df.identifier)</a>
+    assert(len(unique_ids) == targets_df.shape[0])
+
+
+def assay_succinct(assay):
+    assay = assay.replace(&quot-seq&quot, &quot&quot)
+    return assay.upper()
+
+def read_meta(meta_file):
+    meta_dict = {}
+    for line in open(meta_file):
+        a = line.strip().split(&quot\t&quot)
+        if len(a) &gt; 1:
+            meta_dict[a[0]] = a[1]
+    return meta_dict
+
+
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+&#47&#47 __main__
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+if __name__ == &quot__main__&quot:
+    main()
+</code></pre>

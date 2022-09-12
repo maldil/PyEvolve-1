@@ -1,0 +1,217 @@
+<link rel="stylesheet" href="../../..//default.css">
+<script src="../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/DT42/BerryNet/blob/master/inference/classify_server.py#L94">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/BerryNet/blob/master/inference/classify_server.py#L94">GitMyHubLink</a>
+
+&#47&#47 Copyright 2017 DT42
+&#47&#47
+&#47&#47 This file is part of BerryNet.
+&#47&#47
+&#47&#47 BerryNet is free software: you can redistribute it and/or modify
+&#47&#47 it under the terms of the GNU General Public License as published by
+&#47&#47 the Free Software Foundation, either version 3 of the License, or
+&#47&#47 (at your option) any later version.
+&#47&#47
+&#47&#47 BerryNet is distributed in the hope that it will be useful,
+&#47&#47 but WITHOUT ANY WARRANTY; without even the implied warranty of
+&#47&#47 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+&#47&#47 GNU General Public License for more details.
+&#47&#47
+&#47&#47 You should have received a copy of the GNU General Public License
+&#47&#47 along with BerryNet.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
+
+Simple image classification server with Inception.
+
+The server monitors image_dir and run inferences on new images added to the
+directory. Every image file should come with another empty file with &quot.done&quot
+suffix to signal readiness. Inference result of a image can be read from the
+&quot.txt&quot file of that image after &quot.txt.done&quot is spotted.
+
+This is an example the server expects clients to do. Note the order.
+
+&#47&#47 cp cat.jpg /run/image_dir
+&#47&#47 touch /run/image_dir/cat.jpg.done
+
+Clients should wait for appearance of &quotcat.jpg.txt.done&quot before getting
+result from &quotcat.jpg.txt&quot.
+
+
+
+from __future__ import print_function
+import os
+import sys
+import time
+import numpy as np
+import threading
+import multiprocessing
+import tensorflow as tf
+import Queue
+import signal
+from watchdog.observers import Observer
+from watchdog.events import PatternMatchingEventHandler
+
+FLAGS = tf.app.flags.FLAGS
+image_queue = Queue.Queue()
+sess = None
+threads = []
+
+&#47&#47 classify_image_graph_def.pb:
+&#47&#47   Binary representation of the GraphDef protocol buffer.
+&#47&#47 imagenet_synset_to_human_label_map.txt:
+&#47&#47   Map from synset ID to a human readable string.
+&#47&#47 imagenet_2012_challenge_label_map_proto.pbtxt:
+&#47&#47   Text representation of a protocol buffer mapping a label to synset ID.
+tf.app.flags.DEFINE_string(
+    &quotmodel_dir&quot, &quotmodel&quot,
+    Path to output_graph.pb and output_labels.txt.)
+tf.app.flags.DEFINE_string(&quotimage_dir&quot, &quotimage&quot,
+                           Path to image file.)
+tf.app.flags.DEFINE_string(&quotoutput_layer&quot, &quotsoftmax:0&quot,
+                           Name of the result operation)
+tf.app.flags.DEFINE_string(&quotinput_layer&quot, &quotDecodeJpeg/contents:0&quot,
+                           Name of the input operation)
+tf.app.flags.DEFINE_integer(&quotnum_top_predictions&quot, 5,
+                            Display this many predictions.)
+
+
+def logging(*args):
+    print("[%08.3f]" % time.time(), &quot &quot.join(args))
+
+def touch(fname, times=None):
+    with open(fname, &quota&quot):
+        os.utime(fname, times)
+
+def load_labels(filename):
+    Read in labels, one label per line.
+    return [line.rstrip() for line in tf.gfile.FastGFile(filename)]
+
+
+def create_graph():
+    Creates a graph from saved GraphDef file and returns a saver.
+    &#47&#47 Creates graph from saved graph_def.pb.
+    with tf.gfile.FastGFile(os.path.join(
+        FLAGS.model_dir, &quotoutput_graph.pb&quot), &quotrb&quot) as f:
+        graph_def = tf.GraphDef()
+        graph_def.ParseFromString(f.read())
+        _ = tf.import_graph_def(graph_def, name=&quot&quot)
+
+
+def server(labels):
+    Infinite loop serving inference requests
+
+    global image_queue, sess
+
+    logging(threading.current_thread().getName(), "is running")
+
+    with sess.as_default():
+        &#47&#47 Some useful tensors:
+        &#47&#47 &quotsoftmax:0&quot: A tensor containing the normalized prediction across
+        &#47&#47   1000 labels.
+        &#47&#47 &quotpool_3:0&quot: A tensor containing the next-to-last layer containing 2048
+        &#47&#47   float description of the image.
+        &#47&#47 &quotDecodeJpeg/contents:0&quot: A tensor containing a string providing JPEG
+        &#47&#47   encoding of the image.
+
+        while True:
+            input_name = image_queue.get()
+            image_data = tf.gfile.FastGFile(input_name, &quotrb&quot).read()
+
+            predictions = sess.run(FLAGS.output_layer,
+                                   {FLAGS.input_layer: image_data})
+            predictions = np.squeeze(predictions)
+            top_k = predictions.argsort()[-FLAGS.num_top_predictions:][::-1]
+
+            output_name = input_name+&quot.txt&quot
+            output_done_name = output_name+&quot.done&quot
+            <a id="change">output = open(output_name, &quotw&quot)</a>
+            for node_id in top_k:
+                human_string = labels[node_id]
+                score = predictions[node_id]
+                print("%s (score = %.5f)" % (human_string, score), file=output)
+            <a id="change">output</a><a id="change">.close()</a>
+            touch(output_done_name)
+            logging(input_name, " classified!")
+
+
+class EventHandler(PatternMatchingEventHandler):
+    def process(self, event):
+        
+        event.event_type
+            &quotmodified&quot | &quotcreated&quot | &quotmoved&quot | &quotdeleted&quot
+        event.is_directory
+            True | False
+        event.src_path
+            path/to/observed/file
+        
+        &#47&#47 the file will be processed there
+        global image_queue
+
+        _msg = event.src_path
+        image_queue.put(_msg.rstrip(&quot.done&quot))
+        os.remove(_msg)
+        logging(_msg, event.event_type)
+
+    &#47&#47 ignore all other types of events except &quotmodified&quot
+    def on_created(self, event):
+        self.process(event)
+
+
+def main(_):
+    Called by Tensorflow
+
+    global sess, threads
+
+    &#47&#47 Creates graph from saved GraphDef.
+    create_graph()
+
+    &#47&#47 Reuse the same session for all threads processing requests
+    sess = tf.Session()
+    &#47&#47 Creates node ID --&gt; English string lookup.
+    labels = load_labels(os.path.join(FLAGS.model_dir, &quotoutput_labels.txt&quot))
+
+    &#47&#47 Create a server thread for each CPU core
+    cpu_count = multiprocessing.cpu_count()
+    for i in xrange(cpu_count/4):
+        threads.append(threading.Thread(target=server,
+                                        name=&quotServer thread %d&quot % i,
+                                        args=(labels,)))
+    for t in threads: t.start()
+    for t in threads: t.join()
+
+
+if __name__ == &quot__main__&quot:
+    pid = str(os.getpid())
+    pidfile = "/tmp/classify_server.pid"
+
+    if os.path.isfile(pidfile):
+        logging("%s already exists, exiting" % pidfile)
+        sys.exit(1)
+
+    with open(pidfile, &quotw&quot) as f:
+        f.write(pid)
+
+    logging("model_dir: ", FLAGS.model_dir)
+    logging("image_dir: ", FLAGS.image_dir)
+
+    &#47&#47 workaround the issue that SIGINT cannot be received (fork a child to
+    &#47&#47 avoid blocking the main process in Thread.join()
+    child_pid = os.fork()
+    if child_pid == 0:
+        &#47&#47 child
+        &#47&#47 observer handles event in a different thread
+        observer = Observer()
+        observer.schedule(EventHandler([&quot*.jpg.done&quot]), path=FLAGS.image_dir)
+        observer.start()
+        tf.app.run()
+    else:
+        &#47&#47 parent
+        try:
+            os.wait()
+        except KeyboardInterrupt:
+            os.kill(child_pid, signal.SIGKILL)
+            os.unlink(pidfile)
+</code></pre>

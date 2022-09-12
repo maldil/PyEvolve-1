@@ -1,0 +1,224 @@
+<link rel="stylesheet" href="../../..//default.css">
+<script src="../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/BYU-PRISM/GEKKO/blob/master/gekko/gk_variable.py#L200">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/GEKKO/blob/master/gekko/gk_variable.py#L200">GitMyHubLink</a>
+
+import os
+from .gk_operators import GK_Operators
+
+
+
+Var_input_options = []
+Var_inout_options = [&quotVALUE&quot]
+Var_output_options = []
+
+SV_input_options = Var_input_options+[&quotFSTATUS&quot, &quotLOWER&quot, &quotMEAS&quot, &quotUPPER&quot]
+SV_inout_options = Var_inout_options+[]
+SV_output_options = Var_output_options+[&quotMODEL&quot, &quotPRED&quot]
+
+CV_inout_options = SV_inout_options+[&quotBIAS&quot]
+CV_input_options = SV_input_options + [&quotCOST&quot, &quotCRITICAL&quot, &quotFDELAY&quot, 
+                                       &quotMEAS_GAP&quot, &quotPSTATUS&quot, &quotSP&quot, &quotSPHI&quot, 
+                                       &quotSPLO&quot, &quotSTATUS&quot, &quotTAU&quot, &quotTIER&quot, &quotTR_INIT&quot, 
+                                       &quotTR_OPEN&quot, &quotVDVL&quot, &quotVLACTION&quot, &quotVLHI&quot,
+                                       &quotVLLO&quot, &quotWMEAS&quot, &quotWMODEL&quot, &quotWSP&quot, 
+                                       &quotWSPHI&quot, &quotWSPLO&quot]
+CV_output_options = SV_output_options + [&quotLSTVAL&quot ]
+
+&#47&#47gather in dictionary
+variable_options = {&quotSV&quot:{&quotinputs&quot:SV_input_options, &quotoutputs&quot:SV_output_options, &quotinout&quot: SV_inout_options}, 
+                    &quotCV&quot:{&quotinputs&quot:CV_input_options,&quotoutputs&quot:CV_output_options,&quotinout&quot:CV_inout_options},
+                    None:{&quotinputs&quot:Var_input_options,&quotoutputs&quot:Var_output_options,&quotinout&quot:Var_inout_options}}
+from .properties import variable_options as options
+
+class GKVariable(GK_Operators):
+    Represents a parameter in a model
+    counter = 0
+    
+    def __init__(self, name=&quot&quot, value=None, lb=None, ub=None, integer=False):
+        if name == &quot&quot:
+            name = &quotv&quot + GKVariable.counter
+            GKVariable.counter += 1
+            if integer == True:
+                name = &quotint_&quot+name
+        
+        
+        &#47&#47 prevents the __setattr__ function from sending options to the server
+        &#47&#47 until the __init__ function has completed since they should only be
+        &#47&#47 sent if changed from their defaults
+        self.__dict__[&quot_initialized&quot] = False
+
+        GK_Operators.__init__(self, name, value=value)
+
+        &#47&#47self.VALUE = value &#47&#47initialized value is done in GK_Operators
+        if not hasattr(self,&quottype&quot): &#47&#47don&quott overwrite SV and CV
+            self.type = None 
+            
+        if lb is not None:
+            self.LOWER = lb
+        else:
+            self.LOWER = None
+        if ub is not None:
+            self.UPPER = ub
+        else:
+            self.UPPER = None
+        
+        &#47&#47register fixed values through connections to ensure consistency in the 
+        &#47&#47csv file, otherwise the requested fixed value will be overridden by
+        &#47&#47whatever initialization value is in the csv
+        self._override_csv = []
+        
+        &#47&#47register values that are changed by the user 
+        &#47&#47self._changed = True
+        &#47&#47 now allow options to be sent to the server
+        self._initialized = True
+
+    def dt(self):
+        return GK_Operators(&quot$&quot + self.name)
+
+    def __repr__(self):
+        return str(self.value)
+    
+    def __len__(self):
+        return len(self.value)
+    def __getitem__(self,key):
+        return self.value[key]
+    def __setitem__(self,key,value):
+        self.value[key] = value
+
+
+&#47&#47    def __getattr__(self,name):
+&#47&#47        name = name.upper()
+&#47&#47        if name == &quotVALUE&quot:
+&#47&#47            return self.__dict__[&quotVALUE&quot].value
+&#47&#47        else:
+&#47&#47            return self.__dict__[name]
+
+    def __setattr__(self, name, value):
+        if self._initialized:
+            &#47&#47ignore cases on global options
+            name = name.upper()
+
+            &#47&#47only allow user to set input or input/output options:
+            if name in options[self.type][&quotinputs&quot]+options[self.type][&quotinout&quot]:
+                if name == &quotVALUE&quot:
+                    &#47&#47 Extract input array from pandas series if needed
+                    if type(value).__name__ == &quotSeries&quot:
+                        value = value.values
+                    self.__dict__[name].value = value
+                else:
+                    self.__dict__[name] = value
+                    
+                        
+            &#47&#47don&quott allow writing to output properties by default
+            elif name in options[self.type][&quotoutputs&quot]:
+                &#47&#47define outputs by passing list/tuple with 1st element being True
+                &#47&#47to override the output writing prevention 
+                try:
+                    if value[0] == True:
+                        self.__dict__[name] = value[1]
+                    else:
+                        raise TypeError
+                except TypeError:
+                    raise AttributeError(str(name)+" is an output property")
+
+                    
+            &#47&#47no other properties allowed
+            else:
+                raise AttributeError(str(name)+" is not a property of this variable")
+                
+        &#47&#47for initializing model
+        else:
+            self.__dict__[name] = value
+        
+
+
+
+class GK_SV(GKVariable):
+    State Variable. Inherits GKVariable.
+
+    def __init__(self, name=&quot&quot, value=0, lb=None, ub=None, gk_model=None, model_path=None, integer=False):
+
+        &#47&#47 prevents the __setattr__ function from sending options to the server
+        &#47&#47 until the __init__ function has completed since they should only be
+        &#47&#47 sent if changed from their defaults
+        self.__dict__[&quot_initialized&quot] = False
+        
+        if not hasattr(self,&quottype&quot): &#47&#47don&quott overwrite CV
+            self.type = &quotSV&quot
+        self.model_name = gk_model 
+        self.path = model_path &#47&#47use the same path as the model 
+        
+        &#47&#47 SV specific options
+        self.FSTATUS = None
+        self.LOWER = None
+        self.MEAS = None
+        self.MODEL = None
+        self.PRED = None
+        self.UPPER = None
+        
+        GKVariable.__init__(self, name, value, lb, ub, integer)
+
+        
+
+class GK_CV(GK_SV):
+    Controlled Variable. Inherits variable 
+    
+    def __init__(self, name=&quot&quot, value=0, lb=None, ub=None, gk_model=None, model_path=None, integer=False):
+
+        &#47&#47 prevents the __setattr__ function from sending options to the server
+        &#47&#47 until the __init__ function has completed since they should only be
+        &#47&#47 sent if changed from their defaults
+        self.__dict__[&quot_initialized&quot] = False
+        
+        
+        self.type = &quotCV&quot
+        
+        &#47&#47 CV specific options
+        self.BIAS = None
+        self.COST = None
+        self.CRITICAL = None
+        self.FDELAY = 0
+        self.LSTVAL = None
+        self.MEAS_GAP = None
+        self.PSTATUS = None
+        self.SP = None
+        self.SPHI = None
+        self.SPLO = None
+        self.STATUS = None
+        self.TAU = None
+        self.TIER = None
+        self.TR_INIT = 0
+        self.TR_OPEN = None
+        self.VDVL = None
+        self.VLACTION = None
+        self.VLHI = None
+        self.VLLO = None
+        self.WMEAS = None
+        self.WMODEL = None
+        self.WSP = None
+        self.WSPHI = None
+        self.WSPLO = None
+
+        GK_SV.__init__(self, name=name, value=value, lb=lb, ub=ub, gk_model=gk_model, model_path=model_path, integer=integer)
+
+    def meas(<a id="change">self</a>,<a id="change">measurement</a>):
+        <a id="change">self.MEAS = measurement</a>
+        &#47&#47open measurement.dbs file
+        <a id="change">f = open(os.path.join(self.path,&quotmeasurements.dbs&quot),&quota&quot)</a>
+        &#47&#47write measurement
+        f.write(self.name+&quot.MEAS = &quot+str(measurement)+&quot, 1, none\n&quot)
+        &#47&#47close file
+        <a id="change">f</a><a id="change">.close()</a>
+        
+        &#47&#47write tag file
+        <a id="change">f = open(os.path.join(self.path,self.name),&quotw&quot)</a>
+        &#47&#47write measurement
+        f.write(str(measurement))
+        &#47&#47close tag file
+        <a id="change">f</a><a id="change">.close()</a>
+</code></pre>

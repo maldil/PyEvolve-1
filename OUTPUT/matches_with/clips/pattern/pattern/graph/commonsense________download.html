@@ -1,0 +1,321 @@
+<link rel="stylesheet" href="../../../..//default.css">
+<script src="../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/clips/pattern/blob/master/pattern/graph/commonsense.py#L244">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/pattern/blob/master/pattern/graph/commonsense.py#L244">GitMyHubLink</a>
+
+&#47&#47&#47&#47&#47&#47&#47&#47 PATTERN | COMMONSENSE &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+&#47&#47 Copyright (c) 2010 University of Antwerp, Belgium
+&#47&#47 Author: Tom De Smedt &lt;tom@organisms.be&gt;
+&#47&#47 License: BSD (see LICENSE.txt for details).
+&#47&#47 http://www.clips.ua.ac.be/pages/pattern
+
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+
+from __future__ import print_function
+from __future__ import absolute_import
+from __future__ import unicode_literals
+from __future__ import division
+
+from builtins import str, bytes, dict, int
+from builtins import map, zip, filter
+from builtins import object, range
+
+from codecs import BOM_UTF8
+from itertools import chain
+from functools import cmp_to_key
+
+from io import open
+
+try:
+    &#47&#47 Python 2
+    from urllib import urlopen
+except ImportError:
+    &#47&#47 Python 3
+    from urllib.request import urlopen
+
+from .__init__ import Graph, Node, Edge, bfs
+from .__init__ import WEIGHT, CENTRALITY, EIGENVECTOR, BETWEENNESS
+
+import os
+import sys
+
+try:
+    MODULE = os.path.dirname(os.path.realpath(__file__))
+except:
+    MODULE = ""
+
+if sys.version &gt; "3":
+    BOM_UTF8 = str(BOM_UTF8.decode("utf-8"))
+else:
+    BOM_UTF8 = BOM_UTF8.decode("utf-8")
+
+&#47&#47&#47&#47&#47&#47&#47&#47 COMMONSENSE SEMANTIC NETWORK &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+
+&#47&#47--- CONCEPT ---------------------------------------------------------------------------------------
+
+
+class Concept(Node):
+
+    def __init__(self, *args, **kwargs):
+         A concept in the sematic network.
+        
+        Node.__init__(self, *args, **kwargs)
+        self._properties = None
+
+    @property
+    def halo(self, depth=2):
+         Returns the concept halo: a list with this concept + surrounding concepts.
+            This is useful to reason more fluidly about the concept,
+            since the halo will include latent properties linked to nearby concepts.
+        
+        return self.flatten(depth=depth)
+
+    @property
+    def properties(self):
+         Returns the top properties in the concept halo, sorted by betweenness centrality.
+            The return value is a list of concept id&quots instead of Concepts (for performance).
+        
+        if self._properties is None:
+            g = self.graph.copy(nodes=self.halo)
+            p = (n for n in g.nodes if n.id in self.graph.properties)
+            p = [n.id for n in reversed(sorted(p, key=lambda n: n.centrality))]
+            self._properties = p
+        return self._properties
+
+
+def halo(concept, depth=2):
+    return concept.flatten(depth=depth)
+
+
+def properties(concept, depth=2, centrality=BETWEENNESS):
+    g = concept.graph.copy(nodes=halo(concept, depth))
+    p = (n for n in g.nodes if n.id in concept.graph.properties)
+    p = [n.id for n in reversed(sorted(p, key=lambda n: getattr(n, centrality)))]
+    return p
+
+&#47&#47--- RELATION --------------------------------------------------------------------------------------
+
+
+class Relation(Edge):
+
+    def __init__(self, *args, **kwargs):
+         A relation between two concepts, with an optional context.
+            For example, "Felix is-a cat" is in the "media" context, "tiger is-a cat" in "nature".
+        
+        self.context = kwargs.pop("context", None)
+        Edge.__init__(self, *args, **kwargs)
+
+&#47&#47--- HEURISTICS ------------------------------------------------------------------------------------
+&#47&#47 Similarity between concepts is measured using a featural approach:
+&#47&#47 a comparison of the features/properties that are salient in each concept&quots halo.
+&#47&#47 Commonsense.similarity() takes an optional "heuristic" parameter to tweak this behavior.
+&#47&#47 It is a tuple of two functions:
+&#47&#47 1) function(concept) returns a list of salient properties (or other),
+&#47&#47 2) function(concept1, concept2) returns the cost to traverse this edge (0.0-1.0).
+
+COMMONALITY = (
+    &#47&#47 Similarity heuristic that only traverses relations between properties.
+    lambda concept: concept.properties,
+    lambda edge: 1 - int(edge.context == "properties" and \
+                         edge.type != "is-opposite-of"))
+
+&#47&#47--- COMMONSENSE -----------------------------------------------------------------------------------
+
+
+class Commonsense(Graph):
+
+    def __init__(self, data=os.path.join(MODULE, "commonsense.csv"), **kwargs):
+         A semantic network of commonsense, using different relation types:
+            - is-a,
+            - is-part-of,
+            - is-opposite-of,
+            - is-property-of,
+            - is-related-to,
+            - is-same-as,
+            - is-effect-of.
+        
+        Graph.__init__(self, **kwargs)
+        self._properties = None
+        &#47&#47 Load data from the given path,
+        &#47&#47 a CSV-file of (concept1, relation, concept2, context, weight)-items.
+        if data is not None:
+            s = open(data, encoding = &quotutf-8&quot).read()
+            s = s.strip(BOM_UTF8)
+            s = ((v.strip("\"") for v in r.split(",")) for r in s.splitlines())
+            for concept1, relation, concept2, context, weight in s:
+                self.add_edge(concept1, concept2,
+                    type = relation,
+                 context = context,
+                  weight = min(int(weight) * 0.1, 1.0))
+
+    @property
+    def concepts(self):
+        return self.nodes
+
+    @property
+    def relations(self):
+        return self.edges
+
+    @property
+    def properties(self):
+         Yields all concepts that are properties (i.e., adjectives).
+            For example: "cold is-property-of winter" =&gt; "cold".
+        
+        if self._properties is None:
+            &#47&#47self._properties = set(e.node1.id for e in self.edges if e.type == "is-property-of")
+            self._properties = (e for e in self.edges if e.context == "properties")
+            self._properties = set(chain(*((e.node1.id, e.node2.id) for e in self._properties)))
+        return self._properties
+
+    def add_node(self, id, *args, **kwargs):
+         Returns a Concept (Node subclass).
+        
+        self._properties = None
+        kwargs.setdefault("base", Concept)
+        return Graph.add_node(self, id, *args, **kwargs)
+
+    def add_edge(self, id1, id2, *args, **kwargs):
+         Returns a Relation between two concepts (Edge subclass).
+        
+        self._properties = None
+        kwargs.setdefault("base", Relation)
+        return Graph.add_edge(self, id1, id2, *args, **kwargs)
+
+    def remove(self, x):
+        self._properties = None
+        Graph.remove(self, x)
+
+    def similarity(self, concept1, concept2, k=3, heuristic=COMMONALITY):
+         Returns the similarity of the given concepts,
+            by cross-comparing shortest path distance between k concept properties.
+            A given concept can also be a flat list of properties, e.g. ["creepy"].
+            The given heuristic is a tuple of two functions:
+            1) function(concept) returns a list of salient properties,
+            2) function(edge) returns the cost for traversing this edge (0.0-1.0).
+        
+        if isinstance(concept1, str):
+            concept1 = self[concept1]
+        if isinstance(concept2, str):
+            concept2 = self[concept2]
+        if isinstance(concept1, Node):
+            concept1 = heuristic[0](concept1)
+        if isinstance(concept2, Node):
+            concept2 = heuristic[0](concept2)
+        if isinstance(concept1, list):
+            concept1 = [isinstance(n, Node) and n or self[n] for n in concept1]
+        if isinstance(concept2, list):
+            concept2 = [isinstance(n, Node) and n or self[n] for n in concept2]
+        h = lambda id1, id2: heuristic[1](self.edge(id1, id2))
+        w = 0.0
+        for p1 in concept1[:k]:
+            for p2 in concept2[:k]:
+                p = self.shortest_path(p1, p2, heuristic=h)
+                w += 1.0 / (p is None and 1e10 or len(p))
+        return w / k
+
+    def nearest_neighbors(self, concept, concepts=[], k=3):
+         Returns the k most similar concepts from the given list.
+        
+        return sorted(concepts, key=lambda candidate: self.similarity(concept, candidate, k), reverse=True)
+
+    similar = neighbors = nn = nearest_neighbors
+
+    def taxonomy(self, concept, depth=3, fringe=2):
+         Returns a list of concepts that are descendants of the given concept, using "is-a" relations.
+            Creates a subgraph of "is-a" related concepts up to the given depth,
+            then takes the fringe (i.e., leaves) of the subgraph.
+        
+        def traversable(node, edge):
+            &#47&#47 Follow parent-child edges.
+            return edge.node2 == node and edge.type == "is-a"
+        if not isinstance(concept, Node):
+            concept = self[concept]
+        g = self.copy(nodes=concept.flatten(depth, traversable))
+        g = g.fringe(depth=fringe)
+        g = [self[n.id] for n in g if n != concept]
+        return g
+
+    field = semantic_field = taxonomy
+
+&#47&#47g = Commonsense()
+&#47&#47print(g.nn("party", g.field("animal")))
+&#47&#47print(g.nn("creepy", g.field("animal")))
+
+&#47&#47&#47&#47&#47&#47&#47&#47 COMMONSENSE DATA &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+
+&#47&#47--- NODEBOX.NET/PERCEPTION ------------------------------------------------------------------------
+
+
+def download(path=os.path.join(MODULE, "commonsense.csv"), threshold=50):
+     Downloads commonsense data from http://nodebox.net/perception.
+        Saves the data as commonsense.csv which can be the input for Commonsense.load().
+    
+    <a id="change">s</a> = "http://nodebox.net/perception?format=txt&robots=1"
+    <a id="change">s</a> = urlopen(s).read()
+    <a id="change">s</a> = s.decode("utf-8")
+    <a id="change">s</a> = s.replace("\\&quot", "&quot")
+    &#47&#47 Group relations by author.
+    <a id="change">a</a> = {}
+    for <a id="change">r</a> in ([v.strip("&quot") for <a id="change">v</a> in r.split(", ")] for <a id="change">r</a> in s.split("\n")):
+        if len(r) == 7:
+            a.setdefault(r[-2], []).append(r)
+    &#47&#47 Iterate authors sorted by number of contributions.
+    &#47&#47 1) Authors with 50+ contributions can define new relations and context.
+    &#47&#47 2) Authors with 50- contributions (or robots) can only reinforce existing relations.
+    <a id="change">a</a> = sorted(a.items(), key=cmp_to_key(lambda v1, v2: len(v2[1]) - len(v1[1])))
+    <a id="change">r</a> = {}
+    for <a id="change">author</a>, <a id="change">relations</a> in a:
+        if author == "" or author.startswith("robots@"):
+            continue
+        if len(relations) &lt; threshold:
+            break
+        &#47&#47 Sort latest-first (we prefer more recent relation types).
+        <a id="change">relations</a> = sorted(relations, key=cmp_to_key(lambda r1, r2: r1[-1] &gt; r2[-1]))
+        &#47&#47 1) Define new relations.
+        for <a id="change">concept1</a>, <a id="change">relation</a>, <a id="change">concept2</a>, <a id="change">context</a>, <a id="change">weight</a>, <a id="change">author</a>, <a id="change">date</a> in relations:
+            <a id="change">id</a> = (concept1, relation, concept2)
+            if id not in r:
+                r[id] = [None, 0]
+            if r[id][0] is None and context is not None:
+                r[id][0] = context
+    for <a id="change">author</a>, <a id="change">relations</a> in a:
+        &#47&#47 2) Reinforce existing relations.
+        for <a id="change">concept1</a>, <a id="change">relation</a>, <a id="change">concept2</a>, <a id="change">context</a>, <a id="change">weight</a>, <a id="change">author</a>, <a id="change">date</a> in relations:
+            <a id="change">id</a> = (concept1, relation, concept2)
+            if id in r:
+                r[id][1] += int(weight)
+    &#47&#47 Export CSV-file.
+    <a id="change">s</a> = []
+    for (concept1, relation, concept2), (context, weight) in r.items():
+        s.append("\"%s\",\"%s\",\"%s\",\"%s\",%s" % (
+            concept1, relation, concept2, context, weight))
+    <a id="change">f</a><a id="change"> = open(path, "w", encoding = &quotutf-8&quot)</a>
+    f.write(BOM_UTF8)
+    f.write("\n".join(s))
+    <a id="change">f</a><a id="change">.close()</a>
+
+
+def json():
+     Returns a JSON-string with the data from commonsense.csv.
+        Each relation is encoded as a [concept1, relation, concept2, context, weight] list.
+    
+    f = lambda s: s.replace("&quot", "\\&quot").encode("utf-8")
+    s = []
+    g = Commonsense()
+    for e in g.edges:
+        s.append("\n\t[&quot%s&quot, &quot%s&quot, &quot%s&quot, &quot%s&quot, %.2f]" % (
+            f(e.node1.id),
+            f(e.type),
+            f(e.node2.id),
+            f(e.context),
+              e.weight
+        ))
+    return "commonsense = [%s];" % ", ".join(s)
+
+&#47&#47download("commonsense.csv", threshold=50)
+&#47&#47open("commonsense.js", "w", encoding = &quotutf-8&quot).write(json())
+</code></pre>

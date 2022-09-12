@@ -1,0 +1,560 @@
+<link rel="stylesheet" href="../../../..//default.css">
+<script src="../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/stratosphereips/StratosphereLinuxIPS/blob/master/modules/flowmldetection/flowmldetection.py#L387">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/StratosphereLinuxIPS/blob/master/modules/flowmldetection/flowmldetection.py#L387">GitMyHubLink</a>
+
+&#47&#47 Must imports
+from slips_files.common.abstracts import Module
+import multiprocessing
+from slips_files.core.database import __database__
+from slips_files.common.slips_utils import utils
+import sys
+import configparser
+import time
+from sklearn.linear_model import SGDClassifier
+from sklearn.preprocessing import StandardScaler
+import pickle
+import pandas as pd
+import json
+import platform
+import datetime
+
+&#47&#47 Only for debbuging
+&#47&#47 from matplotlib import pyplot as plt
+
+
+&#47&#47 This horrible hack is only to stop sklearn from printing those warnings
+def warn(*args, **kwargs):
+    pass
+
+
+import warnings
+
+warnings.warn = warn
+
+
+class Module(Module, multiprocessing.Process):
+    &#47&#47 Name: short name of the module. Do not use spaces
+    name = &quotflowmldetection&quot
+    description = (
+        &quotTrain or test a Machine Learning model to detect malicious flows&quot
+    )
+    authors = [&quotSebastian Garcia&quot]
+
+    def __init__(self, outputqueue, config, redis_port):
+        multiprocessing.Process.__init__(self)
+        self.outputqueue = outputqueue
+        &#47&#47 In case you need to read the slips.conf configuration file for your own configurations
+        self.config = config
+        &#47&#47 Start the DB
+        __database__.start(self.config, redis_port)
+        &#47&#47 Subscribe to the channel
+        self.c1 = __database__.subscribe(&quotnew_flow&quot)
+        self.fieldseparator = __database__.getFieldSeparator()
+        &#47&#47 Set the output queue of our database instance
+        __database__.setOutputQueue(self.outputqueue)
+        &#47&#47 Read the configuration
+        self.read_configuration()
+        &#47&#47 Channel timeout
+        self.timeout = 0
+        &#47&#47 Minum amount of new lables needed to trigger the train
+        self.minimum_lables_to_retrain = 50
+        &#47&#47 To plot the scores of training
+        &#47&#47 self.scores = []
+        &#47&#47 The scaler trained during training and to use during testing
+        self.scaler = StandardScaler()
+
+    def read_configuration(self):
+        Read the configuration file for what we need
+        try:
+            self.mode = self.config.get(&quotflowmldetection&quot, &quotmode&quot)
+        except (
+            configparser.NoOptionError,
+            configparser.NoSectionError,
+            NameError,
+        ):
+            &#47&#47 There is a conf, but there is no option, or no section or no configuration file specified
+            &#47&#47 Default to test
+            self.mode = &quottest&quot
+
+    def print(self, text, verbose=1, debug=0):
+        
+        Function to use to print text using the outputqueue of slips.
+        Slips then decides how, when and where to print this text by taking all the processes into account
+        :param verbose:
+            0 - don&quott print
+            1 - basic operation/proof of work
+            2 - log I/O operations and filenames
+            3 - log database/profile/timewindow changes
+        :param debug:
+            0 - don&quott print
+            1 - print exceptions
+            2 - unsupported and unhandled types (cases that may cause errors)
+            3 - red warnings that needs examination - developer warnings
+        :param text: text to print. Can include format like &quotTest {}&quot.format(&quothere&quot)
+        
+
+        levels = f&quot{verbose}{debug}&quot
+        self.outputqueue.put(f&quot{levels}|{self.name}|{text}&quot)
+
+    def train(self):
+        
+        Train a model based on the flows we receive and the labels
+        
+        try:
+            &#47&#47 Process the labels to have only Normal and Malware
+            self.flows.label = self.flows.label.str.replace(
+                r&quot(^.*ormal.*$)&quot, &quotNormal&quot
+            )
+            self.flows.label = self.flows.label.str.replace(
+                r&quot(^.*alware.*$)&quot, &quotMalware&quot
+            )
+            self.flows.label = self.flows.label.str.replace(
+                r&quot(^.*alicious.*$)&quot, &quotMalware&quot
+            )
+
+            &#47&#47 Separate
+            y_flow = self.flows[&quotlabel&quot]
+            X_flow = self.flows.drop(&quotlabel&quot, axis=1)
+            X_flow = X_flow.drop(&quotmodule_labels&quot, axis=1)
+
+            &#47&#47 Normalize this batch of data so far. This can get progressivle slow
+            X_flow = self.scaler.fit_transform(X_flow)
+
+            &#47&#47 Train
+            try:
+                self.clf.partial_fit(
+                    X_flow, y_flow, classes=[&quotMalware&quot, &quotNormal&quot]
+                )
+            except Exception as inst:
+                self.print(&quotError while calling clf.train()&quot)
+                self.print(type(inst))
+                self.print(inst)
+
+            &#47&#47 See score so far in training
+            score = self.clf.score(X_flow, y_flow)
+
+            &#47&#47 To debug the training score
+            &#47&#47 self.scores.append(score)
+
+            self.print(f&quot	Training Score: {score}&quot, 0, 1)
+            &#47&#47 self.print(f&quot    Model Parameters: {self.clf.coef_}&quot)
+
+            &#47&#47 Debug code to store a plot in a png of the scores
+            &#47&#47 plt.plot(self.scores)
+            &#47&#47 plt.savefig(&quottrain-scores.png&quot)
+
+            &#47&#47 Store the models on disk
+            self.store_model()
+
+        except Exception as inst:
+            self.print(&quotError in train()&quot)
+            self.print(type(inst))
+            self.print(inst)
+
+    def process_features(self, dataset):
+        
+        Discards some features of the dataset and can create new.
+        Clean the dataset
+        
+        try:
+            &#47&#47 Discard some type of flows that they dont have ports
+            dataset = dataset[dataset.proto != &quotarp&quot]
+            dataset = dataset[dataset.proto != &quotARP&quot]
+            dataset = dataset[dataset.proto != &quoticmp&quot]
+            dataset = dataset[dataset.proto != &quotigmp&quot]
+            dataset = dataset[dataset.proto != &quotipv6-icmp&quot]
+            &#47&#47 For now, discard the ports
+            try:
+                dataset = dataset.drop(&quotappproto&quot, axis=1)
+            except ValueError:
+                pass
+            try:
+                dataset = dataset.drop(&quotdaddr&quot, axis=1)
+            except ValueError:
+                pass
+            try:
+                dataset = dataset.drop(&quotsaddr&quot, axis=1)
+            except ValueError:
+                pass
+            try:
+                dataset = dataset.drop(&quotts&quot, axis=1)
+            except ValueError:
+                pass
+            try:
+                dataset = dataset.drop(&quotorigstate&quot, axis=1)
+            except ValueError:
+                pass
+            try:
+                dataset = dataset.drop(&quotflow_type&quot, axis=1)
+            except ValueError:
+                pass
+
+            &#47&#47 Convert state to categorical
+            dataset.state = dataset.state.str.replace(
+                r&quot(^.*NotEstablished.*$)&quot, &quot0&quot
+            )
+            dataset.state = dataset.state.str.replace(
+                r&quot(^.*Established.*$)&quot, &quot1&quot
+            )
+            dataset.state = dataset.state.astype(&quotfloat64&quot)
+
+            &#47&#47 Convert proto to categorical. For now we only have few states, so we can hardcode...
+            &#47&#47 We dont use the data to create categories because in testing mode
+            &#47&#47 we dont see all the protocols
+            &#47&#47 Also we dont store the Categorizer because the user can retrain
+            &#47&#47 with its own data.
+            dataset.proto = dataset.proto.str.lower()
+            dataset.proto = dataset.proto.str.replace(r&quot(^.*tcp.*$)&quot, &quot0&quot)
+            dataset.proto = dataset.proto.str.replace(r&quot(^.*udp.*$)&quot, &quot1&quot)
+            dataset.proto = dataset.proto.str.replace(r&quot(^.*icmp.*$)&quot, &quot2&quot)
+            dataset.proto = dataset.proto.str.replace(
+                r&quot(^.*icmp-ipv6.*$)&quot, &quot3&quot
+            )
+            dataset.proto = dataset.proto.str.replace(r&quot(^.*arp.*$)&quot, &quot4&quot)
+            dataset.proto = dataset.proto.astype(&quotfloat64&quot)
+            try:
+                &#47&#47 Convert dport to float
+                dataset.dport = dataset.dport.astype(&quotfloat&quot)
+            except ValueError:
+                pass
+            try:
+                &#47&#47 Convert sport to float
+                dataset.sport = dataset.sport.astype(&quotfloat&quot)
+            except ValueError:
+                pass
+            try:
+                &#47&#47 Convert Dur to float
+                dataset.dur = dataset.dur.astype(&quotfloat&quot)
+            except ValueError:
+                pass
+            try:
+                &#47&#47 Convert TotPkts to float
+                dataset.pkts = dataset.pkts.astype(&quotfloat&quot)
+            except ValueError:
+                pass
+            try:
+                &#47&#47 Convert SrcPkts to float
+                dataset.spkts = dataset.spkts.astype(&quotfloat&quot)
+            except ValueError:
+                pass
+            try:
+                &#47&#47 Convert TotBytes to float
+                dataset.allbytes = dataset.allbytes.astype(&quotfloat&quot)
+            except ValueError:
+                pass
+            try:
+                &#47&#47 Convert SrcBytes to float
+                dataset.sbytes = dataset.sbytes.astype(&quotfloat&quot)
+            except ValueError:
+                pass
+            return dataset
+        except Exception as inst:
+            &#47&#47 Stop the timer
+            self.print(&quotError in process_features()&quot)
+            self.print(type(inst))
+            self.print(inst)
+
+    def process_flows(self):
+        
+        Process all the flwos in the DB
+        Store the pandas df in self.flows
+        
+        try:
+            &#47&#47 We get all the flows so far
+            &#47&#47 because this retraining happens in batches
+            flows = __database__.get_all_flows()
+
+            &#47&#47 Check how many different labels are in the DB
+            &#47&#47 We need both normal and malware
+            labels = __database__.get_labels()
+            if len(labels) == 1:
+                &#47&#47 Only 1 label has flows
+                &#47&#47 There are not enough different labels, so insert two flows
+                &#47&#47 that are fake but representative of a normal and malware flow
+                &#47&#47 they are only for the training process
+                &#47&#47 At least 1 flow of each label is required
+                &#47&#47 self.print(f&quotAmount of labeled flows: {labels}&quot, 0, 1)
+                flows.append(
+                    {
+                        &quotts&quot: 1594417039.029793,
+                        &quotdur&quot: &quot1.9424750804901123&quot,
+                        &quotsaddr&quot: &quot10.7.10.101&quot,
+                        &quotsport&quot: &quot49733&quot,
+                        &quotdaddr&quot: &quot40.70.224.145&quot,
+                        &quotdport&quot: &quot443&quot,
+                        &quotproto&quot: &quottcp&quot,
+                        &quotorigstate&quot: &quotSRPA_SPA&quot,
+                        &quotstate&quot: &quotEstablished&quot,
+                        &quotpkts&quot: 84,
+                        &quotallbytes&quot: 42764,
+                        &quotspkts&quot: 37,
+                        &quotsbytes&quot: 25517,
+                        &quotappproto&quot: &quotssl&quot,
+                        &quotlabel&quot: &quotMalware&quot,
+                        &quotmodule_labels&quot: {
+                            &quotflowalerts-long-connection&quot: &quotMalware&quot
+                        },
+                    }
+                )
+                flows.append(
+                    {
+                        &quotts&quot: 1382355032.706468,
+                        &quotdur&quot: &quot10.896695&quot,
+                        &quotsaddr&quot: &quot147.32.83.52&quot,
+                        &quotsport&quot: &quot47956&quot,
+                        &quotdaddr&quot: &quot80.242.138.72&quot,
+                        &quotdport&quot: &quot80&quot,
+                        &quotproto&quot: &quottcp&quot,
+                        &quotorigstate&quot: &quotSRPA_SPA&quot,
+                        &quotstate&quot: &quotEstablished&quot,
+                        &quotpkts&quot: 67,
+                        &quotallbytes&quot: 67696,
+                        &quotspkts&quot: 1,
+                        &quotsbytes&quot: 100,
+                        &quotappproto&quot: &quothttp&quot,
+                        &quotlabel&quot: &quotNormal&quot,
+                        &quotmodule_labels&quot: {
+                            &quotflowalerts-long-connection&quot: &quotNormal&quot
+                        },
+                    }
+                )
+                &#47&#47 If there are enough flows, we dont insert them anymore
+
+            &#47&#47 Convert to pandas df
+            df_flows = pd.DataFrame(flows)
+
+            &#47&#47 Process features
+            df_flows = self.process_features(df_flows)
+
+            &#47&#47 Update the flow to the processed version
+            self.flows = df_flows
+        except Exception as inst:
+            &#47&#47 Stop the timer
+            self.print(&quotError in process_flows()&quot)
+            self.print(type(inst))
+            self.print(inst)
+
+    def process_flow(self):
+        
+        Process one flow. Only used during detection in testing
+        Store the pandas df in self.flow
+        
+        try:
+            &#47&#47 Convert the flow to a pandas dataframe
+            raw_flow = pd.DataFrame(self.flow_dict, index=[0])
+            &#47&#47 Process features
+            dflow = self.process_features(raw_flow)
+            &#47&#47 Update the flow to the processed version
+            self.flow = dflow
+        except Exception as inst:
+            &#47&#47 Stop the timer
+            self.print(&quotError in process_flow()&quot)
+            self.print(type(inst))
+            self.print(inst)
+
+    def detect(self):
+        
+        Detect this flow with the current model stored
+        
+        try:
+            &#47&#47 Store the real label if there is one
+            y_flow = self.flow[&quotlabel&quot]
+            &#47&#47 remove the real label column
+            self.flow = self.flow.drop(&quotlabel&quot, axis=1)
+            &#47&#47 remove the label predictions column of the other modules
+            X_flow = self.flow.drop(&quotmodule_labels&quot, axis=1)
+            &#47&#47 Scale the flow
+            X_flow = self.scaler.transform(X_flow)
+            pred = self.clf.predict(X_flow)
+            return pred
+        except Exception as inst:
+            &#47&#47 Stop the timer
+            self.print(&quotError in detect() X_flow:&quot)
+            self.print(X_flow)
+            self.print(type(inst))
+            self.print(inst)
+
+    def store_model(self):
+        
+        Store the trained model on disk
+        
+        self.print(f&quotStoring the trained model and scaler on disk.&quot, 0, 2)
+        f = open(&quot./modules/flowmldetection/model.bin&quot, &quotwb&quot)
+        data = pickle.dumps(self.clf)
+        f.write(data)
+        f.close()
+        g = open(&quot./modules/flowmldetection/scaler.bin&quot, &quotwb&quot)
+        data = pickle.dumps(self.scaler)
+        g.write(data)
+        g.close()
+
+    def read_model(self):
+        
+        Read the trained model from disk
+        
+        try:
+            self.print(f&quotReading the trained model from disk.&quot, 0, 2)
+            <a id="change">f = open(&quot./modules/flowmldetection/model.bin&quot, &quotrb&quot)</a>
+            self.clf = pickle.load(f)
+            <a id="change">f</a><a id="change">.close()</a>
+            self.print(f&quotReading the trained scaler from disk.&quot, 0, 2)
+            <a id="change">g = open(&quot./modules/flowmldetection/scaler.bin&quot, &quotrb&quot)</a>
+            self.scaler = pickle.load(g)
+            <a id="change">g</a><a id="change">.close()</a>
+        except FileNotFoundError:
+            &#47&#47 If there is no model, create one empty
+            self.print(&quotThere was no model. Creating a new empty model.&quot, 0, 2)
+            self.clf = SGDClassifier(
+                warm_start=True, loss=&quothinge&quot, penalty=&quotl1&quot
+            )
+        except EOFError:
+            self.print(
+                &quotError reading model from disk. Creating a new empty model.&quot,
+                0,
+                2,
+            )
+            self.clf = SGDClassifier(
+                warm_start=True, loss=&quothinge&quot, penalty=&quotl1&quot
+            )
+
+    def set_evidence_malicious_flow(
+        self, saddr, sport, daddr, dport, profileid, twid, uid
+    ):
+        
+        Set the evidence that a flow was detected as malicious
+        
+        confidence = 0.1
+        threat_level = &quotlow&quot
+        type_detection = &quotflow&quot
+        category = &quotAnomaly.Traffic&quot
+        detection_info = (
+            str(saddr) + &quot:&quot + str(sport) + &quot-&quot + str(daddr) + &quot:&quot + str(dport)
+        )
+        type_evidence = &quotMaliciousFlow&quot
+        ip_identification = __database__.getIPIdentification(daddr)
+        description = f&quotMalicious flow by ML. Src IP {saddr}:{sport} to {daddr}:{dport} {ip_identification}&quot
+        timestamp = datetime.datetime.now().strftime(&quot%d/%m/%Y-%H:%M:%S&quot)
+        __database__.setEvidence(
+            type_evidence,
+            type_detection,
+            detection_info,
+            threat_level,
+            confidence,
+            description,
+            timestamp,
+            category,
+            profileid=profileid,
+            twid=twid,
+        )
+
+    def shutdown_gracefully(self):
+        &#47&#47 Confirm that the module is done processing
+        self.store_model()
+        __database__.publish(&quotfinished_modules&quot, self.name)
+
+    def run(self):
+        utils.drop_root_privs()
+        &#47&#47 Load the model
+        self.read_model()
+        while True:
+            try:
+                message = self.c1.get_message(timeout=self.timeout)
+
+                if message and message[&quotdata&quot] == &quotstop_process&quot:
+                    self.shutdown_gracefully()
+                    return True
+
+                if utils.is_msg_intended_for(message, &quotnew_flow&quot):
+                    data = message[&quotdata&quot]
+                    &#47&#47 Convert from json to dict
+                    data = json.loads(data)
+                    profileid = data[&quotprofileid&quot]
+                    twid = data[&quottwid&quot]
+                    &#47&#47 Get flow that is now in json format
+                    flow = data[&quotflow&quot]
+                    &#47&#47 Convert flow to a dict
+                    flow = json.loads(flow)
+                    &#47&#47 Convert the common fields to something that can
+                    &#47&#47 be interpreted
+                    &#47&#47 Get the uid which is the key
+                    uid = next(iter(flow))
+                    self.flow_dict = json.loads(flow[uid])
+
+                    if self.mode == &quottrain&quot:
+                        &#47&#47 We are training
+
+                        &#47&#47 Is the amount in the DB of labels enough to retrain?
+                        &#47&#47 Use labeled flows
+                        labels = __database__.get_labels()
+                        sum_labeled_flows = sum([i[1] for i in labels])
+                        if (
+                            sum_labeled_flows &gt;= self.minimum_lables_to_retrain
+                            and sum_labeled_flows
+                            % self.minimum_lables_to_retrain
+                            == 1
+                        ):
+                            &#47&#47 We get here every &quotself.minimum_lables_to_retrain&quot amount of labels
+                            &#47&#47 So for example we retrain every 100 labels and only when we have at least 100 labels
+                            self.print(
+                                f&quotTraining the model with the last group of flows and labels. Total flows: {sum_labeled_flows}.&quot
+                            )
+                            &#47&#47 Process all flows in the DB and make them ready for pandas
+                            self.process_flows()
+                            &#47&#47 Train an algorithm
+                            self.train()
+                    elif self.mode == &quottest&quot:
+                        &#47&#47 We are testing, which means using the model to detect
+                        self.process_flow()
+
+                        &#47&#47 After processing the flow, it may happen that we delete icmp/arp/etc
+                        &#47&#47 so the dataframe can be empty
+                        if not self.flow.empty:
+                            &#47&#47 Predict
+                            pred = self.detect()
+                            label = self.flow_dict[&quotlabel&quot]
+
+                            &#47&#47 Report
+                            if (
+                                label
+                                and label != &quotunknown&quot
+                                and label != pred[0]
+                            ):
+                                &#47&#47 If the user specified a label in test mode, and the label
+                                &#47&#47 is diff from the prediction, print in debug mode
+                                self.print(
+                                    f&quotReport Prediction {pred[0]} for label {label} flow {self.flow_dict["saddr"]}:{self.flow_dict["sport"]} -&gt; {self.flow_dict["daddr"]}:{self.flow_dict["dport"]}/{self.flow_dict["proto"]}&quot,
+                                    0,
+                                    3,
+                                )
+                            if pred[0] == &quotMalware&quot:
+                                &#47&#47 Generate an alert
+                                self.set_evidence_malicious_flow(
+                                    self.flow_dict[&quotsaddr&quot],
+                                    self.flow_dict[&quotsport&quot],
+                                    self.flow_dict[&quotdaddr&quot],
+                                    self.flow_dict[&quotdport&quot],
+                                    profileid,
+                                    twid,
+                                    uid,
+                                )
+                                self.print(
+                                    f&quotPrediction {pred[0]} for label {label} flow {self.flow_dict["saddr"]}:{self.flow_dict["sport"]} -&gt; {self.flow_dict["daddr"]}:{self.flow_dict["dport"]}/{self.flow_dict["proto"]}&quot,
+                                    0,
+                                    2,
+                                )
+
+            except KeyboardInterrupt:
+                self.shutdown_gracefully()
+                return True
+            except Exception as inst:
+                &#47&#47 Stop the timer
+                self.print(&quotError in run()&quot)
+                self.print(type(inst), 0, 1)
+                self.print(inst, 0, 1)
+                return True
+</code></pre>

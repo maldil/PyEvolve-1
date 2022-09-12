@@ -1,0 +1,385 @@
+<link rel="stylesheet" href="../../../../../../..//default.css">
+<script src="../../../../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/Microsoft/nni/blob/master/examples/model_compress/pruning/legacy/mobilenetv2_end2end/pruning_experiments.py#L244">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/nni/blob/master/examples/model_compress/pruning/legacy/mobilenetv2_end2end/pruning_experiments.py#L244">GitMyHubLink</a>
+
+&#47&#47 Copyright (c) Microsoft Corporation.
+&#47&#47 Licensed under the MIT license.
+
+import os
+import argparse
+import copy
+from time import gmtime, strftime
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from torch.utils.data import DataLoader
+from tqdm import tqdm
+import numpy as np
+
+import nni
+from nni.compression.pytorch import ModelSpeedup
+from nni.algorithms.compression.pytorch.pruning import (
+    LevelPruner,
+    SlimPruner,
+    FPGMPruner,
+    TaylorFOWeightFilterPruner,
+    L1FilterPruner,
+    L2FilterPruner,
+    AGPPruner,
+    ActivationMeanRankFilterPruner,
+    ActivationAPoZRankFilterPruner
+)
+
+from utils import *
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+model_type = &quotmobilenet_v2_torchhub&quot
+input_size = 224
+n_classes = 120
+
+pruner_type_to_class = {&quotlevel&quot: LevelPruner,
+                        &quotl1&quot: L1FilterPruner,
+                        &quotl2&quot: L2FilterPruner,
+                        &quotslim&quot: SlimPruner,
+                        &quotfpgm&quot: FPGMPruner,
+                        &quottaylorfo&quot: TaylorFOWeightFilterPruner,
+                        &quotagp&quot: AGPPruner,
+                        &quotmean_activation&quot: ActivationMeanRankFilterPruner,
+                        &quotapoz&quot: ActivationAPoZRankFilterPruner}
+
+
+def run_eval(model, dataloader, device):
+    model.eval()
+    loss_func = nn.CrossEntropyLoss()
+    acc_list, loss_list = [], []
+    with torch.no_grad():
+        for i, (inputs, labels) in enumerate(tqdm(dataloader)):
+            inputs, labels = inputs.float().to(device), labels.to(device)
+            preds= model(inputs)
+            pred_idx = preds.max(1).indices
+            acc = (pred_idx == labels).sum().item() / labels.size(0)
+            acc_list.append(acc)
+            loss = loss_func(preds, labels).item()
+            loss_list.append(loss)
+
+    final_loss = np.array(loss_list).mean()
+    final_acc = np.array(acc_list).mean()
+
+    return final_loss, final_acc
+
+
+def run_finetune(model, train_dataloader, valid_dataloader, device,
+                 n_epochs=2, learning_rate=1e-4, weight_decay=0.0, log=None):    
+    criterion = nn.CrossEntropyLoss()
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
+
+    best_valid_acc = 0.0
+    best_model = None
+    for epoch in range(n_epochs):
+        print(&quotStart finetuning epoch {}&quot.format(epoch))
+        loss_list = []
+
+        &#47&#47 train
+        model.train()
+        for i, (inputs, labels) in enumerate(tqdm(train_dataloader)):
+            optimizer.zero_grad()
+            inputs, labels = inputs.float().to(device), labels.to(device)
+            preds = model(inputs)
+            loss = criterion(preds, labels)
+            loss_list.append(loss.item())
+            loss.backward()
+            optimizer.step()
+            
+        &#47&#47 validation
+        valid_loss, valid_acc = run_eval(model, valid_dataloader, device)
+        train_loss = np.array(loss_list).mean()
+        print(&quotEpoch {}: train loss {:.4f}, valid loss {:.4f}, valid acc {:.4f}&quot.format
+              (epoch, train_loss, valid_loss, valid_acc))
+        if log is not None:
+            log.write(&quotEpoch {}: train loss {:.4f}, valid loss {:.4f}, valid acc {:.4f}&quot.format
+                      (epoch, train_loss, valid_loss, valid_acc))
+
+        if valid_acc &gt; best_valid_acc:
+            best_valid_acc = valid_acc
+            best_model = copy.deepcopy(model).to(device)
+
+    print("Best validation accuracy: {}".format(best_valid_acc))
+    if log is not None:
+        log.write("Best validation accuracy: {}".format(best_valid_acc))
+    
+    model = best_model
+    return model
+
+
+def run_finetune_distillation(student_model, teacher_model, train_dataloader, valid_dataloader, device,
+                              alpha, temperature,
+                              n_epochs=2, learning_rate=1e-4, weight_decay=0.0, log=None):
+    optimizer = torch.optim.Adam(student_model.parameters(), lr=learning_rate, weight_decay=weight_decay)
+    &#47&#47 optimizer = torch.optim.SGD(student_model.parameters(), lr=learning_rate, momentum=0.9)            
+
+    best_valid_acc = 0.0
+    best_model = None
+    for epoch in range(n_epochs):
+        print(&quotStart finetuning with distillation epoch {}&quot.format(epoch))
+        loss_list = []
+
+        &#47&#47 train
+        student_model.train()
+        for i, (inputs, labels) in enumerate(tqdm(train_dataloader)):
+            optimizer.zero_grad()
+            inputs, labels = inputs.float().to(device), labels.to(device)
+            with torch.no_grad():
+                teacher_preds = teacher_model(inputs)
+            
+            preds = student_model(inputs)
+            soft_loss = nn.KLDivLoss()(F.log_softmax(preds/temperature, dim=1),
+                                       F.softmax(teacher_preds/temperature, dim=1))
+            hard_loss = F.cross_entropy(preds, labels)
+            loss = soft_loss * (alpha * temperature * temperature) + hard_loss * (1. - alpha)
+            loss_list.append(loss.item())
+            loss.backward()
+            optimizer.step()
+
+        &#47&#47 validation
+        valid_loss, valid_acc = run_eval(student_model, valid_dataloader, device)
+        train_loss = np.array(loss_list).mean()
+        print(&quotEpoch {}: train loss {:.4f}, valid loss {:.4f}, valid acc {:.4f}&quot.format
+              (epoch, train_loss, valid_loss, valid_acc))
+        if log is not None:
+            log.write(&quotEpoch {}: train loss {:.4f}, valid loss {:.4f}, valid acc {:.4f}&quot.format
+                      (epoch, train_loss, valid_loss, valid_acc))
+        
+        if valid_acc &gt; best_valid_acc:
+            best_valid_acc = valid_acc
+            best_model = copy.deepcopy(student_model).to(device)
+
+    print("Best validation accuracy: {}".format(best_valid_acc))
+    if log is not None:
+        log.write("Best validation accuracy: {}".format(best_valid_acc))
+
+    student_model = best_model
+    return student_model
+
+
+def trainer_helper(model, criterion, optimizer, dataloader, device):
+    print("Running trainer in tuner")
+    for epoch in range(1):
+        model.train()
+        for i, (inputs, labels) in enumerate(tqdm(dataloader)):
+            optimizer.zero_grad()
+            inputs, labels = inputs.float().to(device), labels.to(device)
+            preds = model(inputs)
+            loss = criterion(preds, labels)
+            loss.backward()
+            optimizer.step()
+
+
+def trainer_helper_with_distillation(model, teacher_model, alpha, temperature, optimizer, dataloader, device):
+    print("Running trainer in tuner")
+    for epoch in range(1):
+        model.train()
+        for i, (inputs, labels) in enumerate(tqdm(dataloader)):
+            optimizer.zero_grad()
+            inputs, labels = inputs.float().to(device), labels.to(device)
+            
+            with torch.no_grad():
+                teacher_preds = teacher_model(inputs)
+            preds = model(inputs)
+            soft_loss = nn.KLDivLoss()(F.log_softmax(preds/temperature, dim=1),
+                                       F.softmax(teacher_preds/temperature, dim=1))
+            hard_loss = F.cross_entropy(preds, labels)
+            loss = soft_loss * (alpha * temperature * temperature) + hard_loss * (1. - alpha)
+            loss.backward()
+            optimizer.step()
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description=&quotExample code for pruning MobileNetV2&quot)
+
+    parser.add_argument(&quot--experiment_dir&quot, type=str, required=True,
+                        help=&quotdirectory containing the pretrained model&quot)
+    parser.add_argument(&quot--checkpoint_name&quot, type=str, default=&quotcheckpoint_best.pt&quot,
+                         help=&quotcheckpoint of the pretrained model&quot)
+    
+    &#47&#47 pruner
+    parser.add_argument(&quot--pruning_mode&quot, type=str, default=&quotconv1andconv2&quot,
+                        choices=[&quotconv0&quot, &quotconv1&quot, &quotconv2&quot, &quotconv1andconv2&quot, &quotall&quot])
+    parser.add_argument(&quot--sparsity&quot, type=float, default=0.5,
+                        help=&quottarget sparsity&quot)
+    parser.add_argument(&quot--pruner_name&quot, type=str, default=&quotl1&quot,
+                        choices=[&quotl1&quot, &quotl2&quot, &quotslim&quot, &quotagp&quot,
+                                 &quotfpgm&quot, &quotmean_activation&quot, &quotapoz&quot, &quottaylorfo&quot],
+                        help=&quotpruner to use&quot)
+    &#47&#47 for agp only
+    parser.add_argument(&quot--agp_pruning_alg&quot, default=&quotl1&quot,
+                        choices=[&quotl1&quot, &quotl2&quot, &quotslim&quot, &quotfpgm&quot,
+                                 &quotmean_activation&quot, &quotapoz&quot, &quottaylorfo&quot],
+                        help=&quotpruner to use for agp&quot)
+    parser.add_argument(&quot--agp_n_iters&quot, type=int, default=64,
+                        help=&quotnumber of iterations for agp&quot)
+    parser.add_argument(&quot--agp_n_epochs_per_iter&quot, type=int, default=1,
+                        help=&quotnumber of epochs per iteration for agp&quot)
+
+    &#47&#47 speedup
+    parser.add_argument(&quot--speedup&quot, action=&quotstore_true&quot, default=False,
+                        help=&quotWhether to speedup the pruned model&quot)
+
+    &#47&#47 finetuning parameters
+    parser.add_argument(&quot--n_workers&quot, type=int, default=16,
+                        help=&quotnumber of threads&quot)
+    parser.add_argument(&quot--finetune_epochs&quot, type=int, default=180,
+                        help=&quotnumber of epochs to finetune the model&quot)
+    parser.add_argument(&quot--learning_rate&quot, type=float, default=1e-4)
+    parser.add_argument(&quot--weight_decay&quot, type=float, default=0.0)
+    parser.add_argument(&quot--batch_size&quot, type=int, default=32,
+                        help=&quotinput batch size for training and inference&quot)
+    parser.add_argument(&quot--kd&quot, action=&quotstore_true&quot, default=False,
+                        help=&quotWhether to use knowledge distillation&quot)
+    parser.add_argument(&quot--alpha&quot, type=float, default=0.99,
+                        help=&quotAlpha for knowledge distillation loss&quot)
+    parser.add_argument(&quot--temp&quot, type=float, default=8,
+                        help=&quotTemperature for knowledge distillation loss&quot)
+
+    args = parser.parse_args()
+    return args
+
+
+def run_pruning(args):
+    print(args)
+    torch.set_num_threads(args.n_workers)
+    <a id="change">device</a> = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    <a id="change">log</a><a id="change"> = open(args.experiment_dir + &quot/pruning_{}_{}_sparsity{}_{}.log&quot.format(
+        args.pruner_name, args.pruning_mode, args.sparsity,
+        strftime("%Y%m%d%H%M", gmtime())), &quotw&quot)</a>
+    
+    <a id="change">train_dataset</a> = TrainDataset(&quot./data/stanford-dogs/Processed/train&quot)
+    <a id="change">train_dataloader</a> = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
+    train_dataset_for_pruner = EvalDataset(&quot./data/stanford-dogs/Processed/train&quot)
+    train_dataloader_for_pruner = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=False)
+    <a id="change">valid_dataset</a> = EvalDataset(&quot./data/stanford-dogs/Processed/valid&quot)
+    <a id="change">valid_dataloader</a> = DataLoader(valid_dataset, batch_size=args.batch_size, shuffle=False)
+    <a id="change">test_dataset</a> = EvalDataset(&quot./data/stanford-dogs/Processed/test&quot)
+    <a id="change">test_dataloader</a> = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False)
+
+    <a id="change">model</a> = create_model(model_type=model_type, pretrained=False, n_classes=n_classes,
+                         input_size=input_size, checkpoint=args.experiment_dir + &quot/&quot + args.checkpoint_name)
+    <a id="change">model</a> = model.to(device)
+
+    <a id="change">teacher_model</a> = None
+    if args.kd:
+        <a id="change">teacher_model</a> = copy.deepcopy(model)
+
+    &#47&#47 evaluation before pruning
+    &#47&#47 count_flops(model, log, device)
+    initial_loss, initial_acc = run_eval(model, test_dataloader, device)
+    print(&quotBefore Pruning:\nLoss: {}\nAccuracy: {}&quot.format(initial_loss, initial_acc))
+    log.write(&quotBefore Pruning:\nLoss: {}\nAccuracy: {}\n&quot.format(initial_loss, initial_acc))
+
+    &#47&#47 set up config list and pruner
+    <a id="change">config_list</a> = []
+    if &quotconv0&quot in args.pruning_mode or args.pruning_mode == &quotall&quot:
+        if args.pruner_name == &quotslim&quot or (args.pruner_name == &quotagp&quot and args.agp_pruning_alg == &quotslim&quot):
+            config_list.append({
+                &quotop_names&quot: [&quotfeatures.{}.conv.0.1&quot.format(x) for <a id="change">x</a> in range(2, 18)],
+                &quotsparsity&quot: args.sparsity
+            })
+        else:
+            config_list.append({
+                &quotop_names&quot: [&quotfeatures.{}.conv.0.0&quot.format(x) for <a id="change">x</a> in range(2, 18)],
+                &quotsparsity&quot: args.sparsity
+            })
+    if &quotconv1&quot in args.pruning_mode or args.pruning_mode == &quotall&quot:
+        if args.pruner_name == &quotslim&quot or (args.pruner_name == &quotagp&quot and args.agp_pruning_alg == &quotslim&quot):
+            config_list.append({
+                &quotop_names&quot: [&quotfeatures.{}.conv.1.1&quot.format(x) for <a id="change">x</a> in range(2, 18)],
+                &quotsparsity&quot: args.sparsity
+            })
+        else:
+            config_list.append({
+                &quotop_names&quot: [&quotfeatures.{}.conv.1.0&quot.format(x) for <a id="change">x</a> in range(2, 18)],
+                &quotsparsity&quot: args.sparsity
+            })
+    if &quotconv2&quot in args.pruning_mode or args.pruning_mode == &quotall&quot:
+        if args.pruner_name == &quotslim&quot or (args.pruner_name == &quotagp&quot and args.agp_pruning_alg == &quotslim&quot):
+            config_list.append({
+                &quotop_names&quot: [&quotfeatures.{}.conv.3&quot.format(x) for <a id="change">x</a> in range(2, 18)],
+                &quotsparsity&quot: args.sparsity
+            })
+        else:
+            config_list.append({
+                &quotop_names&quot: [&quotfeatures.{}.conv.2&quot.format(x) for <a id="change">x</a> in range(2, 18)],
+                &quotsparsity&quot: args.sparsity
+            })
+    print(config_list)
+
+    kwargs = {}
+    if args.pruner_name in [&quotslim&quot, &quottaylorfo&quot, &quotmean_activation&quot, &quotapoz&quot, &quotagp&quot]:
+        def trainer(model, optimizer, criterion, epoch):
+            if not args.kd:
+                return trainer_helper(model, criterion, optimizer, train_dataloader, device)
+            else:
+                return trainer_helper_with_distillation(model, teacher_model, args.alpha, args.temp, optimizer, train_dataloader, device)
+        <a id="change">kwargs</a> = {
+            &quottrainer&quot: trainer,
+            &quotoptimizer&quot: torch.optim.Adam(model.parameters()),
+            &quotcriterion&quot: nn.CrossEntropyLoss()
+        }
+        if args.pruner_name  == &quotagp&quot:
+            kwargs[&quotpruning_algorithm&quot] = args.agp_pruning_alg
+            kwargs[&quotnum_iterations&quot] = args.agp_n_iters
+            kwargs[&quotepochs_per_iteration&quot] = args.agp_n_epochs_per_iter
+        if args.pruner_name == &quotslim&quot:
+            kwargs[&quotsparsifying_training_epochs&quot] = 10
+
+    &#47&#47 pruning
+    <a id="change">pruner</a> = pruner_type_to_class[args.pruner_name](model, config_list, **kwargs)
+    pruner.compress()
+    pruner.export_model(args.experiment_dir + &quot/model_temp.pth&quot, args.experiment_dir + &quot./mask_temp.pth&quot)
+    
+    &#47&#47 model speedup
+    pruner._unwrap_model()
+    if args.speedup:
+        <a id="change">dummy_input</a> = torch.rand(1,3,224,224).to(device)
+        <a id="change">ms</a> = ModelSpeedup(model, dummy_input, args.experiment_dir + &quot./mask_temp.pth&quot)
+        ms.speedup_model()
+        print(model)
+        count_flops(model, log)
+
+    intermediate_loss, intermediate_acc = run_eval(model, test_dataloader, device)
+    print(&quotBefore Finetuning:\nLoss: {}\nAccuracy: {}&quot.format(intermediate_loss, intermediate_acc))
+    log.write(&quotBefore Finetuning:\nLoss: {}\nAccuracy: {}\n&quot.format(intermediate_loss, intermediate_acc))
+
+    &#47&#47 finetuning
+    if args.kd:
+        <a id="change">model</a> = run_finetune_distillation(model, teacher_model, train_dataloader, valid_dataloader, device,
+                                          args.alpha, args.temp, n_epochs=args.finetune_epochs,
+                                          learning_rate=args.learning_rate, weight_decay=args.weight_decay)
+    else:
+        <a id="change">model</a> = run_finetune(model, train_dataloader, valid_dataloader, device, n_epochs=args.finetune_epochs,
+                             learning_rate=args.learning_rate, weight_decay=args.weight_decay)
+        
+    &#47&#47 final evaluation
+    final_loss, final_acc = run_eval(model, test_dataloader, device)
+    print(&quotAfter Pruning:\nLoss: {}\nAccuracy: {}&quot.format(final_loss, final_acc))
+    log.write(&quotAfter Pruning:\nLoss: {}\nAccuracy: {}&quot.format(final_loss, final_acc))
+
+    &#47&#47 clean up
+    <a id="change">filePaths</a> = [args.experiment_dir + &quot/model_tmp.pth&quot, args.experiment_dir + &quot/mask_tmp.pth&quot]
+    for <a id="change">f</a> in filePaths:
+        if os.path.exists(f):
+            os.remove(f)
+
+    <a id="change">log</a><a id="change">.close()</a>
+    
+    
+if __name__ == &quot__main__&quot:
+    args = parse_args()
+    run_pruning(args)
+</code></pre>

@@ -1,0 +1,93 @@
+digraph G {
+1 [label="(42884158)BaseModel(self)" shape=ellipse style=dashed]
+2 [label="(42884135)BaseModel(self)" shape=ellipse style=dashed]
+3 [label="(42884164)=" shape=box style=dashed color=blue fontcolor=blue]
+4 [label="(42884165)TextIO(f)" shape=ellipse style=dashed]
+5 [label="(42884145)save_weights" shape=box style=dashed]
+6 [label="(42884146)str(filename)" shape=ellipse style=dashed]
+7 [label="(42884170)END" style=dashed]
+8 [label="(42884139)str(filename)" shape=ellipse style=dashed]
+9 [label="(42884148)Add" shape=box style=dashed]
+10 [label="(42884152)str(filename)" shape=ellipse style=dashed]
+11 [label="(42884147)String(lit(.model.h5))" shape=ellipse style=dashed]
+12 [label="(42884160)Add" shape=box style=dashed]
+13 [label="(42884157)String(lit(epoch_))" shape=ellipse style=dashed]
+14 [label="(42884162)Add" shape=box style=dashed]
+15 [label="(42884167)str(filename)" shape=ellipse style=dashed]
+16 [label="(42884136)(null)" shape=ellipse style=dashed]
+17 [label="(42884140)(null)" shape=ellipse style=dashed]
+18 [label="(42884166)write" shape=box style=dashed]
+19 [label="(42884141)=" shape=box style=dashed]
+20 [label="(42884153)String(lit(.model.base.h5))" shape=ellipse style=dashed]
+21 [label="(42884149)BaseModel(self)" shape=ellipse style=dashed]
+22 [label="(42884151)save_weights" shape=box style=dashed]
+23 [label="(42884168)TextIO(f)" shape=ellipse style=dashed color=blue fontcolor=blue]
+24 [label="(42884134)START" style=dashed]
+25 [label="(42884156)open" shape=box style=dashed color=blue fontcolor=blue]
+26 [label="(42884137)=" shape=box style=dashed]
+27 [label="(42884154)Add" shape=box style=dashed]
+28 [label="(42884143)BaseModel(self)" shape=ellipse style=dashed]
+29 [label="(42884163)String(lit(w))" shape=ellipse style=dashed color=blue fontcolor=blue]
+30 [label="(42884159)BaseModel._model_name(_model_name)" shape=ellipse style=dashed]
+31 [label="(42884169)close" shape=box style=dashed color=blue fontcolor=blue]
+32 [label="(42884150)BaseModel.model_base(model_base)" shape=ellipse style=dashed]
+33 [label="(42884144)BaseModel.model(model)" shape=ellipse style=dashed]
+34 [label="(42884155)TextIO(f)" shape=ellipse style=dashed color=blue fontcolor=blue]
+35 [label="(42884161)String(lit(.txt))" shape=ellipse style=dashed]
+26 -> 2 [label="def" style=dotted];
+24 -> 3 [label="" style=solid];
+25 -> 3 [label="dep" style=dotted];
+25 -> 3 [label="para" style=dotted];
+34 -> 4 [label="ref" style=dotted];
+24 -> 5 [label="" style=solid];
+33 -> 5 [label="recv" style=dotted];
+9 -> 5 [label="dep" style=dotted];
+9 -> 5 [label="para" style=dotted];
+19 -> 5 [label="dep" style=dotted];
+31 -> 7 [label="dep" style=dotted];
+19 -> 8 [label="def" style=dotted];
+24 -> 9 [label="" style=solid];
+6 -> 9 [label="para" style=dotted];
+11 -> 9 [label="para" style=dotted];
+19 -> 9 [label="dep" style=dotted];
+24 -> 12 [label="" style=solid];
+13 -> 12 [label="para" style=dotted];
+30 -> 12 [label="para" style=dotted];
+22 -> 12 [label="dep" style=dotted];
+24 -> 14 [label="" style=solid];
+12 -> 14 [label="dep" style=dotted];
+12 -> 14 [label="para" style=dotted];
+35 -> 14 [label="para" style=dotted];
+22 -> 14 [label="dep" style=dotted];
+24 -> 18 [label="" style=solid];
+4 -> 18 [label="recv" style=dotted];
+15 -> 18 [label="para" style=dotted];
+3 -> 18 [label="dep" style=dotted];
+24 -> 19 [label="" style=solid];
+17 -> 19 [label="para" style=dotted];
+26 -> 19 [label="dep" style=dotted];
+24 -> 22 [label="" style=solid];
+32 -> 22 [label="recv" style=dotted];
+27 -> 22 [label="dep" style=dotted];
+27 -> 22 [label="para" style=dotted];
+5 -> 22 [label="dep" style=dotted];
+34 -> 23 [label="ref" style=dotted];
+24 -> 25 [label="" style=solid];
+14 -> 25 [label="dep" style=dotted];
+14 -> 25 [label="para" style=dotted];
+29 -> 25 [label="para" style=dotted];
+22 -> 25 [label="dep" style=dotted];
+24 -> 26 [label="" style=solid];
+16 -> 26 [label="para" style=dotted];
+24 -> 27 [label="" style=solid];
+10 -> 27 [label="para" style=dotted];
+20 -> 27 [label="para" style=dotted];
+5 -> 27 [label="dep" style=dotted];
+1 -> 30 [label="qual" style=dotted];
+24 -> 31 [label="" style=solid];
+23 -> 31 [label="recv" style=dotted];
+18 -> 31 [label="dep" style=dotted];
+21 -> 32 [label="qual" style=dotted];
+28 -> 33 [label="qual" style=dotted];
+3 -> 34 [label="def" style=dotted];
+}

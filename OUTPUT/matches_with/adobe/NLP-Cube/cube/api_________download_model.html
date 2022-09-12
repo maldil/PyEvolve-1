@@ -1,0 +1,226 @@
+<link rel="stylesheet" href="../../..//default.css">
+<script src="../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/adobe/NLP-Cube/blob/master/cube/api.py#L155">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/NLP-Cube/blob/master/cube/api.py#L155">GitMyHubLink</a>
+
+&#47&#47
+&#47&#47 Copyright (c) 2018 Adobe Systems Incorporated. All rights reserved.
+&#47&#47
+&#47&#47 Licensed under the Apache License, Version 2.0 (the "License");
+&#47&#47 you may not use this file except in compliance with the License.
+&#47&#47 You may obtain a copy of the License at
+&#47&#47
+&#47&#47 http://www.apache.org/licenses/LICENSE-2.0
+&#47&#47
+&#47&#47 Unless required by applicable law or agreed to in writing, software
+&#47&#47 distributed under the License is distributed on an "AS IS" BASIS,
+&#47&#47 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+&#47&#47 See the License for the specific language governing permissions and
+&#47&#47 limitations under the License.
+&#47&#47
+import sys
+import os
+import yaml
+import string
+import requests
+import tarfile
+from tqdm import tqdm
+
+sys.path.append(&quot&quot)
+from typing import Optional, Union
+from cube.io_utils.objects import Document, Word, Token, Sentence
+from cube.io_utils.encodings import Encodings
+from cube.io_utils.config import CompoundConfig, TokenizerConfig, ParserConfig, LemmatizerConfig
+from cube.networks.compound import Compound
+from cube.networks.parser import Parser
+from cube.networks.tokenizer import Tokenizer
+from cube.networks.lemmatizer import Lemmatizer
+from pathlib import Path
+from cube.networks.lm import LMHelperHF, LMHelperFT
+from cube.networks.utils_tokenizer import TokenCollateHF, TokenCollateFTLanguasito
+from cube.networks.utils import MorphoCollate, Word2TargetCollate
+
+
+class CubeObj:
+    def __init__(self, model_base: str, device: str = &quotcpu&quot, lang: str = None):
+        self._cwe = None
+        &#47&#47 word expander
+        path = &quot{0}-trf-cwe&quot.format(model_base)
+        if os.path.exists(&quot{0}.best&quot.format(path)):
+            config = CompoundConfig(filename=&quot{0}.config&quot.format(path))
+            encodings = Encodings()
+            encodings.load(&quot{0}.encodings&quot.format(path))
+            self._cwe = Compound(config, encodings)
+            self._cwe.load(&quot{0}.best&quot.format(path))
+            self._cwe.to(device)
+
+        &#47&#47 tokenizer
+        path = &quot{0}-trf-tokenizer&quot.format(model_base)
+        g_conf = yaml.safe_load(open(&quot{0}.yaml&quot.format(path)))
+        self._lang2id = {}
+        for lng in g_conf[&quotlanguage_codes&quot]:
+            self._lang2id[lng] = len(self._lang2id)
+        self._default_lang_id = self._lang2id[g_conf[&quotlanguage_map&quot][lang]]
+        self._default_lang = lang
+        config = TokenizerConfig(filename=&quot{0}.config&quot.format(path))
+        print(self._default_lang_id)
+        lm_model = config.lm_model
+        encodings = Encodings()
+        encodings.load(&quot{0}.encodings&quot.format(path))
+        if lm_model.startswith(&quottransformer&quot):
+            self._tokenizer_collate = TokenCollateHF(encodings,
+                                                     lm_device=device,
+                                                     lm_model=lm_model.split(&quot:&quot)[-1],
+                                                     no_space_lang=config.no_space_lang,
+                                                     lang_id=self._default_lang_id)
+        else:
+            self._tokenizer_collate = TokenCollateFTLanguasito(encodings,
+                                                               lm_device=device,
+                                                               lm_model=lm_model,
+                                                               no_space_lang=config.no_space_lang,
+                                                               lang_id=self._default_lang_id)
+
+
+        self._tokenizer = Tokenizer(config, encodings, language_codes=g_conf[&quotlanguage_codes&quot],
+                                    ext_word_emb=self._tokenizer_collate.get_embeddings_size())
+        self._tokenizer.load(&quot{0}.best&quot.format(path))
+        self._tokenizer.to(device)
+
+        &#47&#47 lemmatizer
+        path = &quot{0}-trf-lemmatizer&quot.format(model_base)
+        config = LemmatizerConfig(filename=&quot{0}.config&quot.format(path))
+        encodings = Encodings()
+        encodings.load(&quot{0}.encodings&quot.format(path))
+        self._lemmatizer = Lemmatizer(config, encodings)
+        self._lemmatizer.load(&quot{0}.best&quot.format(path))
+        self._lemmatizer.to(device)
+        self._lemmatizer_collate = Word2TargetCollate(encodings)
+        &#47&#47 parser-tagger
+        path = &quot{0}-trf-parser&quot.format(model_base)
+        config = ParserConfig(filename=&quot{0}.config&quot.format(path))
+        lm_model = config.lm_model
+        if lm_model.startswith(&quottransformer&quot):
+            self._lm_helper = LMHelperHF(model=lm_model.split(&quot:&quot)[-1])
+        else:
+            self._lm_helper = LMHelperFT(model=lm_model.split(&quot:&quot)[-1])
+
+        encodings = Encodings()
+        encodings.load(&quot{0}.encodings&quot.format(path))
+        self._parser = Parser(config, encodings, language_codes=g_conf[&quotlanguage_codes&quot],
+                              ext_word_emb=self._lm_helper.get_embedding_size())
+        self._parser.load(&quot{0}.best&quot.format(path))
+        self._parser.to(device)
+        self._parser_collate = MorphoCollate(encodings)
+
+    def __call__(self, text: Union[str, Document], flavour: Optional[str] = None):
+        lang_id = self._default_lang_id
+        if flavour is not None:
+            if flavour not in self._lang2id:
+                print("Unsupported language flavour")
+                print("Please choose from: {0}".format(&quot &quot.join([k for k in self._lang2id])))
+                raise Exception("Unsupported language flavour\nPlease choose from: {0}".
+                                format(&quot &quot.join([k for k in self._lang2id])))
+            lang_id = self._lang2id[flavour]
+        if isinstance(text, str):
+            doc = self._tokenizer.process(text, self._tokenizer_collate, lang_id=lang_id, num_workers=0)
+            if self._cwe is not None:
+                doc = self._cwe.process(doc, self._lemmatizer_collate, num_workers=0)
+        else:
+            doc = text
+
+        self._lm_helper.apply(doc)
+        self._parser.process(doc, self._parser_collate, num_workers=0)
+        self._lemmatizer.process(doc, self._lemmatizer_collate, num_workers=0)
+        for seq in doc.sentences:
+            for w in seq.words:
+                if w.upos ==&quotPUNCT&quot:
+                    w.lemma = w.word
+        return doc
+
+
+def _download_file(url: str, filename: str, description=None):
+    r = requests.get(url, stream=True)
+    if r.status_code != 200:
+        raise Exception(f"Error getting {url}, received status_code {r.status_code}")
+    file_size = int(r.headers[&quotContent-Length&quot])
+    chunk_size = 1024
+
+    with open(filename, &quotwb&quot) as fp:
+        with tqdm(total=file_size, unit=&quotB&quot, unit_scale=True, desc=description, unit_divisor=1024,
+                  disable=True if description is None else False, leave=False) as progressbar:
+            for chunk in r.iter_content(chunk_size=chunk_size):
+                if chunk is not None:
+                    fp.write(chunk)
+                    fp.flush()
+                    progressbar.update(len(chunk))
+
+    return r.status_code
+
+
+def _download_model(<a id="change">local_path</a>, <a id="change">lang</a>):
+    <a id="change">download_base = "https://github.com/adobe/NLP-Cube-Models/raw/3.0/models/{0}.tar.gz-a".format(lang)</a>
+    <a id="change">file_base = "{0}.tar.gz-a".format(lang)</a>
+    <a id="change">terminations = string.ascii_lowercase[:20]</a>
+    <a id="change">file_list = []</a>
+    for t in terminations:
+        <a id="change">download_url = &quot{0}{1}&quot.format(download_base, t)</a>
+        <a id="change">target_file = str(os.path.join(local_path, file_base))</a>
+        <a id="change">target_file = &quot{0}{1}&quot.format(target_file, t)</a>
+        try:
+            if _download_file(download_url, target_file, description=&quotPart {0}&quot.format(t)) != 200:
+                break
+        except:
+            break
+        file_list.append(target_file)
+
+    <a id="change">target_file = os.path.join(local_path, file_base[:-2])</a>
+
+    <a id="change">f_out = open(target_file, &quotwb&quot)</a>
+    for file in file_list:
+        <a id="change">f_in = open(file, &quotrb&quot)</a>
+        while True:
+            <a id="change">buffer = f_in.read(1024 * 1024)</a>
+            if not buffer:
+                break
+            f_out.write(buffer)
+    <a id="change">f_out</a><a id="change">.close()</a>
+
+    <a id="change">tar = tarfile.open(target_file, &quotr:gz&quot)</a>
+    tar.extractall(local_path)
+    <a id="change">tar</a><a id="change">.close()</a>
+
+
+def _load(lang: str, device: Optional[str] = &quotcpu&quot) -&gt; CubeObj:
+    try:
+        local_user_home = str(Path.home())
+        local_user_storage = os.path.join(local_user_home, &quot.nlpcube&quot, &quot3.0&quot)
+        os.makedirs(local_user_storage, exist_ok=True)
+        lang_path = os.path.join(local_user_storage, lang)
+        if not os.path.exists(lang_path):
+            _download_model(local_user_storage, lang)
+
+        return CubeObj(&quot{0}/{1}&quot.format(lang_path, lang), device=device, lang=lang)
+    except:
+        raise Exception("There was a problem retrieving this language. Either it is unsupported or your Internet "
+                        "connection is down.\n\nTo check for supported languages, visit "
+                        "https://github.com/adobe/NLP-Cube/\n\nIt is hard to maintain models for all UD Treebanks. "
+                        "This is way we are only including a handful of"
+                        "languages with the official distribution. "
+                        "However, we can include additional languages upon request"
+                        "\n\nTo make a request for supporting a new language please create an issue on GitHub")
+
+
+class Cube:
+    def __init__(self, verbose=False):
+        self._instance = None
+
+    def load(self, lang: str, device: Optional[str] = &quotcpu&quot):
+        self._instance = _load(lang, device)
+
+    def __call__(self, text: Union[str, Document], flavour: Optional[str] = None):
+        return self._instance(text, flavour=flavour)
+</code></pre>

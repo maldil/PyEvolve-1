@@ -1,0 +1,253 @@
+<link rel="stylesheet" href="../../../../../..//default.css">
+<script src="../../../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/quadrismegistus/prosodic/blob/master/prosodic/dicts/fi/syllabifier/finnish_syllables.py#L31">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/prosodic/blob/master/prosodic/dicts/fi/syllabifier/finnish_syllables.py#L31">GitMyHubLink</a>
+
+&#47&#47 coding=utf-8
+from finnish_functions import *
+
+&#47&#47 -*- coding: utf-8 -*-
+
+&#47&#47 note: initial consonant cluster not listed in inseparable clusters will be split up (e.g., traffic -&gt; .t.raf.fic.)
+
+&#47&#47 for a word w, syllable boundaries are represented by a list l of length len(w)+1
+&#47&#47 l[i] = 1 iff w[i] should be preceded by a syllable boundary, else l[i] = 0
+&#47&#47 thus, the first and last elements of l are always 1 (since words are surrounded by syllable boundaries)
+
+&#47&#47 fill dict with key-value pairs where key is an entry from entries with the hyphens removed,
+&#47&#47 value is a list representing syllable boundaries as described above
+def initialize_dict(dict, entries, separator):
+    for entry in entries:
+        hyphen_free = entry.replace(separator, &quot&quot).lower()
+        boundary_list = [1]
+        i = 1
+        while i &lt; len(entry):
+            if entry[i] == separator:
+                boundary_list += [1]
+                i += 1
+            else:
+                boundary_list += [0]
+            i += 1
+        dict[hyphen_free] = boundary_list + [1]
+
+&#47&#47 initialize a dictionary from a file
+&#47&#47 the first line of the file is the separator character
+&#47&#47 the remaining lines are words with separations marked by the separator character
+def initialize_dict_from_file(dict, filename):
+    
+    try:
+        
+        <a id="change">f</a><a id="change"> = open(filename, &quotr&quot)</a>
+        <a id="change">entries</a> = f.readlines()
+        <a id="change">f</a><a id="change">.close()</a>
+
+        for <a id="change">i</a> in range(len(entries)-1):
+            entries[i] = entries[i][:-1] &#47&#47 remove final newline character
+            
+        <a id="change">separator</a> = entries[0]
+        <a id="change">entries</a> = entries[1:]
+        initialize_dict(dict, entries, separator)
+        
+    except IOError:
+        
+        print("Error: File not found.")
+
+pre_sep_dict = {} &#47&#47 map between words that have been hand-annotated and their annotations
+
+&#47&#47 initialize the presyllabified words from a file of format described above
+def initialize_presyllabified(filename):
+
+    initialize_dict_from_file(pre_sep_dict, filename)
+
+vowel_seq_dict = {} &#47&#47 map between sequences of three and for vowels and their syllabifications [modelled after Karlsson 1985: (2b), but using Karlsson 1982 T-5/T-7 to deal with &quotieu&quot, &quotuoi&quot]
+VOWEL_SEQUENCES = [&quotai-oi&quot, &quotai-ui&quot, &quotau-oi&quot, &quoteu-oi&quot, &quotie-oi&quot, &quotie-ui&quot, &quotoi-oi&quot, &quotoi-ui&quot, &quotuo-ui&quot, &quotyö-yi&quot, &quota-ei&quot, &quota-oi&quot, &quote-ai&quot, &quote-oi&quot, &quote-äi&quot, &quote-öi&quot, &quoti-ai&quot, &quoti-au&quot,
+                   &quoti-oi&quot, &quoti-äi&quot, &quoti-öi&quot, &quoto-ai&quot, &quotu-ai&quot, &quotu-ei&quot, &quotu-oi&quot, &quoty-ei&quot, &quoty-äi&quot, &quotä-yi&quot, &quotä-öi&quot, &quotai-a&quot, &quotai-e&quot, &quotai-o&quot, &quotai-u&quot, &quotau-a&quot, &quotau-e&quot, &quoteu-a&quot, &quotie-a&quot, &quotie-o&quot, &quotie-u&quot, &quotie-y&quot,
+                   &quoti-o-a&quot, &quoti-o-e&quot, &quoti-ö-e&quot, &quoti-ö-ä&quot, &quotiu-a&quot, &quotiu-e&quot, &quotiu-o&quot, &quotoi-a&quot, &quotoi-e&quot, &quotoi-o&quot, &quotoi-u&quot, &quotou-e&quot, &quotou-o&quot, &quotu-e-a&quot, &quotui-e&quot, &quotuo-a&quot, &quotuo-u&quot, &quoty-e-ä&quot, &quotyö-e&quot, &quotäi-e&quot]
+initialize_dict(vowel_seq_dict, VOWEL_SEQUENCES, &quot-&quot)
+
+&#47&#47 return the index of the start of the first long vowel in chars; -1 if absent
+def locate_long(chars):
+    for i in range(len(chars)-1):
+        if is_long(chars[i:i+2]):
+            return i
+    return -1
+
+&#47&#47 diphthongs and long vowels should not be split
+def is_inseparable_vowels(chars):
+    return is_diphthong(chars) or is_long(chars)
+
+&#47&#47 return true if chars is an inseparable cluster or a lone consonant
+def consonantal_onset(chars):
+    return is_cluster(chars) or is_consonant(chars)
+
+&#47&#47 applied Karlsson (3c); only checks for &quotien&quot, since others are handled by vowel splitting rules
+&#47&#47 word-final &quotien&quot will be syllabified &quoti-en&quot, unless following a &quott&quot
+def apply_3c(word, boundary_list):
+    
+    sequence = &quotien&quot
+    seq_len = len(sequence)
+    
+    if len(word) &gt; seq_len:
+        
+        if word[-seq_len:] == sequence and word[-(seq_len+1)] != &quott&quot:
+            
+            boundary_list[-3] = 1 &#47&#47 last entry is for word-final syllable boundary
+
+&#47&#47 Karlsson 1982: T-4 applies to diphthongs ending in &quotu&quot and &quoty&quot
+t4_final_v = [&quotu&quot, &quoty&quot]
+t4_diphthongs = set(vv for vv in DIPHTHONGS if vv[-1] in t4_final_v)
+
+&#47&#47 apply rule T-4 from Karlsson 1982 to two vowels, assuming the word is already syllabified
+def apply_t4(word, boundary_list):
+    
+    for i in range(3, len(word)): &#47&#47 check for rule application at syllable boundary (including word end); first possible boundary at index 3 (VVC-)
+
+        if boundary_list[i] == 1:
+
+            &#47&#47 if syllable ends in a T-4 diphthong followed by a consonant, introduce split in former diphthong
+            if is_consonant(word[i-1]) and word[i-3:i-1] in t4_diphthongs:
+
+                    boundary_list[i-2] = 1
+
+    return word
+
+&#47&#47 return vowels with syllable boundaries for appropriate separations
+def separate_vowels(vowels, boundary_list, start):
+
+    v_len = len(vowels)
+    
+    if v_len == 2 and not is_inseparable_vowels(vowels):
+            
+        boundary_list[start+1] = 1 &#47&#47 insert boundary before the second vowel
+        
+    elif v_len &gt; 2:
+
+        if vowels in vowel_seq_dict:
+
+            &#47&#47 store information from vowel sequence dictionary; ignore first entry, as the dictionary does not know if a syllable boundary precedes the vowel sequence
+            boundary_list[start+1:start+v_len+1] = vowel_seq_dict[vowels][1:] &#47&#47 ignore initial syllable separator and first vowel
+
+        else:
+
+            &#47&#47 first look for long vowels, following Karlsson 1985: (2a)
+            boundary = locate_long(vowels)
+
+            if boundary != -1:
+
+                &#47&#47 if long vowel starts the sequence, separation should precede the third vowel; otherwise it should procede the location of the long vowel
+                if boundary == 0:
+
+                    boundary = 2
+                    separate_vowels(vowels[boundary:], boundary_list, start+boundary) &#47&#47 syllabify vowels following long vowel
+
+                else:
+
+                    separate_vowels(vowels[:boundary], boundary_list, start) &#47&#47 syllabify vowels preceding long vowel
+                    
+                boundary_list[start + boundary] = 1 &#47&#47 split vowel from long vowel
+                
+            else: &#47&#47 if no such sequence, simply separate all separable VV sequences
+                
+                for i in range(len(vowels)-1):
+
+                    if not is_inseparable_vowels(vowels[i:i+2]):
+
+                        boundary_list[start + (i + 1)] = 1 &#47&#47 insert boundary before the second vowel
+                    
+                
+            
+&#47&#47 return the syllabification of word, preserving capitalization; syllable boundaries are placed at the start and end of the word
+def make_syllables(word):
+    
+    entry = word.lower()
+    boundary_list = [1]
+    
+    if entry in pre_sep_dict: &#47&#47 introduces annotations, but will still be syllabified so that only partial annotations are required
+        boundary_list = pre_sep_dict[entry]
+    else:
+        for i in range(1, len(entry)):
+            boundary_list += [0]
+        boundary_list += [1]
+
+    make_splits(entry + SYLLABLE_SEPARATOR, boundary_list) &#47&#47 syllable separator added to ensure that final vowel sequence is syllabified
+
+    syllables = introduce_splits(word, boundary_list)
+    
+    return syllables
+
+&#47&#47 return a string with the syllable boundaries represented in syllabified_word but the capitalization represented in original_word
+def introduce_splits(word, boundary_list):
+    result = []
+    start = 0
+    end = 0
+    while end &lt; len(word):
+        end += 1
+        if boundary_list[end] == 1:
+            
+            if word[start] == "&quot":
+                result += [word[start+1:end]] &#47&#47 do not start a syllable with &quot
+                
+            else:
+                result += [word[start:end]]
+                
+            start = end
+        
+    return result
+
+
+&#47&#47 account for Karlsson 1985: (4); certain consonants should be clusters
+&#47&#47 stored in order: test clusters first, then the basic CV-rule
+onset_lengths = [cluster_length for cluster_length in CLUSTER_LENGTHS]
+onset_lengths += [1]
+
+&#47&#47 store syllable boundaries in boundary_list
+def make_splits(word, boundary_list):
+
+    &#47&#47 stores the location of the start and end of the longest vowel sequence encountered so far
+    v_seq_start = 0
+    v_seq_end = 0
+
+    for i in range(len(word)):
+        
+        if is_vowel(word[i]): &#47&#47 continuing or starting vowel sequence
+            
+            v_seq_end += 1
+
+            &#47&#47 potential application of CV-rule [Karlsson 1985: (1)]
+            if v_seq_end - v_seq_start == 1:
+
+                &#47&#47 test possible onsets
+                for onset_length in onset_lengths:
+
+                    cluster_start = i - onset_length
+
+                    &#47&#47 if encounter a good boundary, only insert separator if not already present; break regardless so that basic CV won&quott apply if appropriate cluster exists
+                    if cluster_start &gt;= 0 and consonantal_onset(word[cluster_start:i]):
+
+                        no_syllable_break = True
+
+                        for h_index in range(cluster_start, i):
+                            
+                            if boundary_list[h_index] == 1:
+                                no_syllable_break = False
+                        
+                        if no_syllable_break:
+                            boundary_list[cluster_start] = 1
+                            
+                        break
+                    
+        else: &#47&#47 vowel sequence interrupted; if there is a sequence to be split, deal with it
+            
+            if v_seq_end - v_seq_start &gt; 1:
+                
+                separate_vowels(word[v_seq_start:v_seq_end], boundary_list, v_seq_start)
+
+            v_seq_start = v_seq_end = i+1 &#47&#47 vowel sequence (if any) starts after current index
+
+    apply_3c(word[:-1], boundary_list) &#47&#47 chop off final syllable separator
+    apply_t4(word, boundary_list)
+</code></pre>

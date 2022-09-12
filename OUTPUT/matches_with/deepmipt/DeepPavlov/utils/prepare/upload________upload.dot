@@ -1,0 +1,318 @@
+digraph G {
+1 [label="(218429354)expanduser" shape=box style=dashed]
+2 [label="(218429338)String(lit(metadata))" shape=ellipse style=dashed]
+3 [label="(218429391)String(lit('/tmp/))" shape=ellipse style=dashed]
+4 [label="(218429365)Any.parent.name(name)" shape=ellipse style=dashed]
+5 [label="(218429437)str(donwload_url)" shape=ellipse style=dashed]
+6 [label="(218429405)String(lit(model_name))" shape=ellipse style=dashed]
+7 [label="(218429324)print" shape=box style=dashed]
+8 [label="(218429357)Any(model_name)" shape=ellipse style=dashed]
+9 [label="(218429426)print" shape=box style=dashed]
+10 [label="(218429402)String(lit(class_name))" shape=ellipse style=dashed]
+11 [label="(218429362)Any.stem(stem)" shape=ellipse style=dashed]
+12 [label="(218429398)print" shape=box style=dashed]
+13 [label="(218429329)=" shape=box style=dashed color=blue fontcolor=blue]
+14 [label="(218429361)Any(config_in_file)" shape=ellipse style=dashed]
+15 [label="(218429419)close" shape=box style=dashed color=red fontcolor=red]
+16 [label="(218429374)raise" shape=box style=dashed]
+17 [label="(218429335)Path" shape=box style=dashed]
+18 [label="(218429352)Any(Subscript)" shape=ellipse style=dashed]
+19 [label="(218429381)String(lit(models/))" shape=ellipse style=dashed]
+20 [label="(218429334)pathlib.Path(model_path)" shape=ellipse style=dashed]
+21 [label="(218429345)pathlib.Path(models_path)" shape=ellipse style=dashed]
+22 [label="(218429389)=" shape=box style=dashed color=red fontcolor=red]
+23 [label="(218429399)String(lit(model_path))" shape=ellipse style=dashed]
+24 [label="(218429342)String(lit(MODEL_PATH))" shape=ellipse style=dashed]
+25 [label="(218429394)str(tmp_folder)" shape=ellipse style=dashed]
+26 [label="(218429331)find_config" shape=box style=dashed]
+27 [label="(218429378)str" shape=box style=dashed]
+28 [label="(218429363)Any(config_in_file)" shape=ellipse style=dashed]
+29 [label="(218429407)print" shape=box style=dashed]
+30 [label="(218429355)=" shape=box style=dashed color=red fontcolor=red]
+31 [label="(218429369)str" shape=box style=dashed]
+32 [label="(218429411)open" shape=box style=dashed color=red fontcolor=red]
+33 [label="(218429403)Any(class_name)" shape=ellipse style=dashed]
+34 [label="(218429373)empty" shape=box style=dashed]
+35 [label="(218429420)print" shape=box style=dashed]
+36 [label="(218429430)String(lit('scp -r {tmp_folder}{model_name}* share.ipavlov.mipt.ru:/home/export/v1/{class_name}))" shape=ellipse style=dashed]
+37 [label="(218429368)Any(model_name)" shape=ellipse style=dashed]
+38 [label="(218429387)Any(model_name)" shape=ellipse style=dashed]
+39 [label="(218429433)String(lit('http://files.deeppavlov.ai/v1/{class_name}/{model_name}.tar.gz))" shape=ellipse style=dashed]
+40 [label="(218429344)=" shape=box style=dashed color=black fontcolor=black]
+41 [label="(218429380)split" shape=box style=dashed]
+42 [label="(218429348)Any(Subscript)" shape=ellipse style=dashed]
+43 [label="(218429409)tarfile.TarFile(archive)" shape=ellipse style=dashed color=red fontcolor=red]
+44 [label="(218429349)String(lit(metadata))" shape=ellipse style=dashed]
+45 [label="(218429385)pathlib.Path(tar_path)" shape=ellipse style=dashed]
+46 [label="(218429321)(null)" shape=ellipse style=dashed]
+47 [label="(218429332)Any(config_in_file)" shape=ellipse style=dashed]
+48 [label="(218429425)str(tmp_tar)" shape=ellipse style=dashed]
+49 [label="(218429359)()" shape=box style=dashed]
+50 [label="(218429404)print" shape=box style=dashed]
+51 [label="(218429396)Add" shape=box style=dashed]
+52 [label="(218429432)str(donwload_url)" shape=ellipse style=dashed]
+53 [label="(218429330)Any(config_in_file)" shape=ellipse style=dashed]
+54 [label="(218429379)pathlib.Path(model_path)" shape=ellipse style=dashed]
+55 [label="(218429376)empty" shape=box style=dashed]
+56 [label="(218429336)Dict[Any, Any](config_in)" shape=ellipse style=dashed]
+57 [label="(218429431)=" shape=box style=dashed color=yellow fontcolor=yellow]
+58 [label="(218429322)=" shape=box style=dashed color=blue fontcolor=blue]
+59 [label="(218429319)START" style=dashed]
+60 [label="(218429356)boolean(dummy_)" shape=ellipse style=dashed]
+61 [label="(218429358)Any(class_name)" shape=ellipse style=dashed]
+62 [label="(218429384)=" shape=box style=dashed color=red fontcolor=red]
+63 [label="(218429410)tarfile(tarfile)" shape=ellipse style=dashed]
+64 [label="(218429436)str(command)" shape=ellipse style=dashed]
+65 [label="(218429429)str(command)" shape=ellipse style=dashed]
+66 [label="(218429351)String(lit(variables))" shape=ellipse style=dashed]
+67 [label="(218429386)pathlib.Path(models_path)" shape=ellipse style=dashed]
+68 [label="(218429320)Any(config_in_file)" shape=ellipse style=dashed]
+69 [label="(218429395)String(lit('{model_name}.tar.gz))" shape=ellipse style=dashed]
+70 [label="(218429333)=" shape=box style=dashed color=red fontcolor=red]
+71 [label="(218429347)Dict[Any, Any](config_in)" shape=ellipse style=dashed]
+72 [label="(218429328)Any(config_in_file)" shape=ellipse style=dashed]
+73 [label="(218429372)If" shape=diamond style=dashed]
+74 [label="(218429326)Dict[Any, Any](config_in)" shape=ellipse style=dashed]
+75 [label="(218429388)Div" shape=box style=dashed]
+76 [label="(218429370)pathlib.Path(model_path)" shape=ellipse style=dashed]
+77 [label="(218429346)Path" shape=box style=dashed]
+78 [label="(218429364)Any.parent(parent)" shape=ellipse style=dashed]
+79 [label="(218429325)Any(config_in_file)" shape=ellipse style=dashed]
+80 [label="(218429353)String(lit(MODELS_PATH))" shape=ellipse style=dashed]
+81 [label="(218429375)String(lit('{model_name} is not the path of the {model_path}))" shape=ellipse style=dashed]
+82 [label="(218429423)String(lit(Calculating hash))" shape=ellipse style=dashed]
+83 [label="(218429412)str(tmp_tar)" shape=ellipse style=dashed]
+84 [label="(218429383)number(1)" shape=ellipse style=dashed]
+85 [label="(218429367)str" shape=box style=dashed]
+86 [label="(218429416)add" shape=box style=dashed]
+87 [label="(218429366)()" shape=box style=dashed]
+88 [label="(218429360)boolean(dummy_)" shape=ellipse style=dashed]
+89 [label="(218429422)print" shape=box style=dashed]
+90 [label="(218429406)Any(model_name)" shape=ellipse style=dashed]
+91 [label="(218429339)Any[.](Subscript)" shape=ellipse style=dashed]
+92 [label="(218429401)print" shape=box style=dashed]
+93 [label="(218429415)tarfile.TarFile(archive)" shape=ellipse style=dashed]
+94 [label="(218429435)print" shape=box style=dashed]
+95 [label="(218429438)END" style=dashed]
+96 [label="(218429400)pathlib.Path(model_path)" shape=ellipse style=dashed]
+97 [label="(218429424)main" shape=box style=dashed]
+98 [label="(218429390)str(tmp_folder)" shape=ellipse style=dashed]
+99 [label="(218429413)String(lit(w|gz))" shape=ellipse style=dashed color=red fontcolor=red]
+100 [label="(218429418)tarfile.TarFile(archive)" shape=ellipse style=dashed color=red fontcolor=red]
+101 [label="(218429427)String(lit(tmp_tar))" shape=ellipse style=dashed]
+102 [label="(218429340)String(lit(variables))" shape=ellipse style=dashed]
+103 [label="(218429393)str(tmp_tar)" shape=ellipse style=dashed]
+104 [label="(218429428)str(tmp_tar)" shape=ellipse style=dashed]
+105 [label="(218429434)=" shape=box style=dashed color=black fontcolor=black]
+106 [label="(218429397)=" shape=box style=dashed color=yellow fontcolor=yellow]
+107 [label="(218429421)String(lit(Stop tarring))" shape=ellipse style=dashed]
+108 [label="(218429408)String(lit(Start tarring))" shape=ellipse style=dashed]
+109 [label="(218429327)parse_config" shape=box style=dashed]
+110 [label="(218429350)Any[.](Subscript)" shape=ellipse style=dashed]
+111 [label="(218429382)split()[.](Subscript)" shape=ellipse style=dashed]
+112 [label="(218429392)=" shape=box style=dashed color=blue fontcolor=blue]
+113 [label="(218429371)NotIn" shape=box style=dashed]
+114 [label="(218429337)Any(Subscript)" shape=ellipse style=dashed]
+115 [label="(218429377)str(arcname)" shape=ellipse style=dashed]
+116 [label="(218429343)expanduser" shape=box style=dashed]
+117 [label="(218429341)Any(Subscript)" shape=ellipse style=dashed]
+118 [label="(218429417)pathlib.Path(model_path)" shape=ellipse style=dashed]
+119 [label="(218429414)=" shape=box style=dashed color=red fontcolor=red]
+59 -> 1 [label="" style=solid];
+77 -> 1 [label="dep" style=dotted];
+77 -> 1 [label="recv" style=dotted];
+78 -> 4 [label="qual" style=dotted];
+52 -> 5 [label="ref" style=dotted];
+59 -> 7 [label="" style=solid];
+79 -> 7 [label="para" style=dotted];
+58 -> 7 [label="dep" style=dotted];
+73 -> 9 [label="F"];
+101 -> 9 [label="para" style=dotted];
+104 -> 9 [label="para" style=dotted];
+97 -> 9 [label="dep" style=dotted];
+14 -> 11 [label="qual" style=dotted];
+73 -> 12 [label="F"];
+23 -> 12 [label="para" style=dotted];
+96 -> 12 [label="para" style=dotted];
+106 -> 12 [label="dep" style=dotted];
+59 -> 13 [label="" style=solid];
+109 -> 13 [label="dep" style=dotted];
+109 -> 13 [label="para" style=dotted];
+53 -> 14 [label="ref" style=dotted];
+73 -> 15 [label="F"];
+100 -> 15 [label="recv" style=dotted];
+86 -> 15 [label="dep" style=dotted];
+73 -> 16 [label="T"];
+81 -> 16 [label="para" style=dotted];
+34 -> 16 [label="dep" style=dotted];
+59 -> 17 [label="" style=solid];
+117 -> 17 [label="para" style=dotted];
+70 -> 17 [label="dep" style=dotted];
+110 -> 18 [label="qual" style=dotted];
+80 -> 18 [label="para" style=dotted];
+74 -> 18 [label="ref" style=dotted];
+40 -> 20 [label="def" style=dotted];
+30 -> 21 [label="def" style=dotted];
+73 -> 22 [label="F"];
+75 -> 22 [label="dep" style=dotted];
+75 -> 22 [label="para" style=dotted];
+98 -> 25 [label="ref" style=dotted];
+59 -> 26 [label="" style=solid];
+47 -> 26 [label="para" style=dotted];
+13 -> 26 [label="dep" style=dotted];
+73 -> 27 [label="F"];
+54 -> 27 [label="para" style=dotted];
+55 -> 27 [label="dep" style=dotted];
+53 -> 28 [label="ref" style=dotted];
+73 -> 29 [label="F"];
+108 -> 29 [label="para" style=dotted];
+50 -> 29 [label="dep" style=dotted];
+59 -> 30 [label="" style=solid];
+1 -> 30 [label="dep" style=dotted];
+1 -> 30 [label="para" style=dotted];
+59 -> 31 [label="" style=solid];
+76 -> 31 [label="para" style=dotted];
+87 -> 31 [label="dep" style=dotted];
+73 -> 32 [label="F"];
+63 -> 32 [label="recv" style=dotted];
+83 -> 32 [label="para" style=dotted];
+99 -> 32 [label="para" style=dotted];
+29 -> 32 [label="dep" style=dotted];
+73 -> 34 [label="T"];
+73 -> 35 [label="F"];
+107 -> 35 [label="para" style=dotted];
+15 -> 35 [label="dep" style=dotted];
+59 -> 40 [label="" style=solid];
+116 -> 40 [label="dep" style=dotted];
+116 -> 40 [label="para" style=dotted];
+73 -> 41 [label="F"];
+27 -> 41 [label="dep" style=dotted];
+27 -> 41 [label="recv" style=dotted];
+19 -> 41 [label="para" style=dotted];
+55 -> 41 [label="dep" style=dotted];
+71 -> 42 [label="qual" style=dotted];
+44 -> 42 [label="para" style=dotted];
+74 -> 42 [label="ref" style=dotted];
+119 -> 43 [label="def" style=dotted];
+22 -> 45 [label="def" style=dotted];
+103 -> 48 [label="ref" style=dotted];
+59 -> 49 [label="" style=solid];
+8 -> 49 [label="para" style=dotted];
+61 -> 49 [label="para" style=dotted];
+30 -> 49 [label="dep" style=dotted];
+73 -> 50 [label="F"];
+6 -> 50 [label="para" style=dotted];
+90 -> 50 [label="para" style=dotted];
+92 -> 50 [label="dep" style=dotted];
+73 -> 51 [label="F"];
+25 -> 51 [label="para" style=dotted];
+69 -> 51 [label="para" style=dotted];
+112 -> 51 [label="dep" style=dotted];
+105 -> 52 [label="def" style=dotted];
+70 -> 53 [label="def" style=dotted];
+20 -> 54 [label="ref" style=dotted];
+73 -> 55 [label="F"];
+74 -> 56 [label="ref" style=dotted];
+73 -> 57 [label="F"];
+36 -> 57 [label="para" style=dotted];
+9 -> 57 [label="dep" style=dotted];
+59 -> 58 [label="" style=solid];
+46 -> 58 [label="para" style=dotted];
+49 -> 60 [label="def" style=dotted];
+73 -> 62 [label="F"];
+111 -> 62 [label="para" style=dotted];
+65 -> 64 [label="ref" style=dotted];
+57 -> 65 [label="def" style=dotted];
+21 -> 67 [label="ref" style=dotted];
+58 -> 68 [label="def" style=dotted];
+59 -> 70 [label="" style=solid];
+26 -> 70 [label="dep" style=dotted];
+26 -> 70 [label="para" style=dotted];
+74 -> 71 [label="ref" style=dotted];
+59 -> 73 [label="" style=solid];
+113 -> 73 [label="dep" style=dotted];
+113 -> 73 [label="cond" style=dotted];
+13 -> 74 [label="def" style=dotted];
+73 -> 75 [label="F"];
+67 -> 75 [label="para" style=dotted];
+38 -> 75 [label="para" style=dotted];
+62 -> 75 [label="dep" style=dotted];
+20 -> 76 [label="ref" style=dotted];
+59 -> 77 [label="" style=solid];
+18 -> 77 [label="para" style=dotted];
+40 -> 77 [label="dep" style=dotted];
+28 -> 78 [label="qual" style=dotted];
+103 -> 83 [label="ref" style=dotted];
+59 -> 85 [label="" style=solid];
+37 -> 85 [label="para" style=dotted];
+87 -> 85 [label="dep" style=dotted];
+73 -> 86 [label="F"];
+93 -> 86 [label="recv" style=dotted];
+118 -> 86 [label="para" style=dotted];
+119 -> 86 [label="dep" style=dotted];
+59 -> 87 [label="" style=solid];
+11 -> 87 [label="para" style=dotted];
+4 -> 87 [label="para" style=dotted];
+30 -> 87 [label="dep" style=dotted];
+87 -> 88 [label="def" style=dotted];
+73 -> 89 [label="F"];
+82 -> 89 [label="para" style=dotted];
+35 -> 89 [label="dep" style=dotted];
+114 -> 91 [label="qual" style=dotted];
+102 -> 91 [label="para" style=dotted];
+74 -> 91 [label="ref" style=dotted];
+73 -> 92 [label="F"];
+10 -> 92 [label="para" style=dotted];
+33 -> 92 [label="para" style=dotted];
+12 -> 92 [label="dep" style=dotted];
+43 -> 93 [label="ref" style=dotted];
+73 -> 94 [label="F"];
+64 -> 94 [label="para" style=dotted];
+5 -> 94 [label="para" style=dotted];
+105 -> 94 [label="dep" style=dotted];
+94 -> 95 [label="dep" style=dotted];
+20 -> 96 [label="ref" style=dotted];
+73 -> 97 [label="F"];
+48 -> 97 [label="para" style=dotted];
+89 -> 97 [label="dep" style=dotted];
+112 -> 98 [label="def" style=dotted];
+43 -> 100 [label="ref" style=dotted];
+106 -> 103 [label="def" style=dotted];
+103 -> 104 [label="ref" style=dotted];
+73 -> 105 [label="F"];
+39 -> 105 [label="para" style=dotted];
+57 -> 105 [label="dep" style=dotted];
+73 -> 106 [label="F"];
+51 -> 106 [label="dep" style=dotted];
+51 -> 106 [label="para" style=dotted];
+59 -> 109 [label="" style=solid];
+72 -> 109 [label="para" style=dotted];
+7 -> 109 [label="dep" style=dotted];
+42 -> 110 [label="qual" style=dotted];
+66 -> 110 [label="para" style=dotted];
+74 -> 110 [label="ref" style=dotted];
+41 -> 111 [label="qual" style=dotted];
+84 -> 111 [label="para" style=dotted];
+73 -> 112 [label="F"];
+3 -> 112 [label="para" style=dotted];
+22 -> 112 [label="dep" style=dotted];
+59 -> 113 [label="" style=solid];
+85 -> 113 [label="dep" style=dotted];
+85 -> 113 [label="para" style=dotted];
+31 -> 113 [label="dep" style=dotted];
+31 -> 113 [label="para" style=dotted];
+56 -> 114 [label="qual" style=dotted];
+2 -> 114 [label="para" style=dotted];
+74 -> 114 [label="ref" style=dotted];
+62 -> 115 [label="def" style=dotted];
+59 -> 116 [label="" style=solid];
+17 -> 116 [label="dep" style=dotted];
+17 -> 116 [label="recv" style=dotted];
+91 -> 117 [label="qual" style=dotted];
+24 -> 117 [label="para" style=dotted];
+74 -> 117 [label="ref" style=dotted];
+20 -> 118 [label="ref" style=dotted];
+73 -> 119 [label="F"];
+32 -> 119 [label="dep" style=dotted];
+32 -> 119 [label="para" style=dotted];
+}

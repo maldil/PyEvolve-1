@@ -1,0 +1,116 @@
+<link rel="stylesheet" href="../../../..//default.css">
+<script src="../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/deepmipt/DeepPavlov/blob/master/utils/prepare/hashes.py#L82">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/DeepPavlov/blob/master/utils/prepare/hashes.py#L82">GitMyHubLink</a>
+
+&#47&#47 Copyright 2017 Neural Networks and Deep Learning lab, MIPT
+&#47&#47
+&#47&#47 Licensed under the Apache License, Version 2.0 (the "License");
+&#47&#47 you may not use this file except in compliance with the License.
+&#47&#47 You may obtain a copy of the License at
+&#47&#47
+&#47&#47     http://www.apache.org/licenses/LICENSE-2.0
+&#47&#47
+&#47&#47 Unless required by applicable law or agreed to in writing, software
+&#47&#47 distributed under the License is distributed on an "AS IS" BASIS,
+&#47&#47 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+&#47&#47 See the License for the specific language governing permissions and
+&#47&#47 limitations under the License.
+
+import argparse
+import gzip
+import sys
+import tarfile
+from hashlib import md5
+from pathlib import Path
+from typing import Dict, Optional, Union
+from zipfile import ZipFile
+
+from deeppavlov.core.data.utils import file_md5
+
+
+def tar_md5(fpath: Union[str, Path], chunk_size: int = 2 ** 16) -&gt; Dict[str, str]:
+    tar = tarfile.open(fpath)
+    res = {}
+    while True:
+        item: tarfile.TarInfo = tar.next()
+        if item is None:
+            break
+        if not item.isfile():
+            continue
+        file_hash = md5()
+        with tar.extractfile(item) as f:
+            for chunk in iter(lambda: f.read(chunk_size), b""):
+                file_hash.update(chunk)
+        res[item.name] = file_hash.hexdigest()
+    return res
+
+
+def gzip_md5(fpath: Union[str, Path], chunk_size: int = 2 ** 16) -&gt; str:
+    file_hash = md5()
+    with gzip.open(fpath, &quotrb&quot) as f:
+        for chunk in iter(lambda: f.read(chunk_size), b""):
+            file_hash.update(chunk)
+    return file_hash.hexdigest()
+
+
+def zip_md5(fpath: Union[str, Path], chunk_size: int = 2 ** 16) -&gt; Dict[str, str]:
+    res = {}
+    with ZipFile(fpath) as zip_f:
+        for item in zip_f.infolist():
+            if item.is_dir():
+                continue
+            file_hash = md5()
+            with zip_f.open(item) as f:
+                for chunk in iter(lambda: f.read(chunk_size), b""):
+                    file_hash.update(chunk)
+            res[item.filename] = file_hash.hexdigest()
+    return res
+
+
+def compute_hashes(fpath: Union[str, Path]) -&gt; Dict[str, str]:
+    p = Path(fpath).expanduser()
+    if not p.is_file():
+        raise RuntimeError(f&quot{p} is not a file&quot)
+
+    if &quot.tar&quot in {s.lower() for s in p.suffixes}:
+        hashes = tar_md5(p)
+    elif p.suffix.lower() == &quot.gz&quot:
+        hashes = {p.with_suffix(&quot&quot).name: gzip_md5(p)}
+    elif p.suffix.lower() == &quot.zip&quot:
+        hashes = zip_md5(p)
+    else:
+        hashes = {p.name: file_md5(p)}
+    return hashes
+
+
+def main(<a id="change">fname: str</a>, <a id="change">outfile</a>: Optional[str] = None) -&gt; None:
+    <a id="change">p = Path(fname).expanduser()</a>
+    <a id="change">hashes = compute_hashes(p)</a>
+
+    if outfile is None:
+        <a id="change">outfile</a><a id="change"> = p.with_suffix(p.suffix + &quot.md5&quot).open(&quotw&quot, encoding=&quotutf-8&quot)</a>
+    elif outfile == &quot-&quot:
+        <a id="change">outfile</a><a id="change"> = sys.stdout</a>
+    else:
+        <a id="change">outfile = Path(outfile).expanduser().open(&quotw&quot, encoding=&quotutf-8&quot)</a>
+
+    for fname, fhash in hashes.items():
+        print(f&quot{fhash} *{fname}&quot, file=outfile, flush=True)
+
+    if outfile is not sys.stdout:
+        <a id="change">outfile</a><a id="change">.close()</a>
+
+
+if __name__ == &quot__main__&quot:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("fname", help="path to a file to compute hash for", type=str)
+    parser.add_argument(&quot-o&quot, &quot--outfile&quot, help=&quotwhere to write the hashes&quot, default=None, type=str)
+
+    args = parser.parse_args()
+    main(args.fname, args.outfile)
+</code></pre>

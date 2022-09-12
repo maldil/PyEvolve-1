@@ -1,0 +1,108 @@
+digraph G {
+1 [label="(116991608)Any(parameters)" shape=ellipse style=dashed]
+2 [label="(116991595)=" shape=box style=dashed color=blue fontcolor=blue]
+3 [label="(116991607)Tensor" shape=box style=dashed]
+4 [label="(116991605)Any(i)" shape=ellipse style=dashed]
+5 [label="(116991594)read" shape=box style=dashed]
+6 [label="(116991583)=" shape=box style=dashed color=red fontcolor=red]
+7 [label="(116991598)Any(parameters)" shape=ellipse style=dashed]
+8 [label="(116991613)load_state_dict" shape=box style=dashed]
+9 [label="(116991585)TextIO(f)" shape=ellipse style=dashed color=yellow fontcolor=yellow]
+10 [label="(116991606)torch(torch)" shape=ellipse style=dashed]
+11 [label="(116991604)Any[.](Subscript)" shape=ellipse style=dashed]
+12 [label="(116991578)(null)" shape=ellipse style=dashed]
+13 [label="(116991586)open" shape=box style=dashed color=yellow fontcolor=yellow]
+14 [label="(116991599)Any(i)" shape=ellipse style=dashed]
+15 [label="(116991588)String(lit(r))" shape=ellipse style=dashed color=yellow fontcolor=yellow]
+16 [label="(116991611)=" shape=box style=dashed color=red fontcolor=red]
+17 [label="(116991579)=" shape=box style=dashed color=black fontcolor=black]
+18 [label="(116991593)TextIO(f)" shape=ellipse style=dashed]
+19 [label="(116991597)close" shape=box style=dashed color=yellow fontcolor=yellow]
+20 [label="(116991603)Any(parameters)" shape=ellipse style=dashed]
+21 [label="(116991615)BaseModule(self)" shape=ellipse style=dashed]
+22 [label="(116991612)BaseModule(self)" shape=ellipse style=dashed]
+23 [label="(116991617)END" style=dashed]
+24 [label="(116991609)Any[.](Subscript)" shape=ellipse style=dashed]
+25 [label="(116991601)For" shape=diamond style=dashed]
+26 [label="(116991577)BaseModule(self)" shape=ellipse style=dashed]
+27 [label="(116991581)Any(path)" shape=ellipse style=dashed]
+28 [label="(116991582)(null)" shape=ellipse style=dashed]
+29 [label="(116991590)Any(parameters)" shape=ellipse style=dashed]
+30 [label="(116991589)=" shape=box style=dashed color=yellow fontcolor=yellow]
+31 [label="(116991610)Any(i)" shape=ellipse style=dashed]
+32 [label="(116991587)Any(path)" shape=ellipse style=dashed]
+33 [label="(116991591)json(json)" shape=ellipse style=dashed]
+34 [label="(116991592)loads" shape=box style=dashed]
+35 [label="(116991602)empty" shape=box style=dashed]
+36 [label="(116991614)Any(parameters)" shape=ellipse style=dashed]
+37 [label="(116991600)Any(i)" shape=ellipse style=dashed]
+38 [label="(116991596)TextIO(f)" shape=ellipse style=dashed color=yellow fontcolor=yellow]
+39 [label="(116991616)eval" shape=box style=dashed]
+40 [label="(116991576)START" style=dashed]
+29 -> 1 [label="ref" style=dotted];
+40 -> 2 [label="" style=solid];
+34 -> 2 [label="dep" style=dotted];
+34 -> 2 [label="para" style=dotted];
+25 -> 3 [label="" style=solid];
+10 -> 3 [label="recv" style=dotted];
+24 -> 3 [label="para" style=dotted];
+35 -> 3 [label="dep" style=dotted];
+14 -> 4 [label="ref" style=dotted];
+40 -> 5 [label="" style=solid];
+18 -> 5 [label="recv" style=dotted];
+30 -> 5 [label="dep" style=dotted];
+40 -> 6 [label="" style=solid];
+28 -> 6 [label="para" style=dotted];
+17 -> 6 [label="dep" style=dotted];
+29 -> 7 [label="ref" style=dotted];
+40 -> 8 [label="" style=solid];
+22 -> 8 [label="recv" style=dotted];
+36 -> 8 [label="para" style=dotted];
+16 -> 8 [label="dep" style=dotted];
+30 -> 9 [label="def" style=dotted];
+20 -> 11 [label="qual" style=dotted];
+4 -> 11 [label="para" style=dotted];
+16 -> 11 [label="def" style=dotted];
+29 -> 11 [label="re_def" style=dotted color=red];
+40 -> 13 [label="" style=solid];
+32 -> 13 [label="para" style=dotted];
+15 -> 13 [label="para" style=dotted];
+6 -> 13 [label="dep" style=dotted];
+7 -> 14 [label="def" style=dotted];
+25 -> 16 [label="" style=solid];
+3 -> 16 [label="dep" style=dotted];
+3 -> 16 [label="para" style=dotted];
+40 -> 17 [label="" style=solid];
+12 -> 17 [label="para" style=dotted];
+9 -> 18 [label="ref" style=dotted];
+40 -> 19 [label="" style=solid];
+38 -> 19 [label="recv" style=dotted];
+2 -> 19 [label="dep" style=dotted];
+29 -> 20 [label="ref" style=dotted];
+39 -> 23 [label="dep" style=dotted];
+1 -> 24 [label="qual" style=dotted];
+31 -> 24 [label="para" style=dotted];
+29 -> 24 [label="ref" style=dotted];
+40 -> 25 [label="" style=solid];
+37 -> 25 [label="cond" style=dotted];
+19 -> 25 [label="dep" style=dotted];
+17 -> 26 [label="def" style=dotted];
+6 -> 27 [label="def" style=dotted];
+2 -> 29 [label="def" style=dotted];
+40 -> 30 [label="" style=solid];
+13 -> 30 [label="dep" style=dotted];
+13 -> 30 [label="para" style=dotted];
+14 -> 31 [label="ref" style=dotted];
+40 -> 34 [label="" style=solid];
+33 -> 34 [label="recv" style=dotted];
+5 -> 34 [label="dep" style=dotted];
+5 -> 34 [label="para" style=dotted];
+30 -> 34 [label="dep" style=dotted];
+25 -> 35 [label="" style=solid];
+11 -> 36 [label="ref" style=dotted];
+14 -> 37 [label="ref" style=dotted];
+9 -> 38 [label="ref" style=dotted];
+40 -> 39 [label="" style=solid];
+21 -> 39 [label="recv" style=dotted];
+8 -> 39 [label="dep" style=dotted];
+}

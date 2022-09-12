@@ -1,0 +1,192 @@
+digraph G {
+1 [label="(163819710)check_call" shape=box style=dashed]
+2 [label="(163819656)=" shape=box style=dashed]
+3 [label="(163819715)[list]" shape=box style=dashed]
+4 [label="(163819686)empty" shape=box style=dashed]
+5 [label="(163819660)If" shape=diamond style=dashed]
+6 [label="(163819694)write" shape=box style=dashed]
+7 [label="(163819716)empty" shape=box style=dashed]
+8 [label="(163819642)START" style=dashed]
+9 [label="(163819649)=" shape=box style=dashed]
+10 [label="(163819689)IO[bytes](sshnoprompt)" shape=ellipse style=dashed]
+11 [label="(163819709)subprocess(subprocess)" shape=ellipse style=dashed]
+12 [label="(163819648)(null)" shape=ellipse style=dashed]
+13 [label="(163819683)NamedTemporaryFile" shape=box style=dashed]
+14 [label="(163819718)END" style=dashed]
+15 [label="(163819705)String(lit(GIT_SSH))" shape=ellipse style=dashed]
+16 [label="(163819653)os(os)" shape=ellipse style=dashed]
+17 [label="(163819659)String(lit(https://))" shape=ellipse style=dashed]
+18 [label="(163819687)TextIO(write_pipe)" shape=ellipse style=dashed color=blue fontcolor=blue]
+19 [label="(163819665)String(lit(0))" shape=ellipse style=dashed]
+20 [label="(163819664)String(lit(GIT_TERMINAL_PROMPT))" shape=ellipse style=dashed]
+21 [label="(163819681)IO[bytes](sshnoprompt)" shape=ellipse style=dashed]
+22 [label="(163819692)=" shape=box style=dashed color=blue fontcolor=blue]
+23 [label="(163819696)TextIO(write_pipe)" shape=ellipse style=dashed color=blue fontcolor=blue]
+24 [label="(163819702)number(329)" shape=ellipse style=dashed]
+25 [label="(163819706)IO[bytes](sshnoprompt)" shape=ellipse style=dashed]
+26 [label="(163819684)AS" shape=box style=dashed]
+27 [label="(163819677)String(lit(git@))" shape=ellipse style=dashed]
+28 [label="(163819647)str(dest_dir)" shape=ellipse style=dashed]
+29 [label="(163819688)open" shape=box style=dashed color=blue fontcolor=blue]
+30 [label="(163819643)Any(repo_url)" shape=ellipse style=dashed]
+31 [label="(163819712)String(lit(clone))" shape=ellipse style=dashed]
+32 [label="(163819657)Any(repo_url)" shape=ellipse style=dashed]
+33 [label="(163819658)startswith" shape=box style=dashed]
+34 [label="(163819697)close" shape=box style=dashed color=blue fontcolor=blue]
+35 [label="(163819655)copy" shape=box style=dashed]
+36 [label="(163819645)=" shape=box style=dashed]
+37 [label="(163819717)empty" shape=box style=dashed]
+38 [label="(163819654)os.environ(environ)" shape=ellipse style=dashed]
+39 [label="(163819707)IO[bytes].name(name)" shape=ellipse style=dashed]
+40 [label="(163819693)TextIO(write_pipe)" shape=ellipse style=dashed color=red fontcolor=red]
+41 [label="(163819666)=" shape=box style=dashed]
+42 [label="(163819698)os(os)" shape=ellipse style=dashed]
+43 [label="(163819690)IO[bytes].name(name)" shape=ellipse style=dashed]
+44 [label="(163819652)Dict[str, str](my_env)" shape=ellipse style=dashed]
+45 [label="(163819682)tempfile(tempfile)" shape=ellipse style=dashed]
+46 [label="(163819668)check_call" shape=box style=dashed]
+47 [label="(163819671)Any(repo_url)" shape=ellipse style=dashed]
+48 [label="(163819695)String(lit(ssh -oBatchMode=yes $@))" shape=ellipse style=dashed]
+49 [label="(163819669)String(lit(git))" shape=ellipse style=dashed]
+50 [label="(163819661)empty" shape=box style=dashed]
+51 [label="(163819644)(null)" shape=ellipse style=dashed]
+52 [label="(163819700)IO[bytes](sshnoprompt)" shape=ellipse style=dashed]
+53 [label="(163819703)Dict[str, str](my_env)" shape=ellipse style=dashed]
+54 [label="(163819714)str(dest_dir)" shape=ellipse style=dashed]
+55 [label="(163819711)String(lit(git))" shape=ellipse style=dashed]
+56 [label="(163819701)IO[bytes].name(name)" shape=ellipse style=dashed]
+57 [label="(163819672)str(dest_dir)" shape=ellipse style=dashed]
+58 [label="(163819713)Any(repo_url)" shape=ellipse style=dashed]
+59 [label="(163819670)String(lit(clone))" shape=ellipse style=dashed]
+60 [label="(163819675)Any(repo_url)" shape=ellipse style=dashed]
+61 [label="(163819663)Any(Subscript)" shape=ellipse style=dashed]
+62 [label="(163819691)String(lit(w))" shape=ellipse style=dashed color=blue fontcolor=blue]
+63 [label="(163819674)empty" shape=box style=dashed]
+64 [label="(163819667)subprocess(subprocess)" shape=ellipse style=dashed]
+65 [label="(163819673)[list]" shape=box style=dashed]
+66 [label="(163819680)With" shape=diamond style=dashed]
+67 [label="(163819708)=" shape=box style=dashed]
+68 [label="(163819676)startswith" shape=box style=dashed]
+69 [label="(163819662)Dict[str, str](my_env)" shape=ellipse style=dashed]
+70 [label="(163819679)empty" shape=box style=dashed]
+71 [label="(163819699)chmod" shape=box style=dashed]
+72 [label="(163819685)IO[bytes](sshnoprompt)" shape=ellipse style=dashed]
+73 [label="(163819704)Any(Subscript)" shape=ellipse style=dashed]
+74 [label="(163819678)If" shape=diamond style=dashed]
+66 -> 1 [label="T"];
+11 -> 1 [label="recv" style=dotted];
+3 -> 1 [label="dep" style=dotted];
+3 -> 1 [label="para" style=dotted];
+67 -> 1 [label="dep" style=dotted];
+8 -> 2 [label="" style=solid];
+35 -> 2 [label="dep" style=dotted];
+35 -> 2 [label="para" style=dotted];
+66 -> 3 [label="T"];
+55 -> 3 [label="para" style=dotted];
+31 -> 3 [label="para" style=dotted];
+58 -> 3 [label="para" style=dotted];
+54 -> 3 [label="para" style=dotted];
+67 -> 3 [label="dep" style=dotted];
+66 -> 4 [label="T"];
+8 -> 5 [label="" style=solid];
+33 -> 5 [label="dep" style=dotted];
+33 -> 5 [label="cond" style=dotted];
+66 -> 6 [label="T"];
+40 -> 6 [label="recv" style=dotted];
+48 -> 6 [label="para" style=dotted];
+22 -> 6 [label="dep" style=dotted];
+66 -> 7 [label="F"];
+8 -> 9 [label="" style=solid];
+12 -> 9 [label="para" style=dotted];
+36 -> 9 [label="dep" style=dotted];
+21 -> 10 [label="ref" style=dotted];
+74 -> 13 [label="T"];
+45 -> 13 [label="recv" style=dotted];
+70 -> 13 [label="dep" style=dotted];
+1 -> 14 [label="dep" style=dotted];
+46 -> 14 [label="dep" style=dotted];
+7 -> 14 [label="dep" style=dotted];
+37 -> 14 [label="dep" style=dotted];
+22 -> 18 [label="def" style=dotted];
+26 -> 21 [label="def" style=dotted];
+66 -> 22 [label="T"];
+29 -> 22 [label="dep" style=dotted];
+29 -> 22 [label="para" style=dotted];
+18 -> 23 [label="ref" style=dotted];
+21 -> 25 [label="ref" style=dotted];
+74 -> 26 [label="T"];
+13 -> 26 [label="dep" style=dotted];
+13 -> 26 [label="para" style=dotted];
+9 -> 28 [label="def" style=dotted];
+66 -> 29 [label="T"];
+43 -> 29 [label="para" style=dotted];
+62 -> 29 [label="para" style=dotted];
+4 -> 29 [label="dep" style=dotted];
+36 -> 30 [label="def" style=dotted];
+8 -> 33 [label="" style=solid];
+32 -> 33 [label="recv" style=dotted];
+17 -> 33 [label="para" style=dotted];
+2 -> 33 [label="dep" style=dotted];
+66 -> 34 [label="T"];
+23 -> 34 [label="recv" style=dotted];
+6 -> 34 [label="dep" style=dotted];
+8 -> 35 [label="" style=solid];
+38 -> 35 [label="recv" style=dotted];
+9 -> 35 [label="dep" style=dotted];
+8 -> 36 [label="" style=solid];
+51 -> 36 [label="para" style=dotted];
+74 -> 37 [label="F"];
+16 -> 38 [label="qual" style=dotted];
+25 -> 39 [label="qual" style=dotted];
+18 -> 40 [label="ref" style=dotted];
+5 -> 41 [label="T"];
+19 -> 41 [label="para" style=dotted];
+50 -> 41 [label="dep" style=dotted];
+10 -> 43 [label="qual" style=dotted];
+2 -> 44 [label="def" style=dotted];
+5 -> 46 [label="T"];
+64 -> 46 [label="recv" style=dotted];
+65 -> 46 [label="dep" style=dotted];
+65 -> 46 [label="para" style=dotted];
+41 -> 46 [label="dep" style=dotted];
+5 -> 50 [label="T"];
+21 -> 52 [label="ref" style=dotted];
+44 -> 53 [label="ref" style=dotted];
+52 -> 56 [label="qual" style=dotted];
+69 -> 61 [label="qual" style=dotted];
+20 -> 61 [label="para" style=dotted];
+41 -> 61 [label="def" style=dotted];
+44 -> 61 [label="re_def" style=dotted color=red];
+5 -> 63 [label="F"];
+5 -> 65 [label="T"];
+49 -> 65 [label="para" style=dotted];
+59 -> 65 [label="para" style=dotted];
+47 -> 65 [label="para" style=dotted];
+57 -> 65 [label="para" style=dotted];
+41 -> 65 [label="dep" style=dotted];
+74 -> 66 [label="T"];
+26 -> 66 [label="dep" style=dotted];
+72 -> 66 [label="para" style=dotted];
+66 -> 67 [label="T"];
+39 -> 67 [label="para" style=dotted];
+71 -> 67 [label="dep" style=dotted];
+5 -> 68 [label="F"];
+60 -> 68 [label="recv" style=dotted];
+27 -> 68 [label="para" style=dotted];
+63 -> 68 [label="dep" style=dotted];
+44 -> 69 [label="ref" style=dotted];
+74 -> 70 [label="T"];
+66 -> 71 [label="T"];
+42 -> 71 [label="recv" style=dotted];
+56 -> 71 [label="para" style=dotted];
+24 -> 71 [label="para" style=dotted];
+34 -> 71 [label="dep" style=dotted];
+21 -> 72 [label="ref" style=dotted];
+53 -> 73 [label="qual" style=dotted];
+15 -> 73 [label="para" style=dotted];
+67 -> 73 [label="def" style=dotted];
+44 -> 73 [label="re_def" style=dotted color=red];
+5 -> 74 [label="F"];
+68 -> 74 [label="dep" style=dotted];
+68 -> 74 [label="cond" style=dotted];
+}

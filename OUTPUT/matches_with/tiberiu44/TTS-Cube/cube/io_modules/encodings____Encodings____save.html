@@ -1,0 +1,87 @@
+<link rel="stylesheet" href="../../../..//default.css">
+<script src="../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/tiberiu44/TTS-Cube/blob/master/cube/io_modules/encodings.py#L42">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/TTS-Cube/blob/master/cube/io_modules/encodings.py#L42">GitMyHubLink</a>
+
+&#47&#47
+&#47&#47 Author: Tiberiu Boros
+&#47&#47
+&#47&#47 Licensed under the Apache License, Version 2.0 (the "License");
+&#47&#47 you may not use this file except in compliance with the License.
+&#47&#47 You may obtain a copy of the License at
+&#47&#47
+&#47&#47 http://www.apache.org/licenses/LICENSE-2.0
+&#47&#47
+&#47&#47 Unless required by applicable law or agreed to in writing, software
+&#47&#47 distributed under the License is distributed on an "AS IS" BASIS,
+&#47&#47 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+&#47&#47 See the License for the specific language governing permissions and
+&#47&#47 limitations under the License.
+&#47&#47
+
+class Encodings:
+    def __init__(self):
+        self.phoneme_list = []
+        self.phoneme2int = {}
+        self.char2int = {}
+        self.char2int[&quot&lt;UNK&gt;&quot] = 0
+
+    def update_encodings(self, dataset):
+        char_count = {}
+        for entry in dataset.entries:
+            for char in entry.word:
+                if char not in char_count:
+                    char_count[char] = 1
+                else:
+                    char_count[char] += 1
+
+            for phoneme in entry.transcription:
+                if phoneme not in self.phoneme2int:
+                    self.phoneme2int[phoneme] = len(self.phoneme2int)
+                    self.phoneme_list.append(phoneme)
+
+        for char in char_count:
+            if char_count[char] &gt;= 2:
+                self.char2int[char] = len(self.char2int)
+
+    def save(<a id="change">self</a>, <a id="change">filename</a>):
+        <a id="change">f = open(filename, "w")</a>
+        f.write(&quotCHARS &quot + str(len(self.char2int)) + &quot\n&quot)
+        for char in self.char2int:
+            f.write(char + &quot\t&quot + str(self.char2int[char]) + &quot\n&quot)
+
+        f.write(&quotPHONEMES &quot + str(len(self.phoneme2int)) + &quot\n&quot)
+        for phon in self.phoneme2int:
+            f.write(phon + &quot\t&quot + str(self.phoneme2int[phon]) + &quot\n&quot)
+
+        <a id="change">f</a><a id="change">.close()</a>
+
+    def load(self, filename):
+        f = open(filename)
+        line = f.readline()
+        parts = line.split(&quot &quot)
+        num_chars = int(parts[1])
+        for ii in range(num_chars):
+            line = f.readline()
+            parts = line.split(&quot\t&quot)
+            char = parts[0]
+            index = int(parts[1])
+            self.char2int[char] = index
+
+        line = f.readline()
+        parts = line.split(&quot &quot)
+        num_phones = int(parts[1])
+        self.phoneme_list = ["" for ii in range(num_phones)]
+        for ii in range(num_phones):
+            line = f.readline()
+            parts = line.split(&quot\t&quot)
+            phoneme = parts[0]
+            index = int(parts[1])
+            self.phoneme2int[phoneme] = index
+            self.phoneme_list[index] = phoneme
+        f.close()
+</code></pre>

@@ -1,0 +1,129 @@
+<link rel="stylesheet" href="../../../../..//default.css">
+<script src="../../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/ActiveState/code/blob/master/recipes/Python/578255_AMIGAHeads_Only_Poking_HW_Memory_Address/recipe-578255.py#L71">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/code/blob/master/recipes/Python/578255_AMIGAHeads_Only_Poking_HW_Memory_Address/recipe-578255.py#L71">GitMyHubLink</a>
+
+&#47&#47 AMIGA_HW.py
+&#47&#47
+&#47&#47 DEMO Python code to switch the AMIGAs audio filter ON and OFF on the fly.
+&#47&#47 It also changes the video mode to PAL or NTSC if required.
+&#47&#47 (C)2007-2012, B.Walker, G0LCU. Now issued as Public Domain, you may do
+&#47&#47 with it as you please.
+&#47&#47
+&#47&#47 Written in such a way that almost anyone can understand how it works.
+&#47&#47
+&#47&#47 For a minimum of a standard AMIGA A1200(HD) and Python 1.4.0, or for
+&#47&#47 higher end AMIGAs to 2.0.1.
+&#47&#47 Also WinUAE 1.5.3 minimum with Workbench 3.0.x and Python as above.
+&#47&#47
+&#47&#47 Ensure that the assigned T: volume exists so as NOT to keep the file when
+&#47&#47 the AMIGA is rebooted.
+&#47&#47
+&#47&#47 Copy/drag this file into the PYTHON: volume and rename it AMIGA_HW.py.
+&#47&#47 Call it from the Python prompt as:-
+&#47&#47
+&#47&#47 &gt;&gt;&gt; execfile("PYTHON:AMIGA_HW.py")&lt;RETURN/ENTER&gt;
+&#47&#47
+&#47&#47 And away you go... ;o)
+&#47&#47 ==========================================================================
+&#47&#47 The assembly program that _defaults_ to audio filter ON condition, (when
+&#47&#47 &lt;RETURN/ENTER&gt; is pressed only), and then compiled and converted.
+&#47&#47 The address and control byte are changed as required before generating
+&#47&#47 the executable file...
+&#47&#47
+&#47&#47 From an AMIGA CLI using, a68k and blink, the executable AMIGA_Filter is
+&#47&#47 created thus:-
+&#47&#47 DRIVE:Path/To/Source&gt; a68k AMIGA_Filter.asm&lt;RETURN/ENTER&gt;
+&#47&#47 &lt;Some reports here.&gt;
+&#47&#47 DRIVE:Path/To/Source&gt; blink AMIGA_Filter.o
+&#47&#47 &lt;Some more reports here.&gt;
+&#47&#47 DRIVE:Path/To/Source&gt; _
+&#47&#47 ==========================================================================
+&#47&#47 start:
+&#47&#47                                    ;Assembler source to switch the
+&#47&#47                                    ;audio filter and power light to ON.
+&#47&#47                                    ;Compiled under a68k and linked under blink.
+&#47&#47                                    ;A68k AMIGA_Filter&lt;RETURN/ENTER&gt;
+&#47&#47                                    ;&lt;Some reports here.&gt;
+&#47&#47                                    ;blink AMIGA_Filter.o&lt;RETURN/ENTER&gt;
+&#47&#47                                    ;&lt;Some more reports here.&gt;
+&#47&#47      move.b   &#47&#47252,$BFE001         ;Set Audio Filter to bootup default condition ON.
+&#47&#47                                    ;Decimal 252, (0xFC), sets the filter to ON and
+&#47&#47                                    ;decimal 254, (0xFE), sets the filter to OFF.
+&#47&#47      clr.l    d0                   ;Set return code as OK.
+&#47&#47      rts                           ;Exit program.
+&#47&#47      end
+&#47&#47 ==========================================================================
+&#47&#47 The text HEX dump from the CLI using:-
+&#47&#47 DRIVE:Path/To/Source&gt; Type HEX AMIGA_Filter &gt; AMIGA_Filter.txt&lt;RETURN/ENTER&gt;
+&#47&#47 DRIVE:Path/To/Source&gt; _
+&#47&#47
+&#47&#47 Gives a text file, AMIGA_Filter.txt, with the contents thus...
+&#47&#47 ==========================================================================
+&#47&#47 0000: 000003F3 00000000 00000001 00000000    ...ó............
+&#47&#47 0010: 00000000 00000003 000003E9 00000003    ...........é....
+&#47&#47 0020: 13FC00FC 00BFE001 42804E75 000003F2    .ü.ü.¿à.B.Nu...ò
+&#47&#47 ==========================================================================
+&#47&#47 To be edited to suit the Python code...
+&#47&#47
+&#47&#47 Enjoy finding simple solutions to often very difficult problems...
+&#47&#47
+&#47&#47 $VER: AMIGA_HW.py_Version_0.00.10_(C)2007-2012_B.Walker_G0LCU.
+
+&#47&#47 The only STANDARD import required...
+import os
+
+def main():
+	while 1:
+		&#47&#47 A basic working screen to switch the audio filter mode....
+		print("\f\nA simple Python hardware _controller_ for the Classic AMIGA A1200(HD).\n")
+		print("(C)2007-2012, B.Walker, G0LCU. Now issued as Public Domain.\n")
+		print("Press (f)&lt;RETURN/ENTER&gt; to enable audio filtering, (bootup default).")
+		print("Press (F)&lt;RETURN/ENTER&gt; to disable audio filtering.")
+		print("Press (p) or (P)&lt;RETURN/ENTER&gt; for PAL video mode.")
+		print("Press (n) or (N)&lt;RETURN/ENTER&gt; for NTSC video mode.")
+
+		&#47&#47 Set to the audio filter address and to ON by default.
+		<a id="change">control_byte="\xFC"</a>
+		<a id="change">hw_address="\x00\xBF\xE0\x01"</a>
+		<a id="change">keyboard=raw_input("Press (q) or (Q)&lt;RETURN/ENTER&gt; to Quit:- ")</a>
+		if keyboard=="f" or keyboard==chr(13):
+			<a id="change">control_byte="\xFC"</a>
+			<a id="change">hw_address="\x00\xBF\xE0\x01"</a>
+		if keyboard=="F":
+			<a id="change">control_byte="\xFE"</a>
+			<a id="change">hw_address="\x00\xBF\xE0\x01"</a>
+		if keyboard=="p" or keyboard=="P":
+			<a id="change">control_byte="\x20"</a>
+			<a id="change">hw_address="\x00\xDF\xF1\xDC"</a>
+		if keyboard=="n" or keyboard=="N":
+			<a id="change">control_byte="\x00"</a>
+			<a id="change">hw_address="\x00\xDF\xF1\xDC"</a>
+		if keyboard=="Q" or keyboard=="q" or keyboard==chr(27): break
+
+		&#47&#47 Manually place the binary into a string format for Python 1.4.0 to 2.0.1.
+		<a id="change">binary_one="\x00\x00\x03\xF3\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x03\xE9\x00\x00\x00\x03\x13\xFC\x00"</a>
+		<a id="change">binary_two="\x42\x80\x4E\x75\x00\x00\x03\xF2"</a>
+
+		&#47&#47 Create the running file and place it into the AMIGA T: volume as AMIGA_HW.
+		<a id="change">amiga_exe_file=binary_one+control_byte+hw_address+binary_two</a>
+		<a id="change">amigafile=open("T:AMIGA_HW","wb+")</a>
+		amigafile.write(amiga_exe_file)
+		<a id="change">amigafile</a><a id="change">.close()</a>
+
+		&#47&#47 Give a short delay to allow system to settle.
+		os.system("C:Wait 1")
+
+		&#47&#47 Ensure the file AMIGA_HW can be executed.
+		os.system("C:Protect T:AMIGA_HW rwed")
+
+		&#47&#47 Now run it and _immediately_ re-run this code...
+		os.system("T:AMIGA_HW")
+main()
+&#47&#47 End of AMIGA_HW.py.
+&#47&#47 Enjoy finding simple solutions to often very difficult problems...
+</code></pre>

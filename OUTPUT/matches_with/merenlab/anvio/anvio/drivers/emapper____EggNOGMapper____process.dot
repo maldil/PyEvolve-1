@@ -1,0 +1,562 @@
+digraph G {
+1 [label="(49768495)EggNOGMapper(self)" shape=ellipse style=dashed]
+2 [label="(49768498)anvio.dbops.ContigsDatabase(contigs_db)" shape=ellipse style=dashed]
+3 [label="(49768578)String(lit(w))" shape=ellipse style=dashed color=blue fontcolor=blue]
+4 [label="(49768638)List[Any](cmd_line)" shape=ellipse style=dashed]
+5 [label="(49768692)store_annotations_in_db" shape=box style=dashed]
+6 [label="(49768632)String(lit(--usemem))" shape=ellipse style=dashed]
+7 [label="(49768527)getcwd" shape=box style=dashed]
+8 [label="(49768499)anvio.dbops.ContigsDatabase.meta(meta)" shape=ellipse style=dashed]
+9 [label="(49768684)join" shape=box style=dashed]
+10 [label="(49768546)String(lit(Target database))" shape=ellipse style=dashed]
+11 [label="(49768691)EggNOGMapper(self)" shape=ellipse style=dashed]
+12 [label="(49768522)=" shape=box style=dashed]
+13 [label="(49768510)Mod" shape=box style=dashed]
+14 [label="(49768673)EggNOGMapper(self)" shape=ellipse style=dashed]
+15 [label="(49768497)=" shape=box style=dashed]
+16 [label="(49768534)info" shape=box style=dashed]
+17 [label="(49768672)Any(output_dir)" shape=ellipse style=dashed]
+18 [label="(49768560)EggNOGMapper(self)" shape=ellipse style=dashed]
+19 [label="(49768538)EggNOGMapper.run(run)" shape=ellipse style=dashed]
+20 [label="(49768584)Any(aa_sequence)" shape=ellipse style=dashed]
+21 [label="(49768486)ConfigError" shape=box style=dashed]
+22 [label="(49768515)get_table_as_list_of_tuples" shape=box style=dashed]
+23 [label="(49768533)EggNOGMapper.run(run)" shape=ellipse style=dashed]
+24 [label="(49768693)END" style=dashed]
+25 [label="(49768553)EggNOGMapper(self)" shape=ellipse style=dashed]
+26 [label="(49768593)Any(gene_callers_id)" shape=ellipse style=dashed]
+27 [label="(49768680)EggNOGMapper(self)" shape=ellipse style=dashed]
+28 [label="(49768572)update" shape=box style=dashed]
+29 [label="(49768555)EggNOGMapper(self)" shape=ellipse style=dashed]
+30 [label="(49768473)=" shape=box style=dashed]
+31 [label="(49768663)EggNOGMapper(self)" shape=ellipse style=dashed]
+32 [label="(49768592)EggNOGMapper.gene_caller_id_prefix(gene_caller_id_prefix)" shape=ellipse style=dashed]
+33 [label="(49768667)ConfigError" shape=box style=dashed]
+34 [label="(49768629)IfExp" shape=diamond style=dashed]
+35 [label="(49768518)=" shape=box style=dashed]
+36 [label="(49768537)EggNOGMapper(self)" shape=ellipse style=dashed]
+37 [label="(49768528)=" shape=box style=dashed]
+38 [label="(49768558)String(lit(Genes found))" shape=ellipse style=dashed]
+39 [label="(49768507)String(lit(It seems genes were not called for this contigs database (%s). This is a total no-no since we will need them to get amino acid seqeunces for functional annotationd :/))" shape=ellipse style=dashed]
+40 [label="(49768686)EggNOGMapper(self)" shape=ellipse style=dashed]
+41 [label="(49768549)EggNOGMapper(self)" shape=ellipse style=dashed]
+42 [label="(49768650)anvio.utils(utils)" shape=ellipse style=dashed]
+43 [label="(49768488)empty" shape=box style=dashed]
+44 [label="(49768548)EggNOGMapper.database(database)" shape=ellipse style=dashed]
+45 [label="(49768628)EggNOGMapper.usemem(usemem)" shape=ellipse style=dashed]
+46 [label="(49768566)EggNOGMapper(self)" shape=ellipse style=dashed]
+47 [label="(49768472)(null)" shape=ellipse style=dashed]
+48 [label="(49768630)List[Any](cmd_line)" shape=ellipse style=dashed]
+49 [label="(49768685)Any(output_dir)" shape=ellipse style=dashed]
+50 [label="(49768547)EggNOGMapper(self)" shape=ellipse style=dashed]
+51 [label="(49768550)EggNOGMapper.run(run)" shape=ellipse style=dashed]
+52 [label="(49768595)()" shape=box style=dashed]
+53 [label="(49768602)EggNOGMapper(self)" shape=ellipse style=dashed]
+54 [label="(49768480)EggNOGMapper(self)" shape=ellipse style=dashed]
+55 [label="(49768596)Mod" shape=box style=dashed]
+56 [label="(49768678)EggNOGMapper.progress(progress)" shape=ellipse style=dashed]
+57 [label="(49768622)=" shape=box style=dashed]
+58 [label="(49768642)EggNOGMapper.database(database)" shape=ellipse style=dashed]
+59 [label="(49768639)extend" shape=box style=dashed]
+60 [label="(49768609)EggNOGMapper.output_file_prefix(output_file_prefix)" shape=ellipse style=dashed]
+61 [label="(49768570)EggNOGMapper(self)" shape=ellipse style=dashed]
+62 [label="(49768631)extend" shape=box style=dashed]
+63 [label="(49768502)Not" shape=box style=dashed]
+64 [label="(49768580)Any(aa_sequences_list)" shape=ellipse style=dashed]
+65 [label="(49768586)empty" shape=box style=dashed]
+66 [label="(49768581)Any(gene_callers_id)" shape=ellipse style=dashed]
+67 [label="(49768634)=" shape=box style=dashed]
+68 [label="(49768571)EggNOGMapper.progress(progress)" shape=ellipse style=dashed]
+69 [label="(49768494)ContigsDatabase" shape=box style=dashed]
+70 [label="(49768575)open" shape=box style=dashed color=blue fontcolor=blue]
+71 [label="(49768526)os(os)" shape=ellipse style=dashed]
+72 [label="(49768551)info" shape=box style=dashed]
+73 [label="(49768601)List[Any](cmd_line)" shape=ellipse style=dashed]
+74 [label="(49768620)EggNOGMapper.num_threads(num_threads)" shape=ellipse style=dashed]
+75 [label="(49768646)update" shape=box style=dashed]
+76 [label="(49768645)EggNOGMapper.progress(progress)" shape=ellipse style=dashed]
+77 [label="(49768674)EggNOGMapper.log_file_path(log_file_path)" shape=ellipse style=dashed]
+78 [label="(49768688)os(os)" shape=ellipse style=dashed]
+79 [label="(49768565)EggNOGMapper.aa_sequences_file_name(aa_sequences_file_name)" shape=ellipse style=dashed]
+80 [label="(49768627)EggNOGMapper(self)" shape=ellipse style=dashed]
+81 [label="(49768587)TextIO(aa_sequences_fp)" shape=ellipse style=dashed]
+82 [label="(49768540)String(lit(Num threads to use))" shape=ellipse style=dashed]
+83 [label="(49768618)String(lit(--cpu))" shape=ellipse style=dashed]
+84 [label="(49768545)info" shape=box style=dashed]
+85 [label="(49768577)EggNOGMapper.aa_sequences_file_name(aa_sequences_file_name)" shape=ellipse style=dashed]
+86 [label="(49768636)=" shape=box style=dashed]
+87 [label="(49768487)String(lit(EggNOGMapper::process() is speaking: you can't really call this function if you inherited this class without a contigs database path :/ What are you doing?))" shape=ellipse style=dashed]
+88 [label="(49768564)EggNOGMapper(self)" shape=ellipse style=dashed]
+89 [label="(49768649)Mod" shape=box style=dashed]
+90 [label="(49768514)anvio.dbops.ContigsDatabase.db(db)" shape=ellipse style=dashed]
+91 [label="(49768600)Any(aa_sequences_list)" shape=ellipse style=dashed]
+92 [label="(49768676)empty" shape=box style=dashed]
+93 [label="(49768615)IfExp" shape=diamond style=dashed]
+94 [label="(49768568)new" shape=box style=dashed]
+95 [label="(49768531)Any(output_dir)" shape=ellipse style=dashed]
+96 [label="(49768583)Any(aa_sequence)" shape=ellipse style=dashed]
+97 [label="(49768554)EggNOGMapper.usemem(usemem)" shape=ellipse style=dashed]
+98 [label="(49768656)os.path(path)" shape=ellipse style=dashed]
+99 [label="(49768523)anvio.dbops.ContigsDatabase(contigs_db)" shape=ellipse style=dashed]
+100 [label="(49768669)os(os)" shape=ellipse style=dashed]
+101 [label="(49768556)EggNOGMapper.run(run)" shape=ellipse style=dashed]
+102 [label="(49768591)EggNOGMapper(self)" shape=ellipse style=dashed]
+103 [label="(49768637)boolean(dummy_)" shape=ellipse style=dashed]
+104 [label="(49768504)empty" shape=box style=dashed]
+105 [label="(49768559)int(num_aa_sequences)" shape=ellipse style=dashed]
+106 [label="(49768665)end" shape=box style=dashed]
+107 [label="(49768567)EggNOGMapper.progress(progress)" shape=ellipse style=dashed]
+108 [label="(49768607)String(lit(--output))" shape=ellipse style=dashed]
+109 [label="(49768606)EggNOGMapper.aa_sequences_file_name(aa_sequences_file_name)" shape=ellipse style=dashed]
+110 [label="(49768469)=" shape=box style=dashed]
+111 [label="(49768485)raise" shape=box style=dashed]
+112 [label="(49768557)info" shape=box style=dashed]
+113 [label="(49768496)EggNOGMapper.contigs_db_path(contigs_db_path)" shape=ellipse style=dashed]
+114 [label="(49768543)EggNOGMapper(self)" shape=ellipse style=dashed]
+115 [label="(49768654)EggNOGMapper.log_file_path(log_file_path)" shape=ellipse style=dashed]
+116 [label="(49768544)EggNOGMapper.run(run)" shape=ellipse style=dashed]
+117 [label="(49768614)EggNOGMapper.num_threads(num_threads)" shape=ellipse style=dashed]
+118 [label="(49768651)run_command" shape=box style=dashed]
+119 [label="(49768483)If" shape=diamond style=dashed]
+120 [label="(49768682)os(os)" shape=ellipse style=dashed]
+121 [label="(49768617)extend" shape=box style=dashed]
+122 [label="(49768481)EggNOGMapper.contigs_db_path(contigs_db_path)" shape=ellipse style=dashed]
+123 [label="(49768519)int(num_aa_sequences)" shape=ellipse style=dashed]
+124 [label="(49768598)close" shape=box style=dashed color=blue fontcolor=blue]
+125 [label="(49768611)=" shape=box style=dashed]
+126 [label="(49768658)EggNOGMapper(self)" shape=ellipse style=dashed]
+127 [label="(49768468)(null)" shape=ellipse style=dashed]
+128 [label="(49768482)Not" shape=box style=dashed]
+129 [label="(49768501)String(lit(genes_are_called))" shape=ellipse style=dashed]
+130 [label="(49768690)str(work_dir)" shape=ellipse style=dashed]
+131 [label="(49768668)String(lit(Something went wrong with eggnog-mapper :( The annotations file is not where it is supposed to be. If you are lucky, this log file will have enough output information for you to make sense of what went wrong: '%s'. Due to this error, the output directory will be kept as is, and you will have to remove it manually. Sorry about the inconvenience! Anvi'o developers know how much it sucks when things just don't work.))" shape=ellipse style=dashed]
+132 [label="(49768660)Not" shape=box style=dashed]
+133 [label="(49768605)EggNOGMapper(self)" shape=ellipse style=dashed]
+134 [label="(49768509)EggNOGMapper.contigs_db_path(contigs_db_path)" shape=ellipse style=dashed]
+135 [label="(49768512)Any(aa_sequences_list)" shape=ellipse style=dashed]
+136 [label="(49768585)For" shape=diamond style=dashed]
+137 [label="(49768517)anvio.tables.gene_amino_acid_sequences_table_name(gene_amino_acid_sequences_table_name)" shape=ellipse style=dashed]
+138 [label="(49768490)is_output_dir_writable" shape=box style=dashed]
+139 [label="(49768619)EggNOGMapper(self)" shape=ellipse style=dashed]
+140 [label="(49768525)str(work_dir)" shape=ellipse style=dashed]
+141 [label="(49768687)EggNOGMapper.annotations_file_name(annotations_file_name)" shape=ellipse style=dashed]
+142 [label="(49768530)chdir" shape=box style=dashed]
+143 [label="(49768532)EggNOGMapper(self)" shape=ellipse style=dashed]
+144 [label="(49768508)EggNOGMapper(self)" shape=ellipse style=dashed]
+145 [label="(49768671)join" shape=box style=dashed]
+146 [label="(49768664)EggNOGMapper.progress(progress)" shape=ellipse style=dashed]
+147 [label="(49768493)anvio.dbops(dbops)" shape=ellipse style=dashed]
+148 [label="(49768613)EggNOGMapper(self)" shape=ellipse style=dashed]
+149 [label="(49768535)String(lit(Work directory for temporary files))" shape=ellipse style=dashed]
+150 [label="(49768484)empty" shape=box style=dashed]
+151 [label="(49768477)=" shape=box style=dashed]
+152 [label="(49768603)EggNOGMapper.executable(executable)" shape=ellipse style=dashed]
+153 [label="(49768500)anvio.dbops.ContigsDatabase.meta[.](Subscript)" shape=ellipse style=dashed]
+154 [label="(49768652)List[Any](cmd_line)" shape=ellipse style=dashed]
+155 [label="(49768561)EggNOGMapper.run(run)" shape=ellipse style=dashed]
+156 [label="(49768662)empty" shape=box style=dashed]
+157 [label="(49768644)EggNOGMapper(self)" shape=ellipse style=dashed]
+158 [label="(49768621)[list]" shape=box style=dashed]
+159 [label="(49768511)empty" shape=box style=dashed]
+160 [label="(49768552)String(lit(Use memomory))" shape=ellipse style=dashed]
+161 [label="(49768542)EggNOGMapper.num_threads(num_threads)" shape=ellipse style=dashed]
+162 [label="(49768599)delete" shape=box style=dashed]
+163 [label="(49768573)String(lit(Storing gene sequences ...))" shape=ellipse style=dashed]
+164 [label="(49768588)write" shape=box style=dashed]
+165 [label="(49768679)end" shape=box style=dashed]
+166 [label="(49768506)ConfigError" shape=box style=dashed]
+167 [label="(49768489)anvio.filesnpaths(filesnpaths)" shape=ellipse style=dashed]
+168 [label="(49768492)anvio.dbops.ContigsDatabase(contigs_db)" shape=ellipse style=dashed]
+169 [label="(49768610)[list]" shape=box style=dashed]
+170 [label="(49768604)String(lit(-i))" shape=ellipse style=dashed]
+171 [label="(49768689)chdir" shape=box style=dashed]
+172 [label="(49768521)Any(aa_sequences_list)" shape=ellipse style=dashed]
+173 [label="(49768643)[list]" shape=box style=dashed]
+174 [label="(49768653)EggNOGMapper(self)" shape=ellipse style=dashed]
+175 [label="(49768582)Any(gene_callers_id)" shape=ellipse style=dashed]
+176 [label="(49768670)os.path(path)" shape=ellipse style=dashed]
+177 [label="(49768563)String(lit(AA sequences))" shape=ellipse style=dashed]
+178 [label="(49768597)TextIO(aa_sequences_fp)" shape=ellipse style=dashed color=blue fontcolor=blue]
+179 [label="(49768589)String(lit(>%s%d
+%s
+))" shape=ellipse style=dashed]
+180 [label="(49768683)os.path(path)" shape=ellipse style=dashed]
+181 [label="(49768579)=" shape=box style=dashed color=blue fontcolor=blue]
+182 [label="(49768539)info" shape=box style=dashed]
+183 [label="(49768655)os(os)" shape=ellipse style=dashed]
+184 [label="(49768661)If" shape=diamond style=dashed]
+185 [label="(49768576)EggNOGMapper(self)" shape=ellipse style=dashed]
+186 [label="(49768475)Any(drop_previous_annotations)" shape=ellipse style=dashed]
+187 [label="(49768635)None(None)" shape=ellipse style=dashed]
+188 [label="(49768648)int(num_aa_sequences)" shape=ellipse style=dashed]
+189 [label="(49768640)String(lit(--database))" shape=ellipse style=dashed]
+190 [label="(49768659)EggNOGMapper.annotations_file_name(annotations_file_name)" shape=ellipse style=dashed]
+191 [label="(49768677)EggNOGMapper(self)" shape=ellipse style=dashed]
+192 [label="(49768625)boolean(dummy_)" shape=ellipse style=dashed]
+193 [label="(49768505)raise" shape=box style=dashed]
+194 [label="(49768513)anvio.dbops.ContigsDatabase(contigs_db)" shape=ellipse style=dashed]
+195 [label="(49768675)Mod" shape=box style=dashed]
+196 [label="(49768524)disconnect" shape=box style=dashed]
+197 [label="(49768529)os(os)" shape=ellipse style=dashed]
+198 [label="(49768641)EggNOGMapper(self)" shape=ellipse style=dashed]
+199 [label="(49768516)anvio.tables(t)" shape=ellipse style=dashed]
+200 [label="(49768623)None(None)" shape=ellipse style=dashed]
+201 [label="(49768476)(null)" shape=ellipse style=dashed]
+202 [label="(49768594)Any(aa_sequence)" shape=ellipse style=dashed]
+203 [label="(49768541)EggNOGMapper(self)" shape=ellipse style=dashed]
+204 [label="(49768624)=" shape=box style=dashed]
+205 [label="(49768471)Any(output_dir)" shape=ellipse style=dashed]
+206 [label="(49768574)TextIO(aa_sequences_fp)" shape=ellipse style=dashed color=blue fontcolor=blue]
+207 [label="(49768647)String(lit(Running eggnog-mapper on %d sequences. This may take a while ...))" shape=ellipse style=dashed]
+208 [label="(49768616)List[Any](cmd_line)" shape=ellipse style=dashed]
+209 [label="(49768520)len" shape=box style=dashed]
+210 [label="(49768608)EggNOGMapper(self)" shape=ellipse style=dashed]
+211 [label="(49768503)If" shape=diamond style=dashed]
+212 [label="(49768491)Any(output_dir)" shape=ellipse style=dashed]
+213 [label="(49768562)info" shape=box style=dashed]
+214 [label="(49768467)EggNOGMapper(self)" shape=ellipse style=dashed]
+215 [label="(49768569)String(lit(Processing))" shape=ellipse style=dashed]
+216 [label="(49768681)populate_annotations_dict" shape=box style=dashed]
+217 [label="(49768536)Any(output_dir)" shape=ellipse style=dashed]
+218 [label="(49768633)[list]" shape=box style=dashed]
+219 [label="(49768666)raise" shape=box style=dashed]
+220 [label="(49768466)START" style=dashed]
+221 [label="(49768657)exists" shape=box style=dashed]
+168 -> 2 [label="ref" style=dotted];
+73 -> 4 [label="ref" style=dotted];
+184 -> 5 [label="F"];
+11 -> 5 [label="recv" style=dotted];
+171 -> 5 [label="dep" style=dotted];
+211 -> 7 [label="F"];
+71 -> 7 [label="recv" style=dotted];
+196 -> 7 [label="dep" style=dotted];
+2 -> 8 [label="qual" style=dotted];
+184 -> 9 [label="F"];
+180 -> 9 [label="recv" style=dotted];
+49 -> 9 [label="para" style=dotted];
+141 -> 9 [label="para" style=dotted];
+165 -> 9 [label="dep" style=dotted];
+211 -> 12 [label="F"];
+209 -> 12 [label="dep" style=dotted];
+209 -> 12 [label="para" style=dotted];
+211 -> 13 [label="T"];
+39 -> 13 [label="para" style=dotted];
+134 -> 13 [label="para" style=dotted];
+104 -> 13 [label="dep" style=dotted];
+119 -> 15 [label="F"];
+69 -> 15 [label="dep" style=dotted];
+69 -> 15 [label="para" style=dotted];
+211 -> 16 [label="F"];
+23 -> 16 [label="recv" style=dotted];
+149 -> 16 [label="para" style=dotted];
+217 -> 16 [label="para" style=dotted];
+142 -> 16 [label="dep" style=dotted];
+36 -> 19 [label="qual" style=dotted];
+96 -> 20 [label="ref" style=dotted];
+119 -> 21 [label="T"];
+87 -> 21 [label="para" style=dotted];
+150 -> 21 [label="dep" style=dotted];
+211 -> 22 [label="F"];
+90 -> 22 [label="recv" style=dotted];
+137 -> 22 [label="para" style=dotted];
+159 -> 22 [label="dep" style=dotted];
+143 -> 23 [label="qual" style=dotted];
+5 -> 24 [label="dep" style=dotted];
+66 -> 26 [label="ref" style=dotted];
+211 -> 28 [label="F"];
+68 -> 28 [label="recv" style=dotted];
+163 -> 28 [label="para" style=dotted];
+94 -> 28 [label="dep" style=dotted];
+220 -> 30 [label="" style=solid];
+47 -> 30 [label="para" style=dotted];
+110 -> 30 [label="dep" style=dotted];
+102 -> 32 [label="qual" style=dotted];
+184 -> 33 [label="T"];
+195 -> 33 [label="dep" style=dotted];
+195 -> 33 [label="para" style=dotted];
+106 -> 33 [label="dep" style=dotted];
+211 -> 34 [label="F"];
+45 -> 34 [label="cond" style=dotted];
+57 -> 34 [label="dep" style=dotted];
+204 -> 34 [label="dep" style=dotted];
+211 -> 35 [label="F"];
+22 -> 35 [label="dep" style=dotted];
+22 -> 35 [label="para" style=dotted];
+211 -> 37 [label="F"];
+7 -> 37 [label="dep" style=dotted];
+7 -> 37 [label="para" style=dotted];
+119 -> 43 [label="F"];
+50 -> 44 [label="qual" style=dotted];
+80 -> 45 [label="qual" style=dotted];
+73 -> 48 [label="ref" style=dotted];
+41 -> 51 [label="qual" style=dotted];
+136 -> 52 [label="" style=solid];
+32 -> 52 [label="para" style=dotted];
+26 -> 52 [label="para" style=dotted];
+202 -> 52 [label="para" style=dotted];
+65 -> 52 [label="dep" style=dotted];
+136 -> 55 [label="" style=solid];
+179 -> 55 [label="para" style=dotted];
+52 -> 55 [label="dep" style=dotted];
+52 -> 55 [label="para" style=dotted];
+65 -> 55 [label="dep" style=dotted];
+191 -> 56 [label="qual" style=dotted];
+93 -> 57 [label="T"];
+121 -> 57 [label="dep" style=dotted];
+121 -> 57 [label="para" style=dotted];
+198 -> 58 [label="qual" style=dotted];
+211 -> 59 [label="F"];
+4 -> 59 [label="recv" style=dotted];
+173 -> 59 [label="dep" style=dotted];
+173 -> 59 [label="para" style=dotted];
+86 -> 59 [label="dep" style=dotted];
+67 -> 59 [label="dep" style=dotted];
+210 -> 60 [label="qual" style=dotted];
+34 -> 62 [label="T"];
+48 -> 62 [label="recv" style=dotted];
+218 -> 62 [label="dep" style=dotted];
+218 -> 62 [label="para" style=dotted];
+119 -> 63 [label="F"];
+153 -> 63 [label="para" style=dotted];
+15 -> 63 [label="dep" style=dotted];
+135 -> 64 [label="ref" style=dotted];
+136 -> 65 [label="" style=solid];
+64 -> 66 [label="def" style=dotted];
+34 -> 67 [label="T"];
+62 -> 67 [label="dep" style=dotted];
+62 -> 67 [label="para" style=dotted];
+61 -> 68 [label="qual" style=dotted];
+119 -> 69 [label="F"];
+147 -> 69 [label="recv" style=dotted];
+113 -> 69 [label="para" style=dotted];
+138 -> 69 [label="dep" style=dotted];
+211 -> 70 [label="F"];
+85 -> 70 [label="para" style=dotted];
+3 -> 70 [label="para" style=dotted];
+28 -> 70 [label="dep" style=dotted];
+211 -> 72 [label="F"];
+51 -> 72 [label="recv" style=dotted];
+160 -> 72 [label="para" style=dotted];
+97 -> 72 [label="para" style=dotted];
+84 -> 72 [label="dep" style=dotted];
+125 -> 73 [label="def" style=dotted];
+139 -> 74 [label="qual" style=dotted];
+211 -> 75 [label="F"];
+76 -> 75 [label="recv" style=dotted];
+89 -> 75 [label="dep" style=dotted];
+89 -> 75 [label="para" style=dotted];
+59 -> 75 [label="dep" style=dotted];
+157 -> 76 [label="qual" style=dotted];
+14 -> 77 [label="qual" style=dotted];
+88 -> 79 [label="qual" style=dotted];
+206 -> 81 [label="ref" style=dotted];
+211 -> 84 [label="F"];
+116 -> 84 [label="recv" style=dotted];
+10 -> 84 [label="para" style=dotted];
+44 -> 84 [label="para" style=dotted];
+182 -> 84 [label="dep" style=dotted];
+185 -> 85 [label="qual" style=dotted];
+34 -> 86 [label="F"];
+187 -> 86 [label="para" style=dotted];
+211 -> 89 [label="F"];
+207 -> 89 [label="para" style=dotted];
+188 -> 89 [label="para" style=dotted];
+59 -> 89 [label="dep" style=dotted];
+194 -> 90 [label="qual" style=dotted];
+135 -> 91 [label="ref" style=dotted];
+184 -> 92 [label="F"];
+211 -> 93 [label="F"];
+117 -> 93 [label="cond" style=dotted];
+125 -> 93 [label="dep" style=dotted];
+211 -> 94 [label="F"];
+107 -> 94 [label="recv" style=dotted];
+215 -> 94 [label="para" style=dotted];
+213 -> 94 [label="dep" style=dotted];
+175 -> 96 [label="def" style=dotted];
+25 -> 97 [label="qual" style=dotted];
+183 -> 98 [label="qual" style=dotted];
+168 -> 99 [label="ref" style=dotted];
+29 -> 101 [label="qual" style=dotted];
+86 -> 103 [label="def" style=dotted];
+211 -> 104 [label="T"];
+123 -> 105 [label="ref" style=dotted];
+184 -> 106 [label="T"];
+146 -> 106 [label="recv" style=dotted];
+156 -> 106 [label="dep" style=dotted];
+46 -> 107 [label="qual" style=dotted];
+133 -> 109 [label="qual" style=dotted];
+220 -> 110 [label="" style=solid];
+127 -> 110 [label="para" style=dotted];
+119 -> 111 [label="T"];
+21 -> 111 [label="dep" style=dotted];
+21 -> 111 [label="para" style=dotted];
+211 -> 112 [label="F"];
+101 -> 112 [label="recv" style=dotted];
+38 -> 112 [label="para" style=dotted];
+105 -> 112 [label="para" style=dotted];
+72 -> 112 [label="dep" style=dotted];
+1 -> 113 [label="qual" style=dotted];
+174 -> 115 [label="qual" style=dotted];
+114 -> 116 [label="qual" style=dotted];
+148 -> 117 [label="qual" style=dotted];
+211 -> 118 [label="F"];
+42 -> 118 [label="recv" style=dotted];
+154 -> 118 [label="para" style=dotted];
+115 -> 118 [label="para" style=dotted];
+75 -> 118 [label="dep" style=dotted];
+220 -> 119 [label="" style=solid];
+128 -> 119 [label="dep" style=dotted];
+128 -> 119 [label="cond" style=dotted];
+93 -> 121 [label="T"];
+208 -> 121 [label="recv" style=dotted];
+158 -> 121 [label="dep" style=dotted];
+158 -> 121 [label="para" style=dotted];
+54 -> 122 [label="qual" style=dotted];
+12 -> 123 [label="def" style=dotted];
+211 -> 124 [label="F"];
+178 -> 124 [label="recv" style=dotted];
+164 -> 124 [label="dep" style=dotted];
+211 -> 125 [label="F"];
+169 -> 125 [label="dep" style=dotted];
+169 -> 125 [label="para" style=dotted];
+220 -> 128 [label="" style=solid];
+122 -> 128 [label="para" style=dotted];
+151 -> 128 [label="dep" style=dotted];
+140 -> 130 [label="ref" style=dotted];
+211 -> 132 [label="F"];
+221 -> 132 [label="dep" style=dotted];
+221 -> 132 [label="para" style=dotted];
+144 -> 134 [label="qual" style=dotted];
+35 -> 135 [label="def" style=dotted];
+211 -> 136 [label="F"];
+20 -> 136 [label="cond" style=dotted];
+181 -> 136 [label="dep" style=dotted];
+199 -> 137 [label="qual" style=dotted];
+119 -> 138 [label="F"];
+167 -> 138 [label="recv" style=dotted];
+212 -> 138 [label="para" style=dotted];
+43 -> 138 [label="dep" style=dotted];
+37 -> 140 [label="def" style=dotted];
+40 -> 141 [label="qual" style=dotted];
+211 -> 142 [label="F"];
+197 -> 142 [label="recv" style=dotted];
+95 -> 142 [label="para" style=dotted];
+37 -> 142 [label="dep" style=dotted];
+184 -> 145 [label="T"];
+176 -> 145 [label="recv" style=dotted];
+17 -> 145 [label="para" style=dotted];
+77 -> 145 [label="para" style=dotted];
+106 -> 145 [label="dep" style=dotted];
+31 -> 146 [label="qual" style=dotted];
+119 -> 150 [label="T"];
+220 -> 151 [label="" style=solid];
+201 -> 151 [label="para" style=dotted];
+30 -> 151 [label="dep" style=dotted];
+53 -> 152 [label="qual" style=dotted];
+8 -> 153 [label="qual" style=dotted];
+129 -> 153 [label="para" style=dotted];
+73 -> 154 [label="ref" style=dotted];
+18 -> 155 [label="qual" style=dotted];
+184 -> 156 [label="T"];
+93 -> 158 [label="T"];
+83 -> 158 [label="para" style=dotted];
+74 -> 158 [label="para" style=dotted];
+211 -> 159 [label="F"];
+203 -> 161 [label="qual" style=dotted];
+211 -> 162 [label="F"];
+91 -> 162 [label="para" style=dotted];
+124 -> 162 [label="dep" style=dotted];
+136 -> 164 [label="" style=solid];
+81 -> 164 [label="recv" style=dotted];
+55 -> 164 [label="dep" style=dotted];
+55 -> 164 [label="para" style=dotted];
+65 -> 164 [label="dep" style=dotted];
+184 -> 165 [label="F"];
+56 -> 165 [label="recv" style=dotted];
+92 -> 165 [label="dep" style=dotted];
+211 -> 166 [label="T"];
+13 -> 166 [label="dep" style=dotted];
+13 -> 166 [label="para" style=dotted];
+104 -> 166 [label="dep" style=dotted];
+15 -> 168 [label="def" style=dotted];
+211 -> 169 [label="F"];
+152 -> 169 [label="para" style=dotted];
+170 -> 169 [label="para" style=dotted];
+109 -> 169 [label="para" style=dotted];
+108 -> 169 [label="para" style=dotted];
+60 -> 169 [label="para" style=dotted];
+162 -> 169 [label="dep" style=dotted];
+184 -> 171 [label="F"];
+78 -> 171 [label="recv" style=dotted];
+130 -> 171 [label="para" style=dotted];
+216 -> 171 [label="dep" style=dotted];
+135 -> 172 [label="ref" style=dotted];
+211 -> 173 [label="F"];
+189 -> 173 [label="para" style=dotted];
+58 -> 173 [label="para" style=dotted];
+86 -> 173 [label="dep" style=dotted];
+67 -> 173 [label="dep" style=dotted];
+66 -> 175 [label="ref" style=dotted];
+100 -> 176 [label="qual" style=dotted];
+206 -> 178 [label="ref" style=dotted];
+120 -> 180 [label="qual" style=dotted];
+211 -> 181 [label="F"];
+70 -> 181 [label="dep" style=dotted];
+70 -> 181 [label="para" style=dotted];
+211 -> 182 [label="F"];
+19 -> 182 [label="recv" style=dotted];
+82 -> 182 [label="para" style=dotted];
+161 -> 182 [label="para" style=dotted];
+16 -> 182 [label="dep" style=dotted];
+211 -> 184 [label="F"];
+132 -> 184 [label="dep" style=dotted];
+132 -> 184 [label="cond" style=dotted];
+151 -> 186 [label="def" style=dotted];
+123 -> 188 [label="ref" style=dotted];
+126 -> 190 [label="qual" style=dotted];
+204 -> 192 [label="def" style=dotted];
+211 -> 193 [label="T"];
+166 -> 193 [label="dep" style=dotted];
+166 -> 193 [label="para" style=dotted];
+168 -> 194 [label="ref" style=dotted];
+184 -> 195 [label="T"];
+131 -> 195 [label="para" style=dotted];
+145 -> 195 [label="dep" style=dotted];
+145 -> 195 [label="para" style=dotted];
+106 -> 195 [label="dep" style=dotted];
+211 -> 196 [label="F"];
+99 -> 196 [label="recv" style=dotted];
+12 -> 196 [label="dep" style=dotted];
+96 -> 202 [label="ref" style=dotted];
+93 -> 204 [label="F"];
+200 -> 204 [label="para" style=dotted];
+30 -> 205 [label="def" style=dotted];
+181 -> 206 [label="def" style=dotted];
+73 -> 208 [label="ref" style=dotted];
+211 -> 209 [label="F"];
+172 -> 209 [label="para" style=dotted];
+35 -> 209 [label="dep" style=dotted];
+119 -> 211 [label="F"];
+63 -> 211 [label="dep" style=dotted];
+63 -> 211 [label="cond" style=dotted];
+211 -> 213 [label="F"];
+155 -> 213 [label="recv" style=dotted];
+177 -> 213 [label="para" style=dotted];
+79 -> 213 [label="para" style=dotted];
+112 -> 213 [label="dep" style=dotted];
+110 -> 214 [label="def" style=dotted];
+184 -> 216 [label="F"];
+27 -> 216 [label="recv" style=dotted];
+9 -> 216 [label="dep" style=dotted];
+9 -> 216 [label="para" style=dotted];
+165 -> 216 [label="dep" style=dotted];
+34 -> 218 [label="T"];
+6 -> 218 [label="para" style=dotted];
+184 -> 219 [label="T"];
+33 -> 219 [label="dep" style=dotted];
+33 -> 219 [label="para" style=dotted];
+211 -> 221 [label="F"];
+98 -> 221 [label="recv" style=dotted];
+190 -> 221 [label="para" style=dotted];
+118 -> 221 [label="dep" style=dotted];
+}

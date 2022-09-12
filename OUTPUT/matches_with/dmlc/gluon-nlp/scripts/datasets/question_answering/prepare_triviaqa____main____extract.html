@@ -1,0 +1,85 @@
+<link rel="stylesheet" href="../../../../..//default.css">
+<script src="../../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/dmlc/gluon-nlp/blob/master/scripts/datasets/question_answering/prepare_triviaqa.py#L45">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/gluon-nlp/blob/master/scripts/datasets/question_answering/prepare_triviaqa.py#L45">GitMyHubLink</a>
+
+import os
+import tarfile
+import argparse
+from gluonnlp.utils.misc import download, load_checksum_stats
+from gluonnlp.base import get_data_home_dir
+
+_CURR_DIR = os.path.realpath(os.path.dirname(os.path.realpath(__file__)))
+_BASE_DATASET_PATH = os.path.join(get_data_home_dir(), &quottriviaqa&quot)
+_URL_FILE_STATS_PATH = os.path.join(_CURR_DIR, &quot..&quot, &quoturl_checksums&quot, &quottriviaqa.txt&quot)
+_URL_FILE_STATS = load_checksum_stats(_URL_FILE_STATS_PATH)
+
+
+_CITATIONS = 
+@InProceedings{JoshiTriviaQA2017,
+     author = {Joshi, Mandar and Choi, Eunsol and Weld, Daniel S. and Zettlemoyer, Luke},
+     title = {TriviaQA: A Large Scale Distantly Supervised Challenge Dataset for Reading Comprehension},
+     booktitle = {Proceedings of the 55th Annual Meeting of the Association for Computational Linguistics},
+     month = {July},
+     year = {2017},
+     address = {Vancouver, Canada},
+     publisher = {Association for Computational Linguistics},
+}
+
+
+
+_URLS = {
+    &quotrc&quot: &quothttps://nlp.cs.washington.edu/triviaqa/data/triviaqa-rc.tar.gz&quot,
+    &quotunfiltered&quot: &quothttps://nlp.cs.washington.edu/triviaqa/data/triviaqa-unfiltered.tar.gz&quot
+}
+
+
+def get_parser():
+    parser = argparse.ArgumentParser(description=&quotDownloading the TriviaQA Dataset.&quot)
+    parser.add_argument(&quot--type&quot, type=str, choices=[&quotrc&quot, &quotunfiltered&quot], default=&quotrc&quot,
+                        help=&quottype of the triviaqa dataset.&quot)
+    parser.add_argument(&quot--save-path&quot, type=str, default=&quottriviaqa&quot)
+    parser.add_argument(&quot--cache-path&quot, type=str, default=_BASE_DATASET_PATH,
+                        help=&quotThe path to download the dataset.&quot)
+    parser.add_argument(&quot--overwrite&quot, action=&quotstore_true&quot)
+    return parser
+
+
+def main(args):
+
+    def extract(<a id="change">tar_path</a>, <a id="change">target_path</a>):
+        try:
+            <a id="change">tar = tarfile.open(tar_path, "r:gz")</a>
+            <a id="change">file_names = tar.getnames()</a>
+            for file_name in file_names:
+                tar.extract(file_name, target_path)
+            <a id="change">tar</a><a id="change">.close()</a>
+        except Exception  as e:
+            print(e)
+
+    tar_url = _URLS[args.type]
+    file_name = tar_url[tar_url.rfind(&quot/&quot) + 1:]
+    file_hash = _URL_FILE_STATS[tar_url]
+    download(tar_url, path=os.path.join(args.cache_path, file_name), sha1_hash=file_hash)
+    if not os.path.exists(args.save_path):
+        os.makedirs(args.save_path)
+    if not os.path.exists(os.path.join(args.save_path, file_name))\
+            or (args.overwrite and args.save_path != args.cache_path):
+        os.symlink(os.path.join(args.cache_path, file_name),
+                   os.path.join(args.save_path, file_name))
+    extract(os.path.join(args.save_path, file_name), args.save_path)
+
+
+def cli_main():
+    parser = get_parser()
+    args = parser.parse_args()
+    main(args)
+
+
+if __name__ == &quot__main__&quot:
+    cli_main()
+</code></pre>

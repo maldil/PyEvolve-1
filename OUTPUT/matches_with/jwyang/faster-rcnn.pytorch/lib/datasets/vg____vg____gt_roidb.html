@@ -1,0 +1,417 @@
+<link rel="stylesheet" href="../../../..//default.css">
+<script src="../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/jwyang/faster-rcnn.pytorch/blob/master/lib/datasets/vg.py#L176">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/faster-rcnn.pytorch/blob/master/lib/datasets/vg.py#L176">GitMyHubLink</a>
+
+from __future__ import print_function
+from __future__ import absolute_import
+&#47&#47 --------------------------------------------------------
+&#47&#47 Fast R-CNN
+&#47&#47 Copyright (c) 2015 Microsoft
+&#47&#47 Licensed under The MIT License [see LICENSE for details]
+&#47&#47 Written by Ross Girshick
+&#47&#47 --------------------------------------------------------
+
+import os
+from datasets.imdb import imdb
+import datasets.ds_utils as ds_utils
+import xml.etree.ElementTree as ET
+import numpy as np
+import scipy.sparse
+import gzip
+import PIL
+import json
+from .vg_eval import vg_eval
+from model.utils.config import cfg
+import pickle
+import pdb
+try:
+    xrange          &#47&#47 Python 2
+except NameError:
+    xrange = range  &#47&#47 Python 3
+
+
+class vg(imdb):
+    def __init__(self, version, image_set, ):
+        imdb.__init__(self, &quotvg_&quot + version + &quot_&quot + image_set)
+        self._version = version
+        self._image_set = image_set
+        self._data_path = os.path.join(cfg.DATA_DIR, &quotgenome&quot)
+        self._img_path = os.path.join(cfg.DATA_DIR, &quotvg&quot)
+        &#47&#47 VG specific config options
+        self.config = {&quotcleanup&quot : False}
+
+        &#47&#47 Load classes
+        self._classes = [&quot__background__&quot]
+        self._class_to_ind = {}
+        self._class_to_ind[self._classes[0]] = 0
+        with open(os.path.join(self._data_path, self._version, &quotobjects_vocab.txt&quot)) as f:
+          count = 1
+          for object in f.readlines():
+            names = [n.lower().strip() for n in object.split(&quot,&quot)]
+            self._classes.append(names[0])
+            for n in names:
+              self._class_to_ind[n] = count
+            count += 1
+
+        &#47&#47 Load attributes
+        self._attributes = [&quot__no_attribute__&quot]
+        self._attribute_to_ind = {}
+        self._attribute_to_ind[self._attributes[0]] = 0
+        with open(os.path.join(self._data_path, self._version, &quotattributes_vocab.txt&quot)) as f:
+          count = 1
+          for att in f.readlines():
+            names = [n.lower().strip() for n in att.split(&quot,&quot)]
+            self._attributes.append(names[0])
+            for n in names:
+              self._attribute_to_ind[n] = count
+            count += 1
+
+        &#47&#47 Load relations
+        self._relations = [&quot__no_relation__&quot]
+        self._relation_to_ind = {}
+        self._relation_to_ind[self._relations[0]] = 0
+        with open(os.path.join(self._data_path, self._version, &quotrelations_vocab.txt&quot)) as f:
+          count = 1
+          for rel in f.readlines():
+            names = [n.lower().strip() for n in rel.split(&quot,&quot)]
+            self._relations.append(names[0])
+            for n in names:
+              self._relation_to_ind[n] = count
+            count += 1
+
+
+        self._image_ext = &quot.jpg&quot
+        load_index_from_file = False
+        if os.path.exists(os.path.join(self._data_path, "vg_image_index_{}.p".format(self._image_set))):
+            with open(os.path.join(self._data_path, "vg_image_index_{}.p".format(self._image_set)), &quotrb&quot) as fp:
+                self._image_index = pickle.load(fp)
+            load_index_from_file = True
+
+        load_id_from_file = False
+        if os.path.exists(os.path.join(self._data_path, "vg_id_to_dir_{}.p".format(self._image_set))):
+            with open(os.path.join(self._data_path, "vg_id_to_dir_{}.p".format(self._image_set)), &quotrb&quot) as fp:
+                self._id_to_dir = pickle.load(fp)
+            load_id_from_file = True
+
+        if not load_index_from_file or not load_id_from_file:
+            self._image_index, self._id_to_dir = self._load_image_set_index()
+            with open(os.path.join(self._data_path, "vg_image_index_{}.p".format(self._image_set)), &quotwb&quot) as fp:
+                pickle.dump(self._image_index, fp)
+            with open(os.path.join(self._data_path, "vg_id_to_dir_{}.p".format(self._image_set)), &quotwb&quot) as fp:
+                pickle.dump(self._id_to_dir, fp)
+
+        self._roidb_handler = self.gt_roidb
+
+
+    def image_path_at(self, i):
+        
+        Return the absolute path to image i in the image sequence.
+        
+        return self.image_path_from_index(self._image_index[i])
+
+    def image_id_at(self, i):
+        
+        Return the absolute path to image i in the image sequence.
+        
+        return i
+        &#47&#47 return self._image_index[i]
+
+    def image_path_from_index(self, index):
+        
+        Construct an image path from the image&quots "index" identifier.
+        
+        folder = self._id_to_dir[index]
+        image_path = os.path.join(self._img_path, folder,
+                                  str(index) + self._image_ext)
+        assert os.path.exists(image_path), \
+                &quotPath does not exist: {}&quot.format(image_path)
+        return image_path
+
+    def _image_split_path(self):
+        if self._image_set == "minitrain":
+          return os.path.join(self._data_path, &quottrain.txt&quot)
+        if self._image_set == "smalltrain":
+          return os.path.join(self._data_path, &quottrain.txt&quot)
+        if self._image_set == "minival":
+          return os.path.join(self._data_path, &quotval.txt&quot)
+        if self._image_set == "smallval":
+          return os.path.join(self._data_path, &quotval.txt&quot)
+        else:
+          return os.path.join(self._data_path, self._image_set+&quot.txt&quot)
+
+    def _load_image_set_index(self):
+        
+        Load the indexes listed in this dataset&quots image set file.
+        
+        training_split_file = self._image_split_path()
+        assert os.path.exists(training_split_file), \
+                &quotPath does not exist: {}&quot.format(training_split_file)
+        with open(training_split_file) as f:
+          metadata = f.readlines()
+          if self._image_set == "minitrain":
+            metadata = metadata[:1000]
+          elif self._image_set == "smalltrain":
+            metadata = metadata[:20000]
+          elif self._image_set == "minival":
+            metadata = metadata[:100]
+          elif self._image_set == "smallval":
+            metadata = metadata[:2000]
+
+        image_index = []
+        id_to_dir = {}
+        for line in metadata:
+          im_file,ann_file = line.split()
+          image_id = int(ann_file.split(&quot/&quot)[-1].split(&quot.&quot)[0])
+          filename = self._annotation_path(image_id)
+          if os.path.exists(filename):
+              &#47&#47 Some images have no bboxes after object filtering, so there
+              &#47&#47 is no xml annotation for these.
+              tree = ET.parse(filename)
+              for obj in tree.findall(&quotobject&quot):
+                  obj_name = obj.find(&quotname&quot).text.lower().strip()
+                  if obj_name in self._class_to_ind:
+                      &#47&#47 We have to actually load and check these to make sure they have
+                      &#47&#47 at least one object actually in vocab
+                      image_index.append(image_id)
+                      id_to_dir[image_id] = im_file.split(&quot/&quot)[0]
+                      break
+        return image_index, id_to_dir
+
+    def gt_roidb(self):
+        
+        Return the database of ground-truth regions of interest.
+
+        This function loads/saves from/to a cache file to speed up future calls.
+        
+        cache_file = os.path.join(self.cache_path, self.name + &quot_gt_roidb.pkl&quot)
+        if os.path.exists(cache_file):
+            <a id="change">fid</a><a id="change"> = gzip.open(cache_file,&quotrb&quot)</a>
+            roidb = pickle.load(fid)
+            <a id="change">fid</a><a id="change">.close()</a>
+            print(&quot{} gt roidb loaded from {}&quot.format(self.name, cache_file))
+            return roidb
+
+        gt_roidb = [self._load_vg_annotation(index)
+                    for index in self.image_index]
+        <a id="change">fid</a><a id="change"> = gzip.open(cache_file,&quotwb&quot)</a>
+        pickle.dump(gt_roidb, fid, pickle.HIGHEST_PROTOCOL)
+        <a id="change">fid</a><a id="change">.close()</a>
+        print(&quotwrote gt roidb to {}&quot.format(cache_file))
+        return gt_roidb
+
+    def _get_size(self, index):
+      return PIL.Image.open(self.image_path_from_index(index)).size
+
+    def _annotation_path(self, index):
+        return os.path.join(self._data_path, &quotxml&quot, str(index) + &quot.xml&quot)
+
+    def _load_vg_annotation(self, index):
+        
+        Load image and bounding boxes info from XML file in the PASCAL VOC
+        format.
+        
+        width, height = self._get_size(index)
+        filename = self._annotation_path(index)
+        tree = ET.parse(filename)
+        objs = tree.findall(&quotobject&quot)
+        num_objs = len(objs)
+
+        boxes = np.zeros((num_objs, 4), dtype=np.uint16)
+        gt_classes = np.zeros((num_objs), dtype=np.int32)
+        &#47&#47 Max of 16 attributes are observed in the data
+        gt_attributes = np.zeros((num_objs, 16), dtype=np.int32)
+        overlaps = np.zeros((num_objs, self.num_classes), dtype=np.float32)
+        &#47&#47 "Seg" area for pascal is just the box area
+        seg_areas = np.zeros((num_objs), dtype=np.float32)
+
+        &#47&#47 Load object bounding boxes into a data frame.
+        obj_dict = {}
+        ix = 0
+        for obj in objs:
+            obj_name = obj.find(&quotname&quot).text.lower().strip()
+            if obj_name in self._class_to_ind:
+                bbox = obj.find(&quotbndbox&quot)
+                x1 = max(0,float(bbox.find(&quotxmin&quot).text))
+                y1 = max(0,float(bbox.find(&quotymin&quot).text))
+                x2 = min(width-1,float(bbox.find(&quotxmax&quot).text))
+                y2 = min(height-1,float(bbox.find(&quotymax&quot).text))
+                &#47&#47 If bboxes are not positive, just give whole image coords (there are a few examples)
+                if x2 &lt; x1 or y2 &lt; y1:
+                    print(&quotFailed bbox in %s, object %s&quot % (filename, obj_name))
+                    x1 = 0
+                    y1 = 0
+                    x2 = width-1
+                    y2 = width-1
+                cls = self._class_to_ind[obj_name]
+                obj_dict[obj.find(&quotobject_id&quot).text] = ix
+                atts = obj.findall(&quotattribute&quot)
+                n = 0
+                for att in atts:
+                    att = att.text.lower().strip()
+                    if att in self._attribute_to_ind:
+                        gt_attributes[ix, n] = self._attribute_to_ind[att]
+                        n += 1
+                    if n &gt;= 16:
+                        break
+                boxes[ix, :] = [x1, y1, x2, y2]
+                gt_classes[ix] = cls
+                overlaps[ix, cls] = 1.0
+                seg_areas[ix] = (x2 - x1 + 1) * (y2 - y1 + 1)
+                ix += 1
+        &#47&#47 clip gt_classes and gt_relations
+        gt_classes = gt_classes[:ix]
+        gt_attributes = gt_attributes[:ix, :]
+
+        overlaps = scipy.sparse.csr_matrix(overlaps)
+        gt_attributes = scipy.sparse.csr_matrix(gt_attributes)
+
+        rels = tree.findall(&quotrelation&quot)
+        num_rels = len(rels)
+        gt_relations = set() &#47&#47 Avoid duplicates
+        for rel in rels:
+            pred = rel.find(&quotpredicate&quot).text
+            if pred: &#47&#47 One is empty
+                pred = pred.lower().strip()
+                if pred in self._relation_to_ind:
+                    try:
+                        triple = []
+                        triple.append(obj_dict[rel.find(&quotsubject_id&quot).text])
+                        triple.append(self._relation_to_ind[pred])
+                        triple.append(obj_dict[rel.find(&quotobject_id&quot).text])
+                        gt_relations.add(tuple(triple))
+                    except:
+                        pass &#47&#47 Object not in dictionary
+        gt_relations = np.array(list(gt_relations), dtype=np.int32)
+
+        return {&quotboxes&quot : boxes,
+                &quotgt_classes&quot: gt_classes,
+                &quotgt_attributes&quot : gt_attributes,
+                &quotgt_relations&quot : gt_relations,
+                &quotgt_overlaps&quot : overlaps,
+                &quotwidth&quot : width,
+                &quotheight&quot: height,
+                &quotflipped&quot : False,
+                &quotseg_areas&quot : seg_areas}
+
+    def evaluate_detections(self, all_boxes, output_dir):
+        self._write_voc_results_file(self.classes, all_boxes, output_dir)
+        self._do_python_eval(output_dir)
+        if self.config[&quotcleanup&quot]:
+            for cls in self._classes:
+                if cls == &quot__background__&quot:
+                    continue
+                filename = self._get_vg_results_file_template(output_dir).format(cls)
+                os.remove(filename)
+
+    def evaluate_attributes(self, all_boxes, output_dir):
+        self._write_voc_results_file(self.attributes, all_boxes, output_dir)
+        self._do_python_eval(output_dir, eval_attributes = True)
+        if self.config[&quotcleanup&quot]:
+            for cls in self._attributes:
+                if cls == &quot__no_attribute__&quot:
+                    continue
+                filename = self._get_vg_results_file_template(output_dir).format(cls)
+                os.remove(filename)
+
+    def _get_vg_results_file_template(self, output_dir):
+        filename = &quotdetections_&quot + self._image_set + &quot_{:s}.txt&quot
+        path = os.path.join(output_dir, filename)
+        return path
+
+    def _write_voc_results_file(self, classes, all_boxes, output_dir):
+        for cls_ind, cls in enumerate(classes):
+            if cls == &quot__background__&quot:
+                continue
+            print(&quotWriting "{}" vg results file&quot.format(cls))
+            filename = self._get_vg_results_file_template(output_dir).format(cls)
+            with open(filename, &quotwt&quot) as f:
+                for im_ind, index in enumerate(self.image_index):
+                    dets = all_boxes[cls_ind][im_ind]
+                    if dets == []:
+                        continue
+                    &#47&#47 the VOCdevkit expects 1-based indices
+                    for k in xrange(dets.shape[0]):
+                        f.write(&quot{:s} {:.3f} {:.1f} {:.1f} {:.1f} {:.1f}\n&quot.
+                                format(str(index), dets[k, -1],
+                                       dets[k, 0] + 1, dets[k, 1] + 1,
+                                       dets[k, 2] + 1, dets[k, 3] + 1))
+
+
+    def _do_python_eval(self, output_dir, pickle=True, eval_attributes = False):
+        &#47&#47 We re-use parts of the pascal voc python code for visual genome
+        aps = []
+        nposs = []
+        thresh = []
+        &#47&#47 The PASCAL VOC metric changed in 2010
+        use_07_metric = False
+        print(&quotVOC07 metric? &quot + (&quotYes&quot if use_07_metric else &quotNo&quot))
+        if not os.path.isdir(output_dir):
+            os.mkdir(output_dir)
+        &#47&#47 Load ground truth
+        gt_roidb = self.gt_roidb()
+        if eval_attributes:
+            classes = self._attributes
+        else:
+            classes = self._classes
+        for i, cls in enumerate(classes):
+            if cls == &quot__background__&quot or cls == &quot__no_attribute__&quot:
+                continue
+            filename = self._get_vg_results_file_template(output_dir).format(cls)
+            rec, prec, ap, scores, npos = vg_eval(
+                filename, gt_roidb, self.image_index, i, ovthresh=0.5,
+                use_07_metric=use_07_metric, eval_attributes=eval_attributes)
+
+            &#47&#47 Determine per class detection thresholds that maximise f score
+            if npos &gt; 1:
+                f = np.nan_to_num((prec*rec)/(prec+rec))
+                thresh += [scores[np.argmax(f)]]
+            else:
+                thresh += [0]
+            aps += [ap]
+            nposs += [float(npos)]
+            print(&quotAP for {} = {:.4f} (npos={:,})&quot.format(cls, ap, npos))
+            if pickle:
+                with open(os.path.join(output_dir, cls + &quot_pr.pkl&quot), &quotwb&quot) as f:
+                    pickle.dump({&quotrec&quot: rec, &quotprec&quot: prec, &quotap&quot: ap,
+                        &quotscores&quot: scores, &quotnpos&quot:npos}, f)
+
+        &#47&#47 Set thresh to mean for classes with poor results
+        thresh = np.array(thresh)
+        avg_thresh = np.mean(thresh[thresh!=0])
+        thresh[thresh==0] = avg_thresh
+        if eval_attributes:
+            filename = &quotattribute_thresholds_&quot + self._image_set + &quot.txt&quot
+        else:
+            filename = &quotobject_thresholds_&quot + self._image_set + &quot.txt&quot
+        path = os.path.join(output_dir, filename)
+        with open(path, &quotwt&quot) as f:
+            for i, cls in enumerate(classes[1:]):
+                f.write(&quot{:s} {:.3f}\n&quot.format(cls, thresh[i]))
+
+        weights = np.array(nposs)
+        weights /= weights.sum()
+        print(&quotMean AP = {:.4f}&quot.format(np.mean(aps)))
+        print(&quotWeighted Mean AP = {:.4f}&quot.format(np.average(aps, weights=weights)))
+        print(&quotMean Detection Threshold = {:.3f}&quot.format(avg_thresh))
+        print(&quot~~~~~~~~&quot)
+        print(&quotResults:&quot)
+        for ap,npos in zip(aps,nposs):
+            print(&quot{:.3f}\t{:.3f}&quot.format(ap,npos))
+        print(&quot{:.3f}&quot.format(np.mean(aps)))
+        print(&quot~~~~~~~~&quot)
+        print(&quot&quot)
+        print(&quot--------------------------------------------------------------&quot)
+        print(&quotResults computed with the **unofficial** PASCAL VOC Python eval code.&quot)
+        print(&quot--------------------------------------------------------------&quot)
+
+
+if __name__ == &quot__main__&quot:
+    d = vg(&quotval&quot)
+    res = d.roidb
+    from IPython import embed; embed()
+</code></pre>

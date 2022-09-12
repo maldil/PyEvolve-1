@@ -1,0 +1,86 @@
+digraph G {
+1 [label="(193256780)str(file_name)" shape=ellipse style=dashed]
+2 [label="(193256785)extract" shape=box style=dashed]
+3 [label="(193256781)str(file_name)" shape=ellipse style=dashed]
+4 [label="(193256784)tarfile.TarFile(tar)" shape=ellipse style=dashed]
+5 [label="(193256772)str(tar_path)" shape=ellipse style=dashed]
+6 [label="(193256776)tarfile.TarFile(tar)" shape=ellipse style=dashed]
+7 [label="(193256777)getnames" shape=box style=dashed]
+8 [label="(193256786)str(file_name)" shape=ellipse style=dashed]
+9 [label="(193256770)tarfile(tarfile)" shape=ellipse style=dashed]
+10 [label="(193256787)Any(target_path)" shape=ellipse style=dashed]
+11 [label="(193256765)(null)" shape=ellipse style=dashed]
+12 [label="(193256759)START" style=dashed]
+13 [label="(193256775)List[str](file_names)" shape=ellipse style=dashed]
+14 [label="(193256782)For" shape=diamond style=dashed]
+15 [label="(193256791)empty" shape=box style=dashed]
+16 [label="(193256764)Any(target_path)" shape=ellipse style=dashed]
+17 [label="(193256789)close" shape=box style=dashed color=black fontcolor=black]
+18 [label="(193256761)(null)" shape=ellipse style=dashed]
+19 [label="(193256790)AST" shape=diamond style=dashed]
+20 [label="(193256778)=" shape=box style=dashed color=blue fontcolor=blue]
+21 [label="(193256760)str(tar_path)" shape=ellipse style=dashed]
+22 [label="(193256768)TryExcept" shape=diamond style=dashed]
+23 [label="(193256783)empty" shape=box style=dashed]
+24 [label="(193256769)tarfile.TarFile(tar)" shape=ellipse style=dashed color=black fontcolor=black]
+25 [label="(193256762)=" shape=box style=dashed color=red fontcolor=red]
+26 [label="(193256792)print" shape=box style=dashed]
+27 [label="(193256771)open" shape=box style=dashed color=black fontcolor=black]
+28 [label="(193256766)=" shape=box style=dashed color=red fontcolor=red]
+29 [label="(193256793)Exception(e)" shape=ellipse style=dashed]
+30 [label="(193256788)tarfile.TarFile(tar)" shape=ellipse style=dashed color=black fontcolor=black]
+31 [label="(193256773)String(lit(r:gz))" shape=ellipse style=dashed color=black fontcolor=black]
+32 [label="(193256779)List[str](file_names)" shape=ellipse style=dashed]
+33 [label="(193256774)=" shape=box style=dashed color=black fontcolor=black]
+34 [label="(193256794)END" style=dashed]
+32 -> 1 [label="def" style=dotted];
+14 -> 2 [label="" style=solid];
+4 -> 2 [label="recv" style=dotted];
+8 -> 2 [label="para" style=dotted];
+10 -> 2 [label="para" style=dotted];
+23 -> 2 [label="dep" style=dotted];
+1 -> 3 [label="ref" style=dotted];
+24 -> 4 [label="ref" style=dotted];
+24 -> 6 [label="ref" style=dotted];
+22 -> 7 [label="T"];
+6 -> 7 [label="recv" style=dotted];
+33 -> 7 [label="dep" style=dotted];
+1 -> 8 [label="ref" style=dotted];
+20 -> 13 [label="def" style=dotted];
+22 -> 14 [label="T"];
+3 -> 14 [label="cond" style=dotted];
+20 -> 14 [label="dep" style=dotted];
+19 -> 15 [label="" style=solid];
+28 -> 16 [label="def" style=dotted];
+22 -> 17 [label="T"];
+30 -> 17 [label="recv" style=dotted];
+2 -> 17 [label="dep" style=dotted];
+22 -> 19 [label="F"];
+22 -> 20 [label="T"];
+7 -> 20 [label="dep" style=dotted];
+7 -> 20 [label="para" style=dotted];
+25 -> 21 [label="def" style=dotted];
+12 -> 22 [label="" style=solid];
+28 -> 22 [label="dep" style=dotted];
+14 -> 23 [label="" style=solid];
+33 -> 24 [label="def" style=dotted];
+12 -> 25 [label="" style=solid];
+18 -> 25 [label="para" style=dotted];
+19 -> 26 [label="" style=solid];
+29 -> 26 [label="para" style=dotted];
+15 -> 26 [label="dep" style=dotted];
+22 -> 27 [label="T"];
+9 -> 27 [label="recv" style=dotted];
+5 -> 27 [label="para" style=dotted];
+31 -> 27 [label="para" style=dotted];
+12 -> 28 [label="" style=solid];
+11 -> 28 [label="para" style=dotted];
+25 -> 28 [label="dep" style=dotted];
+24 -> 30 [label="ref" style=dotted];
+13 -> 32 [label="ref" style=dotted];
+22 -> 33 [label="T"];
+27 -> 33 [label="dep" style=dotted];
+27 -> 33 [label="para" style=dotted];
+17 -> 34 [label="dep" style=dotted];
+26 -> 34 [label="dep" style=dotted];
+}

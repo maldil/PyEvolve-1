@@ -1,0 +1,295 @@
+<link rel="stylesheet" href="../../../../..//default.css">
+<script src="../../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/ncoudray/DeepPATH/blob/master/DeepPATH_code/02_testing/xClasses/nc_imagenet_eval.py#L37">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/DeepPATH/blob/master/DeepPATH_code/02_testing/xClasses/nc_imagenet_eval.py#L37">GitMyHubLink</a>
+
+A binary to evaluate Inception on the Lung data set.
+Output generated:
+** information for ROC curves with 2 aggregation methods (out_FPTPrate_PcTiles.txt, out_FPTPrate_ScoreTiles.txt)
+** probability associated with each tile and info whether the max is a true positive or not (out_filename_Stats.txt)
+
+
+
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+import pickle
+import csv
+import sys
+import tensorflow as tf
+
+from inception import nc_inception_eval
+from inception.nc_imagenet_data import ImagenetData
+import numpy as np
+&#47&#47from inception import inception_eval
+&#47&#47from inception.imagenet_data import ImagenetData
+import os
+
+FLAGS = tf.app.flags.FLAGS
+
+tf.app.flags.DEFINE_string(&quotImageSet_basename&quot, &quottest_&quot,
+                           Either &quottest_&quot, &quotvalid&quot or &quottrain&quot.)
+
+tf.app.flags.DEFINE_string(&quotTVmode&quot, &quottest&quot,
+                           Either &quottest&quot or &quotvalid&quot (test prep the output for AUC computation and expects 1 file per slide - valid only saves accuracy)
+
+tf.app.flags.DEFINE_string(&quotmode&quot, &quot0_softmax&quot,
+                            0_softmax or 1_sigmoid.)
+
+
+def main(unused_argv=None):
+
+  &#47&#47input_path = os.path.join(FLAGS.data_dir, &quottest_*&quot)
+  input_path = os.path.join(FLAGS.data_dir, FLAGS.ImageSet_basename + &quot*&quot)
+  print(input_path)
+  &#47&#47FLAGS.batch_size = 30
+  data_files = tf.gfile.Glob(input_path)
+  print(data_files)
+
+  mydict={}
+  count_slides = 0
+
+  
+  if "test" in FLAGS.TVmode:
+    for next_slide in data_files:
+      print("New Slide ------------ %d" % (count_slides))
+      try:
+        labelindex = int(next_slide.split(&quot_&quot)[-1].split(&quot.&quot)[0])
+        labelname = &quotlabel_&quot + str(labelindex)
+      except:
+        labelindex = 0
+        labelname = &quotlabel_0&quot
+      print("label %d: %s" % (labelindex, labelname))
+
+      FLAGS.data_dir = next_slide
+      dataset = ImagenetData(subset=FLAGS.subset)
+      assert dataset.data_files()
+      &#47&#47try:
+      if True:
+        precision_at_1, current_score = nc_inception_eval.evaluate(dataset)
+        mydict[next_slide] = {}
+        mydict[next_slide][&quotNbrTiles&quot]  = FLAGS.num_examples
+        mydict[next_slide][labelname+&quot_Selected&quot] = precision_at_1
+        mydict[next_slide][labelname+&quot_Score&quot] = current_score
+        mydict[next_slide][&quotRead_Class&quot] = labelname
+        print(FLAGS.num_examples)
+        count_slides += 1.0
+      if False:
+      &#47&#47except Exception as e:
+        print("%s FAILED to be processed properly" %next_slide)
+        print("Unexpected error:", sys.exc_info()[0])
+        exc_type, exc_obj, exc_tb = sys.exc_info()
+        fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+        print(exc_type, fname, exc_tb.tb_lineno)
+    <a id="change">output = open(os.path.join(FLAGS.eval_dir, &quotout_All_Stats.txt&quot), &quotab+&quot)</a>
+    pickle.dump(mydict, output)
+    <a id="change">output</a><a id="change">.close()</a>
+  elif "valid" in FLAGS.TVmode:
+    &#47&#47FLAGS.data_dir = FLAGS.data_dir + "/valid*"
+    FLAGS.data_dir = os.path.join(FLAGS.data_dir, FLAGS.ImageSet_basename + &quot*&quot)
+    dataset = ImagenetData(subset=FLAGS.subset)
+    print("Validation mode:")
+    print(dataset.data_files())
+    assert dataset.data_files()
+    nc_inception_eval.evaluate(dataset)
+  elif "train" in FLAGS.TVmode:
+    FLAGS.data_dir = os.path.join(FLAGS.data_dir, FLAGS.ImageSet_basename + &quot*&quot)
+    dataset = ImagenetData(subset=FLAGS.subset)
+    print(dataset.data_files())
+    assert dataset.data_files()
+    nc_inception_eval.evaluate(dataset)
+
+
+
+  &#47&#47 &#47&#47 read data
+  &#47&#47 output = open(&quotout_All_Stats.txt&quot, &quotrb&quot)
+  &#47&#47 mydict = pickle.load(output) 
+
+  
+
+  
+  AllLabels = {}
+  AllLabels[&quotnormal&quot] = {}
+  AllLabels[&quotluad&quot] = {}
+  AllLabels[&quotlusc&quot] = {}
+
+
+  &#47&#47 Summarize the results
+  for key, value in sorted(mydict.items()):
+    &#47&#47 for each slide, check the label and do an array of values for each label
+    current_label = mydict[key][&quotRead_Class&quot]
+    print("current label:" + current_label)
+    if &quotAllPercentSlidesTP&quot in AllLabels[current_label].keys():
+      AllLabels[current_label][&quotAllPercentSlidesTP&quot].append(mydict[key][current_label +&quot_Selected&quot])
+      AllLabels[current_label][&quotAllScoreSlidesTP&quot].append(mydict[key][current_label +&quot_Score&quot])
+      AllLabels[current_label][&quotNbrSlides&quot] += 1.0
+    else:
+      AllLabels[current_label][&quotAllPercentSlidesTP&quot] = [ mydict[key][current_label +&quot_Selected&quot] ]
+      AllLabels[current_label][&quotAllScoreSlidesTP&quot] = [ mydict[key][current_label +&quot_Score&quot] ] 
+      AllLabels[current_label][&quotNbrSlides&quot] = 1.0
+
+  for current_label in AllLabels.keys():
+    print(current_label)
+    AllLabels[current_label][&quotTP percent classified above 0.5&quot] = sum(1 if (x &gt; 0.5) else 0 for x in (AllLabels[current_label][&quotAllPercentSlidesTP&quot]) )
+    AllLabels[current_label][&quotTP percent classified above 0.5&quot] = AllLabels[current_label][&quotTP percent classified above 0.5&quot] / AllLabels[current_label][&quotNbrSlides&quot]
+    print(current_label + " final scores:")
+    print(" * %f %% slides have a majority of slides properly classified (true positive)" % (round( AllLabels[current_label][&quotTP percent classified above 0.5&quot]*100 , 2)) )		
+    AllLabels[current_label][&quotTP score classified above 0.5&quot] = sum(1 if (x &gt; 0.5) else 0 for x in (AllLabels[current_label][&quotAllScoreSlidesTP&quot]) )
+    AllLabels[current_label][&quotTP score classified above 0.5&quot] = AllLabels[current_label][&quotTP score classified above 0.5&quot] / AllLabels[current_label][&quotNbrSlides&quot]
+
+  
+
+
+
+  
+  &#47&#47 Compute ROC curves for different thresholds
+
+  if len(AllLabels) == 2:
+    ROC = {}
+    Label_names = list(AllLabels.keys())
+    T_Label = Label_names[0]
+    F_Label = Label_names[1]
+    ROC[(T_Label + &quot TPrate&quot)] = {}
+    ROC[(T_Label + &quot FNrate&quot)] = {}
+    ROC[(F_Label + &quot TNrate&quot)] = {}
+    ROC[(F_Label + &quot FPrate&quot)] = {}
+    for threshold in np.linspace(0,1,101):
+      &#47&#47 True positives and true negatives expressed in percentage
+      &#47&#47 Class assigned
+      rhist, rbins = np.histogram(AllLabels[T_Label][&quotAllPercentSlidesTP&quot], bins=np.linspace(0,1,101))
+      cumulH = [sum(rhist)]
+      for kk in range(len(rhist)):
+        p = cumulH[kk]
+        cumulH.append(float(p-rhist[kk]))
+      ROC[(T_Label + &quot TPrate&quot)][&quotAllPercentSlides&quot] = cumulH / sum(rhist)
+      ROC[(T_Label + &quot FNrate&quot)][&quotAllPercentSlides&quot] = 1 - ROC[(T_Label + &quot TPrate&quot)][&quotAllPercentSlides&quot]
+      rhist, rbins = np.histogram(AllLabels[F_Label][&quotAllPercentSlidesTP&quot], bins=np.linspace(0,1,101))
+      cumulH = [sum(rhist)]
+      for kk in range(len(rhist)):
+        p = cumulH[kk]
+        cumulH.append(float(p-rhist[kk]))
+      cumulH = cumulH[::-1]
+      ROC[(F_Label + &quot TNrate&quot)][&quotAllPercentSlides&quot] = cumulH / sum(rhist)
+      ROC[(F_Label + &quot FPrate&quot)][&quotAllPercentSlides&quot] = 1 - ROC[(F_Label + &quot TNrate&quot)][&quotAllPercentSlides&quot]
+
+
+      rhist, rbins = np.histogram(AllLabels[T_Label][&quotAllScoreSlidesTP&quot], bins=np.linspace(0,1,101))
+      cumulH = [sum(rhist)]
+      for kk in range(len(rhist)):
+        p = cumulH[kk]
+        cumulH.append(float(p-rhist[kk]))
+      ROC[(T_Label + &quot TPrate&quot)][&quotAllScoreSlides&quot] = cumulH / sum(rhist)
+      ROC[(T_Label + &quot FNrate&quot)][&quotAllScoreSlides&quot] = 1 - ROC[(T_Label + &quot TPrate&quot)][&quotAllScoreSlides&quot]
+      rhist, rbins = np.histogram(AllLabels[F_Label][&quotAllScoreSlidesTP&quot], bins=np.linspace(0,1,101))
+      cumulH = [sum(rhist)]
+      for kk in range(len(rhist)):
+        p = cumulH[kk]
+        cumulH.append(float(p-rhist[kk]))
+      cumulH = cumulH[::-1]
+      ROC[(F_Label + &quot TNrate&quot)][&quotAllScoreSlides&quot] = cumulH / sum(rhist)
+      ROC[(F_Label + &quot FPrate&quot)][&quotAllScoreSlides&quot] = 1 - ROC[(F_Label + &quot TNrate&quot)][&quotAllScoreSlides&quot]
+
+
+
+
+    ROC[&quotAUC AllPercentSlides&quot] = 0.
+    ROC[&quotAUC AllScoreSlides&quot] = 0.
+
+    &#47&#47for threshold in np.linspace(0,1,100):
+    for threshold in range(len(ROC[(F_Label + &quot FPrate&quot)][&quotAllPercentSlides&quot])-1):
+      ROC[&quotAUC AllPercentSlides&quot] += (- ROC[(F_Label + &quot FPrate&quot)][&quotAllPercentSlides&quot][threshold+1]  \
+                                  + ROC[(F_Label + &quot FPrate&quot)][&quotAllPercentSlides&quot][threshold]) \
+                                  * (ROC[(T_Label + &quot TPrate&quot)][&quotAllPercentSlides&quot][threshold+1]  \
+                                  + ROC[(T_Label + &quot TPrate&quot)][&quotAllPercentSlides&quot][threshold])
+      ROC[&quotAUC AllScoreSlides&quot] += (- ROC[(F_Label + &quot FPrate&quot)][&quotAllScoreSlides&quot][threshold+1]  \
+                                  + ROC[(F_Label + &quot FPrate&quot)][&quotAllScoreSlides&quot][threshold]) \
+                                  * (ROC[(T_Label + &quot TPrate&quot)][&quotAllScoreSlides&quot][threshold+1]  \
+                                  + ROC[(T_Label + &quot TPrate&quot)][&quotAllScoreSlides&quot][threshold])
+
+
+    ROC[&quotAUC AllPercentSlides&quot] = ROC[&quotAUC AllPercentSlides&quot] /2
+    ROC[&quotAUC AllScoreSlides&quot] = ROC[&quotAUC AllScoreSlides&quot] /2
+
+    output = open(os.path.join(FLAGS.eval_dir, &quotout_All_ROC.txt&quot), &quotab+&quot)
+    pickle.dump(ROC, output)
+    output.close()
+
+    &#47&#47output = open(os.path.join(image_dir, &quotout_FPTPrate_PcTiles.txt&quot),&quotw&quot)
+    output = open(os.path.join(FLAGS.eval_dir, &quotout_FPTPrate_PcTiles.txt&quot),&quotw&quot)
+    for item in range(len(ROC[(F_Label + &quot FPrate&quot)][&quotAllPercentSlides&quot])):
+      output.write("%f\t%f\n" % (ROC[(F_Label + &quot FPrate&quot)][&quotAllPercentSlides&quot][item], ROC[(T_Label + &quot TPrate&quot)][&quotAllPercentSlides&quot][item]) )
+
+    output.close()
+
+    output = open(os.path.join(FLAGS.eval_dir, &quotout_FPTPrate_ScoreTiles.txt&quot),&quotw&quot)
+    for item in range(len(ROC[(F_Label + &quot FPrate&quot)][&quotAllScoreSlides&quot])):
+      output.write("%f\t%f\n" % (ROC[(F_Label + &quot FPrate&quot)][&quotAllScoreSlides&quot][item], ROC[(T_Label + &quot TPrate&quot)][&quotAllScoreSlides&quot][item]) )
+
+    output.close()
+
+
+    &#47&#47 &#47&#47 read data
+    &#47&#47 output = open(&quotout_All_ROC.txt&quot, &quotrb&quot)
+    &#47&#47 ROC = pickle.load(output) 
+
+    &#47&#47 Best value; option 1: when TP + (1-FP) is max
+    Best_PercSlides = ROC[(T_Label + &quot TPrate&quot)][&quotAllPercentSlides&quot] + (1-ROC[(F_Label + &quot FPrate&quot)][&quotAllPercentSlides&quot])
+    index_max_PercSlides = np.argmax(Best_PercSlides)
+    &#47&#47 Best value; option 2: point closest to (1,0) of the ROC graph
+    minIndx_PercSlides = np.argmin(pow((0.0-ROC[(F_Label + &quot FPrate&quot)][&quotAllPercentSlides&quot]),2)+pow((1.0-ROC[(T_Label + &quot TPrate&quot)][&quotAllPercentSlides&quot]),2))
+
+
+    &#47&#47 Best value; option 1: when TP + (1-FP) is max
+    Best_ScoreSlides = ROC[(T_Label + &quot TPrate&quot)][&quotAllScoreSlides&quot] + (1-ROC[(F_Label + &quot FPrate&quot)][&quotAllScoreSlides&quot])
+    index_max_ScoreSlides = np.argmax(Best_PercSlides)
+    &#47&#47 Best value; option 2: point closest to (1,0) of the ROC graph
+    minIndx_ScoreSlides = np.argmin(pow((0.0-ROC[(F_Label + &quot FPrate&quot)][&quotAllScoreSlides&quot]),2)+pow((1.0-ROC[(T_Label + &quot TPrate&quot)][&quotAllScoreSlides&quot]),2))
+
+
+
+
+    &#47&#47 plot ROC: FP (x) TP (y)
+    gnucnt = open(os.path.join(FLAGS.eval_dir,&quotout_gnuplot.cnt&quot), &quotw&quot)
+    gnucnt.write(&quotset size 1,1\n&quot)
+    gnucnt.write(&quotset terminal postscript portrait enhanced\n&quot)
+    gnucnt.write(&quotset encoding iso_8859_1\n&quot)
+    gnucnt.write(&quotset key autotitle columnhead\n&quot)	
+    gnucnt.write(&quotunset key\n&quot)
+    gnucnt.write(&quotset output "&quot + os.path.join(FLAGS.eval_dir, &quotout_ROC.eps&quot) + &quot"\n&quot)
+    gnucnt.write(&quotset multiplot layout 2,1\n&quot)
+    gnucnt.write(&quotset ylabel "TP(&quot + T_Label + &quot)"\n&quot)
+    gnucnt.write(&quotset xlabel "FP(&quot + F_Label + &quot)"\n&quot)
+    gnucnt.write(&quotset yrange [0:1]\n&quot)
+    gnucnt.write(&quotset xrange [0:1]\n&quot)
+    gnucnt.write(&quotset size square\n&quot)
+    gnucnt.write(&quotset title "ROC based on percentage of correctly classified tiles\\n (AUC=&quot+ str(round(ROC[&quotAUC AllPercentSlides&quot],3)) +&quot;\\n opt thresh=&quot+str(round(np.linspace(0,1,101)[index_max_PercSlides],2))+&quot; TP=&quot+ str(round(ROC[(T_Label + &quot TPrate&quot)][&quotAllPercentSlides&quot][index_max_PercSlides],3)) +&quot; FP=&quot+ str(round(ROC[(F_Label + &quot FPrate&quot)][&quotAllPercentSlides&quot][index_max_PercSlides],3))+&quot;\\n opt thresh2=&quot+str(round(np.linspace(0,1,101)[minIndx_PercSlides],2))+&quot; TP=&quot+ str(round(ROC[(T_Label + &quot TPrate&quot)][&quotAllPercentSlides&quot][minIndx_PercSlides],3)) +&quot; FP=&quot+ str(round(ROC[(F_Label + &quot FPrate&quot)][&quotAllPercentSlides&quot][minIndx_PercSlides],3))+&quot)"\n&quot)
+    gnucnt.write(&quotplot "&quot+ os.path.join(FLAGS.eval_dir, &quotout_FPTPrate_PcTiles.txt&quot) +&quot" using 1:2 w l lc 1\n&quot)
+
+    gnucnt.write(&quotset ylabel "TP(&quot + T_Label + &quot)"\n&quot)
+    gnucnt.write(&quotset xlabel "FP(&quot + F_Label + &quot)"\n&quot)
+    gnucnt.write(&quotset yrange [0:1]\n&quot)
+    gnucnt.write(&quotset xrange [0:1]\n&quot)
+    gnucnt.write(&quotset size square\n&quot)
+    gnucnt.write(&quotset title "ROC based on average score of tiles\\n (AUC=&quot+ str(round(ROC[&quotAUC AllScoreSlides&quot],3)) +&quot;\\n opt thresh=&quot+str(round(np.linspace(0,1,101)[index_max_ScoreSlides],2))+&quot; TP=&quot+ str(round(ROC[(T_Label + &quot TPrate&quot)][&quotAllScoreSlides&quot][index_max_ScoreSlides],3)) +&quot; FP=&quot+ str(round(ROC[(F_Label + &quot FPrate&quot)][&quotAllScoreSlides&quot][index_max_ScoreSlides],3))+&quot;\\n opt thresh2=&quot+str(round(np.linspace(0,1,101)[minIndx_ScoreSlides],2))+&quot; TP=&quot+ str(round(ROC[(T_Label + &quot TPrate&quot)][&quotAllScoreSlides&quot][minIndx_ScoreSlides],3)) +&quot; FP=&quot+ str(round(ROC[(F_Label + &quot FPrate&quot)][&quotAllScoreSlides&quot][minIndx_ScoreSlides],3))+&quot)"\n&quot)
+    gnucnt.write(&quotplot "&quot+ os.path.join(FLAGS.eval_dir, &quotout_FPTPrate_ScoreTiles.txt&quot) +&quot" using 1:2 w l lc 1&quot)
+    gnucnt.close()
+  
+
+  
+  dataset = ImagenetData(subset=FLAGS.subset)
+  assert dataset.data_files()
+  if tf.gfile.Exists(FLAGS.eval_dir):
+    tf.gfile.DeleteRecursively(FLAGS.eval_dir)
+  tf.gfile.MakeDirs(FLAGS.eval_dir)
+  nc_inception_eval.evaluate(dataset)
+  
+
+if __name__ == &quot__main__&quot:
+  tf.app.run()
+</code></pre>

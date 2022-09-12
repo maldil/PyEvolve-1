@@ -1,0 +1,39 @@
+<link rel="stylesheet" href="../../../..//default.css">
+<script src="../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/autonomio/talos/blob/master/talos/scan/scan_utils.py#L1">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/talos/blob/master/talos/scan/scan_utils.py#L1">GitMyHubLink</a>
+
+def initialize_log(self):
+
+    import time
+    import os
+
+    &#47&#47 create the experiment folder (unless one is already there)
+    try:
+        path = os.getcwd()
+        os.mkdir(path + &quot/&quot + self.experiment_name)
+    except FileExistsError:
+        pass
+
+    &#47&#47 create unique experiment_id
+    self._experiment_id = time.strftime(&quot%D%H%M%S&quot).replace(&quot/&quot, &quot&quot)
+
+    &#47&#47 place saved models on a sub-folder
+    if self.save_models:
+        self._saved_models_path = self.experiment_name + &quot/&quot + self._experiment_id
+        file_path = path + &quot/&quot + self._saved_models_path
+        os.mkdir(file_path)
+
+    _file_name = self._experiment_id + &quot.csv&quot
+    _experiment_log = &quot./&quot + self.experiment_name + &quot/&quot + _file_name
+
+    <a id="change">f</a><a id="change"> = open(_experiment_log, &quotw&quot)</a>
+    <a id="change">f</a>.write(&quot&quot)
+    <a id="change">f</a><a id="change">.close()</a>
+
+    return _experiment_log
+</code></pre>

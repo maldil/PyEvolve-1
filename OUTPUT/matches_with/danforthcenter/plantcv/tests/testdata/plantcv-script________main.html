@@ -1,0 +1,82 @@
+<link rel="stylesheet" href="../../../..//default.css">
+<script src="../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/danforthcenter/plantcv/blob/master/tests/testdata/plantcv-script.py#L20">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/plantcv/blob/master/tests/testdata/plantcv-script.py#L20">GitMyHubLink</a>
+
+&#47&#47!/usr/bin/env python
+
+from plantcv import plantcv as pcv
+import argparse
+
+
+def options():
+    Parse command-line options.
+    parser = argparse.ArgumentParser(description="Test PlantCV workflow.")
+    parser.add_argument("--image", help="Input image file.", required=True)
+    parser.add_argument("--debug", help="Turn on debug, prints intermediate images.", default=None)
+    parser.add_argument("--writeimg", help="write out images.", default=False, action="store_true")
+    parser.add_argument("--result", help="result file.", required=False)
+    parser.add_argument("--outdir", help="Output directory for image files.", required=False)
+    parser.add_argument("--other", help="Optional input.", required=False)
+    args = parser.parse_args()
+    return args
+
+
+def main():
+    Run main program.
+    <a id="change">args</a> = options()
+    _ = pcv.__version__
+
+    <a id="change">shape_header</a> = [&quotHEADER_SHAPES&quot, &quotarea&quot, &quothull-area&quot, &quotsolidity&quot, &quotperimeter&quot, &quotwidth&quot, &quotheight&quot, &quotlongest_axis&quot,
+                    &quotcenter-of-mass-x&quot, &quotcenter-of-mass-y&quot, &quothull_vertices&quot, &quotin_bounds&quot, &quotellipse_center_x&quot,
+                    &quotellipse_center_y&quot, &quotellipse_major_axis&quot, &quotellipse_minor_axis&quot, &quotellipse_angle&quot,
+                    &quotellipse_eccentricity&quot]
+    <a id="change">shape_data</a> = [&quotSHAPES_DATA&quot, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+    <a id="change">shape_img</a> = [[&quotIMAGE&quot, &quotshapes&quot, &quotshape_image.png&quot]]
+    <a id="change">color_header</a> = [&quotHEADER_HISTOGRAM&quot, &quotbin-number&quot, &quotbin-values&quot, &quotblue&quot, &quotgreen&quot, &quotred&quot, &quotlightness&quot,
+                    &quotgreen-magenta&quot, &quotblue-yellow&quot, &quothue&quot, &quotsaturation&quot, &quotvalue&quot]
+    <a id="change">color_data</a> = [&quotHISTOGRAM_DATA&quot, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+    <a id="change">color_img</a> = [[&quotIMAGE&quot, &quothist&quot, &quotpseudo_img.png&quot]]
+    <a id="change">boundary_header</a> = [&quotHEADER_BOUNDARY1&quot, &quotheight_above_bound&quot, &quotheight_below_bound&quot, &quotabove_bound_area&quot,
+                       &quotpercent_above_bound_area&quot, &quotbelow_bound_area&quot, &quotpercent_below_bound_area&quot]
+    <a id="change">boundary_data</a> = [&quotBOUNDARY_DATA&quot, 1, 1, 1, 1, 1, 1]
+    <a id="change">boundary_img</a> = [&quotIMAGE&quot, &quotboundary&quot, &quotboundary_img.png&quot]
+
+    &#47&#47 Output shape and color parallel_data
+    <a id="change">result</a><a id="change"> = open(args.result, "a")</a>
+    result.write(&quotMETA\timage\t&quot + args.image + &quot\n&quot)
+    result.write(&quotMETA\ttimestamp\t2014-10-22 17:49:35.187\n&quot)
+    result.write(&quotMETA\tframe\t0\n&quot)
+    result.write(&quotMETA\tlifter\th1\n&quot)
+    result.write(&quotMETA\tgain\tg0\n&quot)
+    result.write(&quotMETA\tmeasurementlabel\tC002ch_092214_biomass\n&quot)
+    result.write(&quotMETA\tcartag\t2143\n&quot)
+    result.write(&quotMETA\tid\t117770\n&quot)
+    result.write(&quotMETA\texposure\te82\n&quot)
+    result.write(&quotMETA\tzoom\tz1\n&quot)
+    result.write(&quotMETA\tplantbarcode\tCa031AA010564\n&quot)
+    result.write(&quotMETA\tcamera\tSV\n&quot)
+    result.write(&quotMETA\ttreatment\tnone\n&quot)
+    result.write(&quotMETA\timgtype\tVIS\n&quot)
+    result.write(&quotMETA\tother\tnone\n&quot)
+    result.write(&quot\t&quot.join(map(str, shape_header)) + "\n")
+    result.write(&quot\t&quot.join(map(str, shape_data)) + "\n")
+    for <a id="change">row</a> in shape_img:
+        result.write(&quot\t&quot.join(map(str, row)) + "\n")
+    result.write(&quot\t&quot.join(map(str, color_header)) + "\n")
+    result.write(&quot\t&quot.join(map(str, color_data)) + "\n")
+    result.write(&quot\t&quot.join(map(str, boundary_header)) + "\n")
+    result.write(&quot\t&quot.join(map(str, boundary_data)) + "\n")
+    result.write(&quot\t&quot.join(map(str, boundary_img)) + "\n")
+    for <a id="change">row</a> in color_img:
+        result.write(&quot\t&quot.join(map(str, row)) + "\n")
+    <a id="change">result</a><a id="change">.close()</a>
+
+
+if __name__ == &quot__main__&quot:
+    main()
+</code></pre>

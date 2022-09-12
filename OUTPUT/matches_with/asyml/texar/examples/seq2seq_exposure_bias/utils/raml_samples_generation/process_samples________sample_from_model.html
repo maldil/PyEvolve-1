@@ -1,0 +1,321 @@
+<link rel="stylesheet" href="../../../../../..//default.css">
+<script src="../../../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/asyml/texar/blob/master/examples/seq2seq_exposure_bias/utils/raml_samples_generation/process_samples.py#L20">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/texar/blob/master/examples/seq2seq_exposure_bias/utils/raml_samples_generation/process_samples.py#L20">GitMyHubLink</a>
+
+from nltk.translate.bleu_score import sentence_bleu
+from nltk.translate.bleu_score import SmoothingFunction
+import sys
+import re
+import argparse
+import torch
+from util import read_corpus
+import numpy as np
+from scipy.misc import comb
+from vocab import Vocab, VocabEntry
+import math
+from rouge import Rouge
+
+
+def is_valid_sample(sent):
+    tokens = sent.split(&quot &quot)
+    return len(tokens) &gt;= 1 and len(tokens) &lt; 50
+
+
+def sample_from_model(<a id="change">args</a>):
+    <a id="change">para_data = args.parallel_data</a>
+    <a id="change">sample_file = args.sample_file</a>
+    <a id="change">output = args.output</a>
+
+    <a id="change">tgt_sent_pattern = re.compile(r"^\[(\d+)\] (.*?)$")</a>
+    <a id="change">para_data = [l.strip().split(&quot ||| &quot) for l in open(para_data)]</a>
+
+    <a id="change">f_out = open(output, &quotw&quot)</a>
+    <a id="change">f = open(sample_file)</a>
+    f.readline()
+    for src_sent, tgt_sent in para_data:
+        <a id="change">line = f.readline().strip()</a>
+        assert line.startswith(&quot****&quot)
+        <a id="change">line = f.readline().strip()</a>
+        print(line)
+        assert line.startswith(&quottarget:&quot)
+
+        <a id="change">tgt_sent2 = line[len(&quottarget:&quot):]</a>
+        assert tgt_sent == tgt_sent2
+
+        <a id="change">line = f.readline().strip()</a>  &#47&#47 samples
+
+        <a id="change">tgt_sent = &quot &quot.join(tgt_sent.split(&quot &quot)[1:-1])</a>
+        <a id="change">tgt_samples = set()</a>
+        for i in range(1, 101):
+            <a id="change">line = f.readline().rstrip(&quot\n&quot)</a>
+            <a id="change">m = tgt_sent_pattern.match(line)</a>
+
+            assert m, line
+            assert int(m.group(1)) == i
+
+            <a id="change">sampled_tgt_sent = m.group(2).strip()</a>
+
+            if is_valid_sample(sampled_tgt_sent):
+                tgt_samples.add(sampled_tgt_sent)
+
+        <a id="change">line = f.readline().strip()</a>
+        assert line.startswith(&quot****&quot)
+
+        tgt_samples.add(tgt_sent)
+        <a id="change">tgt_samples = list(tgt_samples)</a>
+
+        assert len(tgt_samples) &gt; 0
+
+        <a id="change">tgt_ref_tokens = tgt_sent.split(&quot &quot)</a>
+        <a id="change">bleu_scores = []</a>
+        for tgt_sample in tgt_samples:
+            <a id="change">bleu_score = sentence_bleu([tgt_ref_tokens], tgt_sample.split(&quot &quot))</a>
+            bleu_scores.append(bleu_score)
+
+        <a id="change">tgt_ranks = sorted(range(len(tgt_samples)), key=lambda i: bleu_scores[i], reverse=True)</a>
+
+        print(&quot%d samples&quot % len(tgt_samples))
+
+        print(&quot*&quot * 50, file=f_out)
+        print(&quotsource: &quot + src_sent, file=f_out)
+        print(&quot%d samples&quot % len(tgt_samples), file=f_out)
+        for i in tgt_ranks:
+            print(&quot%s ||| %f&quot % (tgt_samples[i], bleu_scores[i]), file=f_out)
+        print(&quot*&quot * 50, file=f_out)
+
+    <a id="change">f_out</a><a id="change">.close()</a>
+
+
+def get_new_ngram(ngram, n, vocab):
+    
+    replace ngram `ngram` with a newly sampled ngram of the same length
+    
+
+    new_ngram_wids = [np.random.randint(3, len(vocab)) for i in range(n)]
+    new_ngram = [vocab.id2word[wid] for wid in new_ngram_wids]
+
+    return new_ngram
+
+
+def sample_ngram(args):
+    src_sents = read_corpus(args.src, &quotsrc&quot)
+    tgt_sents = read_corpus(args.tgt, &quotsrc&quot)  &#47&#47 do not read in &lt;s&gt; and &lt;/s&gt;
+    f_out = open(args.output, &quotw&quot)
+
+    vocab = torch.load(args.vocab)
+    tgt_vocab = vocab.tgt
+
+    smooth_bleu = args.smooth_bleu
+    sm_func = None
+    if smooth_bleu:
+        sm_func = SmoothingFunction().method3
+
+    for src_sent, tgt_sent in zip(src_sents, tgt_sents):
+        src_sent = &quot &quot.join(src_sent)
+
+        tgt_len = len(tgt_sent)
+        tgt_samples = []
+        tgt_samples_distort_rates = []    &#47&#47 how many unigrams are replaced
+
+        &#47&#47 generate 100 samples
+
+        &#47&#47 append itself
+        tgt_samples.append(tgt_sent)
+        tgt_samples_distort_rates.append(0)
+
+        for sid in range(args.sample_size - 1):
+            n = np.random.randint(1, min(tgt_len, args.max_ngram_size + 1))  &#47&#47 we do not replace the last token: it must be a period!
+
+            idx = np.random.randint(tgt_len - n)
+            ngram = tgt_sent[idx: idx + n]
+            new_ngram = get_new_ngram(ngram, n, tgt_vocab)
+
+            sampled_tgt_sent = list(tgt_sent)
+            sampled_tgt_sent[idx: idx + n] = new_ngram
+
+            &#47&#47 compute the probability of this sample
+            &#47&#47 prob = 1. / args.max_ngram_size * 1. / (tgt_len - 1 + n) * 1 / (len(tgt_vocab) ** n)
+
+            tgt_samples.append(sampled_tgt_sent)
+            tgt_samples_distort_rates.append(n)
+
+        &#47&#47 compute bleu scores or edit distances and rank the samples by bleu scores
+        rewards = []
+        for tgt_sample, tgt_sample_distort_rate in zip(tgt_samples, tgt_samples_distort_rates):
+            if args.reward == &quotbleu&quot:
+                reward = sentence_bleu([tgt_sent], tgt_sample, smoothing_function=sm_func)
+            elif args.reward == &quotrouge&quot:
+                rouge = Rouge()
+                scores = rouge.get_scores(hyps=[&quot &quot.join(tgt_sample).decode(&quotutf-8&quot)], refs=[&quot &quot.join(tgt_sent).decode(&quotutf-8&quot)], avg=True)
+                reward = sum([value[&quotf&quot] for key, value in scores.items()])
+            else:
+                reward = -tgt_sample_distort_rate
+
+            rewards.append(reward)
+
+        tgt_ranks = sorted(range(len(tgt_samples)), key=lambda i: rewards[i], reverse=True)
+        &#47&#47 convert list of tokens into a string
+        tgt_samples = [&quot &quot.join(tgt_sample) for tgt_sample in tgt_samples]
+
+        print(&quot*&quot * 50, file=f_out)
+        print(&quotsource: &quot + src_sent, file=f_out)
+        print(&quot%d samples&quot % len(tgt_samples), file=f_out)
+        for i in tgt_ranks:
+            print(&quot%s ||| %f&quot % (tgt_samples[i], rewards[i]), file=f_out)
+        print(&quot*&quot * 50, file=f_out)
+
+    f_out.close()
+
+
+def sample_ngram_adapt(args):
+    src_sents = read_corpus(args.src, &quotsrc&quot)
+    tgt_sents = read_corpus(args.tgt, &quotsrc&quot)  &#47&#47 do not read in &lt;s&gt; and &lt;/s&gt;
+    f_out = open(args.output, &quotw&quot)
+
+    vocab = torch.load(args.vocab)
+    tgt_vocab = vocab.tgt
+
+    max_len = max([len(tgt_sent) for tgt_sent in tgt_sents]) + 1
+
+    for src_sent, tgt_sent in zip(src_sents, tgt_sents):
+        src_sent = &quot &quot.join(src_sent)
+
+        tgt_len = len(tgt_sent)
+        tgt_samples = []
+
+        &#47&#47 generate 100 samples
+
+        &#47&#47 append itself
+        tgt_samples.append(tgt_sent)
+
+        for sid in range(args.sample_size - 1):
+            max_n = min(tgt_len - 1, 4)
+            bias_n = int(max_n * tgt_len / max_len) + 1
+            assert 1 &lt;= bias_n &lt;= 4, &quotbias_n={}, not in [1,4], max_n={}, tgt_len={}, max_len={}&quot.format(bias_n, max_n, tgt_len, max_len)
+
+            p = [1.0 / (max_n + 5)] * max_n
+            p[bias_n - 1] = 1 - p[0] * (max_n - 1)
+            assert abs(sum(p) - 1) &lt; 1e-10, &quotsum(p) != 1&quot
+
+            n = np.random.choice(np.arange(1, int(max_n + 1)), p=p)  &#47&#47 we do not replace the last token: it must be a period!
+            assert n &lt; tgt_len, &quotn={}, tgt_len={}&quot.format(n, tgt_len)
+
+            idx = np.random.randint(tgt_len - n)
+            ngram = tgt_sent[idx: idx + n]
+            new_ngram = get_new_ngram(ngram, n, tgt_vocab)
+
+            sampled_tgt_sent = list(tgt_sent)
+            sampled_tgt_sent[idx: idx + n] = new_ngram
+
+            tgt_samples.append(sampled_tgt_sent)
+
+        &#47&#47 compute bleu scores and rank the samples by bleu scores
+        bleu_scores = []
+        for tgt_sample in tgt_samples:
+            bleu_score = sentence_bleu([tgt_sent], tgt_sample)
+            bleu_scores.append(bleu_score)
+
+        tgt_ranks = sorted(range(len(tgt_samples)), key=lambda i: bleu_scores[i], reverse=True)
+        &#47&#47 convert list of tokens into a string
+        tgt_samples = [&quot &quot.join(tgt_sample) for tgt_sample in tgt_samples]
+
+        print(&quot*&quot * 50, file=f_out)
+        print(&quotsource: &quot + src_sent, file=f_out)
+        print(&quot%d samples&quot % len(tgt_samples), file=f_out)
+        for i in tgt_ranks:
+            print(&quot%s ||| %f&quot % (tgt_samples[i], bleu_scores[i]), file=f_out)
+        print(&quot*&quot * 50, file=f_out)
+
+    f_out.close()
+
+
+def sample_from_hamming_distance_payoff_distribution(args):
+    src_sents = read_corpus(args.src, &quotsrc&quot)
+    tgt_sents = read_corpus(args.tgt, &quotsrc&quot)  &#47&#47 do not read in &lt;s&gt; and &lt;/s&gt;
+    f_out = open(args.output, &quotw&quot)
+
+    vocab = torch.load(args.vocab)
+    tgt_vocab = vocab.tgt
+
+    payoff_prob, Z_qs = generate_hamming_distance_payoff_distribution(max(len(sent) for sent in tgt_sents),
+                                                                      vocab_size=len(vocab.tgt),
+                                                                      tau=args.temp)
+
+    for src_sent, tgt_sent in zip(src_sents, tgt_sents):
+        tgt_samples = []  &#47&#47 make sure the ground truth y* is in the samples
+        tgt_sent_len = len(tgt_sent) - 3  &#47&#47 remove &lt;s&gt; and &lt;/s&gt; and ending period .
+        tgt_ref_tokens = tgt_sent[1:-1]
+        bleu_scores = []
+
+        &#47&#47 sample an edit distances
+        e_samples = np.random.choice(range(tgt_sent_len + 1), p=payoff_prob[tgt_sent_len], size=args.sample_size,
+                                     replace=True)
+
+        for i, e in enumerate(e_samples):
+            if e &gt; 0:
+                &#47&#47 sample a new tgt_sent $y$
+                old_word_pos = np.random.choice(range(1, tgt_sent_len + 1), size=e, replace=False)
+                new_words = [vocab.tgt.id2word[wid] for wid in np.random.randint(3, len(vocab.tgt), size=e)]
+                new_tgt_sent = list(tgt_sent)
+                for pos, word in zip(old_word_pos, new_words):
+                    new_tgt_sent[pos] = word
+
+                bleu_score = sentence_bleu([tgt_ref_tokens], new_tgt_sent[1:-1])
+                bleu_scores.append(bleu_score)
+            else:
+                new_tgt_sent = list(tgt_sent)
+                bleu_scores.append(1.)
+
+            &#47&#47 print(&quoty: %s&quot % &quot &quot.join(new_tgt_sent))
+            tgt_samples.append(new_tgt_sent)
+
+
+def generate_hamming_distance_payoff_distribution(max_sent_len, vocab_size, tau=1.):
+    compute the q distribution for Hamming Distance (substitution only) as in the RAML paper
+    probs = dict()
+    Z_qs = dict()
+    for sent_len in range(1, max_sent_len + 1):
+        counts = [1.]  &#47&#47 e = 0, count = 1
+        for e in range(1, sent_len + 1):
+            &#47&#47 apply the rescaling trick as in https://gist.github.com/norouzi/8c4d244922fa052fa8ec18d8af52d366
+            count = comb(sent_len, e) * math.exp(-e / tau) * ((vocab_size - 1) ** (e - e / tau))
+            counts.append(count)
+
+        Z_qs[sent_len] = Z_q = sum(counts)
+        prob = [count / Z_q for count in counts]
+        probs[sent_len] = prob
+
+        &#47&#47 print(&quotsent_len=%d, %s&quot % (sent_len, prob))
+
+    return probs, Z_qs
+
+
+if __name__ == &quot__main__&quot:
+    parser = argparse.ArgumentParser()
+    parser.add_argument(&quot--mode&quot, choices=[&quotsample_from_model&quot, &quotsample_ngram_adapt&quot, &quotsample_ngram&quot], required=True)
+    parser.add_argument(&quot--vocab&quot, type=str)
+    parser.add_argument(&quot--src&quot, type=str)
+    parser.add_argument(&quot--tgt&quot, type=str)
+    parser.add_argument(&quot--parallel_data&quot, type=str)
+    parser.add_argument(&quot--sample_file&quot, type=str)
+    parser.add_argument(&quot--output&quot, type=str, required=True)
+    parser.add_argument(&quot--sample_size&quot, type=int, default=100)
+    parser.add_argument(&quot--reward&quot, choices=[&quotbleu&quot, &quotedit_dist&quot, &quotrouge&quot], default=&quotbleu&quot)
+    parser.add_argument(&quot--max_ngram_size&quot, type=int, default=4)
+    parser.add_argument(&quot--temp&quot, type=float, default=0.5)
+    parser.add_argument(&quot--smooth_bleu&quot, action=&quotstore_true&quot, default=False)
+
+    args = parser.parse_args()
+
+    if args.mode == &quotsample_ngram&quot:
+        sample_ngram(args)
+    elif args.mode == &quotsample_from_model&quot:
+        sample_from_model(args)
+    elif args.mode == &quotsample_ngram_adapt&quot:
+        sample_ngram_adapt(args)
+</code></pre>

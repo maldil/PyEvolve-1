@@ -1,0 +1,440 @@
+<link rel="stylesheet" href="../../..//default.css">
+<script src="../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/calico/basenji/blob/master/basenji/plots.py#L32">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/basenji/blob/master/basenji/plots.py#L32">GitMyHubLink</a>
+
+&#47&#47 Copyright 2017 Calico LLC
+&#47&#47
+&#47&#47 Licensed under the Apache License, Version 2.0 (the "License");
+&#47&#47 you may not use this file except in compliance with the License.
+&#47&#47 You may obtain a copy of the License at
+&#47&#47
+&#47&#47     https://www.apache.org/licenses/LICENSE-2.0
+&#47&#47
+&#47&#47 Unless required by applicable law or agreed to in writing, software
+&#47&#47 distributed under the License is distributed on an "AS IS" BASIS,
+&#47&#47 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+&#47&#47 See the License for the specific language governing permissions and
+&#47&#47 limitations under the License.
+&#47&#47 =========================================================================
+
+from __future__ import print_function
+
+import sys
+
+import matplotlib
+matplotlib.use(&quotagg&quot)
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+import numpy as np
+from scipy.stats import spearmanr, pearsonr
+
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+&#47&#47 scatter plots
+
+
+def jointplot(<a id="change">vals1</a>,
+              <a id="change">vals2</a>,
+              <a id="change">out_pdf</a>,
+              <a id="change">alpha</a>=0.5,
+              <a id="change">point_size</a>=10,
+              <a id="change">square</a>=False,
+              <a id="change">cor</a>=&quotpearsonr&quot,
+              <a id="change">x_label</a>=None,
+              <a id="change">y_label</a>=None,
+              <a id="change">figsize</a>=(6, 6),
+              <a id="change">sample</a>=None,
+              <a id="change">table</a>=False,
+              <a id="change">kind</a>=&quotscatter&quot,
+              <a id="change">text_means</a>=False,
+              <a id="change">tight</a>=False,
+              <a id="change">outlier_low</a>=None,
+              <a id="change">outlier_high</a>=None):
+
+  if table:
+    <a id="change">out_txt = &quot%s.txt&quot % out_pdf[:-4]</a>
+    <a id="change">out_open = open(out_txt, &quotw&quot)</a>
+    for i in range(len(vals1)):
+      print(vals1[i], vals2[i], file=out_open)
+    <a id="change">out_open</a><a id="change">.close()</a>
+
+  if sample is not None and sample &lt; len(vals1):
+    <a id="change">indexes = np.random.choice(np.arange(0, len(vals1)), sample, replace=False)</a>
+    <a id="change">vals1 = vals1[indexes]</a>
+    <a id="change">vals2 = vals2[indexes]</a>
+
+  if type(figsize) == tuple:
+    if figsize[0] != figsize[1]:
+      print(&quotFigure size must be square&quot, file=sys.stderr)
+    <a id="change">figsize = figsize[0]</a>
+
+  plt.figure()
+
+  if cor is None:
+    <a id="change">cor_func = None</a>
+  elif cor.lower() in [&quotspearman&quot, &quotspearmanr&quot]:
+    <a id="change">cor_func = spearmanr</a>
+  elif cor.lower() in [&quotpearson&quot, &quotpearsonr&quot]:
+    <a id="change">cor_func = pearsonr</a>
+  else:
+    <a id="change">cor_func = None</a>
+
+  if kind == &quothex&quot:
+    <a id="change">joint_kws = {}</a>
+  elif kind == &quotscatter&quot:
+    <a id="change">joint_kws = {&quotalpha&quot:alpha, &quots&quot:point_size}</a>
+  else:
+    <a id="change">gold = sns.color_palette(&quothusl&quot,8)[1]</a>
+    <a id="change">joint_kws = {}</a>
+    <a id="change">joint_kws[&quotscatter_kws&quot] = {&quotcolor&quot:&quotblack&quot, &quots&quot:point_size, &quotalpha&quot:alpha}</a>
+    <a id="change">joint_kws[&quotline_kws&quot] = {&quotcolor&quot:gold}</a>
+
+  &#47&#47 compute summary stat pre-filter
+  <a id="change">u1 = np.mean(vals1)</a>
+  <a id="change">u2 = np.mean(vals2)</a>
+
+  &#47&#47 filter outliers for aesthetic purposes
+  if outlier_low is not None:
+    <a id="change">vals1 = vals1[vals1 &gt; outlier_low]</a>
+    <a id="change">vals2 = vals2[vals2 &gt; outlier_low]</a>
+  if outlier_high is not None:
+    <a id="change">vals1 = vals1[vals1 &lt; outlier_high]</a>
+    <a id="change">vals2 = vals2[vals2 &lt; outlier_high]</a>
+  assert(len(vals1) &gt; 0)
+  assert(len(vals1) == len(vals2))
+
+  <a id="change">g = sns.jointplot(vals1, vals2,
+        color=&quotblack&quot, height=figsize,
+        space=0, stat_func=cor_func,
+        kind=kind, joint_kws=joint_kws)</a>
+
+  <a id="change">ax = g.ax_joint</a>
+
+  if square:
+    <a id="change">vmin, vmax = scatter_lims(vals1, vals2)</a>
+    <a id="change">xmin = vmin</a>
+    <a id="change">ymin = vmin</a>
+    <a id="change">xmax = vmax</a>
+    <a id="change">ymax = vmax</a>
+    ax.plot([vmin, vmax], [vmin, vmax], linestyle=&quot--&quot, color=&quotblack&quot)
+  else:
+    <a id="change">xmin, xmax = scatter_lims(vals1)</a>
+    <a id="change">ymin, ymax = scatter_lims(vals2)</a>
+  ax.set_xlim(xmin, xmax)
+  ax.set_ylim(ymin, ymax)
+
+  if y_label is not None:
+    ax.set_ylabel(y_label)
+  if x_label is not None:
+    ax.set_xlabel(x_label)
+
+  if text_means:
+    <a id="change">eps = .05</a>
+    <a id="change">text_xeps = eps*(xmax-xmin)</a>
+    <a id="change">test_yeps = eps*(ymax-ymin)</a>
+
+    &#47&#47 ax.text(xmax+text_xeps, ymin-test_yeps, &quotmean %.3f&quot%u1, horizontalalignment=&quotright&quot, fontsize=14)
+    &#47&#47 ax.text(xmin-text_xeps, ymax+test_yeps, &quotmean %.3f&quot%u2, horizontalalignment=&quotleft&quot, fontsize=14)
+
+    ax.text(1-eps, eps, &quotMean %.3f&quot%u1, horizontalalignment=&quotright&quot, transform=ax.transAxes)
+    ax.text(eps, 1-eps, &quotMean %.3f&quot%u2, verticalalignment=&quottop&quot, transform=ax.transAxes)
+
+  &#47&#47 ax.grid(True, linestyle=&quot:&quot)
+  if tight:
+    plt.tight_layout(w_pad=0, h_pad=0)
+
+  plt.savefig(out_pdf)
+  plt.close()
+
+
+def regplot(vals1,
+            vals2,
+            out_pdf,
+            poly_order=1,
+            alpha=0.5,
+            point_size=10,
+            colors=None,
+            cor=&quotpearsonr&quot,
+            print_sig=False,
+            square=False,
+            x_label=None,
+            y_label=None,
+            title=None,
+            figsize=(6, 6),
+            sample=None,
+            table=False,
+            tight=False):
+
+  if table:
+    out_txt = &quot%s.txt&quot % out_pdf[:-4]
+    out_open = open(out_txt, &quotw&quot)
+    for i in range(len(vals1)):
+      print(vals1[i], vals2[i], file=out_open)
+    out_open.close()
+
+  if sample is not None and sample &lt; len(vals1):
+    indexes = np.random.choice(np.arange(0, len(vals1)), sample, replace=False)
+    vals1 = vals1[indexes]
+    vals2 = vals2[indexes]
+
+  plt.figure(figsize=figsize)
+
+  gold = sns.color_palette(&quothusl&quot, 8)[1]
+
+  if colors is None:
+    ax = sns.regplot(vals1, vals2, color=&quotblack&quot,
+        order=poly_order,
+        scatter_kws={&quotcolor&quot: &quotblack&quot,
+                     &quots&quot: point_size,
+                     &quotalpha&quot: alpha},
+        line_kws={&quotcolor&quot: gold})
+  else:
+    plt.scatter(vals1, vals2, c=colors,
+        s=point_size, alpha=alpha, cmap=&quotRdBu&quot)
+    plt.colorbar()
+    ax = sns.regplot(vals1, vals2,
+        scatter=False, order=poly_order,
+        line_kws={&quotcolor&quot:gold})
+
+  if square:
+    xmin, xmax = scatter_lims(vals1, vals2)
+    ymin, ymax = xmin, xmax
+  else:
+    xmin, xmax = scatter_lims(vals1)
+    ymin, ymax = scatter_lims(vals2)
+  ax.set_xlim(xmin, xmax)
+  ax.set_ylim(ymin, ymax)
+
+  if x_label is not None:
+    ax.set_xlabel(x_label)
+  if y_label is not None:
+    ax.set_ylabel(y_label)
+
+  if title is not None:
+    plt.title(title)
+
+  if cor is None:
+    corr = None
+  elif cor.lower() in [&quotspearman&quot, &quotspearmanr&quot]:
+    corr, csig = spearmanr(vals1, vals2)
+    corr_str = &quotSpearmanR: %.3f&quot % corr
+  elif cor.lower() in [&quotpearson&quot, &quotpearsonr&quot]:
+    corr, csig = pearsonr(vals1, vals2)
+    corr_str = &quotPearsonR: %.3f&quot % corr
+  else:
+    corr = None
+
+  if print_sig:
+    if csig &gt; .001:
+      corr_str += &quot\n p %.3f&quot % csig
+    else:
+      corr_str += &quot\n p %.1e&quot % csig
+
+  if corr is not None:
+    xlim_eps = (xmax - xmin) * .03
+    ylim_eps = (ymax - ymin) * .05
+
+    ax.text(
+        xmin + xlim_eps,
+        ymax - 2 * ylim_eps,
+        corr_str,
+        horizontalalignment=&quotleft&quot,
+        fontsize=12)
+
+  &#47&#47 ax.grid(True, linestyle=&quot:&quot)
+  sns.despine()
+
+  if tight:
+    plt.tight_layout()
+
+  plt.savefig(out_pdf)
+  plt.close()
+
+
+def scatter_lims(vals1, vals2=None, buffer=.05):
+  if vals2 is not None:
+    vals = np.concatenate((vals1, vals2))
+  else:
+    vals = vals1
+  vmin = np.nanmin(vals)
+  vmax = np.nanmax(vals)
+
+  buf = .05 * (vmax - vmin)
+
+  if vmin == 0:
+    vmin -= buf / 2
+  else:
+    vmin -= buf
+  vmax += buf
+
+  return vmin, vmax
+
+
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+&#47&#47 nucleotides
+
+&#47&#47 Thanks to Anshul Kundaje, Avanti Shrikumar
+&#47&#47 https://github.com/kundajelab/deeplift/tree/master/deeplift/visualization
+
+
+def plot_a(ax, base, left_edge, height, color):
+  a_polygon_coords = [
+      np.array([[0.0, 0.0], [0.5, 1.0], [0.5, 0.8], [0.2, 0.0]]),
+      np.array([[1.0, 0.0], [0.5, 1.0], [0.5, 0.8], [0.8, 0.0]]),
+      np.array([[0.225, 0.45], [0.775, 0.45], [0.85, 0.3], [0.15, 0.3]])
+  ]
+  for polygon_coords in a_polygon_coords:
+    ax.add_patch(
+        matplotlib.patches.Polygon(
+            (np.array([1, height])[None, :] * polygon_coords + np.array(
+                [left_edge, base])[None, :]),
+            facecolor=color,
+            edgecolor=color))
+
+
+def plot_c(ax, base, left_edge, height, color):
+  ax.add_patch(
+      matplotlib.patches.Ellipse(
+          xy=[left_edge + 0.65, base + 0.5 * height],
+          width=1.3,
+          height=height,
+          facecolor=color,
+          edgecolor=color))
+  ax.add_patch(
+      matplotlib.patches.Ellipse(
+          xy=[left_edge + 0.65, base + 0.5 * height],
+          width=0.7 * 1.3,
+          height=0.7 * height,
+          facecolor=&quotwhite&quot,
+          edgecolor=&quotwhite&quot))
+  ax.add_patch(
+      matplotlib.patches.Rectangle(
+          xy=[left_edge + 1, base],
+          width=1.0,
+          height=height,
+          facecolor=&quotwhite&quot,
+          edgecolor=&quotwhite&quot,
+          fill=True))
+
+
+def plot_g(ax, base, left_edge, height, color):
+  ax.add_patch(
+      matplotlib.patches.Ellipse(
+          xy=[left_edge + 0.65, base + 0.5 * height],
+          width=1.3,
+          height=height,
+          facecolor=color,
+          edgecolor=color))
+  ax.add_patch(
+      matplotlib.patches.Ellipse(
+          xy=[left_edge + 0.65, base + 0.5 * height],
+          width=0.7 * 1.3,
+          height=0.7 * height,
+          facecolor=&quotwhite&quot,
+          edgecolor=&quotwhite&quot))
+  ax.add_patch(
+      matplotlib.patches.Rectangle(
+          xy=[left_edge + 1, base],
+          width=1.0,
+          height=height,
+          facecolor=&quotwhite&quot,
+          edgecolor=&quotwhite&quot,
+          fill=True))
+  ax.add_patch(
+      matplotlib.patches.Rectangle(
+          xy=[left_edge + 0.825, base + 0.085 * height],
+          width=0.174,
+          height=0.415 * height,
+          facecolor=color,
+          edgecolor=color,
+          fill=True))
+  ax.add_patch(
+      matplotlib.patches.Rectangle(
+          xy=[left_edge + 0.625, base + 0.35 * height],
+          width=0.374,
+          height=0.15 * height,
+          facecolor=color,
+          edgecolor=color,
+          fill=True))
+
+
+def plot_t(ax, base, left_edge, height, color):
+  ax.add_patch(
+      matplotlib.patches.Rectangle(
+          xy=[left_edge + 0.4, base],
+          width=0.2,
+          height=height,
+          facecolor=color,
+          edgecolor=color,
+          fill=True))
+  ax.add_patch(
+      matplotlib.patches.Rectangle(
+          xy=[left_edge, base + 0.8 * height],
+          width=1.0,
+          height=0.2 * height,
+          facecolor=color,
+          edgecolor=color,
+          fill=True))
+
+
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+&#47&#47 sequences
+
+default_colors = {0: &quotred&quot, 1: &quotblue&quot, 2: &quotorange&quot, 3: &quotgreen&quot}
+default_plot_funcs = {0: plot_a, 1: plot_c, 2: plot_g, 3: plot_t}
+
+
+def seqlogo(seq_scores, ax=None):
+  if ax is None:
+    ax = plt.gca()
+
+  colors = [&quotred&quot, &quotblue&quot, &quotorange&quot, &quotgreen&quot]
+  plot_funcs = [plot_a, plot_c, plot_g, plot_t]
+
+  seq_len = seq_scores.shape[0]
+  seq_depth = seq_scores.shape[1]
+
+  max_height = 0
+
+  for li in range(seq_len):
+    &#47&#47 sort nucleotides by score
+    pos_scores = sorted([(seq_scores[li, ni], ni) for ni in range(seq_depth)])
+
+    &#47&#47 maintain current height
+    current_height = 0
+
+    &#47&#47 for each nucleotide
+    for di in range(seq_depth):
+      score, ni = pos_scores[di]
+
+      if score &gt; 0:
+        &#47&#47 plot nucleotide
+        plot_funcs[ni](
+            ax=ax,
+            base=current_height,
+            left_edge=li,
+            height=score,
+            color=colors[ni])
+
+        &#47&#47 update height
+        current_height += score
+
+    &#47&#47 update max height
+    max_height = max(max_height, current_height)
+
+  &#47&#47 adjust limits
+  xbuf = .005 * seq_len
+  ax.set_xlim(0, seq_len + xbuf)
+
+  ybuf = .05 * max_height
+  ax.set_ylim(-ybuf, max_height + ybuf)
+
+  &#47&#47 adjust line widths
+  for axis in [&quottop&quot, &quotbottom&quot, &quotleft&quot, &quotright&quot]:
+    ax.spines[axis].set_linewidth(0.5)
+</code></pre>

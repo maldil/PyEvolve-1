@@ -1,0 +1,145 @@
+<link rel="stylesheet" href="../../../../../..//default.css">
+<script src="../../../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/metagenome-atlas/atlas/blob/master/atlas/workflow/scripts/utils/fasta.py#L30">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/atlas/blob/master/atlas/workflow/scripts/utils/fasta.py#L30">GitMyHubLink</a>
+
+from Bio import SeqIO
+from numpy import ceil
+import os
+
+
+def _make_test_fasta(test_file="test_ABC.fasta"):
+    with open(test_file, "w") as f:
+        for Number, Letter in enumerate("ATCG"):
+            f.write(f"&gt;contig_{Number+1} description\n{Letter}\n")
+
+
+def count_Nseq(fasta_file):
+    
+    Counts number of sequences in a fasta file.
+    &gt;&gt;&gt; fasta_file=&quottest_ABC.fasta&quot
+    &gt;&gt;&gt; _make_test_fasta(fasta_file) &#47&#47 makes fasta with a seq for each nucleotide
+    &gt;&gt;&gt; count_Nseq(fasta_file)
+    4
+    &gt;&gt;&gt; os.remove(fasta_file)
+
+    
+    i = 0
+    with open(fasta_file) as f:
+        for line in f:
+            if line[0] == "&gt;":
+                i += 1
+    return i
+
+
+def split(<a id="change">fasta_file</a>, <a id="change">maxSubsetSize</a>, <a id="change">out_dir</a>, <a id="change">simplify_headers</a>=True):
+    
+    Splits a fasta in subsets of size max maxSubsetSize.
+    &gt;&gt;&gt; fasta_file=&quottest_ABC.fasta&quot
+    &gt;&gt;&gt; out_dir = &quottest_outdit_doctest&quot
+    &gt;&gt;&gt; _make_test_fasta(fasta_file) &#47&#47 makes fasta with a seq for each nucleotide
+    &gt;&gt;&gt; split(fasta_file,3,out_dir,simplify_headers=True)
+    &gt;&gt;&gt; len(os.listdir(out_dir))
+    2
+    &gt;&gt;&gt; count_Nseq(&quottest_outdit_doctest/subset1.fasta&quot)
+    2
+    &gt;&gt;&gt; count_Nseq(&quottest_outdit_doctest/subset2.fasta&quot)
+    2
+    &gt;&gt;&gt; split(fasta_file,3,out_dir,simplify_headers=True)
+    Traceback (most recent call last):
+        ...
+    FileExistsError: [Errno 17] File exists: &quottest_outdit_doctest&quot
+    &gt;&gt;&gt; import shutil; shutil.rmtree(out_dir)
+    &gt;&gt;&gt; os.remove(fasta_file)
+    
+
+    <a id="change">N = count_Nseq(fasta_file)</a>
+
+    <a id="change">SubsetSize = int(ceil(N / ceil(N / maxSubsetSize)))</a>
+    <a id="change">extension = os.path.splitext(fasta_file)[-1]</a>
+
+    os.makedirs(out_dir)
+
+    i, subset_n = 0, 0
+    <a id="change">fout = None</a>
+    for i, seq in enumerate(SeqIO.parse(fasta_file, "fasta")):
+        if (i % SubsetSize) == 0:
+            subset_n += 1
+            if fout is not None:
+                fout.close()
+
+            <a id="change">fout = open(f"{out_dir}/subset{subset_n}{extension}", "w")</a>
+
+        if simplify_headers:
+            <a id="change">seq.description = ""</a>
+        SeqIO.write(seq, fout, "fasta")
+
+    <a id="change">fout</a><a id="change">.close()</a>
+
+
+def parse_fasta_headers(fasta_file, simplify_header=True):
+    
+    returns list of fasta headers
+    
+
+    headers = []
+
+    with open(fasta_file) as f:
+        for line in f:
+            if line[0] == "&gt;":
+                header = line[1:].strip()
+
+                if simplify_header:
+                    header = header.split()[0]
+
+                headers.append(header)
+
+    return headers
+
+
+def header2origin(fasta_file, out, simplify_header=True):
+    
+    Annotates a fasta file to it&quots filename:
+    genome.fasta:
+    &gt;contig1 description
+    ACTAC
+    &gt;contig2 description
+    ACTAC
+    ...
+
+    becomes:
+    contig1 genome
+    contig2 genome
+
+    input is a fasta filename:
+    out is a filename or a stream
+
+    
+
+    if type(out) == str:
+        out_stream = open(out, "w")
+    else:
+        out_stream = out
+
+    name = os.path.splitext(os.path.split(fasta_file)[-1])[0]
+
+    &#47&#47 write names of contigs in mapping file
+    with open(fasta_file) as f:
+        for line in f:
+            if line[0] == "&gt;":
+                header = line[1:].strip()
+                if simplify_header:
+                    header = header.split()[0]
+                out_stream.write(f"{header}\t{name}\n")
+    out_stream.flush()
+
+
+if __name__ == "__main__":
+    import doctest, shutil
+
+    doctest.testmod()
+</code></pre>

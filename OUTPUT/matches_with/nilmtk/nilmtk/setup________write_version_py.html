@@ -1,0 +1,136 @@
+<link rel="stylesheet" href="../..//default.css">
+<script src="../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/nilmtk/nilmtk/blob/master/setup.py#L74">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/nilmtk/blob/master/setup.py#L74">GitMyHubLink</a>
+
+
+   Copyright 2013-2020 NILMTK developers
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+
+
+from setuptools import setup, find_packages, Extension
+from os.path import join
+import os
+import sys
+import warnings
+
+&#47&#47 import numpy
+
+TRAVIS_TAG = os.environ.get("TRAVIS_TAG", "")
+
+if TRAVIS_TAG:
+    &#47&#47 TODO: validate if the tag is a valid version number
+    VERSION = TRAVIS_TAG
+    ISRELEASED = not ("dev" in TRAVIS_TAG)
+    QUALIFIER = ""
+else:
+    MAJOR = 0
+    MINOR = 4
+    MICRO = 0
+    DEV = 1  &#47&#47 For multiple dev pre-releases, please increment this value
+    ISRELEASED = False
+    VERSION = "%d.%d.%d" % (MAJOR, MINOR, MICRO)
+    QUALIFIER = ""
+
+
+FULLVERSION = VERSION
+if not ISRELEASED and not TRAVIS_TAG:
+    try:
+        import subprocess
+
+        try:
+            pipe = subprocess.Popen(
+                ["git", "rev-parse", "--short", "HEAD"], stdout=subprocess.PIPE
+            ).stdout
+        except OSError:
+            &#47&#47 msysgit compatibility
+            pipe = subprocess.Popen(
+                ["git.cmd", "rev-parse", "--short", "HEAD"], stdout=subprocess.PIPE
+            ).stdout
+        rev = pipe.read().strip()
+        &#47&#47 makes distutils blow up on Python 2.7
+        if sys.version_info[0] &gt;= 3:
+            rev = rev.decode("ascii")
+
+        &#47&#47 Use a local version tag to include the git revision
+        FULLVERSION += ".dev{}+git.{}".format(DEV, rev)
+    except:
+        FULLVERSION += ".dev{}".format(DEV)
+        warnings.warn(
+            &quotWARNING: Could not get the git revision, version will be "{}"&quot.format(
+                FULLVERSION
+            )
+        )
+else:
+    FULLVERSION += QUALIFIER
+
+
+def write_version_py(filename=None):
+    cnt = \
+version = &quot%s&quot
+short_version = &quot%s&quot
+
+    if not filename:
+        filename = os.path.join(os.path.dirname(__file__), "nilmtk", "version.py")
+
+    <a id="change">a</a><a id="change"> = open(filename, "w", encoding="utf-8")</a>
+    try:
+        <a id="change">a</a>.write(cnt % (FULLVERSION, VERSION))
+    finally:
+        <a id="change">a</a><a id="change">.close()</a>
+
+
+write_version_py()
+&#47&#47 End of Version Check
+
+setup(
+    name="nilmtk",
+    version=FULLVERSION,
+    packages=find_packages(),
+    package_data={"": ["*.yaml"]},
+    install_requires=[
+        "pandas==0.25.3",
+        "numpy &gt;= 1.13.3, &lt; 1.20.0",
+        "networkx==2.1",
+        "scipy",
+        "tables",
+        "scikit-learn&gt;=0.21.2",
+        "hmmlearn&gt;=0.2.1",
+        "pyyaml",
+        "matplotlib==3.1.3",
+        "jupyterlab"
+    ],
+    description="Estimate the energy consumed by individual appliances from "
+    "whole-house power meter readings",
+    author="NILMTK developers",
+    author_email="",
+    url="https://github.com/nilmtk/nilmtk",
+    download_url="https://github.com/nilmtk/nilmtk/tarball/master&#47&#47egg=nilmtk-dev",
+    long_description=open("README.md", encoding="utf-8").read(),
+    license="Apache 2.0",
+    classifiers=[
+        "Development Status :: 3 - Alpha",
+        "Intended Audience :: Developers",
+        "License :: OSI Approved :: Apache 2.0",
+        "Programming Language :: Python",
+        "Topic :: Scientific/Engineering :: Mathematics",
+    ],
+    keywords="smartmeters power electricity energy analytics redd "
+    "disaggregation nilm nialm",
+)
+</code></pre>

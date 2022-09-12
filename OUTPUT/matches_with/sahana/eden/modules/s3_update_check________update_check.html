@@ -1,0 +1,322 @@
+<link rel="stylesheet" href="../../..//default.css">
+<script src="../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/sahana/eden/blob/master/modules/s3_update_check.py#L20">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/eden/blob/master/modules/s3_update_check.py#L20">GitMyHubLink</a>
+
+&#47&#47 -*- coding: utf-8 -*-
+
+import os
+import sys
+
+try:
+    from gluon import current
+except ImportError:
+    sys.stderr.write(
+The installed version of Web2py is too old -- it does not define current.
+Please upgrade Web2py to a more recent version.
+)
+    raise
+
+&#47&#47 Version of 000_config.py
+&#47&#47 Increment this if the user should update their running instance
+VERSION = 1
+
+&#47&#47def update_check(environment, template="default"):
+def update_check(<a id="change">settings</a>):
+    
+        Check whether the dependencies are sufficient to run Eden
+
+        Args:
+            settings: the deployment_settings
+
+        TODO:
+            Load deployment_settings so that we can configure the update_check
+            - need to rework so that 000_config.py is parsed 1st
+    
+
+    &#47&#47 Get Web2py environment into our globals.
+    &#47&#47globals().update(**environment)
+    <a id="change">request = current.request</a>
+
+    &#47&#47 Fatal errors
+    <a id="change">errors = []</a>
+    &#47&#47 Non-fatal warnings
+    <a id="change">warnings = []</a>
+
+    &#47&#47 -------------------------------------------------------------------------
+    &#47&#47 Check Python libraries
+
+    &#47&#47 Get mandatory global dependencies
+    <a id="change">app_path = request.folder</a>
+
+    <a id="change">gr_path = os.path.join(app_path, "requirements.txt")</a>
+    <a id="change">or_path = os.path.join(app_path, "optional_requirements.txt")</a>
+
+    <a id="change">global_dep = parse_requirements({}, gr_path)</a>
+    <a id="change">optional_dep = parse_requirements({}, or_path)</a>
+
+    <a id="change">templates = settings.get_template()</a>
+    if not isinstance(templates, (tuple, list)):
+        templates = (templates,)
+    <a id="change">template_dep = {}</a>
+    <a id="change">template_optional_dep = {}</a>
+    for template in templates:
+        <a id="change">tr_path = os.path.join(app_path, "modules", "templates", template, "requirements.txt")</a>
+        parse_requirements(template_dep, tr_path)
+        <a id="change">tor_path = os.path.join(app_path, "modules", "templates", template, "optional_requirements.txt")</a>
+        parse_requirements(template_optional_dep, tor_path)
+
+    &#47&#47 Drop optional dependencies that are already accounted for in template dependencies
+    <a id="change">tr = set(template_dep.keys()) | set(template_optional_dep.keys())</a>
+    <a id="change">optional_dep = {k: optional_dep[k] for k in optional_dep if k not in tr}</a>
+
+    <a id="change">errors, warnings = s3_check_python_lib(global_dep, template_dep, template_optional_dep, optional_dep)</a>
+    &#47&#47 @ToDo: Move these to Template
+    &#47&#47 for now this is done in s3db.climate_first_run()
+    if settings.has_module("climate"):
+        if settings.get_database_type() != "postgres":
+            errors.append("Climate unresolved dependency: PostgreSQL required")
+        try:
+            import rpy2
+        except ImportError:
+            errors.append("Climate unresolved dependency: RPy2 required")
+        try:
+            from Scientific.IO import NetCDF
+        except ImportError:
+            warnings.append("Climate unresolved dependency: NetCDF required if you want to import readings")
+        try:
+            from scipy import stats
+        except ImportError:
+            warnings.append("Climate unresolved dependency: SciPy required if you want to generate graphs on the map")
+
+    &#47&#47 -------------------------------------------------------------------------
+    &#47&#47 Check Web2Py version
+    &#47&#47
+    &#47&#47 We require web2py-2.14.6 or later for PyDAL compatibility
+    <a id="change">web2py_minimum_version = "Version 2.14.6-stable+timestamp.2016.05.09.19.18.48"</a>
+    &#47&#47 Offset of datetime in return value of parse_version.
+    <a id="change">datetime_index = 4</a>
+    <a id="change">web2py_version_ok = True</a>
+    try:
+        from gluon.fileutils import parse_version
+    except ImportError:
+        <a id="change">web2py_version_ok = False</a>
+    if web2py_version_ok:
+        try:
+            <a id="change">web2py_minimum_parsed = parse_version(web2py_minimum_version)</a>
+            <a id="change">web2py_minimum_datetime = web2py_minimum_parsed[datetime_index]</a>
+            <a id="change">version_info = open("VERSION", "r")</a>
+            <a id="change">web2py_installed_version = version_info.read().split()[-1].strip()</a>
+            <a id="change">version_info</a><a id="change">.close()</a>
+            if isinstance(web2py_installed_version, str):
+                &#47&#47 Post 2.4.2, global_settings.web2py_version is unparsed
+                <a id="change">web2py_installed_parsed = parse_version(web2py_installed_version)</a>
+                <a id="change">web2py_installed_datetime = web2py_installed_parsed[datetime_index]</a>
+            else:
+                &#47&#47 2.4.2 & earlier style
+                <a id="change">web2py_installed_datetime = web2py_installed_version[datetime_index]</a>
+            <a id="change">web2py_version_ok = web2py_installed_datetime &gt;= web2py_minimum_datetime</a>
+        except:
+            &#47&#47 Will get AttributeError if Web2py&quots parse_version is too old for
+            &#47&#47 its current version format, which changed in 2.3.2.
+            <a id="change">web2py_version_ok = False</a>
+    if not web2py_version_ok:
+        warnings.append(
+            "The installed version of Web2py is too old to support the current version of Sahana Eden."
+            "\nPlease upgrade Web2py to at least version: %s" % \
+            web2py_minimum_version)
+
+    &#47&#47 -------------------------------------------------------------------------
+    &#47&#47 Create required directories if needed
+    <a id="change">databases_dir = os.path.join(app_path, "databases")</a>
+    try:
+        os.stat(databases_dir)
+    except OSError:
+        &#47&#47 not found, create it
+        os.mkdir(databases_dir)
+
+    &#47&#47 -------------------------------------------------------------------------
+    &#47&#47 Copy in Templates
+    &#47&#47 - 000_config.py (machine-specific settings)
+    &#47&#47 - rest are run in-place
+    &#47&#47
+    <a id="change">template_folder = os.path.join(app_path, "modules", "templates")</a>
+
+    <a id="change">template_files = {
+        &#47&#47 source: destination
+        "000_config.py": os.path.join("models", "000_config.py"),
+    }</a>
+
+    <a id="change">copied_from_template = []</a>
+
+    for t in template_files:
+        <a id="change">src_path = os.path.join(template_folder, t)</a>
+        <a id="change">dst_path = os.path.join(app_path, template_files[t])</a>
+        try:
+            os.stat(dst_path)
+        except OSError:
+            &#47&#47 Not found, copy from template
+            if t == "000_config.py":
+                with <a id="change">open(src_path)</a> as src:
+                    with open(dst_path, "w") as dst:
+                        for line in src:
+                            if <a id="change">"akeytochange"</a> in line:
+                                &#47&#47 Generate a random hmac_key to secure the passwords in case
+                                &#47&#47 the database is compromised
+                                import uuid
+                                <a id="change">hmac_key = uuid.uuid4()</a>
+                                <a id="change">line = &quotsettings.auth.hmac_key = "%s"&quot % hmac_key</a>
+                            dst.write(line)
+            else:
+                import shutil
+                shutil.copy(src_path, dst_path)
+            copied_from_template.append(template_files[t])
+
+        else:
+            &#47&#47 Found the file in the destination
+            &#47&#47 Check if it has been edited
+            import re
+            edited_pattern = r"FINISHED_EDITING_\w*\s*=\s*(True|False)"
+            edited_matcher = re.compile(edited_pattern).match
+            has_edited = False
+            with open(dst_path) as f:
+                for line in f:
+                    edited_result = edited_matcher(line)
+                    if edited_result:
+                        has_edited = True
+                        edited = edited_result.group(1)
+                        break
+            if has_edited and (edited != "True"):
+                errors.append("Please edit %s before starting the system." % t)
+            &#47&#47 Check if it&quots up to date (i.e. a critical update requirement)
+            version_pattern = r"VERSION =\s*([0-9]+)"
+            version_matcher = re.compile(version_pattern).match
+            has_version = False
+            with open(dst_path) as f:
+                for line in f:
+                    version_result = version_matcher(line)
+                    if version_result:
+                        has_version = True
+                        version = version_result.group(1)
+                        break
+            if not has_version:
+                error = "Your %s is using settings from the old templates system. Please switch to the new templates system: http://eden.sahanafoundation.org/wiki/DeveloperGuidelines/Templates" % t
+                errors.append(error)
+            elif int(version) != VERSION:
+                error = "Your %s is using settings from template version %s. Please update with new settings from template version %s before starting the system." % \
+                                (t, version, VERSION)
+                errors.append(error)
+
+    if copied_from_template:
+        errors.append(
+            "The following files were copied from templates and should be edited: %s" %
+            ", ".join(copied_from_template))
+
+    return {"error_messages": errors, "warning_messages": warnings}
+
+&#47&#47 -------------------------------------------------------------------------
+def parse_requirements(output, filepath):
+    
+    
+
+    try:
+        with open(filepath) as filehandle:
+            dependencies = filehandle.read().splitlines()
+            msg = ""
+            for dependency in dependencies:
+                if dependency[0] == "&#47&#47":
+                    &#47&#47 either a normal comment or custom message
+                    if dependency[:9] == "&#47&#47 Warning" or dependency[7] == "&#47&#47 Error:":
+                        msg = dependency.split(":", 1)[1]
+                else:
+                    import re
+                    &#47&#47 Check if the module name is different from the package name
+                    if "&#47&#47" in dependency:
+                        dep = dependency.split("&#47&#47", 1)[1]
+                        output[dep] = msg
+                    else:
+                        pattern = re.compile(r&quot([A-Za-z0-9_-]+)&quot)
+                        try:
+                            dep = pattern.match(dependency).group(1)
+                            output[dep] = msg
+                        except AttributeError:
+                            &#47&#47 Invalid dependency syntax
+                            pass
+                    msg = ""
+    except IOError:
+        &#47&#47 No override for Template
+        pass
+
+    return output
+
+&#47&#47 -------------------------------------------------------------------------
+def s3_check_python_lib(global_mandatory, template_mandatory, template_optional, global_optional):
+    
+        checks for optional as well as mandatory python libraries
+    
+
+    errors = []
+    warnings = []
+
+    for dependency, err in global_mandatory.items():
+        try:
+            if "from" in dependency:
+                exec(dependency)
+            else:
+                exec("import %s" % dependency)
+        except ImportError:
+            if err:
+                errors.append(err)
+            else:
+                errors.append("S3 unresolved dependency: %s required for Sahana to run" % dependency)
+
+    for dependency, err in template_mandatory.items():
+        try:
+            if "from" in dependency:
+                exec(dependency)
+            else:
+                exec("import %s" % dependency)
+        except ImportError:
+            if err:
+                errors.append(err)
+            else:
+                errors.append("Unresolved template dependency: %s required" % dependency)
+
+    for dependency, warn in template_optional.items():
+        try:
+            if "from" in dependency:
+                exec(dependency)
+            else:
+                exec("import %s" % dependency)
+        except ImportError:
+            if warn:
+                warnings.append(warn)
+            else:
+                warnings.append("Unresolved optional dependency: %s required" % dependency)
+        except Exception:
+            &#47&#47 Broken module, warn + pass for now
+            warnings.append("Error when loading optional dependency: %s" % dependency)
+
+    for dependency, warn in global_optional.items():
+        try:
+            if "from" in dependency:
+                exec(dependency)
+            else:
+                exec("import %s" % dependency)
+        except ImportError:
+            if warn:
+                warnings.append(warn)
+            else:
+                warnings.append("Unresolved optional dependency: %s required" % dependency)
+        except Exception:
+            &#47&#47 Broken module, warn + pass for now
+            warnings.append("Error when loading optional dependency: %s" % dependency)
+
+    return errors, warnings
+
+&#47&#47 END =========================================================================
+</code></pre>

@@ -1,0 +1,297 @@
+<link rel="stylesheet" href="../../../..//default.css">
+<script src="../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/calico/basenji/blob/master/bin/archive/basenji_hidden.py#L48">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/basenji/blob/master/bin/archive/basenji_hidden.py#L48">GitMyHubLink</a>
+
+&#47&#47!/usr/bin/env python
+&#47&#47 Copyright 2017 Calico LLC
+
+&#47&#47 Licensed under the Apache License, Version 2.0 (the "License");
+&#47&#47 you may not use this file except in compliance with the License.
+&#47&#47 You may obtain a copy of the License at
+
+&#47&#47     https://www.apache.org/licenses/LICENSE-2.0
+
+&#47&#47 Unless required by applicable law or agreed to in writing, software
+&#47&#47 distributed under the License is distributed on an "AS IS" BASIS,
+&#47&#47 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+&#47&#47 See the License for the specific language governing permissions and
+&#47&#47 limitations under the License.
+&#47&#47 =========================================================================
+
+from __future__ import print_function
+from optparse import OptionParser
+import os
+import time
+
+import h5py
+import matplotlib
+matplotlib.use(&quotAgg&quot)
+import matplotlib.pyplot as plt
+import numpy as np
+import seaborn as sns
+from sklearn.decomposition import PCA
+from sklearn.manifold import TSNE
+import statsmodels
+import tensorflow as tf
+
+from basenji import batcher
+from basenji import params
+from basenji import plots
+from basenji import seqnn
+
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+&#47&#47 basenji_hidden.py
+&#47&#47
+&#47&#47 Visualize the hidden representations of the test set.
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+
+
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+&#47&#47 main
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+def main():
+  <a id="change">usage = &quotusage: %prog [options] &lt;params_file&gt; &lt;model_file&gt; &lt;data_file&gt;&quot</a>
+  <a id="change">parser = OptionParser(usage)</a>
+  parser.add_option(&quot-l&quot, dest=&quotlayers&quot,
+      default=None, help=&quotComma-separated list of layers to plot&quot)
+  parser.add_option(&quot-n&quot, dest=&quotnum_seqs&quot,
+      default=None, type=&quotint&quot,
+      help=&quotNumber of sequences to process&quot)
+  parser.add_option(&quot-o&quot, dest=&quotout_dir&quot,
+      default=&quothidden&quot, help=&quotOutput directory [Default: %default]&quot)
+  parser.add_option(&quot-t&quot, dest=&quottarget_indexes&quot,
+      default=None, help=&quotPaint 2D plots with these target index values.&quot)
+  <a id="change">(options, args) = parser.parse_args()</a>
+
+  if len(args) != 3:
+    parser.error(&quotMust provide paramters, model, and test data HDF5&quot)
+  else:
+    <a id="change">params_file = args[0]</a>
+    <a id="change">model_file = args[1]</a>
+    <a id="change">data_file = args[2]</a>
+
+  if not os.path.isdir(options.out_dir):
+    os.mkdir(options.out_dir)
+
+  if options.layers is not None:
+    <a id="change">options.layers = [int(li) for li in options.layers.split(&quot,&quot)]</a>
+
+  &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+  &#47&#47 load data
+  &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+  <a id="change">data_open = h5py.File(data_file)</a>
+  <a id="change">test_seqs = data_open[&quottest_in&quot]</a>
+  <a id="change">test_targets = data_open[&quottest_out&quot]</a>
+
+  if options.num_seqs is not None:
+    <a id="change">test_seqs = test_seqs[:options.num_seqs]</a>
+    <a id="change">test_targets = test_targets[:options.num_seqs]</a>
+
+  &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+  &#47&#47 model parameters and placeholders
+  &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+  <a id="change">job = params.read_job_params(params_file)</a>
+
+  <a id="change">job[&quotseq_length&quot] = test_seqs.shape[1]</a>
+  <a id="change">job[&quotseq_depth&quot] = test_seqs.shape[2]</a>
+  <a id="change">job[&quotnum_targets&quot] = test_targets.shape[2]</a>
+  <a id="change">job[&quottarget_pool&quot] = int(np.array(data_open.get(&quotpool_width&quot, 1)))</a>
+
+  <a id="change">t0 = time.time()</a>
+  <a id="change">model = seqnn.SeqNN()</a>
+  model.build_feed(job)
+
+  if options.target_indexes is None:
+    <a id="change">options.target_indexes = range(job[&quotnum_targets&quot])</a>
+  else:
+    <a id="change">options.target_indexes = [
+        int(ti) for ti in options.target_indexes.split(&quot,&quot)
+    ]</a>
+
+  &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+  &#47&#47 test
+  &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+  &#47&#47 initialize batcher
+  <a id="change">batcher_test = batcher.Batcher(
+      test_seqs,
+      test_targets,
+      batch_size=model.hp.batch_size,
+      pool_width=model.hp.target_pool)</a>
+
+  &#47&#47 initialize saver
+  <a id="change">saver = tf.train.Saver()</a>
+
+  with tf.Session() as sess:
+    &#47&#47 load variables into session
+    saver.restore(sess, model_file)
+
+    &#47&#47 get layer representations
+    <a id="change">layer_reprs, _ = model.hidden(sess, batcher_test, options.layers)</a>
+
+    if options.layers is None:
+      <a id="change">options.layers = range(len(layer_reprs))</a>
+
+    for li in options.layers:
+      <a id="change">layer_repr = layer_reprs[li]</a>
+      try:
+        print(layer_repr.shape)
+      except:
+        print(layer_repr)
+
+      &#47&#47 sample one nt per sequence
+      <a id="change">ds_indexes = np.arange(0, layer_repr.shape[1], 256)</a>
+      <a id="change">nt_reprs = layer_repr[:, ds_indexes, :].reshape((-1, layer_repr.shape[2]))</a>
+      print(&quotnt_reprs&quot, nt_reprs.shape)
+
+      &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+      &#47&#47 plot raw
+      sns.set(style=&quotticks&quot, font_scale=1.2)
+      plt.figure()
+      <a id="change">g = sns.clustermap(nt_reprs, cmap=&quotRdBu_r&quot,
+                         xticklabels=False, yticklabels=False)</a>
+      g.ax_heatmap.set_xlabel(&quotRepresentation&quot)
+      g.ax_heatmap.set_ylabel(&quotSequences&quot)
+      plt.savefig(&quot%s/l%d_reprs.pdf&quot % (options.out_dir, li))
+      plt.close()
+
+      &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+      &#47&#47 plot variance explained ratios
+
+      <a id="change">model_full = PCA()</a>
+      model_full.fit_transform(nt_reprs)
+      <a id="change">evr = model_full.explained_variance_ratio_</a>
+
+      <a id="change">pca_n = 40</a>
+
+      plt.figure()
+      plt.scatter(range(1, pca_n + 1), evr[:pca_n], c=&quotblack&quot)
+      <a id="change">ax = plt.gca()</a>
+      ax.set_xlim(0, pca_n + 1)
+      ax.set_xlabel(&quotPrincipal components&quot)
+      ax.set_ylim(0, evr[:pca_n].max() * 1.05)
+      ax.set_ylabel(&quotVariance explained&quot)
+      ax.grid(True, linestyle=&quot:&quot)
+      plt.savefig(&quot%s/l%d_pca.pdf&quot % (options.out_dir, li))
+      plt.close()
+
+      &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+      &#47&#47 visualize in 2D
+
+      <a id="change">model2 = PCA(n_components=2)</a>
+      <a id="change">nt_2d = model2.fit_transform(nt_reprs)</a>
+
+      for ti in options.target_indexes:
+        &#47&#47 slice for target
+        <a id="change">test_targets_ti = test_targets[:,:,ti]</a>
+
+        &#47&#47 repeat to match layer_repr
+        <a id="change">target_repeat = layer_repr.shape[1] // test_targets.shape[1]</a>
+        <a id="change">test_targets_ti = np.repeat(test_targets_ti, target_repeat, axis=1)</a>
+
+        &#47&#47 downsample indexes
+        <a id="change">nt_targets = test_targets_ti[:,ds_indexes].flatten()</a>
+
+        &#47&#47 log transform
+        <a id="change">nt_targets = np.log1p(nt_targets)</a>
+
+        plt.figure()
+        plt.scatter(
+            nt_2d[:, 0], nt_2d[:, 1], alpha=0.5, c=nt_targets, cmap=&quotRdBu_r&quot)
+        plt.colorbar()
+        <a id="change">ax = plt.gca()</a>
+        ax.grid(True, linestyle=&quot:&quot)
+        plt.savefig(&quot%s/l%d_nt2d_t%d.pdf&quot % (options.out_dir, li, ti))
+        plt.close()
+
+
+      &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+      &#47&#47 plot neuron-neuron correlations
+
+      &#47&#47 compute correlation matrix
+      <a id="change">hidden_cov = np.corrcoef(nt_reprs.T)</a>
+      print(&quothidden_cov&quot, hidden_cov.shape)
+
+      plt.figure()
+      <a id="change">g = sns.clustermap(hidden_cov, cmap=&quotRdBu_r&quot,
+                         xticklabels=False, yticklabels=False)</a>
+      plt.savefig(&quot%s/l%d_cov.pdf&quot % (options.out_dir, li))
+      plt.close()
+
+      &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+      &#47&#47 plot neuron densities
+      <a id="change">neuron_stats_out = open(&quot%s/l%d_stats.txt&quot % (options.out_dir, li), &quotw&quot)</a>
+
+      for ni in range(nt_reprs.shape[1]):
+        &#47&#47 print stats
+        <a id="change">nu = nt_reprs[:, ni].mean()</a>
+        <a id="change">nstd = nt_reprs[:, ni].std()</a>
+        print(&quot%3d  %6.3f  %6.3f&quot % (ni, nu, nstd), file=neuron_stats_out)
+
+        &#47&#47 plot
+        &#47&#47 plt.figure()
+        &#47&#47 sns.distplot(nt_reprs[:,ni])
+        &#47&#47 plt.savefig(&quot%s/l%d_dist%d.pdf&quot % (options.out_dir,li,ni))
+        &#47&#47 plt.close()
+
+      <a id="change">neuron_stats_out</a><a id="change">.close()</a>
+
+      &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+      &#47&#47 plot layer norms across length
+      
+            layer_repr_norms = np.linalg.norm(layer_repr, axis=2)
+
+            length_vec =
+            list(range(layer_repr_norms.shape[1]))*layer_repr_norms.shape[0]
+            length_vec = np.array(length_vec) +
+            0.1*np.random.randn(len(length_vec))
+            repr_norm_vec = layer_repr_norms.flatten()
+
+            out_pdf = &quot%s/l%d_lnorm.pdf&quot % (options.out_dir,li)
+            regplot(length_vec, repr_norm_vec, out_pdf, x_label=&quotPosition&quot,
+            y_label=&quotRepr Norm&quot)
+            
+
+  data_open.close()
+
+
+def regplot(vals1, vals2, out_pdf, alpha=0.5, x_label=None, y_label=None):
+  plt.figure()
+
+  gold = sns.color_palette(&quothusl&quot, 8)[1]
+  ax = sns.regplot(
+      vals1,
+      vals2,
+      color=&quotblack&quot,
+      lowess=True,
+      scatter_kws={&quotcolor&quot: &quotblack&quot,
+                   &quots&quot: 4,
+                   &quotalpha&quot: alpha},
+      line_kws={&quotcolor&quot: gold})
+
+  xmin, xmax = plots.scatter_lims(vals1)
+  ymin, ymax = plots.scatter_lims(vals2)
+
+  ax.set_xlim(xmin, xmax)
+  if x_label is not None:
+    ax.set_xlabel(x_label)
+  ax.set_ylim(ymin, ymax)
+  if y_label is not None:
+    ax.set_ylabel(y_label)
+
+  ax.grid(True, linestyle=&quot:&quot)
+
+  plt.savefig(out_pdf)
+  plt.close()
+
+
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+&#47&#47 __main__
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+if __name__ == &quot__main__&quot:
+  main()
+</code></pre>

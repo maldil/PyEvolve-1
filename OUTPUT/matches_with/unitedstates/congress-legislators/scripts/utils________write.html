@@ -1,0 +1,479 @@
+<link rel="stylesheet" href="../../..//default.css">
+<script src="../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/unitedstates/congress-legislators/blob/main/scripts/utils.py#L331">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/congress-legislators/blob/main/scripts/utils.py#L331">GitMyHubLink</a>
+
+&#47&#47 Helpful functions for finding data about members and committees
+
+CURRENT_CONGRESS = 115
+states = {
+        &quotAK&quot: &quotAlaska&quot,
+        &quotAL&quot: &quotAlabama&quot,
+        &quotAR&quot: &quotArkansas&quot,
+        &quotAS&quot: &quotAmerican Samoa&quot,
+        &quotAZ&quot: &quotArizona&quot,
+        &quotCA&quot: &quotCalifornia&quot,
+        &quotCO&quot: &quotColorado&quot,
+        &quotCT&quot: &quotConnecticut&quot,
+        &quotDC&quot: &quotDistrict of Columbia&quot,
+        &quotDE&quot: &quotDelaware&quot,
+        &quotFL&quot: &quotFlorida&quot,
+        &quotGA&quot: &quotGeorgia&quot,
+        &quotGU&quot: &quotGuam&quot,
+        &quotHI&quot: &quotHawaii&quot,
+        &quotIA&quot: &quotIowa&quot,
+        &quotID&quot: &quotIdaho&quot,
+        &quotIL&quot: &quotIllinois&quot,
+        &quotIN&quot: &quotIndiana&quot,
+        &quotKS&quot: &quotKansas&quot,
+        &quotKY&quot: &quotKentucky&quot,
+        &quotLA&quot: &quotLouisiana&quot,
+        &quotMA&quot: &quotMassachusetts&quot,
+        &quotMD&quot: &quotMaryland&quot,
+        &quotME&quot: &quotMaine&quot,
+        &quotMI&quot: &quotMichigan&quot,
+        &quotMN&quot: &quotMinnesota&quot,
+        &quotMO&quot: &quotMissouri&quot,
+        &quotMP&quot: &quotNorthern Mariana Islands&quot,
+        &quotMS&quot: &quotMississippi&quot,
+        &quotMT&quot: &quotMontana&quot,
+        &quotNA&quot: &quotNational&quot,
+        &quotNC&quot: &quotNorth Carolina&quot,
+        &quotND&quot: &quotNorth Dakota&quot,
+        &quotNE&quot: &quotNebraska&quot,
+        &quotNH&quot: &quotNew Hampshire&quot,
+        &quotNJ&quot: &quotNew Jersey&quot,
+        &quotNM&quot: &quotNew Mexico&quot,
+        &quotNV&quot: &quotNevada&quot,
+        &quotNY&quot: &quotNew York&quot,
+        &quotOH&quot: &quotOhio&quot,
+        &quotOK&quot: &quotOklahoma&quot,
+        &quotOR&quot: &quotOregon&quot,
+        &quotPA&quot: &quotPennsylvania&quot,
+        &quotPR&quot: &quotPuerto Rico&quot,
+        &quotRI&quot: &quotRhode Island&quot,
+        &quotSC&quot: &quotSouth Carolina&quot,
+        &quotSD&quot: &quotSouth Dakota&quot,
+        &quotTN&quot: &quotTennessee&quot,
+        &quotTX&quot: &quotTexas&quot,
+        &quotUT&quot: &quotUtah&quot,
+        &quotVA&quot: &quotVirginia&quot,
+        &quotVI&quot: &quotVirgin Islands&quot,
+        &quotVT&quot: &quotVermont&quot,
+        &quotWA&quot: &quotWashington&quot,
+        &quotWI&quot: &quotWisconsin&quot,
+        &quotWV&quot: &quotWest Virginia&quot,
+        &quotWY&quot: &quotWyoming&quot,
+        &quotOL&quot: &quotOrleans&quot,
+        &quotDK&quot: &quotDakota&quot,
+        &quotPI&quot: &quotPhilippine Islands&quot
+}
+
+
+import urllib.request, urllib.error, urllib.parse
+import os, errno, sys, traceback
+import re, html.entities
+import pprint
+import rtyaml
+from datetime import datetime, date
+import time
+import json
+
+import lxml.html &#47&#47 for meta redirect parsing
+import yaml
+
+import smtplib
+import email.utils
+from email.mime.text import MIMEText
+
+
+&#47&#47 read in an opt-in config file for supplying email settings
+&#47&#47 returns None if it&quots not there, and this should always be handled gracefully
+path = "email/config.yml"
+if os.path.exists(path):
+  email_settings = yaml.load(open(path, &quotr&quot)).get(&quotemail&quot, None)
+else:
+  email_settings = None
+
+
+def congress_from_legislative_year(year):
+  return ((year + 1) / 2) - 894
+
+def legislative_year(date=None):
+  if not date:
+    date = datetime.now()
+
+  if date.month == 1:
+    if date.day == 1 or date.day == 2:
+      return date.year - 1
+    elif date.day == 3:
+        if isinstance(date,datetime):
+          if date.hour &lt; 12:
+            return date.year -1
+          else:
+            return date.year
+        else:
+          return date.year
+    else:
+      return date.year
+  else:
+    return date.year
+
+def congress_start_end_dates(congress):
+  &#47&#47 Get the start date and end date of the given Congress (i.g. 1 for the 1st Congress).
+  &#47&#47 Sadly, the date of the end of one Congress is identical with the date of the start
+  &#47&#47 of the next because the switchover time is at noon (at least since 1935).
+  &#47&#47 Also see get_congress_from_date.
+  start_year = 1789 + (congress-1)*2
+  end_year = start_year + 2
+  if congress &lt; 73:
+    &#47&#47 The 1st Congress met on March 4, 1789, per an act of the Continental
+    &#47&#47 Congress adpoted Sept 13, 1788. The Constitutional term period would
+    &#47&#47 end two years later, of course. Looking at actual adjournment dates,
+    &#47&#47 it seems that Congress believed its term ended on March 3rd&quots.
+    if congress != 69:
+      return (date(start_year, 3, 4), date(end_year, 3, 3))
+    else:
+      &#47&#47 But the 69th Congress (and only that Congress) adjourned on a March 4,
+      &#47&#47 which means that they must have viewed their Constitutional term as
+      &#47&#47 expiring at the actual time of day that the first Congress began?
+      &#47&#47 Since we use March 4 as the term end dates for the 69th Congress in our
+      &#47&#47 data, we&quotll use that as the end date for the 69th Congress only.
+      return (date(start_year, 3, 4), date(end_year, 3, 4))
+  elif congress == 73:
+    &#47&#47 The end of the 73rd Congress was changed by the 20th Amendment. So
+    &#47&#47 it began on a March 4 but ended on the January 3rd (at noon) that
+    &#47&#47 preceded the usual March 3 (1935). (Congress adjourned in 1934 anyway.)
+    return (date(start_year, 3, 4), date(end_year, 1, 3))
+  else:
+    &#47&#47 Starting with the 74th Congress, Congresses begin and end on January
+    &#47&#47 3rds at noon.
+    return (date(start_year, 1, 3), date(end_year, 1, 3))
+
+def get_congress_from_date(d, range_type=None):
+  &#47&#47 This is the inverse of congress_start_end_dates.
+  &#47&#47
+  &#47&#47 Return the Congress number that the date &quotd&quot occurs in by first computing
+  &#47&#47 the &quotlegislative year&quot it occurs in, and then using some simple arithmetic
+  &#47&#47 counting back to 1789 (the first legislative year) and dividing by two
+  &#47&#47 (since Congresses are two years).
+  &#47&#47
+  &#47&#47 Since Congresses start and end on the same date at noon (at least since
+  &#47&#47 1935, but we treat it similarly for prior years), those dates are ambiguous.
+  &#47&#47 The caller passes range_type=&quotstart&quot to exclude the possibility that
+  &#47&#47 if the date is on a transition date that it is in the subsequent Congress,
+  &#47&#47 and vice versa for range_type=&quotend&quot.
+  if (d.year % 2) == 0:
+    &#47&#47 Even years occur entirely within a Congress.
+    y = d.year
+  else:
+    &#47&#47 In odd-numbered years, the period before the transition date, and if
+    &#47&#47 range_type == &quotend&quot the transition date itself, is assigned to the
+    &#47&#47 previous legislative year
+
+    &#47&#47 Get the transition date of this year.
+    if d.year &lt; 1935:
+      &#47&#47 Through 1933, the transition date was March 4. Although most
+      &#47&#47 Congresses adjourned on March 3 or earlier probably to not
+      &#47&#47 have to deal with the question of what time the first session
+      &#47&#47 began.
+      td = date(d.year, 3, 4)
+    else:
+      &#47&#47 Since 1935, the transition date is Jan 3.
+      td = date(d.year, 1, 3)
+
+    &#47&#47 Check if d is before, after, or on the transition date.
+    if d &lt; td:
+      y = d.year - 1
+    elif d &gt; td:
+      y = d.year
+    else:
+      if range_type == "end":
+      	&#47&#47 Assign this date to the previous Congress.
+        y = d.year - 1
+      elif range_type == "start":
+      	&#47&#47 Assign this date to the next Congress.
+        y = d.year
+      else:
+        raise ValueError("Date {} is ambiguous; must pass range_type=&quotstart&quot or &quotend&quot.".format(d))
+
+  &#47&#47 Now do some simple integer math to compute the Congress number.
+  return ((y + 1) // 2) - 894
+
+def parse_date(date):
+  return datetime.strptime(date, "%Y-%m-%d").date()
+
+def log(object):
+  if isinstance(object, str):
+    print(object)
+  else:
+    pprint(object)
+
+def uniq(seq):
+  seen = set()
+  seen_add = seen.add
+  return [ x for x in seq if x not in seen and not seen_add(x)]
+
+def args():
+  args = []
+  for token in sys.argv[1:]:
+    if not token.startswith("--"):
+      args.append(token)
+  return args
+
+def flags():
+  options = {}
+  for token in sys.argv[1:]:
+    if token.startswith("--"):
+
+      if "=" in token:
+        key, value = token.split(&quot=&quot)
+      else:
+        key, value = token, True
+
+      key = key.split("--")[1]
+      if value == &quotTrue&quot: value = True
+      elif value == &quotFalse&quot: value = False
+      options[key.lower()] = value
+  return options
+
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47 Data management
+
+def data_dir():
+  return ".."
+
+def load_data(path):
+  return yaml_load(os.path.join(data_dir(), path))
+
+def save_data(data, path):
+  yaml_dump(data, os.path.join(data_dir(), path))
+  write(
+		json.dumps(data, default=format_datetime),
+		"../alternate_formats/%s" %path.replace(".yaml", ".json"))
+
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47 Downloading
+
+import scrapelib
+scraper = scrapelib.Scraper(requests_per_minute=60, retry_attempts=3)
+scraper.user_agent = "the @unitedstates project (https://github.com/unitedstates/congress-legislators)"
+
+def cache_dir():
+  return "cache"
+
+def download(url, destination=None, force=False, options=None):
+  if not destination and not force:
+    raise TypeError("destination must not be None if force is False.")
+
+  if not options:
+    options = {}
+
+  &#47&#47 get the path to cache the file, or None if destination is None
+  cache = os.path.join(cache_dir(), destination) if destination else None
+
+  if not force and os.path.exists(cache):
+    if options.get(&quotdebug&quot, False):
+      log("Cached: (%s, %s)" % (cache, url))
+
+    with open(cache, &quotr&quot) as f:
+      body = f.read()
+  else:
+    try:
+      if options.get(&quotdebug&quot, False):
+        log("Downloading: %s" % url)
+
+      if options.get(&quoturllib&quot, False):
+        response = urllib.request.urlopen(url)
+        body = response.read().decode("utf-8") &#47&#47 guessing encoding
+      else:
+        response = scraper.urlopen(url)
+        body = str(response) &#47&#47 ensure is unicode not bytes
+    except scrapelib.HTTPError:
+      log("Error downloading %s" % url)
+      return None
+
+    &#47&#47 don&quott allow 0-byte files
+    if (not body) or (not body.strip()):
+      return None
+
+    &#47&#47 the downloader can optionally parse the body as HTML
+    &#47&#47 and look for meta redirects. a bit expensive, so opt-in.
+    if options.get(&quotcheck_redirects&quot, False):
+      try:
+        html_tree = lxml.html.fromstring(body)
+      except ValueError:
+        log("Error parsing source from url {0}".format(url))
+        return None
+
+      meta = html_tree.xpath("//meta[translate(@http-equiv, &quotREFSH&quot, &quotrefsh&quot) = &quotrefresh&quot]/@content")
+      if meta:
+        attr = meta[0]
+        wait, text = attr.split(";")
+        if text.lower().startswith("url="):
+
+          new_url = text[4:]
+          if not new_url.startswith(url): &#47&#47dont print if a local redirect
+            print("Found redirect for {}, downloading {} instead..".format(url, new_url))
+
+          options.pop(&quotcheck_redirects&quot)
+          body = download(new_url, None, True, options)
+
+    &#47&#47 cache content to disk
+    if cache: write(body, cache)
+
+
+  return body
+
+from pytz import timezone
+eastern_time_zone = timezone(&quotUS/Eastern&quot)
+def format_datetime(obj):
+  if isinstance(obj, datetime):
+    return eastern_time_zone.localize(obj.replace(microsecond=0)).isoformat()
+  elif isinstance(obj, str):
+    return obj
+  else:
+    return None
+
+def write(content, destination):
+  &#47&#47 content must be a str instance (not bytes), will be written in utf-8 per open()&quots default
+  mkdir_p(os.path.dirname(destination))
+  <a id="change">f</a><a id="change"> = open(destination, &quotw&quot)</a>
+  f.write(content)
+  <a id="change">f</a><a id="change">.close()</a>
+
+&#47&#47 mkdir -p in python, from:
+&#47&#47 http://stackoverflow.com/questions/600268/mkdir-p-functionality-in-python
+def mkdir_p(path):
+  try:
+    os.makedirs(path)
+  except OSError as exc: &#47&#47 Python &gt;2.5
+    if exc.errno == errno.EEXIST:
+      pass
+    else:
+      raise
+
+def format_exception(exception):
+  exc_type, exc_value, exc_traceback = sys.exc_info()
+  return "\n".join(traceback.format_exception(exc_type, exc_value, exc_traceback))
+
+&#47&#47 taken from http://effbot.org/zone/re-sub.htm&#47&#47unescape-html
+def unescape(text, encoding=None):
+
+  def remove_unicode_control(str):
+    remove_re = re.compile(&quot[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F]&quot)
+    return remove_re.sub(&quot&quot, str)
+
+  def fixup(m):
+    text = m.group(0)
+    if text[:2] == "&&#47&#47":
+      &#47&#47 character reference
+      if encoding == None:
+        try:
+          if text[:3] == "&&#47&#47x":
+            return chr(int(text[3:-1], 16))
+          else:
+            return chr(int(text[2:-1]))
+        except ValueError:
+          pass
+      else:
+        try:
+          if text[:3] == "&&#47&#47x":
+            return bytes([int(text[3:-1], 16)]).decode(encoding)
+          else:
+            return bytes([int(text[2:-1])]).decode(encoding)
+        except ValueError:
+          pass
+    else:
+      &#47&#47 named entity
+      try:
+        text = chr(html.entities.name2codepoint[text[1:-1]])
+      except KeyError:
+        pass
+    return text &#47&#47 leave as is
+
+  text = re.sub("&&#47&#47?\w+;", fixup, text)
+  text = remove_unicode_control(text)
+  return text
+
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47 YAML serialization &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+
+&#47&#47 Apply some common settings for loading/dumping YAML and cache the
+&#47&#47 data in pickled format which is a LOT faster than YAML.
+
+def yaml_load(path, use_cache=True):
+    &#47&#47 Loading YAML is ridiculously slow, so cache the YAML data
+    &#47&#47 in a pickled file which loads much faster.
+
+    &#47&#47 Check if the .pickle file exists and a hash stored inside it
+    &#47&#47 matches the hash of the YAML file, and if so unpickle it.
+    import pickle as pickle, os.path, hashlib
+    h = hashlib.sha1(open(path, &quotrb&quot).read()).hexdigest()
+    if use_cache and os.path.exists(path + ".pickle"):
+
+        try:
+          store = pickle.load(open(path + ".pickle", &quotrb&quot))
+          if store["hash"] == h:
+            return store["data"]
+        except EOFError:
+          pass &#47&#47 bad .pickle file, pretend it doesn&quott exist
+
+    &#47&#47 No cached pickled data exists, so load the YAML file.
+    data = rtyaml.load(open(path))
+
+    &#47&#47 Store in a pickled file for fast access later.
+    pickle.dump({ "hash": h, "data": data }, open(path+".pickle", "wb"))
+
+    return data
+
+def yaml_dump(data, path):
+    &#47&#47 write file
+    rtyaml.dump(data, open(path, "w"))
+
+    &#47&#47 Store in a pickled file for fast access later.
+    import pickle as pickle, hashlib
+    h = hashlib.sha1(open(path, &quotrb&quot).read()).hexdigest()
+    pickle.dump({ "hash": h, "data": data }, open(path+".pickle", "wb"))
+
+&#47&#47 if email settings are supplied, email the text - otherwise, just print it
+def admin(body):
+  try:
+    if isinstance(body, Exception):
+      body = format_exception(body)
+
+    print(body) &#47&#47 always print it
+
+    if email_settings:
+        send_email(body)
+
+  except Exception as exception:
+    print("Exception logging message to admin, halting as to avoid loop")
+    print(format_exception(exception))
+
+&#47&#47 this should only be called if the settings are definitely there
+def send_email(message):
+  print("Sending email to %s..." % email_settings[&quotto&quot])
+
+  &#47&#47 adapted from http://www.doughellmann.com/PyMOTW/smtplib/
+  msg = MIMEText(message)
+  msg.set_unixfrom(&quotauthor&quot)
+  msg[&quotTo&quot] = email.utils.formataddr((&quotRecipient&quot, email_settings[&quotto&quot]))
+  msg[&quotFrom&quot] = email.utils.formataddr((email_settings[&quotfrom_name&quot], email_settings[&quotfrom&quot]))
+  msg[&quotSubject&quot] = "%s - %i" % (email_settings[&quotsubject&quot], int(time.time()))
+
+  server = smtplib.SMTP(email_settings[&quothostname&quot])
+  try:
+    server.ehlo()
+    if email_settings[&quotstarttls&quot] and server.has_extn(&quotSTARTTLS&quot):
+      server.starttls()
+      server.ehlo()
+
+    server.login(email_settings[&quotuser_name&quot], email_settings[&quotpassword&quot])
+    server.sendmail(email_settings[&quotfrom&quot], [email_settings[&quotto&quot]], msg.as_string())
+  finally:
+    server.quit()
+
+  print("Sent email to %s." % email_settings[&quotto&quot])
+</code></pre>

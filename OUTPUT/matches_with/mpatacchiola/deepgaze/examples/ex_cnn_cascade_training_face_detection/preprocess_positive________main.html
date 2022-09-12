@@ -1,0 +1,97 @@
+<link rel="stylesheet" href="../../../..//default.css">
+<script src="../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/mpatacchiola/deepgaze/blob/master/examples/ex_cnn_cascade_training_face_detection/preprocess_positive.py#L20">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/deepgaze/blob/master/examples/ex_cnn_cascade_training_face_detection/preprocess_positive.py#L20">GitMyHubLink</a>
+
+&#47&#47!/usr/bin/env python
+
+&#47&#47 The MIT License (MIT)
+&#47&#47 Copyright (c) 2017 Massimiliano Patacchiola
+&#47&#47 https://mpatacchiola.github.io
+&#47&#47 https://mpatacchiola.github.io/blog/
+&#47&#47
+&#47&#47 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+&#47&#47 MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+&#47&#47 CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+&#47&#47 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+
+import numpy as np
+from six.moves import cPickle as pickle
+import cv2
+import os
+import argparse
+
+def main():
+    <a id="change">parser</a> = argparse.ArgumentParser()
+    parser.add_argument(&quot-s&quot, &quot--img_size&quot, required=True,
+                        help=&quotThe size of the images: 12, 24, 48&quot)
+    parser.add_argument(&quot-i&quot, &quot--input_directory&quot, required=True,
+                        help=&quotThe directory containing the images&quot)
+    <a id="change">args</a> = vars(parser.parse_args())
+
+    <a id="change">img_size</a> = int(args[&quotimg_size&quot])  &#47&#47 size to resize the image to
+    <a id="change">image_list</a> = list()
+    <a id="change">dataset_path</a> = args[&quotinput_directory&quot] &#47&#47 "./detection/pos_faces"
+    <a id="change">counter</a> = 1
+
+    if not os.path.exists(dataset_path):
+        print("[DEEPGAZE][ERROR]: The specified folder does not exist: " + str(dataset_path))
+        return
+
+    for <a id="change">root</a>, <a id="change">dirs</a>, <a id="change">files</a> in os.walk(dataset_path):
+        for <a id="change">filename</a> in files:
+            if filename.endswith(".jpg"):
+                <a id="change">image_path</a> = os.path.join(root, filename)
+                <a id="change">image</a> = cv2.imread(image_path)
+                <a id="change">image_dimension</a> = image.shape[0]
+                if image_dimension &gt;= img_size:
+                    print("Image number    ..... " + str(counter))
+                    print("Image name      ..... " + str(filename))
+                    print("Image dimension ..... " + str(image_dimension))
+                    print("")
+                    <a id="change">image_rescaled</a> = cv2.resize(image, (img_size,img_size), interpolation = cv2.INTER_AREA)
+                    image_list.append(image_rescaled)
+                    counter += 1
+                else:
+                    print("Image rejected!")
+                    print("Image name      ..... " + str(filename))
+                    print("Image dimension ..... " + str(image_dimension))
+                    print("")
+
+    &#47&#47 Creating the dataset
+    <a id="change">tot_images</a> = counter
+    <a id="change">training_label</a> = np.zeros((tot_images, 2))
+    training_label[:,0] = 1
+    <a id="change">training_dataset</a> = np.asarray(image_list)
+
+    &#47&#47 Store in pickle
+    <a id="change">pickle_file</a> = "./positive_dataset_" + str(img_size) + "net_" + str(tot_images) + ".pickle"
+    print("Saving the dataset in: " + pickle_file)
+    print("... ")
+    try:
+        print("Opening the file...")
+        <a id="change">f</a><a id="change"> = open(pickle_file, &quotwb&quot)</a>
+        <a id="change">save</a> = {&quottraining_dataset&quot: training_dataset,
+                &quottraining_label&quot: training_label}
+
+        print("Training dataset: ", training_dataset.shape)
+        print("Training label: ", training_label.shape)
+        print("Saving the file...")
+        pickle.dump(save, f, pickle.HIGHEST_PROTOCOL)
+        print("Closing the file...")
+        <a id="change">f</a><a id="change">.close()</a>
+        print("")
+        print("The dataset has been saved and it is ready for the training! \n")
+        print("")
+    except Exception as e:
+        print(&quotUnable to save data to&quot, pickle_file, &quot:&quot, e)
+        raise
+
+if __name__ == "__main__":
+    main()
+</code></pre>

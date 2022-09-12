@@ -1,0 +1,213 @@
+<link rel="stylesheet" href="../..//default.css">
+<script src="../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/markovmodel/PyEMMA/blob/devel/setup_util.py#L68">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/PyEMMA/blob/devel/setup_util.py#L68">GitMyHubLink</a>
+
+
+&#47&#47 This file is part of MSMTools.
+&#47&#47
+&#47&#47 Copyright (c) 2015, 2014 Computational Molecular Biology Group, Freie Universitaet Berlin (GER)
+&#47&#47
+&#47&#47 MSMTools is free software: you can redistribute it and/or modify
+&#47&#47 it under the terms of the GNU Lesser General Public License as published by
+&#47&#47 the Free Software Foundation, either version 3 of the License, or
+&#47&#47 (at your option) any later version.
+&#47&#47
+&#47&#47 This program is distributed in the hope that it will be useful,
+&#47&#47 but WITHOUT ANY WARRANTY; without even the implied warranty of
+&#47&#47 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+&#47&#47 GNU General Public License for more details.
+&#47&#47
+&#47&#47 You should have received a copy of the GNU Lesser General Public License
+&#47&#47 along with this program.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
+
+
+utility functions for python setup
+
+import tempfile
+import os
+import sys
+import shutil
+import warnings
+import setuptools
+import contextlib
+
+
+@contextlib.contextmanager
+def TemporaryDirectory():
+    n = tempfile.mkdtemp()
+    yield n
+    shutil.rmtree(n)
+
+
+@contextlib.contextmanager
+def stdchannel_redirected(stdchannel, dest_filename, fake=False):
+    
+    A context manager to temporarily redirect stdout or stderr
+
+    e.g.:
+
+    with stdchannel_redirected(sys.stderr, os.devnull):
+        if compiler.has_function(&quotclock_gettime&quot, libraries=[&quotrt&quot]):
+            libraries.append(&quotrt&quot)
+    
+    if fake:
+        yield
+        return
+    oldstdchannel = dest_file = None
+    try:
+        oldstdchannel = os.dup(stdchannel.fileno())
+        dest_file = open(dest_filename, &quotw&quot)
+        os.dup2(dest_file.fileno(), stdchannel.fileno())
+
+        yield
+    finally:
+        if oldstdchannel is not None:
+            os.dup2(oldstdchannel, stdchannel.fileno())
+        if dest_file is not None:
+            dest_file.close()
+
+
+&#47&#47 From http://stackoverflow.com/questions/
+&#47&#47 7018879/disabling-output-when-compiling-with-distutils
+def has_function(compiler, funcname, headers):
+    if not isinstance(headers, (tuple, list)):
+        headers = [headers]
+    with TemporaryDirectory() as tmpdir, stdchannel_redirected(sys.stderr, os.devnull), \
+             stdchannel_redirected(sys.stdout, os.devnull):
+        try:
+            fname = os.path.join(tmpdir, &quotfuncname.c&quot)
+            <a id="change">f</a><a id="change"> = open(fname, &quotw&quot)</a>
+            for h in headers:
+                <a id="change">f</a>.write(&quot&#47&#47include &lt;%s&gt;\n&quot % h)
+            <a id="change">f</a>.write(&quotint main(void) {\n&quot)
+            <a id="change">f</a>.write(&quot %s();\n&quot % funcname)
+            <a id="change">f</a>.write(&quotreturn 0;}&quot)
+            <a id="change">f</a><a id="change">.close()</a>
+            objects = compiler.compile([fname], output_dir=tmpdir)
+            compiler.link_executable(objects, os.path.join(tmpdir, &quota.out&quot))
+        except (setuptools.distutils.errors.CompileError, setuptools.distutils.errors.LinkError):
+            return False
+        except:
+            import traceback
+            traceback.print_last()
+            return False
+        return True
+
+
+def detect_openmp(compiler):
+    from distutils.log import debug
+    from copy import deepcopy
+    compiler = deepcopy(compiler) &#47&#47 avoid side-effects
+    has_openmp = has_function(compiler, &quotomp_get_num_threads&quot, headers=&quotomp.h&quot)
+    debug(&quot[OpenMP] compiler %s has builtin support&quot, compiler)
+    additional_libs = []
+    if not has_openmp:
+        debug(&quot[OpenMP] compiler %s needs library support&quot, compiler)
+        if sys.platform == &quotdarwin&quot:
+            compiler.add_library(&quotiomp5&quot)
+        elif sys.platform.startswith(&quotlinux&quot):
+            compiler.add_library(&quotgomp&quot)
+        has_openmp = has_function(compiler, &quotomp_get_num_threads&quot, headers=&quotomp.h&quot)
+        if has_openmp:
+            additional_libs = [compiler.libraries[-1]]
+            debug(&quot[OpenMP] added library %s&quot, additional_libs)
+    return has_openmp, additional_libs
+
+
+&#47&#47 has_flag and cpp_flag taken from https://github.com/pybind/python_example/blob/master/setup.py
+def has_flag(compiler, flagname):
+    Return a boolean indicating whether a flag name is supported on
+    the specified compiler.
+    
+    with TemporaryDirectory() as tmpdir, \
+            stdchannel_redirected(sys.stderr, os.devnull), \
+            stdchannel_redirected(sys.stdout, os.devnull):
+        f = tempfile.mktemp(suffix=&quot.cpp&quot, dir=tmpdir)
+        with open(f, &quotw&quot) as fh:
+            fh.write(&quotint main (int argc, char **argv) { return 0; }&quot)
+        try:
+            compiler.compile([f], extra_postargs=[flagname], output_dir=tmpdir)
+        except setuptools.distutils.errors.CompileError:
+            return False
+    return True
+
+
+def cpp_flag(compiler):
+    Return the -std=c++[11/14/17] compiler flag.
+    The newer the better.
+    
+    if has_flag(compiler, &quot-std=c++17&quot):
+        return &quot-std=c++17&quot
+    if has_flag(compiler, &quot-std=c++14&quot):
+        return &quot-std=c++14&quot
+    elif has_flag(compiler, &quot-std=c++11&quot):
+        return &quot-std=c++11&quot
+    else:
+        raise RuntimeError(&quotUnsupported compiler ({})-- at least C++11 support &quot
+                           &quotis needed!&quot.format(compiler))
+
+
+def parse_setuppy_commands():
+    Check the commands and respond appropriately.
+    Return a boolean value for whether or not to run the build or not (avoid
+    parsing Cython and template files if False).
+
+    Adopted from scipy setup
+    
+    args = sys.argv[1:]
+
+    if not args:
+        &#47&#47 User forgot to give an argument probably, let setuptools handle that.
+        return True
+
+    info_commands = [&quot--help-commands&quot, &quot--name&quot, &quot--version&quot, &quot-V&quot,
+                     &quot--fullname&quot, &quot--author&quot, &quot--author-email&quot,
+                     &quot--maintainer&quot, &quot--maintainer-email&quot, &quot--contact&quot,
+                     &quot--contact-email&quot, &quot--url&quot, &quot--license&quot, &quot--description&quot,
+                     &quot--long-description&quot, &quot--platforms&quot, &quot--classifiers&quot,
+                     &quot--keywords&quot, &quot--provides&quot, &quot--requires&quot, &quot--obsoletes&quot]
+
+    for command in info_commands:
+        if command in args:
+            return False
+
+    &#47&#47 Note that &quotalias&quot, &quotsaveopts&quot and &quotsetopt&quot commands also seem to work
+    &#47&#47 fine as they are, but are usually used together with one of the commands
+    &#47&#47 below and not standalone.  Hence they&quotre not added to good_commands.
+    good_commands = (&quotdevelop&quot, &quotsdist&quot, &quotbuild&quot, &quotbuild_ext&quot, &quotbuild_py&quot,
+                     &quotbuild_clib&quot, &quotbuild_scripts&quot, &quotbdist_wheel&quot, &quotbdist_rpm&quot,
+                     &quotbdist_wininst&quot, &quotbdist_msi&quot, &quotbdist_mpkg&quot,
+                     &quotbuild_sphinx&quot)
+
+    for command in good_commands:
+        if command in args:
+            return True
+
+    &#47&#47 The following commands are supported, but we need to show more
+    &#47&#47 useful messages to the user
+    if &quotinstall&quot in args:
+        return True
+
+    if &quot--help&quot in args or &quot-h&quot in sys.argv[1]:
+        return False
+
+    &#47&#47 Commands that do more than print info, but also don&quott need Cython and
+    &#47&#47 template parsing.
+    other_commands = [&quotegg_info&quot, &quotinstall_egg_info&quot, &quotrotate&quot]
+    for command in other_commands:
+        if command in args:
+            return False
+
+    &#47&#47 If we got here, we didn&quott detect what setup.py command was given
+    warnings.warn("Unrecognized setuptools command (&quot{}&quot), proceeding with "
+                  "generating Cython sources and expanding templates".format(
+                  &quot &quot.join(sys.argv[1:])))
+
+    return True
+
+</code></pre>

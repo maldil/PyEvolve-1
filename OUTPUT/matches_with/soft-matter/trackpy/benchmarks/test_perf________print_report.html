@@ -1,0 +1,526 @@
+<link rel="stylesheet" href="../../..//default.css">
+<script src="../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/soft-matter/trackpy/blob/master/benchmarks/test_perf.py#L316">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/trackpy/blob/master/benchmarks/test_perf.py#L316">GitMyHubLink</a>
+
+&#47&#47!/usr/bin/env python
+
+
+What
+----
+vbench is a library which can be used to benchmark the performance
+of a codebase over time.
+Although vbench can collect data over many commites, generate plots
+and other niceties, for Pull-Requests the important thing is the
+performance of the HEAD commit against a known-good baseline.
+
+This script tries to automate the process of comparing these
+two commits, and is meant to run out of the box on a fresh
+clone.
+
+How
+---
+These are the steps taken:
+1) create a temp directory into which vbench will clone the temporary repo.
+2) instantiate a vbench runner, using the local repo as the source repo.
+3) perform a vbench run for the baseline commit, then the target commit.
+4) pull the results for both commits from the db. use pandas to align
+everything and calculate a ration for the timing information.
+5) print the results to the log file and to stdout.
+
+
+
+import shutil
+import os
+import sys
+import argparse
+import tempfile
+import time
+import re
+
+import random
+import numpy as np
+
+from pandas import DataFrame, Series
+
+from suite import REPO_PATH
+
+DEFAULT_MIN_DURATION = 0.01
+HEAD_COL="head[ms]"
+BASE_COL="base[ms]"
+
+
+class RevParseAction(argparse.Action):
+    def __call__(self, parser, namespace, values, option_string=None):
+        import subprocess
+        cmd = &quotgit rev-parse {}&quot.format(values)
+        rev_parse = subprocess.check_output(cmd, shell=True)
+        setattr(namespace, self.dest, rev_parse.strip())
+
+
+parser = argparse.ArgumentParser(description=&quotUse vbench to measure and compare the performance of commits.&quot)
+parser.add_argument(&quot-H&quot, &quot--head&quot,
+                    help=&quotExecute vbenches using the currently checked out copy.&quot,
+                    dest=&quothead&quot,
+                    action=&quotstore_true&quot,
+                    default=False)
+parser.add_argument(&quot-b&quot, &quot--base-commit&quot,
+                    help=&quotThe commit serving as performance baseline &quot,
+                    type=str, action=RevParseAction)
+parser.add_argument(&quot-t&quot, &quot--target-commit&quot,
+                    help=&quotThe commit to compare against the baseline (default: HEAD).&quot,
+                    type=str, action=RevParseAction)
+parser.add_argument(&quot-m&quot, &quot--min-duration&quot,
+                    help=&quotMinimum duration (in ms) of baseline test for inclusion in report (default: %.3f).&quot % DEFAULT_MIN_DURATION,
+                    type=float,
+                    default=0.01)
+parser.add_argument(&quot-o&quot, &quot--output&quot,
+                    metavar="&lt;file&gt;",
+                    dest=&quotlog_file&quot,
+                    help=&quotPath of file in which to save the textual report (default: vb_suite.log).&quot)
+parser.add_argument(&quot-d&quot, &quot--outdf&quot,
+                    metavar="FNAME",
+                    dest=&quotoutdf&quot,
+                    default=None,
+                    help=&quotName of file to df.save() the result table into. Will overwrite&quot)
+parser.add_argument(&quot-r&quot, &quot--regex&quot,
+                    metavar="REGEX",
+                    dest=&quotregex&quot,
+                    default="",
+                    help=&quotRegex pat, only tests whose name matches the regext will be run.&quot)
+parser.add_argument(&quot-s&quot, &quot--seed&quot,
+                    metavar="SEED",
+                    dest=&quotseed&quot,
+                    default=1234,
+                    type=int,
+                    help=&quotInteger value to seed PRNG with&quot)
+parser.add_argument(&quot-n&quot, &quot--repeats&quot,
+                    metavar="N",
+                    dest=&quotrepeats&quot,
+                    default=3,
+                    type=int,
+                    help=&quotNumber of times to run each vbench, result value is the best of&quot)
+parser.add_argument(&quot-c&quot, &quot--ncalls&quot,
+                    metavar="N",
+                    dest=&quotncalls&quot,
+                    default=3,
+                    type=int,
+                    help=&quotNumber of calls to in each repetition of a vbench&quot)
+parser.add_argument(&quot-N&quot, &quot--hrepeats&quot,
+                    metavar="N",
+                    dest=&quothrepeats&quot,
+                    default=1,
+                    type=int,
+                    help=&quotimplies -H, number of times to run the vbench suite on the head commit.\n&quot
+                    &quotEach iteration will yield another column in the output&quot )
+parser.add_argument(&quot-a&quot, &quot--affinity&quot,
+                    metavar="a",
+                    dest=&quotaffinity&quot,
+                    default=1,
+                    type=int,
+                    help=&quotset processor affinity of process by default bind to cpu/core &#47&#471 only. &quot
+                         &quotRequires the "affinity" or "psutil" python module, will raise Warning otherwise&quot)
+parser.add_argument(&quot-u&quot, &quot--burnin&quot,
+                    metavar="u",
+                    dest=&quotburnin&quot,
+                    default=1,
+                    type=int,
+                    help=&quotNumber of extra iteration per benchmark to perform first, then throw away. &quot  )
+
+parser.add_argument(&quot-S&quot, &quot--stats&quot,
+                    default=False,
+                    action=&quotstore_true&quot,
+                    help=&quotwhen specified with -N, prints the output of describe() per vbench results. &quot  )
+
+parser.add_argument(&quot-q&quot, &quot--quiet&quot,
+                    default=False,
+                    action=&quotstore_true&quot,
+                    help=&quotSuppress report output to stdout. &quot  )
+
+def get_results_df(db, rev):
+    Takes a git commit hash and returns a Dataframe of benchmark results
+    
+    bench = DataFrame(db.get_benchmarks())
+    results = DataFrame(map(list,db.get_rev_results(rev).values()))
+
+    &#47&#47 Sinch vbench.db._reg_rev_results returns an unlabeled dict,
+    &#47&#47 we have to break encapsulation a bit.
+    results.columns = db._results.c.keys()
+    results = results.join(bench[&quotname&quot], on=&quotchecksum&quot).set_index("checksum")
+    return results
+
+
+def prprint(s):
+    print("*** %s" % s)
+
+def pre_hook():
+    import gc
+    gc.disable()
+
+def post_hook():
+    import gc
+    gc.enable()
+
+def profile_comparative(benchmarks):
+
+    from vbench.api import BenchmarkRunner
+    from vbench.db import BenchmarkDB
+    from vbench.git import GitRepo
+    from suite import BUILD, DB_PATH, PREPARE, dependencies
+    TMP_DIR = tempfile.mkdtemp()
+
+    try:
+
+        prprint("Opening DB at &quot%s&quot...\n" % DB_PATH)
+        db = BenchmarkDB(DB_PATH)
+
+        prprint("Initializing Runner...")
+
+        &#47&#47 all in a good cause...
+        GitRepo._parse_commit_log = _parse_wrapper(args.base_commit)
+
+        runner = BenchmarkRunner(
+            benchmarks, REPO_PATH, REPO_PATH, BUILD, DB_PATH,
+            TMP_DIR, PREPARE, always_clean=True,
+            &#47&#47 run_option=&quoteod&quot, start_date=START_DATE,
+            module_dependencies=dependencies)
+
+        repo = runner.repo  &#47&#47 (steal the parsed git repo used by runner)
+        h_head = args.target_commit or repo.shas[-1]
+        h_baseline = args.base_commit
+
+        &#47&#47 ARGH. reparse the repo, without discarding any commits,
+        &#47&#47 then overwrite the previous parse results
+        &#47&#47 prprint ("Slaughtering kittens..." )
+        (repo.shas, repo.messages,
+         repo.timestamps, repo.authors) = _parse_commit_log(None,REPO_PATH,
+                                                                args.base_commit)
+
+        prprint(&quotTarget [{}] : {}\n&quot.format(h_head, repo.messages.get(h_head, "")))
+        prprint(&quotBaseline [{}] : {}\n&quot.format(h_baseline,
+                repo.messages.get(h_baseline, "")))
+
+        prprint("Removing any previous measurements for the commits.")
+        db.delete_rev_results(h_baseline)
+        db.delete_rev_results(h_head)
+
+        &#47&#47 TODO: we could skip this, but we need to make sure all
+        &#47&#47 results are in the DB, which is a little tricky with
+        &#47&#47 start dates and so on.
+        prprint("Running benchmarks for baseline [%s]" % h_baseline)
+        runner._run_and_write_results(h_baseline)
+
+        prprint("Running benchmarks for target [%s]" % h_head)
+        runner._run_and_write_results(h_head)
+
+        prprint(&quotProcessing results...&quot)
+
+        head_res = get_results_df(db, h_head)
+        baseline_res = get_results_df(db, h_baseline)
+        ratio = head_res[&quottiming&quot] / baseline_res[&quottiming&quot]
+        totals = DataFrame({HEAD_COL:head_res[&quottiming&quot],
+                                BASE_COL:baseline_res[&quottiming&quot],
+                                &quotratio&quot:ratio,
+                                &quotname&quot:baseline_res.name},
+                                columns=[HEAD_COL, BASE_COL, "ratio", "name"])
+        totals = totals.ix[totals[HEAD_COL] &gt; args.min_duration]
+            &#47&#47 ignore below threshold
+        totals = totals.dropna(
+        ).sort("ratio").set_index(&quotname&quot)  &#47&#47 sort in ascending order
+
+        h_msg =   repo.messages.get(h_head, "")
+        b_msg =   repo.messages.get(h_baseline, "")
+
+        print_report(totals,h_head=h_head,h_msg=h_msg,
+                     h_baseline=h_baseline,b_msg=b_msg)
+
+        if args.outdf:
+            prprint("The results DataFrame was written to &quot%s&quot\n" %  args.outdf)
+            totals.save(args.outdf)
+    finally:
+        &#47&#47        print("Disposing of TMP_DIR: %s" % TMP_DIR)
+        shutil.rmtree(TMP_DIR)
+
+
+def profile_head_single(benchmark):
+    import gc
+    results = []
+
+    &#47&#47 just in case
+    gc.collect()
+
+    try:
+        from ctypes import cdll, CDLL
+        cdll.LoadLibrary("libc.so.6")
+        libc = CDLL("libc.so.6")
+        libc.malloc_trim(0)
+    except:
+        pass
+
+
+    N =  args.hrepeats + args.burnin
+
+    results = []
+    try:
+        for i in range(N):
+            gc.disable()
+            d=dict()
+
+            try:
+                d = benchmark.run()
+
+            except KeyboardInterrupt:
+                raise
+            except Exception as e: &#47&#47 if a single vbench bursts into flames, don&quott die.
+                err=""
+                try:
+                    err =  d.get("traceback")
+                    if err is None:
+                        err = str(e)
+                except:
+                    pass
+                print("{} died with:\n{}\nSkipping...\n".format(benchmark.name, err))
+
+            results.append(d.get(&quottiming&quot,np.nan))
+            gc.enable()
+            gc.collect()
+
+    finally:
+        gc.enable()
+
+    if results:
+        &#47&#47 throw away the burn_in
+        results = results[args.burnin:]
+    sys.stdout.write(&quot.&quot)
+    sys.stdout.flush()
+    return Series(results, name=benchmark.name)
+
+    &#47&#47 df = DataFrame(results)
+    &#47&#47 df.columns = ["name",HEAD_COL]
+    &#47&#47 return df.set_index("name")[HEAD_COL]
+
+def profile_head(benchmarks):
+    print( "Performing %d benchmarks (%d runs each)" % ( len(benchmarks), args.hrepeats))
+
+    ss= [profile_head_single(b) for b in benchmarks]
+    print("\n")
+
+    results = DataFrame(ss)
+    results.columns=[ "&#47&#47%d" %i for i in range(args.hrepeats)]
+    &#47&#47 results.index = ["&#47&#47%d" % i for i in range(len(ss))]
+    &#47&#47 results = results.T
+
+    shas, messages, _,_  = _parse_commit_log(None,REPO_PATH,base_commit="HEAD^")
+    print_report(results,h_head=shas[-1],h_msg=messages[-1])
+
+
+    if args.outdf:
+        prprint("The results DataFrame was written to &quot%s&quot\n" %  args.outdf)
+        DataFrame(results).save(args.outdf)
+
+def print_report(<a id="change">df</a>,<a id="change">h_head</a>=None,<a id="change">h_msg</a>="",<a id="change">h_baseline</a>=None,<a id="change">b_msg</a>=""):
+
+    <a id="change">name_width=45</a>
+    <a id="change">col_width = 10</a>
+
+    <a id="change">hdr = ("{:%s}" % name_width).format("Test name")</a>
+    hdr += ("|{:^%d}"  % col_width)* len(df.columns)
+    hdr += "|"
+    <a id="change">hdr = hdr.format(*df.columns)</a>
+    <a id="change">hdr = "-"*len(hdr) + "\n" + hdr + "\n" + "-"*len(hdr) + "\n"</a>
+    <a id="change">ftr=hdr</a>
+    <a id="change">s = "\n"</a>
+    s+= "Invoked with :\n"
+    s+= "--ncalls: %s\n" % (args.ncalls or &quotAuto&quot)
+    s+= "--repeats: %s\n" % (args.repeats)
+    s+= "\n\n"
+
+    s += hdr
+    &#47&#47 import ipdb
+    &#47&#47 ipdb.set_trace()
+    for i in range(len(df)):
+        <a id="change">lfmt = ("{:%s}" % name_width)</a>
+        lfmt += ("| {:%d.4f} " % (col_width-2))* len(df.columns)
+        lfmt += "|\n"
+        s += lfmt.format(df.index[i],*list(df.irow(i).values))
+
+    s+= ftr + "\n"
+
+    s += "Ratio &lt; 1.0 means the target commit is faster then the baseline.\n"
+    s += "Seed used: %d\n\n" % args.seed
+
+    if  h_head:
+        s += &quotTarget [{}] : {}\n&quot.format(h_head, h_msg)
+    if  h_baseline:
+        s += &quotBase   [{}] : {}\n\n&quot.format(
+            h_baseline, b_msg)
+
+    <a id="change">stats_footer = "\n"</a>
+    if args.stats :
+        stats_footer += str(df.T.describe().T) + "\n\n"
+
+    s+= stats_footer
+    <a id="change">logfile = open(args.log_file, &quotw&quot)</a>
+    logfile.write(s)
+    <a id="change">logfile</a><a id="change">.close()</a>
+
+    if not args.quiet:
+        prprint(s)
+
+    if args.stats and args.quiet:
+        prprint(stats_footer)
+
+    prprint("Results were also written to the logfile at &quot%s&quot" %
+            args.log_file)
+
+
+
+def main():
+    from suite import benchmarks
+    &#47&#47 GitRepo wants exactly 7 character hash?
+    if args.base_commit:
+        args.base_commit = args.base_commit[:7]
+    if args.target_commit:
+        args.target_commit = args.target_commit[:7]
+
+    if not args.log_file:
+        args.log_file = os.path.abspath(
+            os.path.join(REPO_PATH, &quotvb_suite.log&quot))
+
+    saved_dir = os.path.curdir
+    if args.outdf:
+        &#47&#47 not bullet-proof but enough for us
+        args.outdf = os.path.realpath(args.outdf)
+
+    if args.log_file:
+        &#47&#47 not bullet-proof but enough for us
+        args.log_file = os.path.realpath(args.log_file)
+
+    random.seed(args.seed)
+    np.random.seed(args.seed)
+
+    affinity_set = False
+
+    &#47&#47 try psutil first since it is more commonly present and better
+    &#47&#47 maintained.  Some people experienced problems with affinity package
+    &#47&#47 (see https://code.google.com/p/psutil/issues/detail?id=238 for more references)
+    try:
+        import psutil
+        if hasattr(psutil.Process, &quotset_cpu_affinity&quot):
+            psutil.Process(os.getpid()).set_cpu_affinity([args.affinity])
+            affinity_set = True
+    except ImportError:
+        pass
+
+    if not affinity_set:
+        try:
+            import affinity
+            affinity.set_process_affinity_mask(0, args.affinity)
+            assert affinity.get_process_affinity_mask(0) == args.affinity
+            affinity_set = True
+        except ImportError:
+            pass
+
+    if not affinity_set:
+        import warnings
+        warnings.warn("\n\n"
+              "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n"
+              "The &quotaffinity&quot or &quotpsutil&quot &gt;= 0.5.0 modules are not available, results may be unreliable\n"
+              "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n\n"
+            )
+        time.sleep(2)
+    else:
+        print("CPU affinity set to %d" % args.affinity)
+
+    print("\n")
+    prprint("LOG_FILE = %s" % args.log_file)
+    if args.outdf:
+        prprint("PICKE_FILE = %s" % args.outdf)
+
+    print("\n")
+
+    &#47&#47 move away from the pandas root dit, to avoid possible import
+    &#47&#47 surprises
+    os.chdir(os.path.dirname(os.path.abspath(__file__)))
+
+    benchmarks = [x for x in benchmarks if re.search(args.regex,x.name)]
+
+    for b in benchmarks:
+        b.repeat = args.repeats
+        if args.ncalls:
+            b.ncalls = args.ncalls
+
+    if benchmarks:
+        if args.head:
+            profile_head(benchmarks)
+        else:
+            profile_comparative(benchmarks)
+    else:
+        print( "No matching benchmarks")
+
+    os.chdir(saved_dir)
+
+&#47&#47 hack , vbench.git ignores some commits, but we
+&#47&#47 need to be able to reference any commit.
+&#47&#47 modified from vbench.git
+def _parse_commit_log(this,repo_path,base_commit=None):
+    from vbench.git import _convert_timezones
+    from pandas import Series
+    from dateutil import parser as dparser
+
+    git_cmd = &quotgit --git-dir={}/.git --work-tree={} &quot.format(repo_path, repo_path)
+    githist = git_cmd + (&quotlog --graph --pretty=format:&quot+
+                         &quot\"::%h::%cd::%s::%an\"&quot+
+                         (&quot%s..&quot % base_commit)+
+                         &quot&gt; githist.txt&quot)
+    os.system(githist)
+    githist = open(&quotgithist.txt&quot).read()
+    os.remove(&quotgithist.txt&quot)
+
+    shas = []
+    timestamps = []
+    messages = []
+    authors = []
+    for line in githist.split(&quot\n&quot):
+        if &quot*&quot not in line.split("::")[0]:  &#47&#47 skip non-commit lines
+            continue
+
+        _, sha, stamp, message, author = line.split(&quot::&quot, 4)
+
+        &#47&#47 parse timestamp into datetime object
+        stamp = dparser.parse(stamp)
+
+        shas.append(sha)
+        timestamps.append(stamp)
+        messages.append(message)
+        authors.append(author)
+
+    &#47&#47 to UTC for now
+    timestamps = _convert_timezones(timestamps)
+
+    shas = Series(shas, timestamps)
+    messages = Series(messages, shas)
+    timestamps = Series(timestamps, shas)
+    authors = Series(authors, shas)
+    return shas[::-1], messages[::-1], timestamps[::-1], authors[::-1]
+
+&#47&#47 even worse, monkey patch vbench
+def _parse_wrapper(base_commit):
+    def inner(repo_path):
+        return _parse_commit_log(repo_path,base_commit)
+    return inner
+
+if __name__ == &quot__main__&quot:
+    args = parser.parse_args()
+    if not args.head and (not args.base_commit and not args.target_commit):
+        parser.print_help()
+    else:
+        import warnings
+        warnings.filterwarnings(&quotignore&quot,category=FutureWarning)
+        warnings.filterwarnings(&quotignore&quot,category=DeprecationWarning)
+        main()
+</code></pre>

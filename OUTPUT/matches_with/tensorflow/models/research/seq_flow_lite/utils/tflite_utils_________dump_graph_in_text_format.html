@@ -1,0 +1,167 @@
+<link rel="stylesheet" href="../../../../..//default.css">
+<script src="../../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/tensorflow/models/blob/master/research/seq_flow_lite/utils/tflite_utils.py#L20">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/models/blob/master/research/seq_flow_lite/utils/tflite_utils.py#L20">GitMyHubLink</a>
+
+&#47&#47 Copyright 2020 The TensorFlow Authors All Rights Reserved.
+&#47&#47
+&#47&#47 Licensed under the Apache License, Version 2.0 (the "License");
+&#47&#47 you may not use this file except in compliance with the License.
+&#47&#47 You may obtain a copy of the License at
+&#47&#47
+&#47&#47     http://www.apache.org/licenses/LICENSE-2.0
+&#47&#47
+&#47&#47 Unless required by applicable law or agreed to in writing, software
+&#47&#47 distributed under the License is distributed on an "AS IS" BASIS,
+&#47&#47 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+&#47&#47 See the License for the specific language governing permissions and
+&#47&#47 limitations under the License.
+&#47&#47 ==============================================================================
+&#47&#47 Lint as: python3
+Utils to convert to a TFLite model.
+import tensorflow.compat.v1 as tf
+
+
+def _dump_graph_in_text_format(<a id="change">filename</a>, <a id="change">graph_def</a>):
+  Dump a tensorflow graph in readable text format.
+  <a id="change">f = open(filename, &quotw&quot)</a>
+
+  for node in graph_def.node:
+    f.write(&quotNode: %s (%s)\n&quot % (node.name, node.op))
+    for input_name in node.input:
+      f.write(&quot\tInput: %s\n&quot % input_name)
+  <a id="change">f</a><a id="change">.close()</a>
+
+
+def get_mean_stddev_values(min_value_of_features, max_value_of_features):
+  Gets Mean and Stddev values for given min/max float values.
+  quant_min = 0
+  quant_max = 255
+
+  min_global = min_value_of_features
+  max_global = max_value_of_features
+
+  quant_min_float = float(quant_min)
+  quant_max_float = float(quant_max)
+
+  nudged_scale = (max_global - min_global) / (quant_max_float - quant_min_float)
+
+  zero_point_from_min = quant_min_float - min_global / nudged_scale
+
+  if zero_point_from_min &lt; quant_min_float:
+    nudged_zero_point = int(quant_min)
+  elif zero_point_from_min &gt; quant_max_float:
+    nudged_zero_point = int(quant_max)
+  else:
+    nudged_zero_point = int(round(zero_point_from_min))
+
+  nudged_min = (quant_min_float - nudged_zero_point) * (nudged_scale)
+  nudged_max = (quant_max_float - nudged_zero_point) * (nudged_scale)
+
+  zero_point = (quant_min - min_global) / (max_global - min_global) * quant_max
+  scale = (nudged_max - nudged_min) / 255.0
+
+  mean_value = zero_point
+  stddev_value = 1 / scale
+
+  return mean_value, stddev_value
+
+
+class InterpreterWithCustomOps(tf.lite.Interpreter):
+  Extended tf.lite.Interpreter.
+
+  def __init__(self, model_content, custom_op_registerers=None):
+    self._custom_op_registerers = custom_op_registerers or []
+    super(InterpreterWithCustomOps, self).__init__(model_content=model_content)
+
+  def op_details(self):
+    op_details = {}
+    try:
+      op_details = self._get_ops_details()  &#47&#47 Accessing experimental method.
+    except AttributeError:
+      print(&quotUnable to access op details&quot)
+    return op_details
+
+  def op_histogram(self):
+    op_hist = {}
+    op_list = self.op_details()
+    for op in op_list:
+      if op[&quotop_name&quot] in op_hist:
+        op_hist[op[&quotop_name&quot]] += 1
+      else:
+        op_hist[op[&quotop_name&quot]] = 1
+    return op_hist
+
+  def check_op_histogram(self, expected):
+    passed = True
+    for k, v in self.op_histogram().items():
+      if k not in expected:
+        print(&quotUnexpected key {} found {} times.&quot.format(k, v))
+        passed = False
+        continue
+      elif expected[k] != v:
+        print(&quotExpected {} counts of key {} found {}.&quot.format(
+            expected[k], k, v))
+        passed = False
+      del expected[k]
+    for k, v in expected.items():
+      print(&quotMissing expected key {} value {}.&quot.format(k, v))
+      passed = False
+    return passed
+
+
+def set_output_quantized_for_custom_ops(graph_def, use_mlir=True):
+  Set output types/quantized flag for custom/unsupported ops.
+  quantized_custom_ops = {
+      &quotSequenceStringProjection&quot: [tf.float32.as_datatype_enum],
+      &quotSequenceStringProjectionV2&quot: [tf.float32.as_datatype_enum],
+      &quotPoolingOp&quot: [tf.float32.as_datatype_enum],
+      &quotExpectedValueOp&quot: [tf.float32.as_datatype_enum],
+      &quotLayerNorm&quot: [tf.float32.as_datatype_enum],
+      &quotUniformCausalAttn&quot: [tf.float32.as_datatype_enum],
+      &quotDynamicUniformCausalAttn&quot: [tf.float32.as_datatype_enum],
+      &quotRnnDecoderReadState&quot: [tf.float32.as_datatype_enum],
+      &quotRnnDecoderWriteState&quot: [tf.float32.as_datatype_enum],
+  }
+  custom_op_renames = {
+      &quotSequenceStringProjection&quot: &quotSEQUENCE_STRING_PROJECTION&quot,
+      &quotSequenceStringProjectionV2&quot: &quotSEQUENCE_STRING_PROJECTION_V2&quot,
+  }
+
+  for node in graph_def.node:
+    if node.op in quantized_custom_ops:
+      if use_mlir:
+        node.attr[&quot_tfl_quant_trait&quot].s = str.encode(&quotfully_quantizable&quot)
+      else:
+        node.attr[&quot_output_quantized&quot].b = True
+        node.attr[&quot_output_types&quot].list.type[:] = quantized_custom_ops[node.op]
+    if not use_mlir and node.op in custom_op_renames:
+      node.op = custom_op_renames[node.op]
+
+
+def generate_tflite(session,
+                    graph,
+                    input_tensors,
+                    output_tensors,
+                    use_mlir=True):
+  Generate TFLite model from a session, graph and input/output tensors.
+  output_nodes = [tensor.name.split(&quot:&quot)[0] for tensor in output_tensors]
+  graph_def = tf.graph_util.convert_variables_to_constants(
+      session, graph.as_graph_def(), output_nodes)
+
+  set_output_quantized_for_custom_ops(graph_def, use_mlir)
+
+  converter = tf.lite.TFLiteConverter(graph_def, input_tensors, output_tensors)
+  converter.inference_type = tf.uint8
+  converter.default_ranges_stats = (127.5, 127.5)
+  converter.quantized_input_stats = {
+      tensor.op.name: (127.5, 127.5) for tensor in input_tensors
+  }
+  converter.allow_custom_ops = True
+  converter.experimental_new_converter = use_mlir
+  return converter.convert()
+</code></pre>

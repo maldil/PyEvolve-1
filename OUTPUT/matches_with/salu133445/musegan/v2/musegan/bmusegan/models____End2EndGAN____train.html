@@ -1,0 +1,627 @@
+<link rel="stylesheet" href="../../../../..//default.css">
+<script src="../../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/salu133445/musegan/blob/main/v2/musegan/bmusegan/models.py#L491">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/musegan/blob/main/v2/musegan/bmusegan/models.py#L491">GitMyHubLink</a>
+
+Classes that define the GAN, RefinerGAN and End2EndGAN models.
+
+import os.path
+import time
+import numpy as np
+import tensorflow as tf
+from musegan.model import Model
+from musegan.bmusegan.components import Discriminator, Generator, Refiner
+from musegan.bmusegan.components import End2EndGenerator
+from musegan.utils.metrics import Metrics
+
+class GAN(Model):
+    Class that defines the first-stage (without refiner) model.
+    def __init__(self, sess, config, name=&quotGAN&quot, reuse=None):
+        super().__init__(sess, config, name)
+
+        print(&quot[*] Building GAN...&quot)
+        with tf.variable_scope(name, reuse=reuse) as scope:
+            self.scope = scope
+            self.build()
+
+    def build(self):
+        Build the model.
+        self.global_step = tf.Variable(0, trainable=False, name=&quotglobal_step&quot)
+
+        &#47&#47 Create placeholders
+        self.z = tf.placeholder(
+            tf.float32,
+            (self.config[&quotbatch_size&quot], self.config[&quotnet_g&quot][&quotz_dim&quot]), &quotz&quot
+        )
+        data_shape = (self.config[&quotbatch_size&quot], self.config[&quotnum_bar&quot],
+                      self.config[&quotnum_timestep&quot], self.config[&quotnum_pitch&quot],
+                      self.config[&quotnum_track&quot])
+        self.x = tf.placeholder(tf.bool, data_shape, &quotx&quot)
+        self.x_ = tf.cast(self.x, tf.float32, &quotx_&quot)
+
+        &#47&#47 Components
+        self.G = Generator(self.z, self.config, name=&quotG&quot)
+        self.test_round = self.G.tensor_out &gt; 0.5
+        self.test_bernoulli = self.G.tensor_out &gt; tf.random_uniform(data_shape)
+
+        self.D_fake = Discriminator(self.G.tensor_out, self.config, name=&quotD&quot)
+        self.D_real = Discriminator(self.x_, self.config, name=&quotD&quot, reuse=True)
+        self.components = (self.G, self.D_fake)
+
+        &#47&#47 Losses
+        self.g_loss, self.d_loss = self.get_adversarial_loss(Discriminator)
+
+        &#47&#47 Optimizers
+        with tf.variable_scope(&quotOptimizer&quot):
+            self.g_optimizer = self.get_optimizer()
+            self.g_step = self.g_optimizer.minimize(
+                self.g_loss, self.global_step, self.G.vars)
+
+            self.d_optimizer = self.get_optimizer()
+            self.d_step = self.d_optimizer.minimize(
+                self.d_loss, self.global_step, self.D_fake.vars)
+
+            &#47&#47 Apply weight clipping
+            if self.config[&quotgan&quot][&quottype&quot] == &quotwgan&quot:
+                with tf.control_dependencies([self.d_step]):
+                    self.d_step = tf.group(
+                        *(tf.assign(var, tf.clip_by_value(
+                            var, -self.config[&quotgan&quot][&quotclip_value&quot],
+                            self.config[&quotgan&quot][&quotclip_value&quot]))
+                          for var in self.D_fake.vars))
+
+        &#47&#47 Metrics
+        self.metrics = Metrics(self.config)
+
+        &#47&#47 Saver
+        self.saver = tf.train.Saver()
+
+        &#47&#47 Print and save model information
+        self.print_statistics()
+        self.save_statistics()
+        self.print_summary()
+        self.save_summary()
+
+    def train(self, x_train, train_config):
+        Train the model.
+        &#47&#47 Initialize sampler
+        self.z_sample = np.random.normal(
+            size=(self.config[&quotbatch_size&quot], self.config[&quotnet_g&quot][&quotz_dim&quot]))
+        self.x_sample = x_train[np.random.choice(
+            len(x_train), self.config[&quotbatch_size&quot], False)]
+        feed_dict_sample = {self.x: self.x_sample, self.z: self.z_sample}
+
+        &#47&#47 Save samples
+        self.save_samples(&quotx_train&quot, x_train, save_midi=True)
+        self.save_samples(&quotx_sample&quot, self.x_sample, save_midi=True)
+
+        &#47&#47 Open log files and write headers
+        log_step = open(os.path.join(self.config[&quotlog_dir&quot], &quotstep.log&quot), &quotw&quot)
+        log_batch = open(os.path.join(self.config[&quotlog_dir&quot], &quotbatch.log&quot), &quotw&quot)
+        log_epoch = open(os.path.join(self.config[&quotlog_dir&quot], &quotepoch.log&quot), &quotw&quot)
+        log_step.write(&quot&#47&#47 epoch, step, negative_critic_loss\n&quot)
+        log_batch.write(&quot&#47&#47 epoch, batch, time, negative_critic_loss, g_loss\n&quot)
+        log_epoch.write(&quot&#47&#47 epoch, time, negative_critic_loss, g_loss\n&quot)
+
+        &#47&#47 Initialize counter
+        counter = 0
+        num_batch = len(x_train) // self.config[&quotbatch_size&quot]
+
+        &#47&#47 Start epoch iteration
+        print(&quot{:=^80}&quot.format(&quot Training Start &quot))
+        for epoch in range(train_config[&quotnum_epoch&quot]):
+
+            print(&quot{:-^80}&quot.format(&quot Epoch {} Start &quot.format(epoch)))
+            epoch_start_time = time.time()
+
+            &#47&#47 Prepare batched training data
+            z_random_batch = np.random.normal(
+                size=(num_batch, self.config[&quotbatch_size&quot],
+                      self.config[&quotnet_g&quot][&quotz_dim&quot])
+            )
+            x_random_batch = np.random.choice(
+                len(x_train), (num_batch, self.config[&quotbatch_size&quot]), False
+            )
+
+            &#47&#47 Start batch iteration
+            for batch in range(num_batch):
+
+                feed_dict_batch = {self.x: x_train[x_random_batch[batch]],
+                                   self.z: z_random_batch[batch]}
+
+                if (counter &lt; 25) or (counter % 500 == 0):
+                    num_critics = 100
+                else:
+                    num_critics = 5
+
+                batch_start_time = time.time()
+
+                &#47&#47 Update networks
+                for _ in range(num_critics):
+                    _, d_loss = self.sess.run([self.d_step, self.d_loss],
+                                              feed_dict_batch)
+                    log_step.write("{}, {:14.6f}\n".format(
+                        self.get_global_step_str(), -d_loss
+                    ))
+
+                _, d_loss, g_loss = self.sess.run(
+                    [self.g_step, self.d_loss, self.g_loss], feed_dict_batch
+                )
+                log_step.write("{}, {:14.6f}\n".format(
+                    self.get_global_step_str(), -d_loss
+                ))
+
+                time_batch = time.time() - batch_start_time
+
+                &#47&#47 Print iteration summary
+                if train_config[&quotverbose&quot]:
+                    if batch &lt; 1:
+                        print("epoch |   batch   |  time  |    - D_loss    |"
+                              "     G_loss")
+                    print("  {:2d}  | {:4d}/{:4d} | {:6.2f} | {:14.6f} | "
+                          "{:14.6f}".format(epoch, batch, num_batch, time_batch,
+                                            -d_loss, g_loss))
+
+                log_batch.write("{:d}, {:d}, {:f}, {:f}, {:f}\n".format(
+                    epoch, batch, time_batch, -d_loss, g_loss
+                ))
+
+                &#47&#47 run sampler
+                if train_config[&quotsample_along_training&quot]:
+                    if counter%100 == 0 or (counter &lt; 300 and counter%20 == 0):
+                        self.run_sampler(self.G.tensor_out, feed_dict_sample,
+                                         False)
+                        self.run_sampler(self.test_round, feed_dict_sample,
+                                         (counter &gt; 500), postfix=&quottest_round&quot)
+                        self.run_sampler(self.test_bernoulli, feed_dict_sample,
+                                         (counter &gt; 500),
+                                         postfix=&quottest_bernoulli&quot)
+
+                &#47&#47 run evaluation
+                if train_config[&quotevaluate_along_training&quot]:
+                    if counter%10 == 0:
+                        self.run_eval(self.test_round, feed_dict_sample,
+                                      postfix=&quottest_round&quot)
+                        self.run_eval(self.test_bernoulli, feed_dict_sample,
+                                      postfix=&quottest_bernoulli&quot)
+
+                counter += 1
+
+            &#47&#47 print epoch info
+            time_epoch = time.time() - epoch_start_time
+
+            if not train_config[&quotverbose&quot]:
+                if epoch &lt; 1:
+                    print("epoch |   time   |    - D_loss    |     G_loss")
+                print("  {:2d}  | {:8.2f} | {:14.6f} | {:14.6f}".format(
+                    epoch, time_epoch, -d_loss, g_loss))
+
+            log_epoch.write("{:d}, {:f}, {:f}, {:f}\n".format(
+                epoch, time_epoch, -d_loss, g_loss
+            ))
+
+            &#47&#47 save checkpoints
+            self.save()
+
+        print(&quot{:=^80}&quot.format(&quot Training End &quot))
+        log_step.close()
+        log_batch.close()
+        log_epoch.close()
+
+class RefineGAN(Model):
+    Class that defines the second-stage (with refiner) model.
+    def __init__(self, sess, config, pretrained, name=&quotRefineGAN&quot, reuse=None):
+        super().__init__(sess, config, name)
+        self.pretrained = pretrained
+
+        print(&quot[*] Building RefineGAN...&quot)
+        with tf.variable_scope(name, reuse=reuse) as scope:
+            self.scope = scope
+            self.build()
+
+    def build(self):
+        Build the model.
+        &#47&#47 Create global step variable
+        self.global_step = tf.Variable(0, trainable=False, name=&quotglobal_step&quot)
+
+        &#47&#47 Get tensors from the pretrained model
+        self.z = self.pretrained.z
+        self.x = self.pretrained.x
+        self.x_ = self.pretrained.x_
+
+        &#47&#47 Slope tensor for applying slope annealing trick to stochastic neurons
+        self.slope_tensor = tf.Variable(1.0)
+
+        &#47&#47 Components
+        self.G = Refiner(self.pretrained.G.tensor_out, self.config,
+                         slope_tensor=self.slope_tensor, name=&quotR&quot)
+        self.D_real = self.pretrained.D_real
+        with tf.variable_scope(self.pretrained.scope, reuse=True):
+            self.D_fake = Discriminator(self.G.tensor_out, self.config,
+                                        name=&quotD&quot)
+        self.components = (self.pretrained.G, self.G, self.D_fake)
+
+        &#47&#47 Losses
+        self.g_loss, self.d_loss = self.get_adversarial_loss(
+            Discriminator, self.pretrained.scope)
+
+        &#47&#47 Optimizers
+        with tf.variable_scope(&quotOptimizer&quot):
+            self.g_optimizer = self.get_optimizer()
+            if self.config[&quotjoint_training&quot]:
+                self.g_step = self.g_optimizer.minimize(
+                    self.g_loss, self.global_step, (self.G.vars
+                                                    + self.pretrained.G.vars))
+            else:
+                self.g_step = self.g_optimizer.minimize(
+                    self.g_loss, self.global_step, self.G.vars)
+            self.d_optimizer = self.get_optimizer()
+            self.d_step = self.d_optimizer.minimize(
+                self.d_loss, self.global_step, self.D_fake.vars)
+
+            &#47&#47 Apply weight clipping
+            if self.config[&quotgan&quot][&quottype&quot] == &quotwgan&quot:
+                with tf.control_dependencies([self.d_step]):
+                    self.d_step = tf.group(
+                        *(tf.assign(var, tf.clip_by_value(
+                            var, -self.config[&quotgan&quot][&quotclip_value&quot],
+                            self.config[&quotgan&quot][&quotclip_value&quot]))
+                          for var in self.D_fake.vars))
+
+        &#47&#47 Metrics
+        self.metrics = Metrics(self.config)
+
+        &#47&#47 Saver
+        self.saver = tf.train.Saver()
+
+        &#47&#47 Print and save model information
+        self.print_statistics()
+        self.save_statistics()
+        self.print_summary()
+        self.save_summary()
+
+    def train(self, x_train, train_config):
+        Train the model.
+        &#47&#47 Initialize sampler
+        self.z_sample = np.random.normal(
+            size=(self.config[&quotbatch_size&quot], self.config[&quotnet_g&quot][&quotz_dim&quot]))
+        self.x_sample = x_train[np.random.choice(
+            len(x_train), self.config[&quotbatch_size&quot], False)]
+        feed_dict_sample = {self.x: self.x_sample, self.z: self.z_sample}
+
+        &#47&#47 Save samples
+        self.save_samples(&quotx_train&quot, x_train, save_midi=True)
+        self.save_samples(&quotx_sample&quot, self.x_sample, save_midi=True)
+
+        pretrained_samples = self.sess.run(self.pretrained.G.tensor_out,
+                                           feed_dict_sample)
+        self.save_samples(&quotpretrained&quot, pretrained_samples)
+
+        for threshold in [0.1, 0.3, 0.5, 0.7, 0.9]:
+            pretrained_threshold = (pretrained_samples &gt; threshold)
+            self.save_samples(&quotpretrained_threshold_{}&quot.format(threshold),
+                              pretrained_threshold, save_midi=True)
+
+        for idx in range(5):
+            pretrained_bernoulli = np.ceil(
+                pretrained_samples
+                - np.random.uniform(size=pretrained_samples.shape))
+            self.save_samples(&quotpretrained_bernoulli_{}&quot.format(idx),
+                              pretrained_bernoulli, save_midi=True)
+
+        &#47&#47 Open log files and write headers
+        log_step = open(os.path.join(self.config[&quotlog_dir&quot], &quotstep.log&quot), &quotw&quot)
+        log_batch = open(os.path.join(self.config[&quotlog_dir&quot], &quotbatch.log&quot), &quotw&quot)
+        log_epoch = open(os.path.join(self.config[&quotlog_dir&quot], &quotepoch.log&quot), &quotw&quot)
+        log_step.write(&quot&#47&#47 epoch, step, negative_critic_loss\n&quot)
+        log_batch.write(&quot&#47&#47 epoch, batch, time, negative_critic_loss, g_loss\n&quot)
+        log_epoch.write(&quot&#47&#47 epoch, time, negative_critic_loss, g_loss\n&quot)
+
+        &#47&#47 Define slope annealing op
+        if train_config[&quotslope_annealing_rate&quot] != 1.:
+            slope_annealing_op = tf.assign(
+                self.slope_tensor,
+                self.slope_tensor * train_config[&quotslope_annealing_rate&quot])
+
+        &#47&#47 Initialize counter
+        counter = 0
+        num_batch = len(x_train) // self.config[&quotbatch_size&quot]
+
+        &#47&#47 Start epoch iteration
+        print(&quot{:=^80}&quot.format(&quot Training Start &quot))
+        for epoch in range(train_config[&quotnum_epoch&quot]):
+
+            print(&quot{:-^80}&quot.format(&quot Epoch {} Start &quot.format(epoch)))
+            epoch_start_time = time.time()
+
+            &#47&#47 Prepare batched training data
+            z_random_batch = np.random.normal(
+                size=(num_batch, self.config[&quotbatch_size&quot],
+                      self.config[&quotnet_g&quot][&quotz_dim&quot])
+            )
+            x_random_batch = np.random.choice(
+                len(x_train), (num_batch, self.config[&quotbatch_size&quot]), False)
+
+            &#47&#47 Start batch iteration
+            for batch in range(num_batch):
+
+                feed_dict_batch = {self.x: x_train[x_random_batch[batch]],
+                                   self.z: z_random_batch[batch]}
+
+                if counter % 500 == 0: &#47&#47 (counter &lt; 25)
+                    num_critics = 100
+                else:
+                    num_critics = 5
+
+                batch_start_time = time.time()
+
+                &#47&#47 Update networks
+                for _ in range(num_critics):
+                    _, d_loss = self.sess.run([self.d_step, self.d_loss],
+                                              feed_dict_batch)
+                    log_step.write("{}, {:14.6f}\n".format(
+                        self.get_global_step_str(), -d_loss
+                    ))
+
+                _, d_loss, g_loss = self.sess.run(
+                    [self.g_step, self.d_loss, self.g_loss], feed_dict_batch
+                )
+                log_step.write("{}, {:14.6f}\n".format(
+                    self.get_global_step_str(), -d_loss
+                ))
+
+                time_batch = time.time() - batch_start_time
+
+                &#47&#47 Print iteration summary
+                if train_config[&quotverbose&quot]:
+                    if batch &lt; 1:
+                        print("epoch |   batch   |  time  |    - D_loss    |"
+                              "     G_loss")
+                    print("  {:2d}  | {:4d}/{:4d} | {:6.2f} | {:14.6f} | "
+                          "{:14.6f}".format(epoch, batch, num_batch, time_batch,
+                                            -d_loss, g_loss))
+
+                log_batch.write("{:d}, {:d}, {:f}, {:f}, {:f}\n".format(
+                    epoch, batch, time_batch, -d_loss, g_loss
+                ))
+
+                &#47&#47 run sampler
+                if train_config[&quotsample_along_training&quot]:
+                    if counter%100 == 0 or (counter &lt; 300 and counter%20 == 0):
+                        self.run_sampler(self.G.tensor_out, feed_dict_sample,
+                                         (counter &gt; 500))
+                        self.run_sampler(self.G.preactivated, feed_dict_sample,
+                                         False, postfix=&quotpreactivated&quot)
+
+                &#47&#47 run evaluation
+                if train_config[&quotevaluate_along_training&quot]:
+                    if counter%10 == 0:
+                        self.run_eval(self.G.tensor_out, feed_dict_sample)
+
+                counter += 1
+
+            &#47&#47 print epoch info
+            time_epoch = time.time() - epoch_start_time
+
+            if not train_config[&quotverbose&quot]:
+                if epoch &lt; 1:
+                    print("epoch |   time   |    - D_loss    |     G_loss")
+                print("  {:2d}  | {:8.2f} | {:14.6f} | {:14.6f}".format(
+                    epoch, time_epoch, -d_loss, g_loss))
+
+            log_epoch.write("{:d}, {:f}, {:f}, {:f}\n".format(
+                epoch, time_epoch, -d_loss, g_loss
+            ))
+
+            &#47&#47 save checkpoints
+            self.save()
+
+            if train_config[&quotslope_annealing_rate&quot] != 1.:
+                self.sess.run(slope_annealing_op)
+
+        print(&quot{:=^80}&quot.format(&quot Training End &quot))
+        log_step.close()
+        log_batch.close()
+        log_epoch.close()
+
+class End2EndGAN(Model):
+    Class that defines the end-to-end model.
+    def __init__(self, sess, config, name=&quotEnd2EndGAN&quot, reuse=None):
+        super().__init__(sess, config, name)
+
+        print(&quot[*] Building End2EndGAN...&quot)
+        with tf.variable_scope(name, reuse=reuse) as scope:
+            self.scope = scope
+            self.build()
+
+    def build(self):
+        Build the model.
+        self.global_step = tf.Variable(0, trainable=False, name=&quotglobal_step&quot)
+
+        &#47&#47 Create placeholders
+        self.z = tf.placeholder(
+            tf.float32,
+            (self.config[&quotbatch_size&quot], self.config[&quotnet_g&quot][&quotz_dim&quot]), &quotz&quot
+        )
+        data_shape = (self.config[&quotbatch_size&quot], self.config[&quotnum_bar&quot],
+                      self.config[&quotnum_timestep&quot], self.config[&quotnum_pitch&quot],
+                      self.config[&quotnum_track&quot])
+        self.x = tf.placeholder(tf.bool, data_shape, &quotx&quot)
+        self.x_ = tf.cast(self.x, tf.float32, &quotx_&quot)
+
+        &#47&#47 Slope tensor for applying slope annealing trick to stochastic neurons
+        self.slope_tensor = tf.Variable(1.0)
+
+        &#47&#47 Components
+        self.G = End2EndGenerator(self.z, self.config,
+                                  slope_tensor=self.slope_tensor, name=&quotG&quot)
+        self.D_fake = Discriminator(self.G.tensor_out, self.config, name=&quotD&quot)
+        self.D_real = Discriminator(self.x_, self.config, name=&quotD&quot, reuse=True)
+        self.components = (self.G, self.D_fake)
+
+        &#47&#47 Losses
+        self.g_loss, self.d_loss = self.get_adversarial_loss(Discriminator)
+
+        &#47&#47 Optimizers
+        with tf.variable_scope(&quotOptimizer&quot):
+            self.g_optimizer = self.get_optimizer()
+            self.g_step = self.g_optimizer.minimize(
+                self.g_loss, self.global_step, self.G.vars)
+
+            self.d_optimizer = self.get_optimizer()
+            self.d_step = self.d_optimizer.minimize(
+                self.d_loss, self.global_step, self.D_fake.vars)
+
+            &#47&#47 Apply weight clipping
+            if self.config[&quotgan&quot][&quottype&quot] == &quotwgan&quot:
+                with tf.control_dependencies([self.d_step]):
+                    self.d_step = tf.group(
+                        *(tf.assign(var, tf.clip_by_value(
+                            var, -self.config[&quotgan&quot][&quotclip_value&quot],
+                            self.config[&quotgan&quot][&quotclip_value&quot]))
+                          for var in self.D_fake.vars))
+
+        &#47&#47 Metrics
+        self.metrics = Metrics(self.config)
+
+        &#47&#47 Saver
+        self.saver = tf.train.Saver()
+
+        &#47&#47 Print and save model information
+        self.print_statistics()
+        self.save_statistics()
+        self.print_summary()
+        self.save_summary()
+
+    def train(<a id="change">self</a>, <a id="change">x_train</a>, <a id="change">train_config</a>):
+        Train the model.
+        &#47&#47 Initialize sampler
+        <a id="change">self.z_sample = np.random.normal(
+            size=(self.config[&quotbatch_size&quot], self.config[&quotnet_g&quot][&quotz_dim&quot]))</a>
+        <a id="change">self.x_sample = x_train[np.random.choice(
+            len(x_train), self.config[&quotbatch_size&quot], False)]</a>
+        <a id="change">feed_dict_sample = {self.x: self.x_sample, self.z: self.z_sample}</a>
+
+        &#47&#47 Save samples
+        self.save_samples(&quotx_train&quot, x_train, save_midi=True)
+        self.save_samples(&quotx_sample&quot, self.x_sample, save_midi=True)
+
+        &#47&#47 Open log files and write headers
+        <a id="change">log_step = open(os.path.join(self.config[&quotlog_dir&quot], &quotstep.log&quot), &quotw&quot)</a>
+        <a id="change">log_batch = open(os.path.join(self.config[&quotlog_dir&quot], &quotbatch.log&quot), &quotw&quot)</a>
+        <a id="change">log_epoch = open(os.path.join(self.config[&quotlog_dir&quot], &quotepoch.log&quot), &quotw&quot)</a>
+        log_step.write(&quot&#47&#47 epoch, step, negative_critic_loss\n&quot)
+        log_batch.write(&quot&#47&#47 epoch, batch, time, negative_critic_loss, g_loss\n&quot)
+        log_epoch.write(&quot&#47&#47 epoch, time, negative_critic_loss, g_loss\n&quot)
+
+        &#47&#47 Define slope annealing op
+        if train_config[&quotslope_annealing_rate&quot] != 1.:
+            <a id="change">slope_annealing_op = tf.assign(
+                self.slope_tensor,
+                self.slope_tensor * train_config[&quotslope_annealing_rate&quot])</a>
+
+        &#47&#47 Initialize counter
+        <a id="change">counter = 0</a>
+        <a id="change">num_batch = len(x_train) // self.config[&quotbatch_size&quot]</a>
+
+        &#47&#47 Start epoch iteration
+        print(&quot{:=^80}&quot.format(&quot Training Start &quot))
+        for epoch in range(train_config[&quotnum_epoch&quot]):
+
+            print(&quot{:-^80}&quot.format(&quot Epoch {} Start &quot.format(epoch)))
+            <a id="change">epoch_start_time = time.time()</a>
+
+            &#47&#47 Prepare batched training data
+            <a id="change">z_random_batch = np.random.normal(
+                size=(num_batch, self.config[&quotbatch_size&quot],
+                      self.config[&quotnet_g&quot][&quotz_dim&quot])
+            )</a>
+            <a id="change">x_random_batch = np.random.choice(
+                len(x_train), (num_batch, self.config[&quotbatch_size&quot]), False)</a>
+
+            &#47&#47 Start batch iteration
+            for batch in range(num_batch):
+
+                <a id="change">feed_dict_batch = {self.x: x_train[x_random_batch[batch]],
+                                   self.z: z_random_batch[batch]}</a>
+
+                if (counter &lt; 25) or (counter % 500 == 0):
+                    <a id="change">num_critics = 100</a>
+                else:
+                    <a id="change">num_critics = 5</a>
+
+                <a id="change">batch_start_time = time.time()</a>
+
+                &#47&#47 Update networks
+                for _ in range(num_critics):
+                    <a id="change">_, d_loss = self.sess.run([self.d_step, self.d_loss],
+                                              feed_dict_batch)</a>
+                    log_step.write("{}, {:14.6f}\n".format(
+                        self.get_global_step_str(), -d_loss
+                    ))
+
+                <a id="change">_, d_loss, g_loss = self.sess.run(
+                    [self.g_step, self.d_loss, self.g_loss], feed_dict_batch
+                )</a>
+                log_step.write("{}, {:14.6f}\n".format(
+                    self.get_global_step_str(), -d_loss
+                ))
+
+                <a id="change">time_batch = time.time() - batch_start_time</a>
+
+                &#47&#47 Print iteration summary
+                if train_config[&quotverbose&quot]:
+                    if batch &lt; 1:
+                        print("epoch |   batch   |  time  |    - D_loss    |"
+                              "     G_loss")
+                    print("  {:2d}  | {:4d}/{:4d} | {:6.2f} | {:14.6f} | "
+                          "{:14.6f}".format(epoch, batch, num_batch, time_batch,
+                                            -d_loss, g_loss))
+
+                log_batch.write("{:d}, {:d}, {:f}, {:f}, {:f}\n".format(
+                    epoch, batch, time_batch, -d_loss, g_loss
+                ))
+
+                &#47&#47 run sampler
+                if train_config[&quotsample_along_training&quot]:
+                    if counter%100 == 0 or (counter &lt; 300 and counter%20 == 0):
+                        self.run_sampler(self.G.tensor_out, feed_dict_sample,
+                                         (counter &gt; 500))
+                        self.run_sampler(self.G.preactivated, feed_dict_sample,
+                                         False, postfix=&quotpreactivated&quot)
+
+                &#47&#47 run evaluation
+                if train_config[&quotevaluate_along_training&quot]:
+                    if counter%10 == 0:
+                        self.run_eval(self.G.tensor_out, feed_dict_sample)
+
+                counter += 1
+
+            &#47&#47 print epoch info
+            <a id="change">time_epoch = time.time() - epoch_start_time</a>
+
+            if not train_config[&quotverbose&quot]:
+                if epoch &lt; 1:
+                    print("epoch |   time   |    - D_loss    |     G_loss")
+                print("  {:2d}  | {:8.2f} | {:14.6f} | {:14.6f}".format(
+                    epoch, time_epoch, -d_loss, g_loss))
+
+            log_epoch.write("{:d}, {:f}, {:f}, {:f}\n".format(
+                epoch, time_epoch, -d_loss, g_loss
+            ))
+
+            &#47&#47 save checkpoints
+            self.save()
+
+            if train_config[&quotslope_annealing_rate&quot] != 1.:
+                self.sess.run(slope_annealing_op)
+
+        print(&quot{:=^80}&quot.format(&quot Training End &quot))
+        <a id="change">log_step</a><a id="change">.close()</a>
+        <a id="change">log_batch</a><a id="change">.close()</a>
+        <a id="change">log_epoch</a><a id="change">.close()</a>
+</code></pre>

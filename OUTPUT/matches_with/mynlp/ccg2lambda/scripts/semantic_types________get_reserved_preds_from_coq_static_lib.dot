@@ -1,0 +1,113 @@
+digraph G {
+1 [label="(198961971)str(line)" shape=ellipse style=dashed]
+2 [label="(198961983)str(type_definition)" shape=ellipse style=dashed]
+3 [label="(198961985)comprehension" shape=diamond style=dashed]
+4 [label="(198961962)str(coq_static_lib_path)" shape=ellipse style=dashed]
+5 [label="(198961969)codecs.StreamReaderWriter(finput)" shape=ellipse style=dashed]
+6 [label="(198961961)open" shape=box style=dashed color=red fontcolor=red]
+7 [label="(198961993)return" shape=box style=dashed]
+8 [label="(198961979)codecs.StreamReaderWriter(finput)" shape=ellipse style=dashed color=red fontcolor=red]
+9 [label="(198961968)str(line)" shape=ellipse style=dashed]
+10 [label="(198961986)str(type_definition)" shape=ellipse style=dashed]
+11 [label="(198961989)number(1)" shape=ellipse style=dashed]
+12 [label="(198961963)String(lit(r))" shape=ellipse style=dashed color=red fontcolor=red]
+13 [label="(198961984)List[str](type_definitions)" shape=ellipse style=dashed]
+14 [label="(198961973)String(lit(Parameter ))" shape=ellipse style=dashed]
+15 [label="(198961967)ListComp" shape=diamond style=dashed]
+16 [label="(198961970)comprehension" shape=diamond style=dashed]
+17 [label="(198961956)(null)" shape=ellipse style=dashed]
+18 [label="(198961964)String(lit(utf-8))" shape=ellipse style=dashed color=red fontcolor=red]
+19 [label="(198961988)str.split()[.](Subscript)" shape=ellipse style=dashed]
+20 [label="(198961991)=" shape=box style=dashed color=blue fontcolor=blue]
+21 [label="(198961981)List[str](reserved_predicates)" shape=ellipse style=dashed]
+22 [label="(198961990)empty" shape=box style=dashed]
+23 [label="(198961975)str(line)" shape=ellipse style=dashed]
+24 [label="(198961977)empty" shape=box style=dashed]
+25 [label="(198961980)close" shape=box style=dashed color=red fontcolor=red]
+26 [label="(198961960)codecs(codecs)" shape=ellipse style=dashed]
+27 [label="(198961965)=" shape=box style=dashed color=red fontcolor=red]
+28 [label="(198961972)startswith" shape=box style=dashed]
+29 [label="(198961954)START" style=dashed]
+30 [label="(198961987)split" shape=box style=dashed]
+31 [label="(198961994)END" style=dashed]
+32 [label="(198961955)str(coq_static_lib_path)" shape=ellipse style=dashed]
+33 [label="(198961959)codecs.StreamReaderWriter(finput)" shape=ellipse style=dashed color=red fontcolor=red]
+34 [label="(198961957)=" shape=box style=dashed color=red fontcolor=red]
+35 [label="(198961966)List[str](type_definitions)" shape=ellipse style=dashed]
+36 [label="(198961992)List[str](reserved_predicates)" shape=ellipse style=dashed]
+37 [label="(198961974)If" shape=diamond style=dashed]
+38 [label="(198961978)=" shape=box style=dashed color=black fontcolor=black]
+39 [label="(198961976)strip" shape=box style=dashed]
+40 [label="(198961982)ListComp" shape=diamond style=dashed]
+9 -> 1 [label="ref" style=dotted];
+13 -> 2 [label="def" style=dotted];
+29 -> 3 [label="" style=solid];
+2 -> 3 [label="cond" style=dotted];
+25 -> 3 [label="dep" style=dotted];
+33 -> 5 [label="ref" style=dotted];
+29 -> 6 [label="" style=solid];
+26 -> 6 [label="recv" style=dotted];
+4 -> 6 [label="para" style=dotted];
+12 -> 6 [label="para" style=dotted];
+18 -> 6 [label="para" style=dotted];
+34 -> 6 [label="dep" style=dotted];
+29 -> 7 [label="" style=solid];
+36 -> 7 [label="para" style=dotted];
+20 -> 7 [label="dep" style=dotted];
+33 -> 8 [label="ref" style=dotted];
+5 -> 9 [label="def" style=dotted];
+2 -> 10 [label="ref" style=dotted];
+35 -> 13 [label="ref" style=dotted];
+29 -> 15 [label="" style=solid];
+16 -> 15 [label="dep" style=dotted];
+39 -> 15 [label="dep" style=dotted];
+39 -> 15 [label="para" style=dotted];
+24 -> 15 [label="dep" style=dotted];
+24 -> 15 [label="para" style=dotted];
+29 -> 16 [label="" style=solid];
+9 -> 16 [label="cond" style=dotted];
+39 -> 16 [label="dep" style=dotted];
+39 -> 16 [label="cond" style=dotted];
+27 -> 16 [label="dep" style=dotted];
+30 -> 19 [label="qual" style=dotted];
+11 -> 19 [label="para" style=dotted];
+29 -> 20 [label="" style=solid];
+40 -> 20 [label="dep" style=dotted];
+40 -> 20 [label="para" style=dotted];
+20 -> 21 [label="def" style=dotted];
+3 -> 22 [label="" style=solid];
+9 -> 23 [label="ref" style=dotted];
+16 -> 24 [label="" style=solid];
+29 -> 25 [label="" style=solid];
+8 -> 25 [label="recv" style=dotted];
+38 -> 25 [label="dep" style=dotted];
+29 -> 27 [label="" style=solid];
+6 -> 27 [label="dep" style=dotted];
+6 -> 27 [label="para" style=dotted];
+29 -> 28 [label="" style=solid];
+1 -> 28 [label="recv" style=dotted];
+14 -> 28 [label="para" style=dotted];
+16 -> 28 [label="dep" style=dotted];
+29 -> 30 [label="" style=solid];
+10 -> 30 [label="recv" style=dotted];
+3 -> 30 [label="dep" style=dotted];
+7 -> 31 [label="dep" style=dotted];
+34 -> 32 [label="def" style=dotted];
+27 -> 33 [label="def" style=dotted];
+29 -> 34 [label="" style=solid];
+17 -> 34 [label="para" style=dotted];
+38 -> 35 [label="def" style=dotted];
+21 -> 36 [label="ref" style=dotted];
+29 -> 37 [label="" style=solid];
+28 -> 37 [label="dep" style=dotted];
+28 -> 37 [label="cond" style=dotted];
+29 -> 38 [label="" style=solid];
+15 -> 38 [label="dep" style=dotted];
+15 -> 38 [label="para" style=dotted];
+37 -> 39 [label="T"];
+23 -> 39 [label="recv" style=dotted];
+29 -> 40 [label="" style=solid];
+19 -> 40 [label="cond" style=dotted];
+22 -> 40 [label="dep" style=dotted];
+22 -> 40 [label="para" style=dotted];
+}

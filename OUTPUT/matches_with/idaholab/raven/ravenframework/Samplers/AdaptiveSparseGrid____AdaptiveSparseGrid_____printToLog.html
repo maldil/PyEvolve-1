@@ -1,0 +1,656 @@
+<link rel="stylesheet" href="../../../..//default.css">
+<script src="../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/idaholab/raven/blob/devel/ravenframework/Samplers/AdaptiveSparseGrid.py#L541">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/raven/blob/devel/ravenframework/Samplers/AdaptiveSparseGrid.py#L541">GitMyHubLink</a>
+
+&#47&#47 Copyright 2017 Battelle Energy Alliance, LLC
+&#47&#47
+&#47&#47 Licensed under the Apache License, Version 2.0 (the "License");
+&#47&#47 you may not use this file except in compliance with the License.
+&#47&#47 You may obtain a copy of the License at
+&#47&#47
+&#47&#47 http://www.apache.org/licenses/LICENSE-2.0
+&#47&#47
+&#47&#47 Unless required by applicable law or agreed to in writing, software
+&#47&#47 distributed under the License is distributed on an "AS IS" BASIS,
+&#47&#47 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+&#47&#47 See the License for the specific language governing permissions and
+&#47&#47 limitations under the License.
+
+  This module contains the Adaptive Stochastic Collocation sampling strategy
+
+  Created on May 21, 2016
+  @author: alfoa
+  supercedes Samplers.py from talbpw
+
+&#47&#47External Modules------------------------------------------------------------------------------------
+import sys
+import copy
+import numpy as np
+from operator import mul
+from functools import reduce
+
+if sys.version_info.major &gt; 2:
+  import pickle
+else:
+  import cPickle as pickle
+&#47&#47External Modules End--------------------------------------------------------------------------------
+
+&#47&#47Internal Modules------------------------------------------------------------------------------------
+from .SparseGridCollocation import SparseGridCollocation
+from .AdaptiveSampler import AdaptiveSampler
+from ..utils import utils
+from ..utils import InputData, InputTypes
+from .. import Quadratures
+from .. import IndexSets
+&#47&#47Internal Modules End-------------------------------------------------------------------------------
+
+class AdaptiveSparseGrid(SparseGridCollocation, AdaptiveSampler):
+  
+   Adaptive Sparse Grid Collocation sampling strategy
+  
+
+  @classmethod
+  def getInputSpecification(cls):
+    
+      Method to get a reference to a class that specifies the input data for
+      class cls.
+      @ In, cls, the class for which we are retrieving the specification
+      @ Out, inputSpecification, InputData.ParameterInput, class to use for
+        specifying input of cls.
+    
+    inputSpecification = super(AdaptiveSparseGrid, cls).getInputSpecification()
+
+    convergenceInput = InputData.parameterInputFactory("Convergence", contentType=InputTypes.StringType)
+    convergenceInput.addParam("target", InputTypes.StringType, True)
+    convergenceInput.addParam("maxPolyOrder", InputTypes.IntegerType)
+    convergenceInput.addParam("persistence", InputTypes.IntegerType)
+
+    inputSpecification.addSub(convergenceInput)
+
+    inputSpecification.addSub(InputData.parameterInputFactory("logFile"))
+    inputSpecification.addSub(InputData.parameterInputFactory("maxRuns", contentType=InputTypes.IntegerType))
+
+    targetEvaluationInput = InputData.parameterInputFactory("TargetEvaluation", contentType=InputTypes.StringType)
+    targetEvaluationInput.addParam("type", InputTypes.StringType)
+    targetEvaluationInput.addParam("class", InputTypes.StringType)
+    inputSpecification.addSub(targetEvaluationInput)
+
+    return inputSpecification
+
+  def __init__(self):
+    
+      Default Constructor that will initialize member variables with reasonable
+      defaults or empty lists/dictionaries where applicable.
+      @ In, None
+      @ Out, None
+    
+    super().__init__()
+    &#47&#47identification
+    self.type                    = &quotAdaptiveSparseGridSampler&quot
+    self.printTag                = self.type
+    &#47&#47assembler objects
+    self.solns                   = None   &#47&#47TimePointSet of solutions -&gt; assembled
+    self.ROM                     = None   &#47&#47eventual final ROM object
+    &#47&#47input parameters
+    self.maxPolyOrder            = 0      &#47&#47max size of polynomials to allow
+    self.persistence             = 0      &#47&#47number of forced iterations, default 2
+    self.convType                = None   &#47&#47convergence criterion to use
+    self.logFile                 = None   &#47&#47file to print log to, optional
+    &#47&#47convergence/training tools
+    self.expImpact               = {}     &#47&#47dict of potential included polynomials and their estimated impacts, [target][index]
+    self.actImpact               = {}     &#47&#47dict of included polynomials and their current impact, [target][index] = impact
+    self.sparseGrid              = None   &#47&#47current sparse grid
+    self.oldSG                   = None   &#47&#47previously-accepted sparse grid
+    self.error                   = 0      &#47&#47estimate of percent of moment calculated so far
+    self.logCounter              = 0      &#47&#47when printing the log, tracks the number of prints
+    &#47&#47convergence study -&gt; currently suspended since it doesn&quott follow RAVEN I/O protocol.
+    &#47&#47self.doingStudy              = False  &#47&#47true if convergenceStudy node defined for sampler
+    &#47&#47self.studyFileBase           = &quotout_&quot &#47&#47can be replaced in input, not used if not doingStudy
+    &#47&#47self.studyPoints             = []     &#47&#47list of ints, runs at which to record a state
+    &#47&#47self.studyPickle             = False  &#47&#47if true, dumps ROM to pickle at each step
+    &#47&#47solution storage
+    self.neededPoints            = []     &#47&#47queue of points to submit
+    self.submittedNotCollected   = []     &#47&#47list of points submitted but not yet collected and used
+    self.pointsNeededToMakeROM   = set()  &#47&#47list of distinct points needed in this process
+    self.unfinished              = 0      &#47&#47number of runs still running when convergence complete
+    self.batchDone               = True   &#47&#47flag for whether jobHandler has complete batch or not
+    self.done                    = False  &#47&#47flipped when converged
+    self.newSolutionSizeShouldBe = None   &#47&#47used to track and debug intended size of solutions
+    self.inTraining              = set()  &#47&#47list of index set points for whom points are being run
+
+  def localInputAndChecks(self,xmlNode, paramInput):
+    
+      Class specific xml inputs will be read here and checked for validity.
+      @ In, xmlNode, xml.etree.ElementTree.Element, The xml element node that will be checked against the available options specific to this Sampler.
+      @ In, paramInput, InputData.ParameterInput, the parsed parameters
+      @ Out, None
+    
+    &#47&#47TODO remove using xmlNode
+    SparseGridCollocation.localInputAndChecks(self,xmlNode, paramInput)
+    if &quotConvergence&quot not in list(c.tag for c in xmlNode):
+      self.raiseAnError(IOError,&quotConvergence node not found in input!&quot)
+    convnode  = xmlNode.find(&quotConvergence&quot)
+    logNode   = xmlNode.find(&quotlogFile&quot)
+    studyNode = xmlNode.find(&quotconvergenceStudy&quot)
+    self.convType     = convnode.attrib.get(&quottarget&quot,&quotvariance&quot)
+    self.maxPolyOrder = int(convnode.attrib.get(&quotmaxPolyOrder&quot,10))
+    self.persistence  = int(convnode.attrib.get(&quotpersistence&quot,2))
+    maxRunsNode = xmlNode.find(&quotmaxRuns&quot)
+    if maxRunsNode is not None:
+      self.maxRuns = int(maxRunsNode.text)
+    else:
+      self.maxRuns = None
+
+    self.convValue    = float(convnode.text)
+    if logNode is not None:
+      self.logFile = logNode.text
+    if self.maxRuns is not None:
+      self.maxRuns = int(self.maxRuns)
+    &#47&#47 studyNode for convergence study is removed for now, since it doesn&quott follow the RAVEN pattern of I/O
+    &#47&#47   since it writes directy to a file. However, it could be configured to work in the future, so leaving
+    &#47&#47   it for now.
+    &#47&#47if studyNode is not None:
+    &#47&#47  self.doingStudy = True
+    &#47&#47  self.studyPoints = studyNode.find(&quotrunStatePoints&quot).text
+    &#47&#47  filebaseNode = studyNode.find(&quotbaseFilename&quot)
+    &#47&#47  self.studyPickle = studyNode.find(&quotpickle&quot) is not None
+    &#47&#47  if filebaseNode is None:
+    &#47&#47    self.raiseAWarning(&quotNo baseFilename specified in convergenceStudy node!  Using "%s"...&quot %self.studyFileBase)
+    &#47&#47  else:
+    &#47&#47    self.studyFileBase = studyNode.find(&quotbaseFilename&quot).text
+    &#47&#47  if self.studyPoints is None:
+    &#47&#47    self.raiseAnError(IOError,&quotconvergenceStudy node was included, but did not specify the runStatePoints node!&quot)
+    &#47&#47  else:
+    &#47&#47    try:
+    &#47&#47      self.studyPoints = list(int(i) for i in self.studyPoints.split(&quot,&quot))
+    &#47&#47    except ValueError as e:
+    &#47&#47      self.raiseAnError(IOError,&quotConvergence state point not recognizable as an integer!&quot,e)
+    &#47&#47    self.studyPoints.sort()
+
+  def localInitialize(self):
+    
+      Will perform all initialization specific to this Sampler. For instance,
+      creating an empty container to hold the identified surface points, error
+      checking the optionally provided solution export and other preset values,
+      and initializing the limit surface Post-Processor used by this sampler.
+      @ In, None
+      @ Out, None
+    
+    &#47&#47this model doesn&quott use restarts, it uses the TargetEvaluation
+    if self.restartData is not None:
+      self.raiseAnError(IOError,&quotAdaptiveSparseGrid does not use Restart nodes!  Try TargetEvaluation instead.&quot)
+    &#47&#47obtain the DataObject that contains evaluations of the model
+    self.solns = self.assemblerDict[&quotTargetEvaluation&quot][0][3]
+    &#47&#47set a pointer to the GaussPolynomialROM object
+    SVL = self.readFromROM()
+    self.targets = SVL.target &#47&#47the output space variables
+    &#47&#47initialize impact dictionaries by target
+    self.expImpact = {key: dict({}) for key in self.targets}
+    self.actImpact = {key: dict({}) for key in self.targets}
+
+    mpo = self.maxPolyOrder &#47&#47save it to re-set it after calling generateQuadsAndPolys
+    self._generateQuadsAndPolys(SVL) &#47&#47lives in GaussPolynomialRom object
+    self.maxPolyOrder = mpo &#47&#47re-set it
+
+    &#47&#47print out the setup for each variable.
+    self.raiseADebug(&quot INTERPOLATION INFO:&quot)
+    self.raiseADebug(&quot    Variable | Distribution | Quadrature | Polynomials&quot)
+    for v in self.quadDict.keys():
+      self.raiseADebug(&quot   &quot+&quot | &quot.join([v,self.distDict[v].type,self.quadDict[v].type,self.polyDict[v].type]))
+    self.raiseADebug(&quot    Polynomial Set Type  : adaptive&quot)
+
+    &#47&#47create the index set
+    self.raiseADebug(&quotStarting index set generation...&quot)
+    self.indexSet = IndexSets.factory.returnInstance(&quotAdaptiveSet&quot)
+    self.indexSet.initialize(self.features,self.importanceDict,self.maxPolyOrder)
+    for pt in self.indexSet.active:
+      self.inTraining.add(pt)
+      for t in self.targets:
+        self.expImpact[t][pt] = 1.0 &#47&#47dummy, just to help algorithm be consistent
+
+    &#47&#47make the first sparse grid
+    self.sparseGrid = self._makeSparseQuad(self.indexSet.active)
+
+    &#47&#47set up the points we need RAVEN to run before we can continue
+    self.newSolutionSizeShouldBe = len(self.solns)
+    self._addNewPoints()
+
+  def localStillReady(self,ready,skipJobHandlerCheck=False):
+    
+      first perform some check to understand what it needs to be done possibly perform an early return
+      ready is returned
+      Determines what additional points are necessary for RAVEN to run.
+      @ In,  ready, bool, a boolean representing whether the caller is prepared for another input.
+      @ In, skipJobHandlerCheck, bool, optional, if true bypasses check on active runs in jobHandler
+      @ Out, ready, bool, a boolean representing whether the caller is prepared for another input.
+    
+    &#47&#47if we&quotre done, be done
+    if self.done:
+      return False
+    &#47&#47if we&quotre not ready elsewhere, just be not ready
+    if ready==False:
+      return ready
+    &#47&#47if we still have a list of points to sample, just keep on trucking.
+    if len(self.neededPoints)&gt;0:
+      return True
+    &#47&#47if points all submitted but not all done, not ready for now.
+    if (not self.batchDone) or (not skipJobHandlerCheck and not self.jobHandler.isFinished()):
+      return False
+    if len(self.solns) &lt; self.newSolutionSizeShouldBe:
+      return False
+    &#47&#47if no points to check right now, search for points to sample
+    &#47&#47this should also mean the points for the poly-in-training are done
+    while len(self.neededPoints)&lt;1:
+      &#47&#47update sparse grid and set active impacts
+      self._updateQoI()
+      &#47&#47move the index set forward -&gt; that is, find the potential new indices
+      self.indexSet.forward(self.maxPolyOrder)
+      &#47&#47estimate impacts of all potential indices
+      for pidx in self.indexSet.active:
+        self._estimateImpact(pidx)
+      &#47&#47check error convergence, using the largest impact from each target
+      self.error = 0
+      for pidx in self.indexSet.active:
+        self.error += max(self.expImpact[t][pidx] for t in self.targets)
+      &#47&#47if logging, print to file
+      if self.logFile is not None:
+        self._printToLog()
+      &#47&#47if doing a study and past a statepoint, record the statepoint
+      &#47&#47 discontinued temporarily, see notes above in localInputsAndChecks
+      &#47&#47if self.doingStudy:
+      &#47&#47  while len(self.studyPoints)&gt;0 and len(self.pointsNeededToMakeROM) &gt; self.studyPoints[0]:
+      &#47&#47    self._writeConvergencePoint(self.studyPoints[0])
+      &#47&#47    if self.studyPickle:
+      &#47&#47      self._writePickle(self.studyPoints[0])
+      &#47&#47    &#47&#47remove the point
+      &#47&#47    if len(self.studyPoints)&gt;1:
+      &#47&#47      self.studyPoints=self.studyPoints[1:]
+      &#47&#47    else:
+      &#47&#47      self.studyPoints = []
+      &#47&#47if error small enough, converged!
+      if abs(self.error) &lt; self.convValue:
+        self.done = True
+        self.converged = True
+        break
+      &#47&#47if maxRuns reached, no more samples!
+      if self.maxRuns is not None and len(self.pointsNeededToMakeROM) &gt;= self.maxRuns:
+        self.raiseAMessage(&quotMaximum runs reached!  No further polynomial will be added.&quot)
+        self.done = True
+        self.converged = True
+        self.neededPoints=[]
+        break
+      &#47&#47otherwise, not converged...
+      &#47&#47what if we have no polynomials to consider...
+      if len(self.indexSet.active)&lt;1:
+        self.raiseADebug(&quotNo new polynomials to consider!&quot)
+        break
+      &#47&#47find the highest overall impact to run next
+      idx = self._findHighestImpactIndex()
+      &#47&#47add it to the training list, and append its points to the requested ones
+      self.inTraining.add(idx)
+      newSG = self._makeSparseQuad([idx])
+      self._addNewPoints(newSG)
+    &#47&#47if we exited while loop without finding points, we must be done!
+    if len(self.neededPoints)&lt;1:
+      self.converged = True
+      self.raiseADebug(&quotIndex points in use, and their impacts:&quot)
+      for p in self.indexSet.points:
+        self.raiseADebug(&quot   &quot,p,list(self.actImpact[t][p] for t in self.targets))
+      self._finalizeROM()
+      self.unfinished = self.jobHandler.numRunning()
+      self.jobHandler.terminateAll()
+      self.neededPoints=[]
+      self.done = True
+      &#47&#47 suspended, see notes above
+      &#47&#47if self.doingStudy and len(self.studyPoints)&gt;0:
+      &#47&#47  self.raiseAWarning(&quotIn the convergence study, the following numbers of runs were not reached:&quot,self.studyPoints)
+      return False
+    &#47&#47if we got here, we still have points to run!
+    &#47&#47print a status update...
+    self.raiseAMessage(&quot  Next: %s | error: %1.4e | runs: %i&quot %(str(idx),self.error,len(self.pointsNeededToMakeROM)))
+    return True
+
+  def localGenerateInput(self,model,myInput):
+    
+      Function to select the next most informative point
+      After this method is called, the self.inputInfo should be ready to be sent
+      to the model
+      @ In, model, model instance, an instance of a model
+      @ In, myInput, list, a list of the original needed inputs for the model (e.g. list of files, etc.)
+      @ Out, None
+    
+    self.inputInfo[&quotProbabilityWeight&quot] = 1.0
+    pt = self.neededPoints.pop()
+    self.submittedNotCollected.append(pt)
+    for v,varName in enumerate(self.sparseGrid.varNames):
+      &#47&#47 compute the SampledVarsPb for 1-D distribution
+      if self.variables2distributionsMapping[varName][&quottotDim&quot] == 1:
+        for key in varName.strip().split(&quot,&quot):
+          self.values[key] = pt[v]
+        self.inputInfo[&quotSampledVarsPb&quot][varName] = self.distDict[varName].pdf(pt[v])
+        self.inputInfo[&quotProbabilityWeight-&quot+varName] = self.inputInfo[&quotSampledVarsPb&quot][varName]
+        &#47&#47 compute the SampledVarsPb for N-D distribution
+      elif self.variables2distributionsMapping[varName][&quottotDim&quot] &gt; 1 and self.variables2distributionsMapping[varName][&quotreducedDim&quot] ==1:
+        dist = self.variables2distributionsMapping[varName][&quotname&quot]
+        ndCoordinates = np.zeros(len(self.distributions2variablesMapping[dist]))
+        positionList = self.distributions2variablesIndexList[dist]
+        for varDict in self.distributions2variablesMapping[dist]:
+          var = utils.first(varDict.keys())
+          position = utils.first(varDict.values())
+          location = -1
+          for key in var.strip().split(&quot,&quot):
+            if key in self.sparseGrid.varNames:
+              location = self.sparseGrid.varNames.index(key)
+              break
+          if location &gt; -1:
+            ndCoordinates[positionList.index(position)] = pt[location]
+          else:
+            self.raiseAnError(IOError,&quotThe variables &quot + var + &quot listed in sparse grid collocation sampler, but not used in the ROM!&quot )
+          for key in var.strip().split(&quot,&quot):
+            self.values[key] = pt[location]
+        self.inputInfo[&quotSampledVarsPb&quot][varName] = self.distDict[varName].pdf(ndCoordinates)
+        self.inputInfo[&quotProbabilityWeight-&quot+dist] = self.inputInfo[&quotSampledVarsPb&quot][varName]
+        self.inputInfo[&quotProbabilityWeight&quot]*=self.inputInfo[&quotProbabilityWeight-&quot+dist]
+    self.inputInfo[&quotPointProbability&quot] = reduce(mul,self.inputInfo[&quotSampledVarsPb&quot].values())
+    self.inputInfo[&quotSamplerType&quot] = self.type
+
+  def localFinalizeActualSampling(self,jobObject,model,myInput):
+    
+      General function (available to all samplers) that finalize the sampling
+      calculation just ended. In this case, The function is aimed to check if
+      all the batch calculations have been performed
+      @ In, jobObject, instance, an instance of a JobHandler
+      @ In, model, model instance, it is the instance of a RAVEN model
+      @ In, myInput, list, the generating input
+      @ Out, None
+    
+    &#47&#47check if all sampling is done
+    if self.jobHandler.isFinished():
+      self.batchDone = True
+    else:
+      self.batchDone = False
+    &#47&#47batchDone is used to check if the sampler should find new points.
+
+  def _addNewPoints(self,SG=None):
+    
+      Sort through sparse grid and add any new needed points
+      @ In, SG, SparseGrid, optional, sparse grid to comb for new points
+      @ Out, None
+    
+    if SG is None:
+      SG = self.sparseGrid
+    for pt in SG.points()[:
+      ]:
+      self.pointsNeededToMakeROM.add(pt) &#47&#47sets won&quott store redundancies
+      &#47&#47if pt isn&quott already in needed, and it hasn&quott already been solved, add it to the queue
+      if pt not in self.neededPoints and self.solns.realization(matchDict=self._tupleToDict(pt))[1] is None:
+        self.newSolutionSizeShouldBe+=1
+        self.neededPoints.append(pt)
+
+  def _convergence(self,poly,rom,target):
+    
+      Checks the convergence of the adaptive index set via one of (someday) several ways, currently "variance"
+      @ In, poly, list(int), the polynomial index to check convergence for
+      @ In, rom, supervisedContainer, the GaussPolynomialROM object with respect to which we check convergence
+      @ In, target, string, target to check convergence with respect to
+      @ Out, impact, float, estimated impact factor for this index set and sparse grid
+    
+    if self.convType.lower()==&quotvariance&quot:
+      impact = rom.polyCoeffDict[target][poly]**2 / sum(rom.polyCoeffDict[target][p]**2 for p in rom.polyCoeffDict[target].keys())
+    &#47&#47FIXME &quotcoeffs&quot has to be updated to fit in the new rework before it can be used.
+    &#47&#47 elif self.convType.lower()==&quotcoeffs&quot:
+    &#47&#47   &#47&#47new = self._makeARom(rom.sparseGrid,rom.indexSet).supervisedContainer[target]
+    &#47&#47   tot = 0 &#47&#47for L2 norm of coeffs
+    &#47&#47   if self.oldSG != None:
+    &#47&#47     oSG,oSet = self._makeSparseQuad()
+    &#47&#47     old = self._makeARom(oSG,oSet).supervisedContainer[target]
+    &#47&#47   else: old=None
+    &#47&#47   for coeff in new.polyCoeffDict.keys():
+    &#47&#47     if old!=None and coeff in old.polyCoeffDict.keys():
+    &#47&#47       n = new.polyCoeffDict[coeff]
+    &#47&#47       o = old.polyCoeffDict[coeff]
+    &#47&#47       tot+= (n - o)**2
+    &#47&#47     else:
+    &#47&#47       tot+= new.polyCoeffDict[coeff]**2
+    &#47&#47   impact = np.sqrt(tot)
+    else:
+      self.raiseAnError(KeyError,&quotUnexpected convergence criteria:&quot,self.convType)
+    return impact
+
+  def _estimateImpact(self,idx):
+    
+      Estimates the impact of polynomial with index idx by considering the product of its predecessor impacts.
+      @ In, idx, tuple(int), polynomial index
+      @ Out, None
+    
+    &#47&#47initialize
+    for t in self.targets:
+      self.expImpact[t][idx] = 1.
+    have = 0 &#47&#47tracks the number of preceeding terms I have (e.g., terms on axes have less preceeding terms)
+    &#47&#47create a list of actual impacts for predecessors of idx
+    predecessors = {}
+    for t in self.targets:
+      predecessors[t]=[]
+    for i in range(len(self.features)):
+      subidx = list(idx)
+      if subidx[i]&gt;0:
+        subidx[i] -= 1
+        for t in self.targets:
+          predecessors[t].append(self.actImpact[t][tuple(subidx)])
+      else:
+        continue &#47&#47on an axis or axial plane
+    &#47&#47estimated impact is the product of the predecessor impacts raised to the power of the number of predecessors
+    for t in self.targets:
+      &#47&#47raising each predecessor to the power of the predecessors makes a more fair order-of-magnitude comparison
+      &#47&#47  for indices on axes -&gt; otherwise, they tend to be over-emphasized
+      self.expImpact[t][idx] = np.prod(np.power(np.array(predecessors[t]),1.0/len(predecessors[t])))
+
+  def _finalizeROM(self,rom=None):
+    
+      Initializes final target ROM with necessary objects for training.
+      @ In, rom, GaussPolynomailROM object, optional, the rom to initialize, defaults to target rom
+      @ Out, None
+    
+    if rom == None:
+      rom = self.ROM
+    self.raiseADebug(&quotNo more samples to try! Declaring sampling complete.&quot)
+    &#47&#47initialize final rom with final sparse grid and index set
+    for SVL in rom.supervisedContainer:
+      SVL.initialize({&quotSG&quot:self.sparseGrid,
+                      &quotdists&quot:self.dists,
+                      &quotquads&quot:self.quadDict,
+                      &quotpolys&quot:self.polyDict,
+                      &quotiSet&quot:self.indexSet,
+                      &quotnumRuns&quot:len(self.pointsNeededToMakeROM)-self.unfinished})
+
+  def _findHighestImpactIndex(self,returnValue=False):
+    
+      Finds and returns the index with the highest average expected impact factor across all targets
+      Can optionally return the value of the highest impact, as well.
+      @ In, returnValue, bool, optional, returns the value of the index if True
+      @ Out, point, tuple(int), polynomial index with greatest expected effect
+    
+    point = None
+    avg = 0
+    &#47&#47This finds a prototype of the samples from which the points can be found
+    prototype = self.expImpact[self.targets[0]]
+    for pt in sorted(prototype.keys()):
+      new = sum(self.expImpact[t][pt] for t in self.targets)/len(self.targets)
+      if avg &lt; new:
+        avg = new
+        point = pt
+    self.raiseADebug(&quotHighest impact point is&quot,point,&quotwith expected average impact&quot,avg)
+    if returnValue:
+      return point,avg
+    else:
+      return point
+
+  def _integrateFunction(self,sg,r,i):
+    
+      Uses the sparse grid sg to effectively integrate the r-th moment of the model.
+      @ In, sg, SparseGrid, sparseGrid object
+      @ In, r, int, integer moment
+      @ In, i, int, index of target to evaluate
+      @ Out, tot, float, approximate integral
+    
+    tot=0
+    for n in range(len(sg)):
+      pt,wt = sg[n]
+      _,inExisting = self.solns.realization(matchDict=self._tupleToDict(pt))
+      if inExisting is None:
+        self.raiseAnError(RuntimeError,&quotTrying to integrate with point&quot,pt,&quotbut it is not in the solutions!&quot)
+      tot+=inExisting[&quotoutputs&quot][self.targets[i]]**r*wt
+    return tot
+
+  def _makeARom(self,grid,inset):
+    
+      Generates a GaussPolynomialRom object using the passed in sparseGrid and indexSet,
+      otherwise fundamentally a copy of the end-target ROM.
+      @ In, grid, SparseGrid, sparseGrid
+      @ In, inset, IndexSet, indexSet
+      @ Out, rom, GaussPolynomialROM object, the constructed rom
+    
+    &#47&#47deepcopy prevents overwriting
+    rom  = copy.deepcopy(self.ROM) &#47&#47preserves interpolation requests via deepcopy
+    sg   = copy.deepcopy(grid)
+    iset = copy.deepcopy(inset)
+    &#47&#47 reset supervisedContainer since some information is lost during deepcopy, such as &quotfeatures&quot and &quottarget&quot
+    rom.supervisedContainer = [rom._interfaceROM]
+    for svl in rom.supervisedContainer:
+      svl.initialize({&quotSG&quot   :sg,
+                      &quotdists&quot:self.dists,
+                      &quotquads&quot:self.quadDict,
+                      &quotpolys&quot:self.polyDict,
+                      &quotiSet&quot :iset
+                      })
+    &#47&#47while the training won&quott always need all of solns, it is smart enough to take what it needs
+    rom.train(self.solns)
+    return rom
+
+  def _makeSparseQuad(self,points=[]):
+    
+      Generates a sparseGrid object using the self.indexSet adaptively established points
+      as well as and additional points passed in (often the indexSet&quots adaptive points).
+      @ In, points, list(tuple(int)), optional, points
+      @ Out, sparseGrid, SparseGrid object, new sparseGrid using self&quots points plus points&quot points
+    
+    sparseGrid = Quadratures.factory.returnInstance(self.sparseGridType)
+    iset = IndexSets.factory.returnInstance(&quotCustom&quot)
+    iset.initialize(self.features,self.importanceDict,self.maxPolyOrder)
+    iset.setPoints(self.indexSet.points)
+    iset.addPoints(points)
+    sparseGrid.initialize(self.features,iset,self.dists,self.quadDict,self.jobHandler)
+    return sparseGrid
+
+  def _printToLog(self):
+    
+      Prints adaptive state of this sampler to the log file.
+      @ In, None
+      @ Out, None
+    
+    self.logCounter+=1
+    pl = 4*len(self.features)+1
+    <a id="change">f = open(self.logFile,&quota&quot)</a>
+    f.writelines(&quot===================== STEP %i =====================\n&quot %self.logCounter)
+    f.writelines(&quot\nNumber of Runs: %i\n&quot %len(self.pointsNeededToMakeROM))
+    f.writelines(&quotError: %1.9e\n&quot %self.error)
+    f.writelines(&quotFeatures: %s\n&quot %&quot,&quot.join(self.features))
+    f.writelines(&quot\nExisting indices:\n&quot)
+    f.writelines(&quot    {:^{}}:&quot.format(&quotpoly&quot,pl))
+    for t in self.targets:
+      f.writelines(&quot  {:&lt;16}&quot.format(t))
+    f.writelines(&quot\n&quot)
+    for idx in self.indexSet.points:
+      f.writelines(&quot    {:^{}}:&quot.format(idx,pl))
+      for t in self.targets:
+        f.writelines(&quot  {:&lt;9}&quot.format(self.actImpact[t][idx]))
+      f.writelines(&quot\n&quot)
+    f.writelines(&quot\nPredicted indices:\n&quot)
+    f.writelines(&quot    {:^{}}:&quot.format(&quotpoly&quot,pl))
+    for t in self.targets:
+      f.writelines(&quot  {:&lt;16}&quot.format(t))
+    f.writelines(&quot\n&quot)
+    for idx in utils.first(self.expImpact.values()).keys():
+      f.writelines(&quot    {:^{}}:&quot.format(idx,pl))
+      for t in self.targets:
+        f.writelines(&quot  {:&lt;9}&quot.format(self.expImpact[t][idx]))
+      f.writelines(&quot\n&quot)
+    f.writelines(&quot===================== END STEP =====================\n&quot)
+    <a id="change">f</a><a id="change">.close()</a>
+
+  def _tupleToDict(self,pt,output=False):
+    
+      Converts tuple in order of self.features into a dictionary varName:varValue
+      @ In, pt, tuple(float), point
+      @ In, output, bool, if True use self.targets instead
+      @ Out, _tupleToDict, dict, dictionary
+    
+    if output:
+      return dict((k,v) for (k,v) in zip(self.targets,pt))
+    return dict((k,v) for (k,v) in zip(self.features,pt))
+
+  def _dictToTuple(self,pt,output=False):
+    
+      Converts dictionary to tuple in order of self.features
+      @ In, pt, dict, point
+      @ In, output, bool, if True use self.targets instead
+      @ Out, _dictToTuple, tuple(float), point
+    
+    if output:
+      return tuple(pt[v] for v in self.targets)
+    return tuple(pt[v] for v in self.features)
+
+  def _updateQoI(self):
+    
+      Updates Reduced Order Models (ROMs) for Quantities of Interest (QoIs), as well as impact parameters and estimated error.
+      @ In, None
+      @ Out, None
+    
+    &#47&#47add active (finished) points to the sparse grid
+    for active in list(self.inTraining):
+      &#47&#47add point to index set
+      self.indexSet.accept(active)
+      self.sparseGrid = self._makeSparseQuad()
+      for t in self.targets:
+        del self.expImpact[t][active]
+      self.inTraining.remove(active)
+    &#47&#47update all the impacts
+    rom = self._makeARom(self.sparseGrid,self.indexSet)
+    for poly in self.indexSet.points:
+      for t in self.targets:
+        impact = self._convergence(poly,rom.supervisedContainer[0],t)
+        self.actImpact[t][poly] = impact
+
+  &#47&#47 disabled until we determine a consistent way to do this without bypassing dataobjects
+  &#47&#47def _writeConvergencePoint(self,runPoint):
+  &#47&#47  
+  &#47&#47    Writes XML out for this ROM at this point in the run
+  &#47&#47    @ In, runPoint, int, the target runs for this statepoint
+  &#47&#47    @ Out, None
+  &#47&#47  
+  &#47&#47  fname = self.studyFileBase+str(runPoint)
+  &#47&#47  self.raiseAMessage(&quotPreparing to write state %i to %s.xml...&quot %(runPoint,fname))
+  &#47&#47  rom = copy.deepcopy(self.ROM)
+  &#47&#47  self._finalizeROM(rom)
+  &#47&#47  rom.train(self.solns)
+  &#47&#47  options = {&quotfilenameroot&quot:fname, &quotwhat&quot:&quotall&quot}
+  &#47&#47  rom.printXML(options)
+
+  def _writePickle(self,runPoint):
+    
+      Writes pickle for this ROM at this point in the run
+      @ In, runPoint, int, the target runs for this statepoint
+      @ Out, None
+    
+    fname = self.studyFileBase+str(runPoint)
+    self.raiseAMessage(&quotWriting ROM at state %i to %s.pk...&quot %(runPoint,fname))
+    rom = copy.deepcopy(self.ROM)
+    self._finalizeROM(rom)
+    rom.train(self.solns)
+    pickle.dump(rom,open(fname+&quot.pk&quot,&quotwb&quot))
+</code></pre>

@@ -1,0 +1,111 @@
+<link rel="stylesheet" href="../../../../../..//default.css">
+<script src="../../../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/idaholab/raven/blob/devel/tests/framework/AnalyticModels/AnalyticCodes/variable_time.py#L73">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/raven/blob/devel/tests/framework/AnalyticModels/AnalyticCodes/variable_time.py#L73">GitMyHubLink</a>
+
+&#47&#47 Copyright 2017 Battelle Energy Alliance, LLC
+&#47&#47
+&#47&#47 Licensed under the Apache License, Version 2.0 (the "License");
+&#47&#47 you may not use this file except in compliance with the License.
+&#47&#47 You may obtain a copy of the License at
+&#47&#47
+&#47&#47 http://www.apache.org/licenses/LICENSE-2.0
+&#47&#47
+&#47&#47 Unless required by applicable law or agreed to in writing, software
+&#47&#47 distributed under the License is distributed on an "AS IS" BASIS,
+&#47&#47 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+&#47&#47 See the License for the specific language governing permissions and
+&#47&#47 limitations under the License.
+import sys
+import numpy as np
+
+def readInput(inFile):
+  
+    Reads in the key values.
+    @ In, inFile, Python file object, file containing inputs
+    @ Out, (x,y,z), tuple(float,float,float), input values
+  
+  x, y, z = 0,0,0
+  for line in inFile:
+    var,val = line.strip().split(&quot=&quot)
+    if   var.strip() == &quotx&quot:
+      x = float(val)
+    elif var.strip() == &quoty&quot:
+      y = float(val)
+    elif var.strip() == &quotz&quot:
+      z = float(val)
+  if x is None or y is None or z is None:
+    raise IOError(&quotx,y,z were not all found in input file&quot,inFile)
+  return x,y,z
+
+def run(x,y,z):
+  
+    Performs elementary calculations.
+    For testing purposes, number of time steps is dependent on x value.
+    @ In, x, float, value
+    @ In, y, float, value
+    @ In, z, float, value
+    @ Out, a, float, value
+    @ Out, b, float, value
+    @ Out, c, float, value
+  
+  xs=[]
+  ys=[]
+  zs=[]
+  ts=[]
+  a=[]
+  b=[]
+  c=[]
+  if -0.33 &gt; x:
+    numSteps = 5
+    dt = 0.1
+  elif 0.33 &gt; x:
+    numSteps = 4
+    dt = 0.11
+  else:
+    numSteps = 3
+    dt = 0.3
+  for t in range(numSteps):
+    ts.append(dt*t)
+    xs.append(x + t*dt)
+    ys.append(y + t*dt)
+    zs.append(z + t*dt)
+    a.append(xs[-1]*(ys[-1]+zs[-1]))
+    b.append(ys[-1]*(xs[-1]+zs[-1]))
+    c.append(zs[-1]*(xs[-1]+ys[-1]))
+  return xs,ys,zs,a,b,c,ts
+
+def write(xs,ys,zs,ts,a,b,c,outname):
+  
+    Writes to a CSV file, but intentionally truncates it
+    @ In, x, float, value
+    @ In, y, float, value
+    @ In, z, float, value
+    @ In, a, float, value
+    @ In, b, float, value
+    @ In, c, float, value
+    @ In, Outname, string, name of output file
+    @ Out, None
+  
+  <a id="change">out = open(outname+&quot.csv&quot,&quotw&quot)</a>
+  out.writelines(&quott,x,y,z,xt,yt,zt,a,b,c\n&quot)
+  for i in range(len(ts)):
+    out.writelines(&quot,&quot.join(&quot%1.15e&quot %s for s in [ts[i],xs[0],ys[0],zs[0],xs[i],ys[i],zs[i],a[i],b[i],c[i]])+&quot\n&quot)
+  <a id="change">out</a><a id="change">.close()</a>
+
+if __name__ == &quot__main__&quot:
+  if &quot-i&quot not in sys.argv:
+    raise IOError(&quotNo input file was specified with "-i"!&quot)
+  if &quot-o&quot not in sys.argv:
+    raise IOError(&quotNo output file was specified with "-o"!&quot)
+  if len(sys.argv)&lt;5:
+    raise IOError(&quotInsufficient arguments! Need -i Input -o Output&quot)
+  inFile = open(sys.argv[2],&quotr&quot)
+  x,y,z = readInput(inFile)
+  xs,ys,zs,a,b,c,ts = run(x,y,z)
+  write(xs,ys,zs,ts,a,b,c,sys.argv[4])
+</code></pre>

@@ -1,0 +1,353 @@
+<link rel="stylesheet" href="../../..//default.css">
+<script src="../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/tensorlayer/tensorlayer/blob/master/examples/tutorial_work_with_onnx.py#L280">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/tensorlayer/blob/master/examples/tutorial_work_with_onnx.py#L280">GitMyHubLink</a>
+
+&#47&#47! /usr/bin/env python3
+&#47&#47 -*- coding: utf-8 -*-
+r
+Play with ONNX models in TensorLayer.
+
+This tutorial is corresponding to the onnx-tf tutorial:
+https://github.com/onnx/tutorials/blob/7b549ae622ff8d74a5f5e0c32e109267f4c9ccae/tutorials/OnnxTensorflowExport.ipynb
+
+Introduction
+----------------
+ONNX is an open-source specification for neural models. It has the following components:
+- A definition of an extensible computation graph model.
+- Definitions of standard data types.
+- Definitions of built-in operators
+Caffe2, PyTorch, Microsoft Cognitive Toolkit, Apache MXNet and other tools are developing ONNX support. Enabling interoperability between different frameworks and streamlining the path from research to production will increase the speed of innovation in the AI community.
+
+To run this script, you shall have the following pre-requisites:
+----------------------------
+- Install ONNX and onnx-tf package:
+&gt;&gt;&gt; pip install onnx
+&gt;&gt;&gt; pip install onnx-tf
+Note: When installing in a non-Anaconda environment, make sure to install the Protobuf compiler before running the pip installation of onnx. For example, on Ubuntu:
+&gt;&gt;&gt;sudo apt-get install protobuf-compiler libprotoc-dev
+&gt;&gt;&gt;pip install onnx
+More details please go to ONNX official website: https://github.com/onnx/onnx
+
+- Testing environment configuration：
+Ubuntu:16.04.4 LTS
+Python:3.6.5
+TensorLayer:1.8.6rc2
+TensorFlow-gpu:1.8.0
+onnx:1.2.2
+onnx-tf:1.1.2
+
+Tutorial structure
+------------------
+
+1.Training
+----------
+Firstly, we can initiate the training script by issuing the command on your terminal.
+&gt;&gt;&gt;python tutorial_work_with_onnx.py
+ Shortly, we should obtain a trained MNIST model. The training process needs no special instrumentation. However, to successfully convert the trained model, onnx-tensorflow requires three pieces of information, all of which can be obtained after training is complete:
+
+- Graph definition:
+You need to obtain information about the graph definition in the form of GraphProto. The easiest way to achieve this is to use the following snippet of code as shown in the example training script:
+&gt;&gt;&gt;with open("graph.proto", "wb") as file:
+&gt;&gt;&gt; graph = tf.get_default_graph().as_graph_def(add_shapes=True)
+&gt;&gt;&gt; file.write(graph.SerializeToString())
+This code is under the code where you call your architecture in your function
+
+- Shape information: By default, as_graph_def does not serialize any information about the shapes of the intermediate tensor and such information is required by onnx-tensorflow. Thus we request Tensorflow to serialize the shape information by adding the keyword argument add_shapes=True as demonstrated above.
+
+- Checkpoint: Tensorflow checkpoint files contain information about the obtained weight; thus they are needed to convert the trained model to ONNX format.
+
+2.Graph Freezing
+----------------
+Secondly, we freeze the graph. Thus here we build the free_graph tool in TensorLayer source folder and execute it with the information about where the GraphProto is, where the checkpoint file is and where to put the freozen graph.
+&gt;&gt;&gt;python3 -m tensorflow.python.tools.freeze_graph \
+    --input_graph=/root/graph.proto \
+    --input_checkpoint=/root/model/model.ckpt \
+    --output_graph=/root/frozen_graph.pb \
+    --output_node_names=output/bias_add\
+    --input_binary=True
+
+note:
+input_graph is the path of your proto file
+input_checkpoint is the path of your checkpoint file
+output_graph is the path where you want to put
+output_node is the output node you want to put into your graph:
+you can try this code to print and find the node what you want:
+&gt;&gt;&gt;print([n.name for n in tf.get_default_graph().as_graph_def().node])
+
+Note that now we have obtained the frozen_graph.pb with graph definition as well as weight information in one file.
+
+3.Model Conversion
+-----------------
+Thirdly, we convert the model to ONNX format using onnx-tensorflow. Using tensorflow_graph_to_onnx_model from onnx-tensorflow API (documentation available at https://github.com/onnx/onnx-tensorflow/blob/master/onnx_tf/doc/API.md).
+&gt;&gt;&gt;import tensorflow as tf
+&gt;&gt;&gt;from onnx_tf.frontend import tensorflow_graph_to_onnx_model
+
+&gt;&gt;&gt;with tf.gfile.GFile("frozen_graph.pb", "rb") as f:
+&gt;&gt;&gt;    graph_def = tf.GraphDef()
+&gt;&gt;&gt;    graph_def.ParseFromString(f.read())
+&gt;&gt;&gt;    onnx_model = tensorflow_graph_to_onnx_model(graph_def,
+&gt;&gt;&gt;                                     "output/bias_add",
+&gt;&gt;&gt;                                     opset=6)
+
+&gt;&gt;&gt;    file = open("mnist.onnx", "wb")
+&gt;&gt;&gt;    file.write(onnx_model.SerializeToString())
+&gt;&gt;&gt;    file.close()
+
+Then you will get thr first node info:
+&gt;&gt;&gt;input: "cnn1/kernel"
+&gt;&gt;&gt;output: "cnn1/kernel/read"
+&gt;&gt;&gt;name: "cnn1/kernel/read"
+&gt;&gt;&gt;op_type: "Identity"
+
+4.Inference using Backend(This part onnx-tf is under implementation!!!)
+-------------------------------------------------------------------
+In this tutorial, we continue our demonstration by performing inference using this obtained ONNX model. Here, we exported an image representing a handwritten 7 and stored the numpy array as image.npz. Using onnx-tf backend, we will classify this image using the converted ONNX model.
+&gt;&gt;&gt;import onnx
+&gt;&gt;&gt;import numpy as np
+&gt;&gt;&gt;from onnx_tf.backend import prepare
+
+&gt;&gt;&gt;model = onnx.load(&quotmnist.onnx&quot)
+&gt;&gt;&gt;tf_rep = prepare(model)
+&gt;&gt;&gt;&#47&#47Image Path
+&gt;&gt;&gt;img = np.load("./assets/image.npz", allow_pickle=True)
+&gt;&gt;&gt;output = tf_rep.run(img.reshape([1, 784]))
+&gt;&gt;&gt;print "The digit is classified as ", np.argmax(output)
+
+You will get the information in your console:
+&gt;&gt;&gt;The digit is classified as  7
+
+
+
+import time
+
+import numpy as np
+import tensorflow as tf
+from tensorflow.python.tools.freeze_graph import freeze_graph as _freeze_graph
+
+import onnx
+import tensorlayer as tl
+from onnx_tf.backend import prepare
+from onnx_tf.frontend import tensorflow_graph_to_onnx_model
+
+tf.logging.set_verbosity(tf.logging.DEBUG)
+tl.logging.set_verbosity(tl.logging.DEBUG)
+
+
+def generate_graph_and_checkpoint(graph_output_path, checkpoint_output_path):
+    
+    Reimplementation of the TensorFlow official MNIST CNN tutorials and generate the graph and checkpoint for this model:
+    - https://www.tensorflow.org/versions/r0.8/tutorials/mnist/pros/index.html
+    - https://github.com/tensorflow/tensorflow/blob/master/tensorflow/models/image/mnist/convolutional.py
+
+    - For simplified CNN layer see "Convolutional layer (Simplified)"
+
+    Parameters
+    -----------
+    graph_output_path : string
+        the path of the graph where you want to save.
+    checkpoint_output_path : string
+        the path of the checkpoint where you want to save.
+
+    References
+    -----------
+    - `onnx-tf exporting tutorial &lt;https://github.com/onnx/tutorials/blob/master/tutorials/OnnxTensorflowExport.ipynb&gt;`__
+
+    
+    X_train, y_train, X_val, y_val, X_test, y_test = tl.files.load_mnist_dataset(shape=(-1, 28, 28, 1))
+
+    sess = tf.InteractiveSession()
+
+    batch_size = 128
+    x = tf.placeholder(tf.float32, shape=[batch_size, 28, 28, 1])  &#47&#47 [batch_size, height, width, channels]
+    y_ = tf.placeholder(tf.int64, shape=[batch_size])
+
+    net = tl.layers.InputLayer(x, name=&quotinput&quot)
+
+    &#47&#47 Simplified conv API (the same with the above layers)
+    net = tl.layers.Conv2d(net, 32, (5, 5), (1, 1), act=tf.nn.relu, padding=&quotSAME&quot, name=&quotcnn1&quot)
+    net = tl.layers.MaxPool2d(net, (2, 2), (2, 2), padding=&quotSAME&quot, name=&quotpool1&quot)
+    net = tl.layers.Conv2d(net, 64, (5, 5), (1, 1), act=tf.nn.relu, padding=&quotSAME&quot, name=&quotcnn2&quot)
+    net = tl.layers.MaxPool2d(net, (2, 2), (2, 2), padding=&quotSAME&quot, name=&quotpool2&quot)
+    &#47&#47 end of conv
+    net = tl.layers.FlattenLayer(net, name=&quotflatten&quot)
+    net = tl.layers.DropoutLayer(net, keep=0.5, name=&quotdrop1&quot)
+    net = tl.layers.DenseLayer(net, 256, act=tf.nn.relu, name=&quotrelu1&quot)
+    net = tl.layers.DropoutLayer(net, keep=0.5, name=&quotdrop2&quot)
+    net = tl.layers.DenseLayer(net, 10, act=None, name=&quotoutput&quot)
+
+    y = net.outputs
+
+    print([n.name for n in tf.get_default_graph().as_graph_def().node])
+
+    &#47&#47 To string Graph
+    with open(graph_output_path, "wb") as file:
+        graph = tf.get_default_graph().as_graph_def(add_shapes=True)
+        file.write(graph.SerializeToString())
+
+    cost = tl.cost.cross_entropy(y, y_, &quotcost&quot)
+
+    correct_prediction = tf.equal(tf.argmax(y, 1), y_)
+    acc = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+
+    &#47&#47 train
+    n_epoch = 200
+    learning_rate = 0.0001
+    print_freq = 10
+
+    train_params = net.all_params
+    train_op = tf.train.AdamOptimizer(learning_rate).minimize(cost, var_list=train_params)
+
+    tl.layers.initialize_global_variables(sess)
+    net.print_params()
+    net.print_layers()
+
+    print(&quot   learning_rate: %f&quot % learning_rate)
+    print(&quot   batch_size: %d&quot % batch_size)
+
+    for epoch in range(n_epoch):
+        start_time = time.time()
+        for X_train_a, y_train_a in tl.iterate.minibatches(X_train, y_train, batch_size, shuffle=True):
+            feed_dict = {x: X_train_a, y_: y_train_a}
+            feed_dict.update(net.all_drop)  &#47&#47 enable noise layers
+            sess.run(train_op, feed_dict=feed_dict)
+        &#47&#47 Save the checkpoint every 10 eopchs
+        if epoch % 10 == 0:
+            tl.files.save_ckpt(sess, mode_name=&quotmodel.ckpt&quot, save_dir=checkpoint_output_path, printable=True)
+        if epoch + 1 == 1 or (epoch + 1) % print_freq == 0:
+            print("Epoch %d of %d took %fs" % (epoch + 1, n_epoch, time.time() - start_time))
+            train_loss, train_acc, n_batch = 0, 0, 0
+            for X_train_a, y_train_a in tl.iterate.minibatches(X_train, y_train, batch_size, shuffle=True):
+                dp_dict = tl.utils.dict_to_one(net.all_drop)  &#47&#47 disable noise layers
+                feed_dict = {x: X_train_a, y_: y_train_a}
+                feed_dict.update(dp_dict)
+                err, ac = sess.run([cost, acc], feed_dict=feed_dict)
+                train_loss += err
+                train_acc += ac
+                n_batch += 1
+            print("   train loss: %f" % (train_loss / n_batch))
+            print("   train acc: %f" % (train_acc / n_batch))
+            val_loss, val_acc, n_batch = 0, 0, 0
+            for X_val_a, y_val_a in tl.iterate.minibatches(X_val, y_val, batch_size, shuffle=True):
+                dp_dict = tl.utils.dict_to_one(net.all_drop)  &#47&#47 disable noise layers
+                feed_dict = {x: X_val_a, y_: y_val_a}
+                feed_dict.update(dp_dict)
+                err, ac = sess.run([cost, acc], feed_dict=feed_dict)
+                val_loss += err
+                val_acc += ac
+                n_batch += 1
+            print("   val loss: %f" % (val_loss / n_batch))
+            print("   val acc: %f" % (val_acc / n_batch))
+
+    &#47&#47 Evaluation
+    print(&quotEvaluation&quot)
+    test_loss, test_acc, n_batch = 0, 0, 0
+    for X_test_a, y_test_a in tl.iterate.minibatches(X_test, y_test, batch_size, shuffle=True):
+        dp_dict = tl.utils.dict_to_one(net.all_drop)  &#47&#47 disable noise layers
+        feed_dict = {x: X_test_a, y_: y_test_a}
+        feed_dict.update(dp_dict)
+        err, ac = sess.run([cost, acc], feed_dict=feed_dict)
+        test_loss += err
+        test_acc += ac
+        n_batch += 1
+    print("   test loss: %f" % (test_loss / n_batch))
+    print("   test acc: %f" % (test_acc / n_batch))
+
+
+def freeze_graph(graph_path, checkpoint_path, output_path, end_node_names, is_binary_graph):
+    Reimplementation of the TensorFlow official freeze_graph function to freeze the graph and checkpoint together:
+
+    Parameters
+    -----------
+    graph_path : string
+        the path where your graph file save.
+    checkpoint_output_path : string
+        the path where your checkpoint save.
+    output_path : string
+        the path where you want to save the output proto buff
+    end_node_names : string
+        the name of the end node in your graph you want to get in your proto buff
+    is_binary_graph : boolean
+        declare your file whether is a binary graph
+
+    References
+    ----------
+    - `onnx-tf exporting tutorial &lt;https://github.com/onnx/tutorials/blob/master/tutorials/OnnxTensorflowExport.ipynb&gt;`__
+    - `tensorflow freeze_graph &lt;https://github.com/tensorflow/tensorflow/blob/master/tensorflow/python/tools/freeze_graph.py&gt;`
+    
+    _freeze_graph(
+        input_graph=graph_path, input_saver=&quot&quot, input_binary=is_binary_graph, input_checkpoint=checkpoint_path,
+        output_graph=output_path, output_node_names=end_node_names, restore_op_name=&quotsave/restore_all&quot,
+        filename_tensor_name=&quotsave/Const:0&quot, clear_devices=True, initializer_nodes=None
+    )
+
+
+def convert_model_to_onnx(<a id="change">frozen_graph_path</a>, <a id="change">end_node_names</a>, <a id="change">onnx_output_path</a>):
+    Reimplementation of the TensorFlow-onnx official tutorial convert the proto buff to onnx file:
+
+    Parameters
+    -----------
+    frozen_graph_path : string
+        the path where your frozen graph file save.
+    end_node_names : string
+        the name of the end node in your graph you want to get in your proto buff
+    onnx_output_path : string
+        the path where you want to save the onnx file.
+
+    References
+    -----------
+    - `onnx-tf exporting tutorial &lt;https://github.com/onnx/tutorials/blob/master/tutorials/OnnxTensorflowExport.ipynb&gt;`
+    
+    with tf.gfile.GFile(frozen_graph_path, "rb") as f:
+        <a id="change">graph_def = tf.GraphDef()</a>
+        graph_def.ParseFromString(f.read())
+        <a id="change">onnx_model = tensorflow_graph_to_onnx_model(graph_def, end_node_names, opset=6)</a>
+        <a id="change">file = open(onnx_output_path, "wb")</a>
+        file.write(onnx_model.SerializeToString())
+        <a id="change">file</a><a id="change">.close()</a>
+
+
+def convert_onnx_to_model(onnx_input_path):
+    Reimplementation of the TensorFlow-onnx official tutorial convert the onnx file to specific: model
+
+    Parameters
+    -----------
+    onnx_input_path : string
+    the path where you save the onnx file.
+
+    References
+    -----------
+    - `onnx-tf exporting tutorial &lt;https://github.com/onnx/tutorials/blob/master/tutorials/OnnxTensorflowExport.ipynb&gt;`__
+    
+    model = onnx.load(onnx_input_path)
+    tf_rep = prepare(model)
+    &#47&#47 Image Path
+    img = np.load("./assets/image.npz", allow_pickle=True)
+    output = tf_rep.run(img.reshape([1, 784]))
+    print("The digit is classified as ", np.argmax(output))
+
+
+if __name__ == &quot__main__&quot:
+
+    &#47&#47 1. Train the CNN network and output the graph and checkpoints
+    generate_graph_and_checkpoint(graph_output_path=&quotgraph.proto&quot, checkpoint_output_path=&quot./&quot)
+
+    &#47&#47 2. Freeze the graph with checkpoints
+    freeze_graph(
+        graph_path=&quotgraph.proto&quot, is_binary_graph=True, checkpoint_path=&quotmodel.ckpt&quot, output_path=&quotfrozen_graph.pb&quot,
+        end_node_names=&quotoutput/bias_add&quot
+    )
+
+    &#47&#47 3. Convert the tensorflow protobuf file to ONNX file
+    convert_model_to_onnx(
+        frozen_graph_path=&quotfrozen_graph.pb&quot, end_node_names=&quotoutput/bias_add&quot, onnx_output_path=&quotmnist.onnx&quot
+    )
+
+    &#47&#47 4. Convert thr ONNX file to specific model
+    &#47&#47 the following step is not working by far as the tensorflow-onnx project has a bug at the time of writing.
+    &#47&#47 convert_onnx_to_model(onnx_input_path=&quotmnist.onnx&quot)
+</code></pre>

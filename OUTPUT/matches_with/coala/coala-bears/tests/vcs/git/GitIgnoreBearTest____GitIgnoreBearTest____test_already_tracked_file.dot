@@ -1,0 +1,100 @@
+digraph G {
+1 [label="(12912686)Any(self)" shape=ellipse style=dashed]
+2 [label="(12912688)END" style=dashed]
+3 [label="(12912678)String(lit(add))" shape=ellipse style=dashed]
+4 [label="(12912668)String(lit(.gitignore))" shape=ellipse style=dashed color=blue fontcolor=blue]
+5 [label="(12912683)run_uut" shape=box style=dashed]
+6 [label="(12912674)TextIO(file)" shape=ellipse style=dashed color=blue fontcolor=blue]
+7 [label="(12912664)String(lit(add))" shape=ellipse style=dashed]
+8 [label="(12912687)assert_no_msgs" shape=box style=dashed]
+9 [label="(12912670)=" shape=box style=dashed color=blue fontcolor=blue]
+10 [label="(12912681)assertEqual" shape=box style=dashed]
+11 [label="(12912661)close" shape=box style=dashed color=red fontcolor=red]
+12 [label="(12912671)TextIO(file)" shape=ellipse style=dashed]
+13 [label="(12912662)Any(self)" shape=ellipse style=dashed]
+14 [label="(12912652)(null)" shape=ellipse style=dashed]
+15 [label="(12912653)=" shape=box style=dashed]
+16 [label="(12912656)open" shape=box style=dashed color=red fontcolor=red]
+17 [label="(12912658)String(lit(w))" shape=ellipse style=dashed color=red fontcolor=red]
+18 [label="(12912665)String(lit(test_file.txt))" shape=ellipse style=dashed]
+19 [label="(12912669)String(lit(w))" shape=ellipse style=dashed color=blue fontcolor=blue]
+20 [label="(12912657)String(lit(test_file.txt))" shape=ellipse style=dashed color=red fontcolor=red]
+21 [label="(12912650)START" style=dashed]
+22 [label="(12912666)TextIO(file)" shape=ellipse style=dashed color=blue fontcolor=blue]
+23 [label="(12912680)Any(self)" shape=ellipse style=dashed]
+24 [label="(12912659)=" shape=box style=dashed color=red fontcolor=red]
+25 [label="(12912672)write" shape=box style=dashed]
+26 [label="(12912663)run_git_command" shape=box style=dashed]
+27 [label="(12912684)String(lit(File test_file.txt is being tracked which was ignored in line number 1 in file .gitignore.))" shape=ellipse style=dashed]
+28 [label="(12912660)TextIO(file)" shape=ellipse style=dashed color=red fontcolor=red]
+29 [label="(12912682)Any(self)" shape=ellipse style=dashed]
+30 [label="(12912685)[list]" shape=box style=dashed]
+31 [label="(12912673)String(lit(test_file.txt))" shape=ellipse style=dashed]
+32 [label="(12912675)close" shape=box style=dashed color=blue fontcolor=blue]
+33 [label="(12912667)open" shape=box style=dashed color=blue fontcolor=blue]
+34 [label="(12912655)TextIO(file)" shape=ellipse style=dashed color=red fontcolor=red]
+35 [label="(12912651)Any(self)" shape=ellipse style=dashed]
+36 [label="(12912677)run_git_command" shape=box style=dashed]
+37 [label="(12912676)Any(self)" shape=ellipse style=dashed]
+38 [label="(12912679)String(lit(.gitignore))" shape=ellipse style=dashed]
+8 -> 2 [label="dep" style=dotted];
+21 -> 5 [label="" style=solid];
+29 -> 5 [label="recv" style=dotted];
+36 -> 5 [label="dep" style=dotted];
+22 -> 6 [label="ref" style=dotted];
+21 -> 8 [label="" style=solid];
+1 -> 8 [label="recv" style=dotted];
+10 -> 8 [label="dep" style=dotted];
+21 -> 9 [label="" style=solid];
+33 -> 9 [label="dep" style=dotted];
+33 -> 9 [label="para" style=dotted];
+21 -> 10 [label="" style=solid];
+23 -> 10 [label="recv" style=dotted];
+5 -> 10 [label="dep" style=dotted];
+5 -> 10 [label="para" style=dotted];
+30 -> 10 [label="dep" style=dotted];
+30 -> 10 [label="para" style=dotted];
+36 -> 10 [label="dep" style=dotted];
+21 -> 11 [label="" style=solid];
+28 -> 11 [label="recv" style=dotted];
+24 -> 11 [label="dep" style=dotted];
+22 -> 12 [label="ref" style=dotted];
+21 -> 15 [label="" style=solid];
+14 -> 15 [label="para" style=dotted];
+21 -> 16 [label="" style=solid];
+20 -> 16 [label="para" style=dotted];
+17 -> 16 [label="para" style=dotted];
+15 -> 16 [label="dep" style=dotted];
+9 -> 22 [label="def" style=dotted];
+34 -> 22 [label="re_def" style=dotted color=red];
+21 -> 24 [label="" style=solid];
+16 -> 24 [label="dep" style=dotted];
+16 -> 24 [label="para" style=dotted];
+21 -> 25 [label="" style=solid];
+12 -> 25 [label="recv" style=dotted];
+31 -> 25 [label="para" style=dotted];
+9 -> 25 [label="dep" style=dotted];
+21 -> 26 [label="" style=solid];
+13 -> 26 [label="recv" style=dotted];
+7 -> 26 [label="para" style=dotted];
+18 -> 26 [label="para" style=dotted];
+11 -> 26 [label="dep" style=dotted];
+34 -> 28 [label="ref" style=dotted];
+21 -> 30 [label="" style=solid];
+27 -> 30 [label="para" style=dotted];
+36 -> 30 [label="dep" style=dotted];
+21 -> 32 [label="" style=solid];
+6 -> 32 [label="recv" style=dotted];
+25 -> 32 [label="dep" style=dotted];
+21 -> 33 [label="" style=solid];
+4 -> 33 [label="para" style=dotted];
+19 -> 33 [label="para" style=dotted];
+26 -> 33 [label="dep" style=dotted];
+24 -> 34 [label="def" style=dotted];
+15 -> 35 [label="def" style=dotted];
+21 -> 36 [label="" style=solid];
+37 -> 36 [label="recv" style=dotted];
+3 -> 36 [label="para" style=dotted];
+38 -> 36 [label="para" style=dotted];
+32 -> 36 [label="dep" style=dotted];
+}

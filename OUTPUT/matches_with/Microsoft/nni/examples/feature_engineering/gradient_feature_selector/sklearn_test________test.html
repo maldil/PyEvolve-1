@@ -1,0 +1,67 @@
+<link rel="stylesheet" href="../../../../..//default.css">
+<script src="../../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/Microsoft/nni/blob/master/examples/feature_engineering/gradient_feature_selector/sklearn_test.py#L34">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/nni/blob/master/examples/feature_engineering/gradient_feature_selector/sklearn_test.py#L34">GitMyHubLink</a>
+
+&#47&#47 Copyright (c) Microsoft Corporation
+&#47&#47 All rights reserved.
+&#47&#47
+&#47&#47 MIT License
+&#47&#47
+&#47&#47 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
+&#47&#47 documentation files (the "Software"), to deal in the Software without restriction, including without limitation
+&#47&#47 the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and
+&#47&#47 to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+&#47&#47 The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+&#47&#47
+&#47&#47 THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING
+&#47&#47 BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+&#47&#47 NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+&#47&#47 DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+&#47&#47 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+
+import bz2
+import urllib.request
+import numpy as np
+
+from sklearn.datasets import load_svmlight_file
+from sklearn.model_selection import train_test_split
+from sklearn.pipeline import make_pipeline
+from sklearn.linear_model import LogisticRegression
+
+from sklearn.ensemble import ExtraTreesClassifier
+from sklearn.feature_selection import SelectFromModel
+
+from nni.algorithms.feature_engineering.gradient_selector import FeatureGradientSelector
+
+
+def test():
+    <a id="change">url_zip_train</a> = &quothttps://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/binary/rcv1_train.binary.bz2&quot
+    urllib.request.urlretrieve(url_zip_train, filename=&quottrain.bz2&quot)
+
+    <a id="change">f_svm</a><a id="change"> = open(&quottrain.svm&quot, &quotwt&quot)</a>
+    with bz2.open(&quottrain.bz2&quot, &quotrb&quot) as <a id="change">f_zip</a>:
+        <a id="change">data</a> = f_zip.read()
+        f_svm.write(data.decode(&quotutf-8&quot))
+    <a id="change">f_svm</a><a id="change">.close()</a>
+
+
+    X, y = load_svmlight_file(&quottrain.svm&quot)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, random_state=42)
+
+
+    <a id="change">pipeline</a> = make_pipeline(FeatureGradientSelector(n_epochs=1, n_features=10), LogisticRegression())
+    &#47&#47 pipeline = make_pipeline(SelectFromModel(ExtraTreesClassifier(n_estimators=50)), LogisticRegression())
+
+    pipeline.fit(X_train, y_train)
+
+    print("Pipeline Score: ", pipeline.score(X_train, y_train))
+
+if __name__ == "__main__":
+    test()
+</code></pre>

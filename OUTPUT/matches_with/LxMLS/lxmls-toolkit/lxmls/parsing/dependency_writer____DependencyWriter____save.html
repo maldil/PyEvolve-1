@@ -1,0 +1,59 @@
+<link rel="stylesheet" href="../../../..//default.css">
+<script src="../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/LxMLS/lxmls-toolkit/blob/master/lxmls/parsing/dependency_writer.py#L15">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/lxmls-toolkit/blob/master/lxmls/parsing/dependency_writer.py#L15">GitMyHubLink</a>
+
+import sys
+import numpy as np
+import os
+from os import path
+
+
+class DependencyWriter:
+    
+    Dependency writer class
+    
+
+    def __init__(self):
+        pass
+
+    def save(<a id="change">self</a>, <a id="change">language</a>, <a id="change">heads_pred</a>):
+        Saves predicted dependency trees.
+        <a id="change">base_deppars_dir = path.join(path.dirname(__file__), "..", "..", "data", "deppars")</a>
+        <a id="change">languages = ["danish", "dutch", "portuguese", "english"]</a>
+        <a id="change">i = 0</a>
+        <a id="change">word_dict = {}</a>
+        <a id="change">pos_dict = {}</a>
+        <a id="change">feat_counts = {}</a>
+        if language not in languages:
+            print("Language does not exist: \"%s\": Available are: %s" % (language, languages))
+            return
+
+        &#47&#47 Load test data
+        <a id="change">n_toks = 0</a>
+        <a id="change">n_sents = 0</a>
+        <a id="change">conll_file = open(path.join(base_deppars_dir, language + "_test.conll"))</a>
+        <a id="change">conll_file_out = open(path.join(base_deppars_dir, language + "_test.conll.pred"), &quotw&quot)</a>
+        for line in conll_file:
+            <a id="change">line = line.rstrip()</a>
+            if len(line) == 0:
+                <a id="change">n_toks = 0</a>
+                n_sents += 1
+                conll_file_out.write("\n")
+                continue
+            <a id="change">fields = line.split("\t")</a>
+
+            <a id="change">fields[6] = "{0}".format(heads_pred[n_sents][n_toks+1])</a>
+            <a id="change">line_out = "\t".join(fields)</a>
+            n_toks += 1
+
+            conll_file_out.write(line_out)
+            conll_file_out.write("\n")
+
+        <a id="change">conll_file_out</a><a id="change">.close()</a>
+        <a id="change">conll_file</a><a id="change">.close()</a>
+</code></pre>

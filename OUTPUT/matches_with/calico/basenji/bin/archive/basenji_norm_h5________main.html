@@ -1,0 +1,212 @@
+<link rel="stylesheet" href="../../../..//default.css">
+<script src="../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/calico/basenji/blob/master/bin/archive/basenji_norm_h5.py#L40">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/basenji/blob/master/bin/archive/basenji_norm_h5.py#L40">GitMyHubLink</a>
+
+&#47&#47!/usr/bin/env python
+&#47&#47 Copyright 2017 Calico LLC
+&#47&#47
+&#47&#47 Licensed under the Apache License, Version 2.0 (the "License");
+&#47&#47 you may not use this file except in compliance with the License.
+&#47&#47 You may obtain a copy of the License at
+&#47&#47
+&#47&#47     https://www.apache.org/licenses/LICENSE-2.0
+&#47&#47
+&#47&#47 Unless required by applicable law or agreed to in writing, software
+&#47&#47 distributed under the License is distributed on an "AS IS" BASIS,
+&#47&#47 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+&#47&#47 See the License for the specific language governing permissions and
+&#47&#47 limitations under the License.
+&#47&#47 =========================================================================
+
+from __future__ import print_function
+from optparse import OptionParser
+import os
+import random
+import sys
+import time
+
+import h5py
+import numpy as np
+import seaborn as sns
+
+import tensorflow as tf
+import basenji
+
+
+basenji_norm.py
+
+Compute prediction summary statistics for normalization.
+
+
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+&#47&#47 main
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+def main():
+  <a id="change">usage = &quotusage: %prog [options] &lt;params_file&gt; &lt;model_file&gt; &lt;test_hdf5_file&gt;&quot</a>
+  <a id="change">parser = OptionParser(usage)</a>
+  parser.add_option(&quot-l&quot, dest=&quotsample_len&quot,
+      default=1, type=&quotint&quot,
+      help=&quotUniformly sample across the seq length [Default: %default]&quot)
+  parser.add_option(&quot--mc&quot, dest=&quotmc_n&quot,
+      default=0, type=&quotint&quot,
+      help=&quotMonte carlo test iterations [Default: %default]&quot)
+  parser.add_option(&quot-o&quot, dest=&quotout_dir&quot,
+      default=&quottest_out&quot,
+      help=&quotOutput directory for test statistics [Default: %default]&quot)
+  parser.add_option(&quot--rc&quot, dest=&quotrc&quot,
+      default=False, action=&quotstore_true&quot,
+      help=&quotAverage the fwd and rc predictions [Default: %default]&quot)
+  parser.add_option(&quot-s&quot, dest=&quotsample_seqs&quot,
+      default=1., type=&quotfloat&quot,
+      help=&quotSample sequences [Default: %default]&quot)
+  parser.add_option(&quot--save&quot, dest=&quotsave&quot,
+      default=False, action=&quotstore_true&quot,
+      help=&quotSave predictions to HDF5. [Default: %default]&quot)
+  parser.add_option(&quot--shifts&quot, dest=&quotshifts&quot,
+      default=&quot0&quot,
+      help=&quotEnsemble prediction shifts [Default: %default]&quot)
+  parser.add_option(&quot--train&quot, dest=&quottrain&quot,
+      default=False, action=&quotstore_true&quot,
+      help=&quotProcess the training set [Default: %default]&quot)
+  parser.add_option(&quot-v&quot, dest=&quotvalid&quot,
+      default=False, action=&quotstore_true&quot,
+      help=&quotProcess the validation set [Default: %default]&quot)
+  <a id="change">(options, args) = parser.parse_args()</a>
+
+  if len(args) != 3:
+    parser.error(&quotMust provide parameters, model, and test data HDF5&quot)
+  else:
+    <a id="change">params_file = args[0]</a>
+    <a id="change">model_file = args[1]</a>
+    <a id="change">test_hdf5_file = args[2]</a>
+
+  if not os.path.isdir(options.out_dir):
+    os.mkdir(options.out_dir)
+
+  <a id="change">options.shifts = [int(shift) for shift in options.shifts.split(&quot,&quot)]</a>
+
+  &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+  &#47&#47 load data
+  &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+  <a id="change">data_open = h5py.File(test_hdf5_file)</a>
+
+  if options.train:
+    <a id="change">test_seqs = data_open[&quottrain_in&quot]</a>
+    <a id="change">test_targets = data_open[&quottrain_out&quot]</a>
+    if &quottrain_na&quot in data_open:
+      <a id="change">test_na = data_open[&quottrain_na&quot]</a>
+
+  elif options.valid:
+    <a id="change">test_seqs = data_open[&quotvalid_in&quot]</a>
+    <a id="change">test_targets = data_open[&quotvalid_out&quot]</a>
+    <a id="change">test_na = None</a>
+    if &quotvalid_na&quot in data_open:
+      <a id="change">test_na = data_open[&quotvalid_na&quot]</a>
+
+  else:
+    <a id="change">test_seqs = data_open[&quottest_in&quot]</a>
+    <a id="change">test_targets = data_open[&quottest_out&quot]</a>
+    <a id="change">test_na = None</a>
+    if &quottest_na&quot in data_open:
+      <a id="change">test_na = data_open[&quottest_na&quot]</a>
+
+  if options.sample_seqs &lt; 1:
+    <a id="change">sample_n = int(test_seqs.shape[0]*options.sample_seqs)</a>
+    print(&quotSampling %d sequences&quot % sample_n)
+    <a id="change">sample_indexes = sorted(np.random.choice(np.arange(test_seqs.shape[0]),
+                                              size=sample_n, replace=False))</a>
+    <a id="change">test_seqs = test_seqs[sample_indexes]</a>
+    <a id="change">test_targets = test_targets[sample_indexes]</a>
+    if test_na is not None:
+      <a id="change">test_na = test_na[sample_indexes]</a>
+
+  <a id="change">target_labels = [tl.decode(&quotUTF-8&quot) for tl in data_open[&quottarget_labels&quot]]</a>
+
+  &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+  &#47&#47 model parameters and placeholders
+
+  <a id="change">job = basenji.dna_io.read_job_params(params_file)</a>
+
+  <a id="change">job[&quotseq_length&quot] = test_seqs.shape[1]</a>
+  <a id="change">job[&quotseq_depth&quot] = test_seqs.shape[2]</a>
+  <a id="change">job[&quotnum_targets&quot] = test_targets.shape[2]</a>
+  <a id="change">job[&quottarget_pool&quot] = int(np.array(data_open.get(&quotpool_width&quot, 1)))</a>
+
+  <a id="change">model = basenji.seqnn.SeqNN()</a>
+  model.build(job)
+
+  &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+  &#47&#47 predict
+
+  &#47&#47 initialize batcher
+  <a id="change">batcher_test = basenji.batcher.Batcher(test_seqs, test_targets, test_na,
+                                         model.batch_size, model.target_pool)</a>
+
+  &#47&#47 initialize saver
+  <a id="change">saver = tf.train.Saver()</a>
+
+  with tf.Session() as sess:
+    &#47&#47 load variables into session
+    saver.restore(sess, model_file)
+
+    &#47&#47 test
+    <a id="change">t0 = time.time()</a>
+    <a id="change">test_preds = model.predict(sess, batcher_test, rc=options.rc,
+                          shifts=options.shifts, mc_n=options.mc_n,
+                          down_sample=options.sample_len)</a>
+    print(&quotSeqNN test: %ds&quot % (time.time() - t0))
+
+  if options.save:
+    <a id="change">preds_h5 = h5py.File(&quot%s/preds.h5&quot % options.out_dir, &quotw&quot)</a>
+    preds_h5.create_dataset(&quotpreds&quot, data=test_preds)
+    preds_h5.close()
+
+  &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+  &#47&#47 normalize
+
+  <a id="change">target_norms = np.ones(test_preds.shape[-1], dtype=&quotfloat64&quot)</a>
+
+  &#47&#47 compute target means
+  <a id="change">target_means = test_preds.mean(axis=(0,1), dtype=&quotfloat64&quot)</a>
+
+  &#47&#47 determine target categories
+  <a id="change">target_categories = set()</a>
+  for tl in target_labels:
+    target_categories.add(tl.split(&quot:&quot)[0])
+
+  <a id="change">category_out = open(&quot%s/categories.txt&quot % options.out_dir, &quotw&quot)</a>
+
+  &#47&#47 normalize within category
+  for target_category in target_categories:
+    &#47&#47 determine targets in this category
+    <a id="change">category_mask = np.zeros(len(target_norms), dtype=&quotbool&quot)</a>
+    for ti, tl in enumerate(target_labels):
+      <a id="change">category_mask[ti] = (tl.split(&quot:&quot)[0] == target_category)</a>
+
+    &#47&#47 compute category median
+    <a id="change">category_median = np.median(target_means[category_mask])</a>
+    print(&quot%-10s  %4d  %.4f&quot % (target_category, category_mask.sum(), category_median),
+      file=category_out)
+
+    &#47&#47 set normalization factors
+    <a id="change">target_norms[category_mask] = target_means[category_mask] / category_median</a>
+
+  <a id="change">category_out</a><a id="change">.close()</a>
+
+  &#47&#47 print normalization factors
+  <a id="change">norm_out = open(&quot%s/normalization.txt&quot % options.out_dir, &quotw&quot)</a>
+  print(&quot\n&quot.join([str(tu) for tu in target_norms]), file=norm_out)
+  <a id="change">norm_out</a><a id="change">.close()</a>
+
+
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+&#47&#47 __main__
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+if __name__ == &quot__main__&quot:
+  main()
+</code></pre>

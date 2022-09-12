@@ -1,0 +1,595 @@
+<link rel="stylesheet" href="../../..//default.css">
+<script src="../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/sahana/eden/blob/master/controllers/appadmin.py#L339">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/eden/blob/master/controllers/appadmin.py#L339">GitMyHubLink</a>
+
+&#47&#47 -*- coding: utf-8 -*-
+
+&#47&#47
+&#47&#47 S3 Auth
+&#47&#47
+if not auth.s3_has_role("ADMIN"):
+    auth.permission.fail()
+
+&#47&#47 &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+&#47&#47 &#47&#47&#47&#47 make sure administrator is on localhost
+&#47&#47 &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+
+import os
+import socket
+import datetime
+import copy
+import gluon.contenttype
+import gluon.fileutils
+
+try:
+    import pygraphviz as pgv
+except ImportError:
+    pgv = None
+
+response.subtitle = &quotDatabase Administration (appadmin)&quot
+
+&#47&#47 &#47&#47&#47&#47 critical --- make a copy of the environment
+
+global_env = copy.copy(globals())
+global_env[&quotdatetime&quot] = datetime
+
+&#47&#47
+&#47&#47 Native Web2Py Auth (localhost & site password)
+&#47&#47
+&#47&#47http_host = request.env.http_host.split(&quot:&quot)[0]
+&#47&#47remote_addr = request.env.remote_addr
+&#47&#47try:
+&#47&#47    hosts = (http_host, socket.gethostname(),
+&#47&#47             socket.gethostbyname(http_host),
+&#47&#47             &quot::1&quot, &quot127.0.0.1&quot, &quot::ffff:127.0.0.1&quot)
+&#47&#47except:
+&#47&#47    hosts = (http_host, )
+
+&#47&#47if request.env.http_x_forwarded_for or request.is_https:
+&#47&#47    session.secure()
+&#47&#47elif (remote_addr not in hosts) and (remote_addr != "127.0.0.1"):
+&#47&#47    raise HTTP(200, T(&quotappadmin is disabled because insecure channel&quot))
+
+&#47&#47if (request.application == &quotadmin&quot and not session.authorized) or \
+&#47&#47        (request.application != &quotadmin&quot and not gluon.fileutils.check_credentials(request)):
+&#47&#47    redirect(URL(&quotadmin&quot, &quotdefault&quot, &quotindex&quot,
+&#47&#47                 vars=dict(send=URL(args=request.args, vars=request.vars))))
+
+&#47&#47 Load all models
+s3db.load_all_models()
+_tables = db.tables
+if settings.get_security_policy() not in (1, 2, 3, 4, 5, 6, 7, 8):
+    &#47&#47 Web2Py security
+    db.auth_permission.table_name.requires = IS_IN_SET(_tables)
+
+module = "admin"
+
+ignore_rw = True
+response.view = "admin/appadmin.html"
+&#47&#47response.menu = [[T(&quotdesign&quot), False, URL(&quotadmin&quot, &quotdefault&quot, &quotdesign&quot,
+&#47&#47                 args=[request.application])], [T(&quotdb&quot), False,
+&#47&#47                 URL(&quotindex&quot)], [T(&quotstate&quot), False,
+&#47&#47                 URL(&quotstate&quot)], [T(&quotcache&quot), False,
+&#47&#47                 URL(&quotccache&quot)]]
+
+&#47&#47 &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+&#47&#47 &#47&#47&#47&#47 auxiliary functions
+&#47&#47 &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+
+
+def get_databases(request):
+    dbs = {}
+    for (key, value) in global_env.items():
+        cond = False
+        try:
+            cond = isinstance(value, GQLDB)
+        except:
+            cond = isinstance(value, SQLDB)
+        if cond:
+            dbs[key] = value
+    return dbs
+
+
+databases = get_databases(None)
+
+
+def eval_in_global_env(text):
+    exec (&quot_ret=%s&quot % text, {}, global_env)
+    return global_env[&quot_ret&quot]
+
+
+def get_database(request):
+    if request.args and request.args[0] in databases:
+        return eval_in_global_env(request.args[0])
+    else:
+        session.flash = T(&quotinvalid request&quot)
+        redirect(URL(&quotindex&quot))
+
+
+def get_table(request):
+    db = get_database(request)
+    if len(request.args) &gt; 1 and request.args[1] in db.tables:
+        return (db, request.args[1])
+    else:
+        session.flash = T(&quotinvalid request&quot)
+        redirect(URL(&quotindex&quot))
+
+
+def get_query(request):
+    try:
+        return eval_in_global_env(request.vars.query)
+    except Exception:
+        return None
+
+
+def query_by_table_type(tablename, db, request=request):
+    keyed = hasattr(db[tablename], &quot_primarykey&quot)
+    if keyed:
+        firstkey = db[tablename][db[tablename]._primarykey[0]]
+        cond = &quot&gt;0&quot
+        if firstkey.type in [&quotstring&quot, &quottext&quot]:
+            cond = &quot!=""&quot
+        qry = &quot%s.%s.%s%s&quot % (
+            request.args[0], request.args[1], firstkey.name, cond)
+    else:
+        qry = &quot%s.%s.id&gt;0&quot % tuple(request.args[:2])
+    return qry
+
+
+&#47&#47 &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+&#47&#47 &#47&#47&#47&#47 list all databases and tables
+&#47&#47 &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+def index():
+    return dict(databases=databases)
+
+
+&#47&#47 &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+&#47&#47 &#47&#47&#47&#47 insert a new record
+&#47&#47 &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+
+
+def insert():
+    (db, table) = get_table(request)
+    form = SQLFORM(db[table], ignore_rw=ignore_rw)
+    if form.accepts(request.vars, session):
+        response.flash = T(&quotnew record inserted&quot)
+    return dict(form=form, table=db[table])
+
+
+&#47&#47 &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+&#47&#47 &#47&#47&#47&#47 list all records in table and insert new record
+&#47&#47 &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+
+
+def download():
+    import os
+    db = get_database(request)
+    return response.download(request, db)
+
+
+def csv():
+    import gluon.contenttype
+    response.headers[&quotContent-Type&quot] = \
+        gluon.contenttype.contenttype(&quot.csv&quot)
+    db = get_database(request)
+    query = get_query(request)
+    if not query:
+        return None
+    response.headers[&quotContent-disposition&quot] = &quotattachment; filename=%s_%s.csv&quot\
+        % tuple(request.vars.query.split(&quot.&quot)[:2])
+    return str(db(query, ignore_common_filters=True).select())
+
+
+def import_csv(table, file):
+    table.import_from_csv_file(file)
+
+
+def select():
+    import re
+    db = get_database(request)
+    dbname = request.args[0]
+    regex = re.compile(&quot(?P&lt;table&gt;\w+)\.(?P&lt;field&gt;\w+)=(?P&lt;value&gt;\d+)&quot)
+    if len(request.args) &gt; 1 and hasattr(db[request.args[1]], &quot_primarykey&quot):
+        regex = re.compile(&quot(?P&lt;table&gt;\w+)\.(?P&lt;field&gt;\w+)=(?P&lt;value&gt;.+)&quot)
+    if request.vars.query:
+        match = regex.match(request.vars.query)
+        if match:
+            request.vars.query = &quot%s.%s.%s==%s&quot % (request.args[0],
+                                                   match.group(&quottable&quot), match.group(&quotfield&quot),
+                                                   match.group(&quotvalue&quot))
+    else:
+        request.vars.query = session.last_query
+    query = get_query(request)
+    if request.vars.start:
+        start = int(request.vars.start)
+    else:
+        start = 0
+    nrows = 0
+    stop = start + 100
+    table = None
+    rows = []
+    orderby = request.vars.orderby
+    if orderby:
+        orderby = dbname + &quot.&quot + orderby
+        if orderby == session.last_orderby:
+            if orderby[0] == &quot~&quot:
+                orderby = orderby[1:]
+            else:
+                orderby = &quot~&quot + orderby
+    session.last_orderby = orderby
+    session.last_query = request.vars.query
+    form = FORM(TABLE(TR(T(&quotQuery:&quot), &quot&quot, INPUT(_style=&quotwidth:400px&quot,
+                _name=&quotquery&quot, _value=request.vars.query or &quot&quot,
+                requires=IS_NOT_EMPTY(
+                    error_message=T("Cannot be empty")))), TR(T(&quotUpdate:&quot),
+                INPUT(_name=&quotupdate_check&quot, _type=&quotcheckbox&quot,
+                value=False), INPUT(_style=&quotwidth:400px&quot,
+                _name=&quotupdate_fields&quot, _value=request.vars.update_fields
+                                    or &quot&quot)), TR(T(&quotDelete:&quot), INPUT(_name=&quotdelete_check&quot,
+                _class=&quotdelete&quot, _type=&quotcheckbox&quot, value=False), &quot&quot),
+                TR(&quot&quot, &quot&quot, INPUT(_type=&quotsubmit&quot, _value=T(&quotsubmit&quot)))),
+                _action=URL(r=request, args=request.args))
+
+    tb = None
+    if form.accepts(request.vars, formname=None):
+        regex = re.compile(request.args[0] + &quot\.(?P&lt;table&gt;\w+)\..+&quot)
+        match = regex.match(form.vars.query.strip())
+        if match:
+            table = match.group(&quottable&quot)
+        try:
+            nrows = db(query).count()
+            if form.vars.update_check and form.vars.update_fields:
+                db(query).update(**eval_in_global_env(&quotdict(%s)&quot
+                                                      % form.vars.update_fields))
+                response.flash = T(&quot%s %%{row} updated&quot, nrows)
+            elif form.vars.delete_check:
+                db(query).delete()
+                response.flash = T(&quot%s %%{row} deleted&quot, nrows)
+            nrows = db(query).count()
+            if orderby:
+                rows = db(query, ignore_common_filters=True).select(limitby=(
+                    start, stop), orderby=eval_in_global_env(orderby))
+            else:
+                rows = db(query, ignore_common_filters=True).select(
+                    limitby=(start, stop))
+        except Exception as e:
+            import traceback
+            tb = traceback.format_exc()
+            (rows, nrows) = ([], 0)
+            response.flash = DIV(T(&quotInvalid Query&quot), PRE(str(e)))
+    &#47&#47 begin handle upload csv
+    csv_table = table or request.vars.table
+    if csv_table:
+        formcsv = FORM(str(T(&quotor import from csv file&quot)) + " ",
+                       INPUT(_type=&quotfile&quot, _name=&quotcsvfile&quot),
+                       INPUT(_type=&quothidden&quot, _value=csv_table, _name=&quottable&quot),
+                       INPUT(_type=&quotsubmit&quot, _value=T(&quotimport&quot)))
+    else:
+        formcsv = None
+    if formcsv and formcsv.process().accepted:
+        try:
+            import_csv(db[request.vars.table],
+                       request.vars.csvfile.file)
+            response.flash = T(&quotdata uploaded&quot)
+        except Exception as e:
+            response.flash = DIV(T(&quotunable to parse csv file&quot), PRE(str(e)))
+    &#47&#47 end handle upload csv
+
+    return dict(
+        form=form,
+        table=table,
+        start=start,
+        stop=stop,
+        nrows=nrows,
+        rows=rows,
+        query=request.vars.query,
+        formcsv=formcsv,
+        tb=tb,
+    )
+
+
+&#47&#47 &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+&#47&#47 &#47&#47&#47&#47 edit delete one record
+&#47&#47 &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+
+
+def update():
+    (db, table) = get_table(request)
+    keyed = hasattr(db[table], &quot_primarykey&quot)
+    record = None
+    if keyed:
+        key = [f for f in request.vars if f in db[table]._primarykey]
+        if key:
+            record = db(db[table][key[0]] == request.vars[key[
+                        0]], ignore_common_filters=True).select().first()
+    else:
+        record = db(db[table].id == request.args(
+            2), ignore_common_filters=True).select().first()
+
+    if not record:
+        qry = query_by_table_type(table, db)
+        session.flash = T(&quotrecord does not exist&quot)
+        redirect(URL(&quotselect&quot, args=request.args[:1],
+                     vars=dict(query=qry)))
+
+    if keyed:
+        for k in db[table]._primarykey:
+            db[table][k].writable = False
+
+    form = SQLFORM(
+        db[table], record, deletable=True, delete_label=T(&quotCheck to delete&quot),
+        ignore_rw=ignore_rw and not keyed,
+        linkto=URL(&quotselect&quot,
+                   args=request.args[:1]), upload=URL(r=request,
+                                                      f=&quotdownload&quot, args=request.args[:1]))
+
+    if form.accepts(request.vars, session):
+        session.flash = T(&quotdone!&quot)
+        qry = query_by_table_type(table, db)
+        redirect(URL(&quotselect&quot, args=request.args[:1],
+                 vars=dict(query=qry)))
+    return dict(form=form, table=db[table])
+
+
+&#47&#47 &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+&#47&#47 &#47&#47&#47&#47 get global variables
+&#47&#47 &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+
+
+def state():
+    return dict()
+
+
+def ccache():
+    <a id="change">form = FORM(
+        P(TAG.BUTTON(
+            T("Clear CACHE?"), _type="submit", _name="yes", _value="yes")),
+        P(TAG.BUTTON(
+            T("Clear RAM"), _type="submit", _name="ram", _value="ram")),
+        P(TAG.BUTTON(
+            T("Clear DISK"), _type="submit", _name="disk", _value="disk")),
+    )</a>
+
+    if form.accepts(request.vars, session):
+        <a id="change">clear_ram = False</a>
+        <a id="change">clear_disk = False</a>
+        <a id="change">session.flash = ""</a>
+        if request.vars.yes:
+            <a id="change">clear_ram = clear_disk = True</a>
+        if request.vars.ram:
+            <a id="change">clear_ram = True</a>
+        if request.vars.disk:
+            <a id="change">clear_disk = True</a>
+
+        if clear_ram:
+            cache.ram.clear()
+            session.flash += T("Ram Cleared")
+        if clear_disk:
+            cache.disk.clear()
+            session.flash += T("Disk Cleared")
+
+        redirect(URL(r=request))
+
+    try:
+        from guppy import hpy
+        <a id="change">hp = hpy()</a>
+    except ImportError:
+        <a id="change">hp = False</a>
+
+    import shelve
+    import os
+    import copy
+    import time
+    import math
+    from gluon import portalocker
+
+    <a id="change">ram = {
+        &quotentries&quot: 0,
+        &quotbytes&quot: 0,
+        &quotobjects&quot: 0,
+        &quothits&quot: 0,
+        &quotmisses&quot: 0,
+        &quotratio&quot: 0,
+        &quotoldest&quot: time.time(),
+        &quotkeys&quot: []
+    }</a>
+    <a id="change">disk = copy.copy(ram)</a>
+    <a id="change">total = copy.copy(ram)</a>
+    <a id="change">disk[&quotkeys&quot] = []</a>
+    <a id="change">total[&quotkeys&quot] = []</a>
+
+    def GetInHMS(seconds):
+        hours = math.floor(seconds / 3600)
+        seconds -= hours * 3600
+        minutes = math.floor(seconds / 60)
+        seconds -= minutes * 60
+        seconds = math.floor(seconds)
+
+        return (hours, minutes, seconds)
+
+    for key, value in cache.ram.storage.items():
+        if isinstance(value, dict):
+            <a id="change">ram[&quothits&quot] = value[&quothit_total&quot] - value[&quotmisses&quot]</a>
+            <a id="change">ram[&quotmisses&quot] = value[&quotmisses&quot]</a>
+            try:
+                <a id="change">ram[&quotratio&quot] = ram[&quothits&quot] * 100 / value[&quothit_total&quot]</a>
+            except (KeyError, ZeroDivisionError):
+                <a id="change">ram[&quotratio&quot] = 0</a>
+        else:
+            if hp:
+                ram[&quotbytes&quot] += hp.iso(value[1]).size
+                ram[&quotobjects&quot] += hp.iso(value[1]).count
+            ram[&quotentries&quot] += 1
+            if value[0] &lt; ram[&quotoldest&quot]:
+                <a id="change">ram[&quotoldest&quot] = value[0]</a>
+            ram[&quotkeys&quot].append((key, GetInHMS(time.time() - value[0])))
+    <a id="change">folder = os.path.join(request.folder,&quotcache&quot)</a>
+    if not os.path.exists(folder):
+        os.mkdir(folder)
+    <a id="change">locker = open(os.path.join(folder, &quotcache.lock&quot), &quota&quot)</a>
+    portalocker.lock(locker, portalocker.LOCK_EX)
+    <a id="change">disk_storage = shelve.open(
+        os.path.join(folder, &quotcache.shelve&quot))</a>
+    try:
+        for key, value in disk_storage.items():
+            if isinstance(value, dict):
+                <a id="change">disk[&quothits&quot] = value[&quothit_total&quot] - value[&quotmisses&quot]</a>
+                <a id="change">disk[&quotmisses&quot] = value[&quotmisses&quot]</a>
+                try:
+                    <a id="change">disk[&quotratio&quot] = disk[&quothits&quot] * 100 / value[&quothit_total&quot]</a>
+                except (KeyError, ZeroDivisionError):
+                    <a id="change">disk[&quotratio&quot] = 0</a>
+            else:
+                if hp:
+                    disk[&quotbytes&quot] += hp.iso(value[1]).size
+                    disk[&quotobjects&quot] += hp.iso(value[1]).count
+                disk[&quotentries&quot] += 1
+                if value[0] &lt; disk[&quotoldest&quot]:
+                    <a id="change">disk[&quotoldest&quot] = value[0]</a>
+                disk[&quotkeys&quot].append((key, GetInHMS(time.time() - value[0])))
+
+    finally:
+        portalocker.unlock(locker)
+        <a id="change">locker</a><a id="change">.close()</a>
+        <a id="change">disk_storage</a><a id="change">.close()</a>
+
+    <a id="change">total[&quotentries&quot] = ram[&quotentries&quot] + disk[&quotentries&quot]</a>
+    <a id="change">total[&quotbytes&quot] = ram[&quotbytes&quot] + disk[&quotbytes&quot]</a>
+    <a id="change">total[&quotobjects&quot] = ram[&quotobjects&quot] + disk[&quotobjects&quot]</a>
+    <a id="change">total[&quothits&quot] = ram[&quothits&quot] + disk[&quothits&quot]</a>
+    <a id="change">total[&quotmisses&quot] = ram[&quotmisses&quot] + disk[&quotmisses&quot]</a>
+    <a id="change">total[&quotkeys&quot] = ram[&quotkeys&quot] + disk[&quotkeys&quot]</a>
+    try:
+        <a id="change">total[&quotratio&quot] = total[&quothits&quot] * 100 / (total[&quothits&quot] +
+                                                total[&quotmisses&quot])</a>
+    except (KeyError, ZeroDivisionError):
+        <a id="change">total[&quotratio&quot] = 0</a>
+
+    if disk[&quotoldest&quot] &lt; ram[&quotoldest&quot]:
+        <a id="change">total[&quotoldest&quot] = disk[&quotoldest&quot]</a>
+    else:
+        <a id="change">total[&quotoldest&quot] = ram[&quotoldest&quot]</a>
+
+    <a id="change">ram[&quotoldest&quot] = GetInHMS(time.time() - ram[&quotoldest&quot])</a>
+    <a id="change">disk[&quotoldest&quot] = GetInHMS(time.time() - disk[&quotoldest&quot])</a>
+    <a id="change">total[&quotoldest&quot] = GetInHMS(time.time() - total[&quotoldest&quot])</a>
+
+    def key_table(keys):
+        return TABLE(
+            TR(TD(B(T(&quotKey&quot))), TD(B(T(&quotTime in Cache (h:m:s)&quot)))),
+            *[TR(TD(k[0]), TD(&quot%02d:%02d:%02d&quot % k[1])) for k in keys],
+            **dict(_class=&quotcache-keys&quot,
+                   _style="border-collapse: separate; border-spacing: .5em;"))
+
+    <a id="change">ram[&quotkeys&quot] = key_table(ram[&quotkeys&quot])</a>
+    <a id="change">disk[&quotkeys&quot] = key_table(disk[&quotkeys&quot])</a>
+    <a id="change">total[&quotkeys&quot] = key_table(total[&quotkeys&quot])</a>
+
+    return dict(form=form, total=total,
+                ram=ram, disk=disk, object_stats=hp != False)
+
+
+def table_template(table):
+    from gluon.html import TR, TD, TABLE, TAG
+
+    def FONT(*args, **kwargs):
+        return TAG.font(*args, **kwargs)
+
+    def types(field):
+        f_type = field.type
+        if not isinstance(f_type,str):
+            return &quot &quot
+        elif f_type == &quotstring&quot:
+            return field.length
+        elif f_type == &quotid&quot:
+            return B(&quotpk&quot)
+        elif f_type.startswith(&quotreference&quot) or \
+                f_type.startswith(&quotlist:reference&quot):
+            return B(&quotfk&quot)
+        else:
+            return &quot &quot
+
+    &#47&#47 This is horribe HTML but the only one graphiz understands
+    rows = []
+    cellpadding = 4
+    color = "&#47&#47000000"
+    bgcolor = "&#47&#47FFFFFF"
+    face = "Helvetica"
+    face_bold = "Helvetica Bold"
+    border = 0
+
+    rows.append(TR(TD(FONT(table, _face=face_bold, _color=bgcolor),
+                           _colspan=3, _cellpadding=cellpadding,
+                           _align="center", _bgcolor=color)))
+    for row in db[table]:
+        rows.append(TR(TD(FONT(row.name, _color=color, _face=face_bold),
+                              _align="left", _cellpadding=cellpadding,
+                              _border=border),
+                       TD(FONT(row.type, _color=color, _face=face),
+                               _align="left", _cellpadding=cellpadding,
+                               _border=border),
+                       TD(FONT(types(row), _color=color, _face=face),
+                               _align="center", _cellpadding=cellpadding,
+                               _border=border)))
+    return "&lt; %s &gt;" % TABLE(*rows, **dict(_bgcolor=bgcolor, _border=1,
+                                          _cellborder=0, _cellspacing=0)
+                             ).xml()
+
+
+def bg_graph_model():
+    graph = pgv.AGraph(layout=&quotdot&quot,  directed=True,  strict=False,  rankdir=&quotLR&quot)
+
+    subgraphs = dict()
+    for tablename in db.tables:
+        if hasattr(db[tablename],&quot_meta_graphmodel&quot):
+            meta_graphmodel = db[tablename]._meta_graphmodel
+        else:
+            meta_graphmodel = dict(group=&quotUndefined&quot, color=&quot&#47&#47ECECEC&quot)
+
+        group = meta_graphmodel[&quotgroup&quot].replace(&quot &quot, &quot&quot)
+        if group not in subgraphs:
+            subgraphs[group] = dict(meta=meta_graphmodel, tables=[])
+            subgraphs[group][&quottables&quot].append(tablename)
+        else:
+            subgraphs[group][&quottables&quot].append(tablename)
+
+        graph.add_node(tablename, name=tablename, shape=&quotplaintext&quot,
+                       label=table_template(tablename))
+
+    for n, key in enumerate(subgraphs.keys()):
+        graph.subgraph(nbunch=subgraphs[key][&quottables&quot],
+                    name=&quotcluster%d&quot % n,
+                    style=&quotfilled&quot,
+                    color=subgraphs[key][&quotmeta&quot][&quotcolor&quot],
+                    label=subgraphs[key][&quotmeta&quot][&quotgroup&quot])
+
+    for tablename in db.tables:
+        for field in db[tablename]:
+            f_type = field.type
+            if isinstance(f_type,str) and (
+                f_type.startswith(&quotreference&quot) or
+                f_type.startswith(&quotlist:reference&quot)):
+                referenced_table = f_type.split()[1].split(&quot.&quot)[0]
+                n1 = graph.get_node(tablename)
+                n2 = graph.get_node(referenced_table)
+                graph.add_edge(n1, n2, color="&#47&#474C4C4C", label=&quot&quot)
+
+    graph.layout()
+    &#47&#47return graph.draw(format=&quotpng&quot, prog=&quotdot&quot)
+    if not request.args:
+        return graph.draw(format=&quotpng&quot, prog=&quotdot&quot)
+    else:
+        response.headers[&quotContent-Disposition&quot]=&quotattachment;filename=graph.%s&quot%request.args(0)
+        if request.args(0) == &quotdot&quot:
+            return graph.string()
+        else:
+            return graph.draw(format=request.args(0), prog=&quotdot&quot)
+
+def graph_model():
+    return dict(databases=databases, pgv=pgv)
+</code></pre>

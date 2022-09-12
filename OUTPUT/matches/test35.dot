@@ -1,0 +1,120 @@
+digraph G {
+1 [label="(29)get" shape=box style=dashed]
+2 [label="(1)Any(thread_id)" shape=ellipse style=dashed]
+3 [label="(8)range" shape=box style=dashed]
+4 [label="(34)Any(yy)" shape=ellipse style=dashed color=blue fontcolor=blue]
+5 [label="(40)Any(t)" shape=ellipse style=dashed]
+6 [label="(5)Any(thread_ids)" shape=ellipse style=dashed]
+7 [label="(32)int(i)" shape=ellipse style=dashed]
+8 [label="(2)Any(threading)" shape=ellipse style=dashed]
+9 [label="(18)GFile" shape=box style=dashed color=blue fontcolor=blue]
+10 [label="(0)START" style=dashed]
+11 [label="(23)Any(CPUStream)" shape=ellipse style=dashed]
+12 [label="(43)()" shape=box style=dashed]
+13 [label="(9)number(2)" shape=ellipse style=dashed]
+14 [label="(15)tensorflow(tf)" shape=ellipse style=dashed color=blue fontcolor=blue]
+15 [label="(33)get" shape=box style=dashed]
+16 [label="(3)current_thread" shape=box style=dashed]
+17 [label="(27)Any.out_queues[.](Subscript)" shape=ellipse style=dashed]
+18 [label="(22)Task" shape=box style=dashed]
+19 [label="(38)int(i)" shape=ellipse style=dashed]
+20 [label="(7)Any(thread_id)" shape=ellipse style=dashed]
+21 [label="(45)END" style=dashed]
+22 [label="(31)Any[.](Subscript)" shape=ellipse style=dashed]
+23 [label="(44)return" shape=box style=dashed]
+24 [label="(19)String(lit(someFile.txt))" shape=ellipse style=dashed color=blue fontcolor=blue]
+25 [label="(13)empty" shape=box style=dashed]
+26 [label="(4)=" shape=box style=dashed]
+27 [label="(10)int(i)" shape=ellipse style=dashed]
+28 [label="(20)=" shape=box style=dashed color=blue fontcolor=blue]
+29 [label="(30)Any(out_queues)" shape=ellipse style=dashed]
+30 [label="(24)=" shape=box style=dashed]
+31 [label="(35)close" shape=box style=dashed color=blue fontcolor=blue]
+32 [label="(17)tensorflow.io.gfile(gfile)" shape=ellipse style=dashed color=blue fontcolor=blue]
+33 [label="(36)Any(in_queues)" shape=ellipse style=dashed]
+34 [label="(28)int(i)" shape=ellipse style=dashed]
+35 [label="(41)Batch" shape=box style=dashed]
+36 [label="(16)tensorflow.io(io)" shape=ellipse style=dashed color=blue fontcolor=blue]
+37 [label="(21)Any(t)" shape=ellipse style=dashed]
+38 [label="(39)put" shape=box style=dashed]
+39 [label="(25)Any(yy)" shape=ellipse style=dashed]
+40 [label="(6)add" shape=box style=dashed]
+41 [label="(11)int(i)" shape=ellipse style=dashed]
+42 [label="(12)For" shape=diamond style=dashed]
+43 [label="(14)Any(yy)" shape=ellipse style=dashed color=blue fontcolor=blue]
+44 [label="(37)Any[.](Subscript)" shape=ellipse style=dashed]
+45 [label="(26)Any.out_queues(out_queues)" shape=ellipse style=dashed]
+42 -> 1 [label="" style=solid];
+17 -> 1 [label="recv" style=dotted];
+30 -> 1 [label="dep" style=dotted];
+26 -> 2 [label="def" style=dotted];
+10 -> 3 [label="" style=solid];
+13 -> 3 [label="para" style=dotted];
+40 -> 3 [label="dep" style=dotted];
+43 -> 4 [label="ref" style=dotted];
+37 -> 5 [label="ref" style=dotted];
+27 -> 7 [label="ref" style=dotted];
+42 -> 9 [label="" style=solid];
+32 -> 9 [label="recv" style=dotted];
+24 -> 9 [label="para" style=dotted];
+25 -> 9 [label="dep" style=dotted];
+10 -> 12 [label="" style=solid];
+38 -> 12 [label="dep" style=dotted];
+42 -> 15 [label="" style=solid];
+22 -> 15 [label="recv" style=dotted];
+1 -> 15 [label="dep" style=dotted];
+10 -> 16 [label="" style=solid];
+8 -> 16 [label="recv" style=dotted];
+45 -> 17 [label="qual" style=dotted];
+34 -> 17 [label="para" style=dotted];
+42 -> 18 [label="" style=solid];
+11 -> 18 [label="para" style=dotted];
+28 -> 18 [label="dep" style=dotted];
+27 -> 19 [label="ref" style=dotted];
+2 -> 20 [label="ref" style=dotted];
+23 -> 21 [label="dep" style=dotted];
+29 -> 22 [label="qual" style=dotted];
+7 -> 22 [label="para" style=dotted];
+10 -> 23 [label="" style=solid];
+35 -> 23 [label="dep" style=dotted];
+35 -> 23 [label="para" style=dotted];
+42 -> 25 [label="" style=solid];
+10 -> 26 [label="" style=solid];
+16 -> 26 [label="dep" style=dotted];
+16 -> 26 [label="para" style=dotted];
+3 -> 27 [label="def" style=dotted];
+42 -> 28 [label="" style=solid];
+9 -> 28 [label="dep" style=dotted];
+9 -> 28 [label="para" style=dotted];
+42 -> 30 [label="" style=solid];
+18 -> 30 [label="dep" style=dotted];
+18 -> 30 [label="para" style=dotted];
+42 -> 31 [label="" style=solid];
+4 -> 31 [label="recv" style=dotted];
+15 -> 31 [label="dep" style=dotted];
+36 -> 32 [label="qual" style=dotted];
+27 -> 34 [label="ref" style=dotted];
+10 -> 35 [label="" style=solid];
+12 -> 35 [label="dep" style=dotted];
+12 -> 35 [label="para" style=dotted];
+38 -> 35 [label="dep" style=dotted];
+14 -> 36 [label="qual" style=dotted];
+30 -> 37 [label="def" style=dotted];
+42 -> 38 [label="" style=solid];
+44 -> 38 [label="recv" style=dotted];
+5 -> 38 [label="para" style=dotted];
+31 -> 38 [label="dep" style=dotted];
+43 -> 39 [label="ref" style=dotted];
+10 -> 40 [label="" style=solid];
+6 -> 40 [label="recv" style=dotted];
+20 -> 40 [label="para" style=dotted];
+26 -> 40 [label="dep" style=dotted];
+27 -> 41 [label="ref" style=dotted];
+10 -> 42 [label="" style=solid];
+3 -> 42 [label="dep" style=dotted];
+41 -> 42 [label="cond" style=dotted];
+28 -> 43 [label="def" style=dotted];
+33 -> 44 [label="qual" style=dotted];
+19 -> 44 [label="para" style=dotted];
+39 -> 45 [label="qual" style=dotted];
+}

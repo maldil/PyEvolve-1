@@ -1,0 +1,688 @@
+<link rel="stylesheet" href="../../../../..//default.css">
+<script src="../../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/ActiveState/code/blob/master/recipes/Python/546532_PyChecker_postprocessor/recipe-546532.py#L348">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/code/blob/master/recipes/Python/546532_PyChecker_postprocessor/recipe-546532.py#L348">GitMyHubLink</a>
+
+&#47&#47!/usr/bin/env python
+&#47&#47 -*- coding: utf-8 -*-
+
+&#47&#47 Original copyright, license and disclaimer are further below.
+
+&#47&#47 This is an enhanced version of the recipe originally posted at
+&#47&#47 &lt;http://code.activestate.com/recipes/546532/&gt;
+&quot&quot&quot
+   This %(_argv0)s script is a postprocessor for Python source code
+   checkers PyChecker &lt;http://pychecker.sourceforge.net&gt;, PyFlakes
+   &lt;http://pypi.python.org/pypi/pyflakes&gt;, PyCodeStyle (formerly Pep8)
+   &lt;http://pypi.python.org/pypi/pycodestyle&gt; and/or the "Meager" McCabe
+   code complexity tool &lt;http://nedbatchelder.com/files/codepaths0.py&gt;).
+
+   Usage: %(_argv0)s  [-h|-help  [-no-OKd|-no]  [-debug|-Debug]
+           [-Checker]  [-Flakes]  [-McCabe]  [-Style|-Pep8]  [-3]
+           [-blacklist &lt;mods&gt;]  [-cmd &lt;path&gt;]  [-EW]  [-PATH]
+           [-raiser]  [-recursive]  [-Tb]  [-v|--versions]  [-which]
+           [-Xpy]  [--|---]  [&lt;options&gt;]  &lt;file_or_dir&gt; ...
+
+   where &lt;options&gt; are PyChecker, PyFlakes or PyCodeStyle (Pep8)
+   options* and &lt;file_or_dir&gt; and all following command line arguments
+   are Python source file names or directory names.
+
+   This %(_argv0)s script first runs PyChecker, PyFlakes, McCabe and/or
+   PyCodeStyle (Pep8) on &lt;file_or_dir&gt; and all subsequent arguments
+   using command(s) %(_Cmds)s.
+
+   Next, it splits the output from PyChecker, PyFlakes, McCabe and
+   PyCodeStyle (Pep8) into two sets of warning messages, OK&quotd and
+   regular messages.
+
+   A warning message is considered OK&quotd if the Python source line
+   causing the warning message ends with a comment starting with
+   %(_OKs)s**).
+
+   OK&quotd warning messages can be suppressed entirely by using option
+   -no or -no-OKd.  Only non-OKd warnings are printed in that case.
+
+   However, certain errors like PyChecker INTERNAL ERROR ... (often
+   followed by a traceback) can&quott be OK&quotd, can&quott be suppressed and
+   are always printed without the PyChecker traceback.  Use option
+   -Tb to show the traceback.
+
+   To run PyChecker only, use option -C or -Checker if the command
+   &quot%(_CmdC)s&quot is in your search PATH.  Otherwise use option -cmd
+   to specify the PyChecker path.
+
+   To run PyFlakes only, use option -F or -Flakes if the command
+   &quot%(_CmdF)s&quot is in your search PATH.  Otherwise use option -cmd
+   to specify the PyFlakes path.
+
+   To run McCabe only, use option -M or -McCabe if the command
+   &quot%(_CmdM)s&quot is in your search PATH.  Otherwise use option -cmd to
+   specify the McCabe path.
+
+   To run PyCodeStyle only, use option -Style or -Pep8 if command
+   &quot%(_CmdP)s&quot is in your search PATH.  Otherwise use option -cmd
+   to specify the PyCodeStyle (Pep8) path.
+
+   Use option -3 to run PyChecker3, PyFlakes3, McCabe3 and
+   PyCodeStyle3, the Python 3+ versions of the checkers even
+   if this %(_argv0)s script is invoked with Python 2.
+
+   By default, warnings from some modules "%(_blacklist)s"
+   are ignored, rather OK&quotd implicitly.  To ignore additional
+   modules use option -blacklist &lt;mods&gt; where &lt;mods&gt; is a string
+   of comma-separated module names.
+
+   Also, Python file names ending with &quot%(_Xpy)s&quot are ignored entirely.
+   Use option -Xpy to check and process such files.
+
+   Option -debug or -Debug produces additional %(_argv0)s output.
+
+   Option -EW allows these PyCodeStyle (Pep8) errors to be OK&quotd:
+    %(_EWs)s
+
+   in addition to these PyCodeStyle (Pep8) errors always OK&quotd:
+    %(_OKdEs)s
+
+   By default, run PyChecker, PyFlakes, McCabe and PyCodeStyle (Pep8)
+   provided commands &quotpyflakes&quot, &quotpychecker&quot, &quotmccabe&quot and &quotpycodestyle&quot
+   are in your search PATH.  Use option -PATH to append the directory
+   containing this very script to the search PATH.
+
+   Option -raiser shows the traceback or other exception details.
+
+   Option -recursive causes sub-directory to be visited.
+
+   Option -versions prints the version of this script, PyChecker,
+   PyFlakes, McCabe, PyCodeStyle (Pep8) and Python if found in PATH.
+
+   Option -which prints the fully qualified path of this script.
+
+   Tested with PyChecker 0.8.17, 0.8.18 and 0.8.19, PyFlakes 0.7.3,
+   1.0.0, 1.2.3 and 1.4.0, McCabe 2008.3, Pep8 1.4.6, 1.6.2, 1.7.0
+   and PyCodeStyle (formerly Pep8) 2.2.0 using 32- and/or 64-bit
+   Python 2.3.4, 2.4.4, 2.5.2, 2.6.4, 2.7.1, 2.7.5, 2.7.9, 2.7.10
+   or 2.7.13 on CentOS 4.6, RHEL 3u7, Ubuntu 10.10, MacOS X 10.4.11
+   (Tiger, Intel), MacOS X 10.9.1 (Mavericks), MacOS X 10.10.5
+   (Yosemite), MacOS X 10.11.5 (El Capitan), MacOS 10.12.2 (Sierra),
+   Solaris 10, Windows 7, Windows XP SP3 and Windows Server 2003.
+
+   Tested with Flake8 3.2.1 (PyCodeStyle 2.2.0, PyFlakes 1.3.0 and
+   McCabe 0.5.3) using 64-bit Python 3.6.0 on MacOS 10.12.2 (Sierra).
+
+___
+ *) Beware of overlapping PyChecker option names and abbreviations
+    with options for this script.  PyChecker options -d, --debug,
+    -Q and --quiet are honored as additional options of this script.
+
+**) %(_OKs)s
+    are all upper case and there must be at least one space between
+    %(_OKs)s
+    and the end of the source line.
+&quot&quot&quot
+
+__all__     = (&quotProcessor&quot, &quotmain&quot)
+__version__ =  &quot17.01.10&quot
+
+import os
+import sys
+
+&#47&#47 defaults
+_and       = &quot; &quot  &#47&#47 &quot && &quot
+_argv0     =  os.path.basename(sys.argv[0])
+_blacklist = (&quot[system path]/&quot, &quot/boto/&quot)
+_Debug     =  False  &#47&#47 print debug info
+_EW        =  False  &#47&#47 additional OK&quotd errors/warnings
+_EWs       = {  &#47&#47 additional PyCodeStyle (Pep8) errors OK&quotd
+              &quotE101&quot: &quotindentation contains mixed spaces and tabs&quot,
+              &quotE131&quot: &quotcontinuation line unaligned for hanging indent&quot,
+              &quotE265&quot: "block comment should start with &quot&#47&#47 &quot",
+              &quotE266&quot: "too many leading &quot&#47&#47&quot for block comment",
+              &quotE305&quot: &quotexpected 2 blank lines after class or function definition&quot,
+              &quotW191&quot: &quotindentation contains tabs&quot,
+              &quotW503&quot: &quotline break before binary operator&quot}
+_INTERROR  =  None   &#47&#47 INTERNAL ERROR never OK&quotd
+_NL        = &quot\n&quot
+_None      = &quotNone&quot  &#47&#47 line from pychecker
+_OKd       =  True   &#47&#47 print OK&quotd warnings
+&#47&#47 PyCodeStyle (Pep8) option --ignore=E111,E121,E122,... doesn&quott work in Pep8 1.4.6
+_OKdEs     = {  &#47&#47 PyCodeStyle (Pep8) error message ignored and OK&quotd with  &#47&#47 PEP8 OK&quotd
+&#47&#47             &quotE111&quot: &quotindentation is not a multiple of four&quot,  &#47&#47 PYCHOK expected
+              &quotE121&quot: &quotcontinuation line indentation is not a multiple of four&quot,
+              &quotE122&quot: &quotcontinuation line missing indentation or outdented&quot,
+              &quotE126&quot: &quotcontinuation line over-indented for hanging indent&quot,
+              &quotE127&quot: &quotcontinuation line over-indented for visual indent&quot,
+              &quotE128&quot: &quotcontinuation line under-indented for visual indent&quot,
+              &quotE201&quot: "whitespace after &quot",  &#47&#47 &quot(&quot, &quot[&quot, ...
+              &quotE203&quot: "whitespace before &quot",  &#47&#47 &quot,&quot, &quot:&quot, ...
+              &quotE211&quot: "whitespace before &quot",  &#47&#47 &quot(&quot
+              &quotE221&quot: &quotmultiple spaces before operator&quot,
+              &quotE222&quot: &quotmultiple spaces after operator&quot,
+              &quotE225&quot: &quotmissing whitespace around operator&quot,
+              &quotE226&quot: &quotmissing whitespace around arithmetic operator&quot,
+              &quotE231&quot: "missing whitespace after &quot",  &#47&#47 &quot,&quot
+              &quotE241&quot: "multiple spaces after &quot",  &#47&#47 &quot,&quot, &quot:&quot, ...
+              &quotE251&quot: &quotunexpected spaces around keyword / parameter equals&quot,
+              &quotE271&quot: &quotmultiple spaces after keyword&quot,
+              &quotE272&quot: &quotmultiple spaces before keyword&quot,
+              &quotE402&quot: &quotmodule level import not at top of file&quot,
+              &quotE501&quot: &quotline too long (&quot}  &#47&#47 81 &gt; 79 characters)
+_OKs       = (&quot&#47&#47 PYCHOK &quot, &quot&#47&#47 PYCHECKER &quot,
+              &quot&#47&#47 MCCABE &quot, &quot&#47&#47 PEP8 &quot, &quot&#47&#47 PYFLAKE &quot,
+              &quot&#47&#47 noqa&quot, &quot&#47&#47 NOQA&quot)  &#47&#47 Flake8
+_Out       =  sys.stdout  &#47&#47 output file
+_PATH      =  os.environ.get(&quotPATH&quot, &quot&quot).split(os.pathsep)
+_Py3       =  sys.version_info[0] == 3
+_Raiser    =  False
+_Recursive =  False
+_Warnings  = &quotWarnings...&quot  &#47&#47 line from pychecker
+_X3        =  False  &#47&#47 run Python 3+ checkers
+_Xtb       =  True  &#47&#47 exclude traceback lines
+_Xpy       = &quotX.py&quot  &#47&#47 ignore these modules
+_xtensions = (&quot&quot,)
+
+if sys.platform.startswith(&quotwin&quot):
+    _blacklist += tuple(p.replace(&quot/&quot, &quot\\&quot) for p in _blacklist if &quot/&quot in p)
+    _xtensions += (&quot.bat&quot, &quot.BAT&quot, &quot.exe&quot, &quot.EXE&quot)
+
+if _Py3:
+    _CmdC = &quotpychecker3 --limit 0 --stdlib&quot  &#47&#47 XXX no PyChecker
+    _CmdF = &quotpyflakes3&quot  &#47&#47 PyFlakes 1.3.0 (from Flake8)
+    _CmdM = &quotmccabe3 --min 13&quot  &#47&#47 McCabe 0.5.3
+    _CmdP = &quotpycodestyle3 --max-line-length=99&quot  &#47&#47 PyCodeStyle 2.2.0+
+    _Cmds = &quotflake83 --max-line-length=99&quot  &#47&#47 Flake8 3.2.1 Python 3+
+else:
+    _CmdC = &quotpychecker --limit 0 --stdlib&quot  &#47&#47 PyChecker 0.8.17+
+    _CmdF = &quotpyflakes&quot  &#47&#47 PyFlakes 0.4.0+
+    _CmdM = &quotmccabe --min 13&quot  &#47&#47 McCabe
+    _CmdP = &quotpycodestyle --max-line-length=99&quot  &#47&#47 --format=&quot%(path)s:%(row)d: %(code)s %(text)s&quot  &#47&#47 Pep8 1.4.6+
+    _Cmds = _and.join([_CmdC, _CmdF, _CmdM, _CmdP])
+
+try:
+    from subprocess import Popen, PIPE
+
+    &#47&#47 &lt;http://docs.python.org/library/subprocess.html&#47&#47replacing-os-popen&gt;
+    &#47&#47 &lt;http://bugs.python.org/issue4194&gt; for subprocess.Popen vs os.popen
+    def _popen(cmd):  &#47&#47 return stdout
+        return Popen(cmd, shell=True, bufsize=-1, stdout=PIPE).stdout
+
+except ImportError:  &#47&#47 no subprocess
+    def _popen(cmd):  &#47&#47 return stdout  &#47&#47 PYCHOK expected
+        return os.popen(cmd, &quotr&quot)  &#47&#47 bufsize=-1 by default
+
+
+def b2s(b):
+    &quot&quot&quotDecode bytes to str/unicode.
+    &quot&quot&quot
+    &#47&#47 XXX alternative would be to use subprocess.Popen keyword arguments
+    &#47&#47 universal_newlines=True, encoding=..., errors=... but those apply
+    &#47&#47 only to later versions of the subprocess.Popen constructor.  See
+    &#47&#47 &lt;https://docs.python.org/3/library/subprocess.html&gt; at 17.5.1.2.
+    if _Py3 and isinstance(b, bytes):
+        b = b.decode()  &#47&#47 encoding=&quotutf-8&quot, errors=&quotstrict&quot
+    return b
+
+
+def bits():
+    &quot&quot&quotReturn 32- or 64-bit size of this Python.
+    &quot&quot&quot
+    try:
+        import platform
+        return int(platform.architecture()[0][:2])
+    except (AttributeError, ImportError, ValueError):
+        import struct
+        return struct.calcsize(&quotP&quot) &lt;&lt; 3
+
+
+def plural(n, unit):
+    &quot&quot&quotFormat a plural string.
+    &quot&quot&quot
+    s = &quots&quot if n != 1 else &quot&quot
+    return &quot%s %s%s&quot % (n or &quotno&quot, unit, s)
+
+
+def quoted(text):
+    &quot&quot&quotEnquote text if needed.
+    &quot&quot&quot
+    if len(text.split()) != 1:
+        return &quot"%s"&quot % (text,)
+    else:
+        return text
+
+
+def which(exe):
+    &quot&quot&quotReturn full path of an executable.
+    &quot&quot&quot
+    for d in _PATH:
+        for x in _xtensions:
+            p = quoted(os.path.join(d, exe) + x)
+            if os.access(p, os.X_OK):
+                return p
+    raise OSError(&quotno such executable: %s&quot % (exe,))
+
+
+class Processor(object):
+    &quot&quot&quotProcessor to handle suppression of OK&quotd PyChecker, PyFlakes
+       and PyCodeStyle (Pep8) warning messages, marked as such at
+       the end of the Python source code line.
+    &quot&quot&quot
+    _code = []  &#47&#47 source code lines
+    _dirs = ()  &#47&#47 source file directories
+    _name = &quot&quot  &#47&#47 source file name
+
+    _cmds  = ()      &#47&#47 commands to run
+    _debug = _Debug  &#47&#47 print debug output
+    _OKd   = _OKd    &#47&#47 print OK&quotd warnings
+    _out   = _Out    &#47&#47 output file, None for quiet
+    _title = True    &#47&#47 print module title
+    _x3    = _X3     &#47&#47 run Python 3+ checkers
+
+    def __init__(self, cmds, OKd=_OKd, debug=_Debug, out=_Out, x3=False):
+        self._debug = debug
+        self._OKd   = OKd
+        self._out   = out
+        self._cmds  = []
+        for c in cmds.split(_and):
+            c = c.split()
+            try:
+                x = c[0]  &#47&#47 checker
+                if x3 and not x.endswith(&quot3&quot):
+                    x += &quot3&quot
+                c[0] = x = which(x)
+                self._cmds.append(&quot &quot.join(c))
+                if &quotpychecker&quot in x.lower():
+                    self._title = False  &#47&#47 don&quott print
+                self._x3 = x3
+            except OSError:
+                self.printf(&quot%s warning: %s&quot, _argv0, sys.exc_info()[1])
+
+    def allist(self, name):
+        &quot&quot&quotCheck that the objects named in the
+           __all__ list do exist in the module.
+        &quot&quot&quot
+        self.debugf("running &quot%s %s&quot ...", &quotallist&quot, name)
+        n, w = 0, []
+        try:
+            m = __import__(name[:-3])
+        except ImportError:
+            m = None
+        for a in getattr(m, &quot__all__&quot, []):
+            if not hasattr(m, a):
+                if not n:  &#47&#47 get __all__ line number, once
+                    if name != self._name:
+                        self.get(name)
+                    for i, t in enumerate(self._code):
+                        if t.startswith(&quot__all__&quot):
+                            n = i + 1
+                            break
+                w.append(&quot%s:%d: no %s object %r in module %r&quot %
+                         (name, n, &quot__all__&quot, a, m.__name__))
+        self.debugf(&quot%s of %r output&quot, plural(len(w), &quotline&quot), &quotallist&quot)
+        return tuple(w)
+
+    def debugf(self, fmt, *args):
+        &quot&quot&quotDebug print.
+        &quot&quot&quot
+        if self._debug:
+            self.printf(&quotDebug: %s &quot + fmt, _argv0, *args)
+
+    def dirs(self, *args):
+        &quot&quot&quotGet all source directories.
+        &quot&quot&quot
+        ds = []
+        for f in args:
+            if f.startswith(&quot-&quot):
+                &#47&#47 honored PyChecker options
+                if f in (&quot--quiet&quot, &quot-Q&quot):
+                    self._out = None
+                elif f in (&quot--debug&quot, &quot-d&quot):
+                    self._debug = True
+            else:
+                n = max(f.count(os.path.sep), 1)
+                d = os.path.realpath(f)
+                while d and n &gt; 0:
+                    n -= 1
+                    d  = os.path.dirname(d)
+                    if d and d not in ds:
+                        ds.append(d)
+        ds.append(&quot.&quot)
+        for d in sys.path:
+            if os.path.isdir(d) and d not in ds:
+                ds.append(d)
+        self._dirs = tuple(ds)
+
+    def get(<a id="change">self</a>, <a id="change">name</a>):
+        &quot&quot&quotGet source code for a given file.
+        &quot&quot&quot
+        <a id="change">self._code = []</a>
+        <a id="change">self._name = name</a>
+        if name.lower().endswith(&quot.py&quot):
+            self.debugf(&quotlooking for file: %s&quot, name)
+            if os.path.isabs(name):
+                &#47&#47 XXX assert(os.path.join(&quot&quot, name) == name)
+                ds = (&quot&quot,)
+            else:
+                <a id="change">ds = self._dirs</a>
+            for d in ds:  &#47&#47 find file
+                try:
+                    <a id="change">t = os.path.join(d, name)</a>
+                    <a id="change">f = open(t, &quotr&quot)</a>
+                    <a id="change">s = f.readlines()</a>
+                    <a id="change">f</a><a id="change">.close()</a>
+                    <a id="change">self._code = s</a>
+                    self.debugf(&quotfound file: %s (%s)&quot, t, plural(len(s), &quotline&quot))
+                    break
+                except (IOError, OSError, EOFError):
+                    pass
+            else:
+                self.debugf(&quotfile not found: %s&quot, name)
+
+    def isOK(self, name, line, Error=&quot&quot):
+        &quot&quot&quotCheck whether source line is marked.
+        &quot&quot&quot
+        &#47&#47 never OK PyChecker INTERNAL ERRORs,
+        &#47&#47 since those typically stop checking
+        if Error.startswith(&quot INTERNAL ERROR --&quot):
+            return _INTERROR
+        &#47&#47 check module/file name against blacklist
+        for p in _blacklist:
+            if p in name:  &#47&#47 OK, black listed
+                return &quot&#47&#47 PYCHOK blacklist %s&quot % (p,)
+        &#47&#47 get source code
+        if name != self._name:
+            self.get(name)
+        try:  &#47&#47 get source line
+            n = int(line) - 1
+            while True:
+                s = b2s(self._code[n]).rstrip()
+                for OK in _OKs:
+                    p = s.find(OK)
+                    if p &gt; 0:  &#47&#47 line OK&quotd
+                        return s[p:]
+                &#47&#47 handle continuation lines
+                if s.endswith(&quot\\&quot):
+                    n += 1
+                else:
+                    break
+            &#47&#47 not OK&quotd, check Pep8 Errors to ignore
+            e = Error.split(&quot &quot, 2)
+            if len(e) &gt; 2 and e[2].startswith(_OKdEs.get(e[1], &quot &quot)):
+                return "&#47&#47 PEP8 OK&quotd"
+        except (ValueError, IndexError):
+            self.debugf(&quotno line %s in file: %s&quot, line, self._name)
+        return &quot&quot  &#47&#47 not OK&quotd, not black listed, not found, etc.
+
+    def printf(self, fmt, *args):
+        &quot&quot&quotFormatted print.
+        &quot&quot&quot
+        if self._out:
+            if args:
+                self._out.write(fmt % args)
+            else:
+                self._out.write(fmt)
+            self._out.write(_NL)
+
+    def process(self, output):
+        &quot&quot&quotSplit PyChecker/-Flakes output into
+           OK&quotd and other warning messages.
+        &quot&quot&quot
+        if self._OKd:
+            self.printf(&quotSplitting...&quot)
+        if self._debug:
+            self.debugf(&quotsource directories...&quot)
+            for t in enumerate(self._dirs):
+                self.printf(&quot%5d: %r&quot, *t)
+
+        mt = []  &#47&#47 list of 2-tuples (message, OK&quotd)
+        e = False  &#47&#47 or a split INTERNAL ERROR line
+        n = t = 0  &#47&#47 number of non-OK&quotd, total warnings
+        for m in output:  &#47&#47 process each warning line
+            m = b2s(m).rstrip()
+            if m:  &#47&#47 only non-blank lines
+                if e and _Xtb:  &#47&#47 after INTERNAL ERROR
+                    s = m.lstrip()
+                    if len(s) &lt; len(m):  &#47&#47 traceback line
+                        e[2] = &quot &quot + s  &#47&#47 save last one
+                        continue
+                    &#47&#47 build another INTERNAL ERROR
+                    &#47&#47 from the last trackback line,
+                    &#47&#47 usually the exception raised
+                    mt.append((&quot:&quot.join(e), _INTERROR))
+                    e = False
+                &#47&#47 split and process warning line
+                ok, s = &quot&quot, m.split(&quot:&quot, 2)
+                if len(s) &gt; 2:  &#47&#47 file name, line number, rest
+                    if not s[1].isdigit():
+                        self.debugf(&quotno line number: %r&quot, m)
+                        continue
+                    ok = self.isOK(*s)
+                    if not ok:
+                        n += 1  &#47&#47 non-OK&quotd
+                        if ok is _INTERROR:
+                            e = s
+                    t += 1  &#47&#47 total
+                elif _EW or m in (_Warnings, _None):
+                    continue
+                mt.append((m, ok))
+
+        if self._out:
+            if self._OKd:  &#47&#47 print OK&quotd warnings
+                self.printf("%sLines OK&quotd...", _NL)
+                m = [m + &quot - &quot + ok for m, ok in mt if ok]  &#47&#47 PYCHOK expected
+                self.printf(_NL.join(m) or _None)
+
+            &#47&#47 print other warnings (and lines)
+            m = [m for m, ok in mt if not ok]  &#47&#47 PYCHOK expected
+            if m:  &#47&#47 print always
+                self.printf(_NL + _Warnings)
+                self.printf(_NL.join(m))
+            elif t &gt; 1 and self._OKd:
+                self.printf(_NL + _Warnings)
+                self.printf("%s, all %s OK&quotd", _None, t)
+
+        return n  &#47&#47 number of non-OK&quotd warnings
+
+    def run(self, cmd, arg):
+        &quot&quot&quotRun command and return output.
+        &quot&quot&quot
+        c = &quot &quot.join([cmd, quoted(arg)])
+        self.dirs(arg)
+        self.debugf(&quotrunning %r ...&quot, c)
+        m = _popen(c).readlines()
+        self.debugf(&quot%s of %r output&quot, plural(len(m), &quotline&quot), cmd)
+        return tuple(m)  &#47&#47 output as lines
+
+    def versions(self):
+        v = sys.version.split()[0]
+        v = &quot(%s-bit Python %s)&quot % (bits(), v)
+        t = [(_argv0, __version__, v)]
+        for c in self._cmds:
+            c = c.split()[0]
+            try:
+                v = b2s(_popen(c + &quot --version&quot).readline())
+            except OSError:
+                v = &quot&quot
+            t.append((c, v.strip() or &quotn/a&quot))
+        if self._x3 and not _Py3:
+            try:
+                v = b2s(_popen(&quotpython3&quot + &quot --version&quot).readline())
+            except OSError:
+                v = &quot&quot
+            t.append((v.strip() or &quotn/a&quot,))
+        return [&quot &quot.join(v) for v in t]  &#47&#47 PYCHOK expected
+
+    def warnings(self, arg):
+        &quot&quot&quotReturn number of non-OK&quotd warnings.
+        &quot&quot&quot
+        if self._title:
+            m = os.path.splitext(os.path.basename(arg))[0]
+            self.printf(&quotProcessing module %s (%s) ...&quot, m, arg)
+        w = ()
+        for c in self._cmds:
+            w += self.run(c, arg)
+        w += self.allist(arg)
+        n = self.process(w)
+        self.printf(&quot%s%s in %s&quot, _NL, plural(n, &quoterror&quot), arg)
+        return n
+
+
+def main(args, cmds=_Cmds, OKd=_OKd, out=_Out, debug=_Debug,
+               recursive=_Recursive, x3=_X3):
+    &quot&quot&quotGet a postprocessor, run the commands on the
+       given arguments, split the output and return
+       the number of non-OK&quotd warnings.
+    &quot&quot&quot
+    m = n = 0
+    p = Processor(cmds, OKd, debug, out=out, x3=x3)
+    while args:
+        arg = args.pop(0)
+        if os.path.isdir(arg):
+            for d, ds, fs in os.walk(arg):
+                for f in fs:
+                    if _Xpy and f.endswith(_Xpy):
+                        pass  &#47&#47 exclude
+                    elif f.endswith(&quot.py&quot):
+                        f  = os.path.join(d, f)
+                        n += p.warnings(f)
+                        m += 1
+                if recursive:
+                    args.extend(ds)
+        else:
+            n += p.warnings(arg)
+            m += 1
+    if m != 1:
+        p.printf(&quot%s%s total in %s&quot, _NL, plural(n, &quoterror&quot), plural(m, &quotmodule&quot))
+    return n  &#47&#47 number of non-OK&quotd warnings
+
+
+if __name__ == &quot__main__&quot:
+
+    def usage(status):
+        global _blacklist, _CmdC, _CmdF, _CmdM, _CmdP, _EWs, _OKdEs, _OKs
+        _blacklist = &quot, &quot.join(_blacklist)
+        _CmdC = _CmdC.split()[0]
+        _CmdF = _CmdF.split()[0]
+        _CmdM = _CmdM.split()[0]
+        _CmdP = _CmdP.split()[0]
+        _EWs = &quot\n    &quot.join(&quot%s: %s&quot % _ for _ in sorted(_EWs.items()))
+        _OKdEs = &quot\n    &quot.join(&quot%s: %s&quot % _ for _ in sorted(_OKdEs.items()))
+        _OKs = &quot.., &quot.join(_OKs)
+        print(__doc__ % globals())
+        sys.exit(status)
+
+    try:
+        args = sys.argv[1:]
+        if not args:
+            usage(1)
+        while args and args[0].startswith(&quot-&quot):
+            opt = args.pop(0)
+            n   = len(opt)
+            if opt in (&quot--&quot, &quot---&quot):
+                break
+            elif opt == &quot-3&quot:
+                _X3 = True
+            elif &quot-blacklist&quot.startswith(opt) and n &gt; 2 and args:
+                _blacklist += tuple(args.pop(0).split(&quot,&quot))
+            elif &quot-Checker&quot.startswith(opt) and n &gt; 1:
+                _Cmds = _CmdC  &#47&#47 PyChecker only
+            elif &quot-cmd&quot.startswith(opt) and n &gt; 3 and args:
+                _Cmds = args.pop(0)
+            elif &quot-debug&quot.startswith(opt.lower()) and n &gt; 1:
+                _Debug = True  &#47&#47 print debug output
+            elif &quot-Flakes&quot.startswith(opt) and n &gt; 1:
+                _Cmds = _CmdF  &#47&#47 PyFlakes only
+            elif (&quot-help&quot.startswith(opt)  and n &gt; 1) or \
+                 (&quot--help&quot.startswith(opt) and n &gt; 2):
+                usage(0)
+            elif &quot-McCabe&quot.startswith(opt) and n &gt; 1:
+                _Cmds = _CmdM  &#47&#47 McCabe only
+            elif &quot-no-OKd&quot.startswith(opt) and n &gt; 2:
+                _OKd = False  &#47&#47 don&quott print OK&quotd warnings
+            elif &quot-PATH&quot.startswith(opt) and n &gt; 2:
+                _PATH.append(os.path.abspath(os.path.dirname(__file__)))
+            elif (&quot-Pep8&quot.startswith(opt) and n &gt; 1) or \
+                 (&quot-Style&quot.startswith(opt) and n &gt; 1):
+                _Cmds = _CmdP  &#47&#47 PyCodeStyle (Pep8) only
+            elif &quot-raiser&quot.startswith(opt) and n &gt; 2:
+                _Raiser = True
+            elif &quot-recursive&quot.startswith(opt) and n &gt; 3:
+                _Recursive = True
+            elif &quot-Tb&quot.startswith(opt) and n &gt; 2:
+                _Xtb = False
+            elif (&quot-versions&quot.startswith(opt)  and n &gt; 1) or \
+                 (&quot--versions&quot.startswith(opt) and n &gt; 2):
+                p = Processor(cmds=_Cmds, out=None, x3=_X3)
+                print(&quot, &quot.join(p.versions()))
+                sys.exit(0)
+            elif &quot-which&quot.startswith(opt) and n &gt; 1:
+                print(&quot%s which %s&quot % (_argv0, which(_argv0)))
+                sys.exit(0)
+            elif &quot-Xpy&quot.startswith(opt) and n &gt; 2:
+                _Xpy = &quot&quot
+            elif &quot-EW&quot == opt:
+                _EW = True
+                _OKdEs.update(_EWs)  &#47&#47 extend  &#47&#47 PEP8 OK&quotd dict
+            else:
+                raise NameError(&quotinvalid option: %s&quot % (opt,))
+
+        ex = min(5, main(args, cmds=_Cmds,
+                                OKd=_OKd,
+                              debug=_Debug,
+                          recursive=_Recursive,
+                                 x3=_X3))
+
+    except KeyboardInterrupt:  &#47&#47 PYCHOK expected
+        sys.stdout.write(&quot%s%s: ^C%s&quot % (_NL, _argv0, _NL))
+        ex = 9  &#47&#47 ^C
+    except SystemExit:  &#47&#47 PYCHOK expected
+        ex = 8  &#47&#47 early exit
+    except Exception:
+        if _Raiser:
+            raise
+        t = _argv0, sys.exc_info()[1], _NL
+        sys.stderr.write(&quot%s error: %s%s&quot % t)
+        ex = 1  &#47&#47 exception
+
+    sys.exit(ex)
+
+
+&#47&#47 License file from an earlier version of this source file follows:
+
+&#47&#47 --------------------------------------------------------------------
+&#47&#47       Copyright (c) 2002-2008 -- ProphICy Semiconductor, Inc.
+&#47&#47                        All rights reserved.
+&#47&#47
+&#47&#47 Redistribution and use in source and binary forms, with or without
+&#47&#47 modification, are permitted provided that the following conditions
+&#47&#47 are met:
+&#47&#47
+&#47&#47 - Redistributions of source code must retain the above copyright
+&#47&#47   notice, this list of conditions and the following disclaimer.
+&#47&#47
+&#47&#47 - Redistributions in binary form must reproduce the above copyright
+&#47&#47   notice, this list of conditions and the following disclaimer in
+&#47&#47   the documentation and/or other materials provided with the
+&#47&#47   distribution.
+&#47&#47
+&#47&#47 - Neither the name of ProphICy Semiconductor, Inc. nor the names
+&#47&#47   of its contributors may be used to endorse or promote products
+&#47&#47   derived from this software without specific prior written
+&#47&#47   permission.
+&#47&#47
+&#47&#47 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+&#47&#47 "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+&#47&#47 LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+&#47&#47 FOR A PARTICULAR PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE
+&#47&#47 COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+&#47&#47 INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+&#47&#47 (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+&#47&#47 SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+&#47&#47 HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+&#47&#47 STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+&#47&#47 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+&#47&#47 OF THE POSSIBILITY OF SUCH DAMAGE.
+&#47&#47 --------------------------------------------------------------------
+</code></pre>

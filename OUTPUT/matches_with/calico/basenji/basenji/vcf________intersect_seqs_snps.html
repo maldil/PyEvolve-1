@@ -1,0 +1,689 @@
+<link rel="stylesheet" href="../../..//default.css">
+<script src="../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/calico/basenji/blob/master/basenji/vcf.py#L42">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/basenji/blob/master/basenji/vcf.py#L42">GitMyHubLink</a>
+
+&#47&#47 Copyright 2017 Calico LLC
+
+&#47&#47 Licensed under the Apache License, Version 2.0 (the "License");
+&#47&#47 you may not use this file except in compliance with the License.
+&#47&#47 You may obtain a copy of the License at
+
+&#47&#47     https://www.apache.org/licenses/LICENSE-2.0
+
+&#47&#47 Unless required by applicable law or agreed to in writing, software
+&#47&#47 distributed under the License is distributed on an "AS IS" BASIS,
+&#47&#47 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+&#47&#47 See the License for the specific language governing permissions and
+&#47&#47 limitations under the License.
+&#47&#47 =========================================================================
+
+from __future__ import print_function
+import gzip
+import os
+import pdb
+import subprocess
+import sys
+import tempfile
+
+import numpy as np
+import pandas as pd
+import pysam
+
+import basenji.dna_io
+vcf.py
+
+Methods and classes to support .vcf SNP analysis.
+
+
+
+def cap_allele(allele, cap=5):
+   Cap the length of an allele in the figures 
+  if len(allele) &gt; cap:
+    allele = allele[:cap] + &quot*&quot
+  return allele
+
+
+def intersect_seqs_snps(<a id="change">vcf_file</a>, <a id="change">seqs</a>, <a id="change">vision_p</a>=1):
+   Intersect a VCF file with a list of sequence coordinates.
+
+    In
+     vcf_file:
+     seqs: list of objects w/ chrom, start, end
+     vision_p: proportion of sequences visible to center genes.
+
+    Out
+     seqs_snps: list of list mapping segment indexes to overlapping SNP indexes
+    
+
+  &#47&#47 print segments to BED
+  &#47&#47 hash segments to indexes
+  <a id="change">seq_temp = tempfile.NamedTemporaryFile()</a>
+  <a id="change">seq_bed_file = seq_temp.name</a>
+  <a id="change">seq_bed_out = open(seq_bed_file, &quotw&quot)</a>
+  <a id="change">seq_indexes = {}</a>
+  for si in range(len(seqs)):
+    <a id="change">sstart = max(0, seqs[si].start)</a>
+    print(&quot%s\t%d\t%d&quot % (seqs[si].chrom, sstart, seqs[si].end), file=seq_bed_out)
+    seq_key = (seqs[si].chrom, sstart, seqs[si].end)
+    <a id="change">seq_indexes[seq_key] = si</a>
+  <a id="change">seq_bed_out</a><a id="change">.close()</a>
+
+  &#47&#47 hash SNPs to indexes
+  <a id="change">snp_indexes = {}</a>
+  <a id="change">si = 0</a>
+
+  <a id="change">vcf_in = open(vcf_file)</a>
+  <a id="change">line = vcf_in.readline()</a>
+  while line[0] == &quot&#47&#47&quot:
+    <a id="change">line = vcf_in.readline()</a>
+  while line:
+    <a id="change">a = line.split()</a>
+    <a id="change">snp_id = a[2]</a>
+    if snp_id in snp_indexes:
+      raise Exception(&quotDuplicate SNP id %s will break the script&quot % snp_id)
+    <a id="change">snp_indexes[snp_id] = si</a>
+    si += 1
+    <a id="change">line = vcf_in.readline()</a>
+  vcf_in.close()
+
+  &#47&#47 initialize list of lists
+  <a id="change">seqs_snps = []</a>
+  for _ in range(len(seqs)):
+    seqs_snps.append([])
+
+  &#47&#47 intersect
+  <a id="change">p = subprocess.Popen(
+      &quotbedtools intersect -wo -a %s -b %s&quot % (vcf_file, seq_bed_file),
+      shell=True,
+      stdout=subprocess.PIPE)</a>
+  for line in p.stdout:
+    <a id="change">line = line.decode(&quotUTF-8&quot)</a>
+    <a id="change">a = line.split()</a>
+    <a id="change">pos = int(a[1])</a>
+    <a id="change">snp_id = a[2]</a>
+    <a id="change">seq_chrom = a[-4]</a>
+    <a id="change">seq_start = int(a[-3])</a>
+    <a id="change">seq_end = int(a[-2])</a>
+    seq_key = (seq_chrom, seq_start, seq_end)
+
+    <a id="change">vision_buffer = (seq_end - seq_start) * (1 - vision_p) // 2</a>
+    if seq_start + vision_buffer &lt; pos &lt; seq_end - vision_buffer:
+      seqs_snps[seq_indexes[seq_key]].append(snp_indexes[snp_id])
+
+  p.communicate()
+
+  return seqs_snps
+
+
+def intersect_snps_seqs(vcf_file, seq_coords, vision_p=1):
+   Intersect a VCF file with a list of sequence coordinates.
+
+    In
+     vcf_file:
+     seq_coords: list of sequence coordinates
+     vision_p: proportion of sequences visible to center genes.
+
+    Out
+     snp_segs: list of list mapping SNP indexes to overlapping sequence indexes
+    
+  &#47&#47 print segments to BED
+  &#47&#47 hash segments to indexes
+  seg_temp = tempfile.NamedTemporaryFile()
+  seg_bed_file = seg_temp.name
+  seg_bed_out = open(seg_bed_file, &quotw&quot)
+  segment_indexes = {}
+
+  for si in range(len(seq_coords)):
+    segment_indexes[seq_coords[si]] = si
+    print(&quot%s\t%d\t%d&quot % seq_coords[si], file=seg_bed_out)
+
+  seg_bed_out.close()
+
+  &#47&#47 hash SNPs to indexes
+  snp_indexes = {}
+  si = 0
+
+  vcf_in = open(vcf_file)
+  line = vcf_in.readline()
+  while line[0] == &quot&#47&#47&quot:
+    line = vcf_in.readline()
+  while line:
+    a = line.split()
+    snp_id = a[2]
+    if snp_id in snp_indexes:
+      raise Exception(&quotDuplicate SNP id %s will break the script&quot % snp_id)
+    snp_indexes[snp_id] = si
+    si += 1
+    line = vcf_in.readline()
+  vcf_in.close()
+
+  &#47&#47 initialize list of lists
+  snp_segs = []
+  for i in range(len(snp_indexes)):
+    snp_segs.append([])
+
+  &#47&#47 intersect
+  p = subprocess.Popen(
+      &quotbedtools intersect -wo -a %s -b %s&quot % (vcf_file, seg_bed_file),
+      shell=True,
+      stdout=subprocess.PIPE)
+  for line in p.stdout:
+    line = line.decode(&quotUTF-8&quot)
+    a = line.split()
+    pos = int(a[1])
+    snp_id = a[2]
+    seg_chrom = a[-4]
+    seg_start = int(a[-3])
+    seg_end = int(a[-2])
+    seg_key = (seg_chrom, seg_start, seg_end)
+
+    vision_buffer = (seg_end - seg_start) * (1 - vision_p) // 2
+    if seg_start + vision_buffer &lt; pos &lt; seg_end - vision_buffer:
+      snp_segs[snp_indexes[snp_id]].append(segment_indexes[seg_key])
+
+  p.communicate()
+
+  return snp_segs
+
+
+def snp_seq1(snp, seq_len, genome_open):
+   Produce one hot coded sequences for a SNP.
+
+    Attrs:
+        snp [SNP] :
+        seq_len (int) : sequence length to code
+        genome_open (File) : open genome FASTA file
+
+    Return:
+        seq_vecs_list [array] : list of one hot coded sequences surrounding the
+        SNP
+    
+  left_len = seq_len // 2 - 1
+  right_len = seq_len // 2
+
+  &#47&#47 initialize one hot coded vector list
+  seq_vecs_list = []
+
+  &#47&#47 specify positions in GFF-style 1-based
+  seq_start = snp.pos - left_len
+  seq_end = snp.pos + right_len + max(0,
+                                      len(snp.ref_allele) - snp.longest_alt())
+
+  &#47&#47 extract sequence as BED style
+  if seq_start &lt; 0:
+    seq = &quotN&quot*(1-seq_start) + genome_open.fetch(snp.chr, 0, seq_end).upper()
+  else:
+    seq = genome_open.fetch(snp.chr, seq_start - 1, seq_end).upper()
+
+  &#47&#47 extend to full length
+  if len(seq) &lt; seq_end - seq_start:
+    seq += &quotN&quot * (seq_end - seq_start - len(seq))
+
+  &#47&#47 verify that ref allele matches ref sequence
+  seq_ref = seq[left_len:left_len + len(snp.ref_allele)]
+  ref_found = True
+  if seq_ref != snp.ref_allele:
+
+    &#47&#47 search for reference allele in alternatives
+    ref_found = False
+
+    &#47&#47 for each alternative allele
+    for alt_al in snp.alt_alleles:
+
+      &#47&#47 grab reference sequence matching alt length
+      seq_ref_alt = seq[left_len:left_len + len(alt_al)]
+      if seq_ref_alt == alt_al:
+        &#47&#47 found it!
+        ref_found = True
+
+        &#47&#47 warn user
+        print(
+            &quotWARNING: %s - alt (as opposed to ref) allele matches reference genome; changing reference genome to match.&quot
+            % (snp.rsid),
+            file=sys.stderr)
+
+        &#47&#47 remove alt allele and include ref allele
+        seq = seq[:left_len] + snp.ref_allele + seq[left_len + len(alt_al):]
+        break
+
+  if not ref_found:
+    print(&quotWARNING: %s - reference genome does not match any allele&quot % snp.rsid, file=sys.stderr)
+
+  else:
+    &#47&#47 one hot code ref allele
+    seq_vecs_ref, seq_ref = dna_length_1hot(seq, seq_len)
+    seq_vecs_list.append(seq_vecs_ref)
+
+    for alt_al in snp.alt_alleles:
+      &#47&#47 remove ref allele and include alt allele
+      seq_alt = seq[:left_len] + alt_al + seq[left_len + len(snp.ref_allele):]
+
+      &#47&#47 one hot code
+      seq_vecs_alt, seq_alt = dna_length_1hot(seq_alt, seq_len)
+      seq_vecs_list.append(seq_vecs_alt)
+
+  return seq_vecs_list
+
+
+def snps_seq1(snps, seq_len, genome_fasta, return_seqs=False):
+   Produce an array of one hot coded sequences for a list of SNPs.
+
+    Attrs:
+        snps [SNP] : list of SNPs
+        seq_len (int) : sequence length to code
+        genome_fasta (str) : genome FASTA file
+
+    Return:
+        seq_vecs (array) : one hot coded sequences surrounding the SNPs
+        seq_headers [str] : headers for sequences
+        seq_snps [SNP] : list of used SNPs
+    
+  left_len = seq_len // 2 - 1
+  right_len = seq_len // 2
+
+  &#47&#47 initialize one hot coded vector list
+  seq_vecs_list = []
+
+  &#47&#47 save successful SNPs
+  seq_snps = []
+
+  &#47&#47 save sequence strings, too
+  seqs = []
+
+  &#47&#47 name sequences
+  seq_headers = []
+
+  &#47&#47 open genome FASTA
+  genome_open = pysam.Fastafile(genome_fasta)
+
+  for snp in snps:
+    &#47&#47 specify positions in GFF-style 1-based
+    seq_start = snp.pos - left_len
+    seq_end = snp.pos + right_len + max(0,
+                                        len(snp.ref_allele) - snp.longest_alt())
+
+    &#47&#47 extract sequence as BED style
+    if seq_start &lt; 0:
+      seq = &quotN&quot * (-seq_start) + genome_open.fetch(snp.chr, 0,
+                                                   seq_end).upper()
+    else:
+      seq = genome_open.fetch(snp.chr, seq_start - 1, seq_end).upper()
+
+    &#47&#47 extend to full length
+    if len(seq) &lt; seq_end - seq_start:
+      seq += &quotN&quot * (seq_end - seq_start - len(seq))
+
+    &#47&#47 verify that ref allele matches ref sequence
+    seq_ref = seq[left_len:left_len + len(snp.ref_allele)]
+    if seq_ref != snp.ref_allele:
+
+      &#47&#47 search for reference allele in alternatives
+      ref_found = False
+
+      &#47&#47 for each alternative allele
+      for alt_al in snp.alt_alleles:
+
+        &#47&#47 grab reference sequence matching alt length
+        seq_ref_alt = seq[left_len:left_len + len(alt_al)]
+        if seq_ref_alt == alt_al:
+          &#47&#47 found it!
+          ref_found = True
+
+          &#47&#47 warn user
+          print(
+              &quotWARNING: %s - alt (as opposed to ref) allele matches reference genome; changing reference genome to match.&quot
+              % (snp.rsid),
+              file=sys.stderr)
+
+          &#47&#47 remove alt allele and include ref allele
+          seq = seq[:left_len] + snp.ref_allele + seq[left_len + len(alt_al):]
+          break
+
+      if not ref_found:
+        print(
+            &quotWARNING: %s - reference genome %s does not match any allele; skipping&quot
+            % (seq_ref, snp.rsid),
+            file=sys.stderr)
+        continue
+
+    seq_snps.append(snp)
+
+    &#47&#47 one hot code ref allele
+    seq_vecs_ref, seq_ref = dna_length_1hot(seq, seq_len)
+    seq_vecs_list.append(seq_vecs_ref)
+    if return_seqs:
+      seqs.append(seq_ref)
+
+    &#47&#47 name ref allele
+    seq_headers.append(&quot%s_%s&quot % (snp.rsid, cap_allele(snp.ref_allele)))
+
+    for alt_al in snp.alt_alleles:
+      &#47&#47 remove ref allele and include alt allele
+      seq_alt = seq[:left_len] + alt_al + seq[left_len + len(snp.ref_allele):]
+
+      &#47&#47 one hot code
+      seq_vecs_alt, seq_alt = dna_length_1hot(seq_alt, seq_len)
+      seq_vecs_list.append(seq_vecs_alt)
+      if return_seqs:
+        seqs.append(seq_alt)  &#47&#47 not using right now
+
+      &#47&#47 name
+      seq_headers.append(&quot%s_%s&quot % (snp.rsid, cap_allele(alt_al)))
+
+  &#47&#47 convert to array
+  seq_vecs = np.array(seq_vecs_list)
+
+  if return_seqs:
+    return seq_vecs, seq_headers, seq_snps, seqs
+  else:
+    return seq_vecs, seq_headers, seq_snps
+
+
+def snps2_seq1(snps, seq_len, genome1_fasta, genome2_fasta, return_seqs=False):
+   Produce an array of one hot coded sequences for a list of SNPs.
+
+    Attrs:
+        snps [SNP] : list of SNPs
+        seq_len (int) : sequence length to code
+        genome_fasta (str) : major allele genome FASTA file
+        genome2_fasta (str) : minor allele genome FASTA file
+
+    Return:
+        seq_vecs (array) : one hot coded sequences surrounding the SNPs
+        seq_headers [str] : headers for sequences
+        seq_snps [SNP] : list of used SNPs
+    
+  left_len = seq_len // 2 - 1
+  right_len = seq_len // 2
+
+  &#47&#47 open genome FASTA
+  genome1 = pysam.Fastafile(genome1_fasta)
+  genome2 = pysam.Fastafile(genome2_fasta)
+
+  &#47&#47 initialize one hot coded vector list
+  seq_vecs_list = []
+
+  &#47&#47 save successful SNPs
+  seq_snps = []
+
+  &#47&#47 save sequence strings, too
+  seqs = []
+
+  &#47&#47 name sequences
+  seq_headers = []
+
+  for snp in snps:
+    if len(snp.alt_alleles) &gt; 1:
+      raise Exception(
+          &quotMajor/minor genome mode requires only two alleles: %s&quot % snp.rsid)
+
+    alt_al = snp.alt_alleles[0]
+
+    &#47&#47 specify positions in GFF-style 1-based
+    seq_start = snp.pos - left_len
+    seq_end = snp.pos + right_len + len(snp.ref_allele)
+
+    &#47&#47 extract sequence as BED style
+    if seq_start &lt; 0:
+      seq_ref = &quotN&quot * (-seq_start) + genome1.fetch(snp.chr, 0,
+                                                   seq_end).upper()
+    else:
+      seq_ref = genome1.fetch(snp.chr, seq_start - 1, seq_end).upper()
+
+    &#47&#47 extend to full length
+    if len(seq_ref) &lt; seq_end - seq_start:
+      seq_ref += &quotN&quot * (seq_end - seq_start - len(seq_ref))
+
+    &#47&#47 verify that ref allele matches ref sequence
+    seq_ref_snp = seq_ref[left_len:left_len + len(snp.ref_allele)]
+    if seq_ref_snp != snp.ref_allele:
+      raise Exception(
+          &quotWARNING: Major allele SNP %s doesnt match reference genome: %s vs %s&quot
+          % (snp.rsid, snp.ref_allele, seq_ref_snp))
+
+    &#47&#47 specify positions in GFF-style 1-based
+    seq_start = snp.pos2 - left_len
+    seq_end = snp.pos2 + right_len + len(alt_al)
+
+    &#47&#47 extract sequence as BED style
+    if seq_start &lt; 0:
+      seq_alt = &quotN&quot * (-seq_start) + genome2.fetch(snp.chr, 0,
+                                                   seq_end).upper()
+    else:
+      seq_alt = genome2.fetch(snp.chr, seq_start - 1, seq_end).upper()
+
+    &#47&#47 extend to full length
+    if len(seq_alt) &lt; seq_end - seq_start:
+      seq_alt += &quotN&quot * (seq_end - seq_start - len(seq_alt))
+
+    &#47&#47 verify that ref allele matches ref sequence
+    seq_alt_snp = seq_alt[left_len:left_len + len(alt_al)]
+    if seq_alt_snp != alt_al:
+      raise Exception(
+          &quotWARNING: Minor allele SNP %s doesnt match reference genome: %s vs %s&quot
+          % (snp.rsid, snp.alt_alleles[0], seq_alt_snp))
+
+    seq_snps.append(snp)
+
+    &#47&#47 one hot code ref allele
+    seq_vecs_ref, seq_ref = dna_length_1hot(seq_ref, seq_len)
+    seq_vecs_list.append(seq_vecs_ref)
+    if return_seqs:
+      seqs.append(seq_ref)
+
+    &#47&#47 name ref allele
+    seq_headers.append(&quot%s_%s&quot % (snp.rsid, cap_allele(snp.ref_allele)))
+
+    &#47&#47 one hot code alt allele
+    seq_vecs_alt, seq_alt = dna_length_1hot(seq_alt, seq_len)
+    seq_vecs_list.append(seq_vecs_alt)
+    if return_seqs:
+      seqs.append(seq_alt)
+
+    &#47&#47 name
+    seq_headers.append(&quot%s_%s&quot % (snp.rsid, cap_allele(alt_al)))
+
+  &#47&#47 convert to array
+  seq_vecs = np.array(seq_vecs_list)
+
+  if return_seqs:
+    return seq_vecs, seq_headers, seq_snps, seqs
+  else:
+    return seq_vecs, seq_headers, seq_snps
+
+
+def dna_length_1hot(seq, length):
+   Adjust the sequence length and compute
+        a 1hot coding. 
+
+  if length &lt; len(seq):
+    &#47&#47 trim the sequence
+    seq_trim = (len(seq) - length) // 2
+    seq = seq[seq_trim:seq_trim + length]
+
+  elif length &gt; len(seq):
+    &#47&#47 extend with N&quots
+    nfront = (length - len(seq)) // 2
+    nback = length - len(seq) - nfront
+    seq = &quotN&quot * nfront + seq + &quotN&quot * nback
+
+  &#47&#47 n_uniform required to avoid different  
+  &#47&#47   random nucleotides for each allele
+  seq_1hot = basenji.dna_io.dna_1hot(seq, n_uniform=True)
+
+  return seq_1hot, seq
+
+def vcf_count(vcf_file):
+   Count SNPs in a VCF file 
+  if vcf_file[-3:] == &quot.gz&quot:
+    vcf_in = gzip.open(vcf_file, &quotrt&quot)
+  else:
+    vcf_in = open(vcf_file)
+
+  &#47&#47 read through header
+  line = vcf_in.readline()
+  while line[0] == &quot&#47&#47&quot:
+    line = vcf_in.readline()
+
+  &#47&#47 count SNPs
+  num_snps = 0
+  while line:
+    num_snps += 1
+    line = vcf_in.readline()
+
+  vcf_in.close()
+
+  return num_snps
+
+def vcf_snps(vcf_file, require_sorted=False, validate_ref_fasta=None,
+             flip_ref=False, pos2=False, start_i=None, end_i=None):
+   Load SNPs from a VCF file 
+  if vcf_file[-3:] == &quot.gz&quot:
+    vcf_in = gzip.open(vcf_file, &quotrt&quot)
+  else:
+    vcf_in = open(vcf_file)
+
+  &#47&#47 read through header
+  line = vcf_in.readline()
+  while line[0] == &quot&#47&#47&quot:
+    line = vcf_in.readline()
+
+  &#47&#47 to check sorted
+  if require_sorted:
+    seen_chrs = set()
+    prev_chr = None
+    prev_pos = -1
+
+  &#47&#47 to check reference
+  if validate_ref_fasta is not None:
+    genome_open = pysam.Fastafile(validate_ref_fasta)
+
+  &#47&#47 read in SNPs
+  snps = []
+  si = 0
+  while line:
+    if start_i is None or start_i &lt;= si &lt; end_i:
+      snps.append(SNP(line, pos2))
+
+      if require_sorted:
+        if prev_chr is not None:
+          &#47&#47 same chromosome
+          if prev_chr == snps[-1].chr:
+            if snps[-1].pos &lt; prev_pos:
+              print(&quotSorted VCF required. Mis-ordered position: %s&quot % line.rstrip(),
+                    file=sys.stderr)
+              exit(1)
+          elif snps[-1].chr in seen_chrs:
+            print(&quotSorted VCF required. Mis-ordered chromosome: %s&quot % line.rstrip(),
+                   file=sys.stderr)
+            exit(1)
+
+        seen_chrs.add(snps[-1].chr)
+        prev_chr = snps[-1].chr
+        prev_pos = snps[-1].pos
+
+      if validate_ref_fasta is not None:
+        ref_n = len(snps[-1].ref_allele)
+        snp_pos = snps[-1].pos-1
+        ref_snp = genome_open.fetch(snps[-1].chr, snp_pos, snp_pos+ref_n)
+        if snps[-1].ref_allele != ref_snp:
+          if not flip_ref:
+            &#47&#47 bail
+            print(&quotERROR: %s does not match reference %s&quot % (snps[-1], ref_snp), file=sys.stderr)
+            exit(1)
+
+          else:
+            alt_n = len(snps[-1].alt_alleles[0])
+            ref_snp = genome_open.fetch(snps[-1].chr, snp_pos, snp_pos+alt_n)
+
+            &#47&#47 if alt matches fasta reference
+            if snps[-1].alt_alleles[0] == ref_snp:
+              &#47&#47 flip alleles
+              snps[-1].flip_alleles()
+
+            else:
+              &#47&#47 bail
+              print(&quotERROR: %s does not match reference %s&quot % (snps[-1], ref_snp), file=sys.stderr)
+              exit(1)
+
+    si += 1
+    line = vcf_in.readline()
+
+  vcf_in.close()
+
+  return snps
+
+
+def vcf_sort(vcf_file):
+  &#47&#47 move
+  os.rename(vcf_file, &quot%s.tmp&quot % vcf_file)
+
+  &#47&#47 print header
+  vcf_out = open(vcf_file, &quotw&quot)
+  print(&quot&#47&#47&#47&#47fileformat=VCFv4.0&quot, file=vcf_out)
+  vcf_out.close()
+
+  &#47&#47 sort
+  subprocess.call(
+      &quotbedtools sort -i %s.tmp &gt;&gt; %s&quot % (vcf_file, vcf_file), shell=True)
+
+  &#47&#47 clean
+  os.remove(&quot%s.tmp&quot % vcf_file)
+
+
+class SNP:
+   SNP
+
+    Represent SNPs read in from a VCF file
+
+    Attributes:
+        vcf_line (str)
+    
+
+  def __init__(self, vcf_line, pos2=False):
+    a = vcf_line.split()
+    &#47&#47 self.chr = a[0]
+    if a[0].startswith(&quotchr&quot):
+      self.chr = a[0]
+    else:
+      self.chr = &quotchr%s&quot % a[0]
+    self.pos = int(a[1])
+    self.rsid = a[2]
+    self.ref_allele = a[3]
+    self.alt_alleles = a[4].split(&quot,&quot)
+    self.alt_allele = self.alt_alleles[0]
+    self.flipped = False
+
+    if self.rsid == &quot.&quot:
+      self.rsid = &quot%s:%d&quot % (self.chr, self.pos)
+
+    self.pos2 = None
+    if pos2:
+      self.pos2 = int(a[5])
+
+  def flip_alleles(self):
+     Flip reference and first alt allele.
+    assert(len(self.alt_alleles) == 1)
+    self.ref_allele, self.alt_alleles[0] = self.alt_alleles[0], self.ref_allele
+    self.alt_allele = self.alt_alleles[0]
+    self.flipped = True
+
+  def get_alleles(self):
+     Return a list of all alleles 
+    alleles = [self.ref_allele] + self.alt_alleles
+    return alleles
+
+  def longest_alt(self):
+     Return the longest alt allele. 
+    return max([len(al) for al in self.alt_alleles])
+
+  def __str__(self):
+    return &quotSNP(%s, %s:%d, %s/%s)&quot % (self.rsid, self.chr, self.pos,
+                                      self.ref_allele,
+                                      &quot,&quot.join(self.alt_alleles))
+</code></pre>

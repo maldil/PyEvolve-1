@@ -1,0 +1,62 @@
+<link rel="stylesheet" href="../..//default.css">
+<script src="../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/akutuzov/webvectors/blob/master/sparql.py#L14">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/webvectors/blob/master/sparql.py#L14">GitMyHubLink</a>
+
+&#47&#47!/usr/bin/env python3
+&#47&#47 coding: utf-8
+
+from SPARQLWrapper import SPARQLWrapper, JSON, SPARQLExceptions
+import configparser
+
+config = configparser.RawConfigParser()
+config.read("webvectors.cfg")
+
+root = config.get("Files and directories", "root")
+cachefile = config.get("Files and directories", "image_cache")
+
+
+def getdbpediaimage(query, cache):
+    query = query
+    if "::" in query:
+        query = " ".join([w.capitalize() for w in query.split("::")])
+    else:
+        query = query.capitalize()
+
+    if query in cache:
+        return cache[query]
+    else:
+        &#47&#47 return None
+        sparql = SPARQLWrapper("http://dbpedia.org/sparql")
+        sparql.setQuery(
+            
+        SELECT DISTINCT ?e ?pic
+        WHERE {
+            ?e rdfs:label "%s"@en .
+            ?e &lt;http://dbpedia.org/ontology/thumbnail&gt; ?pic .
+                }
+        
+            % query
+        )
+        sparql.setReturnFormat(JSON)
+        try:
+            results = sparql.query().convert()
+        except SPARQLExceptions.QueryBadFormed:
+            return None
+        if len(results["results"]["bindings"]) &gt; 0:
+            image = results["results"]["bindings"][0]["pic"]["value"]
+            image = image.replace("http://", "https://")
+            <a id="change">data = open(root + cachefile, "a")</a>
+            data.write(query + "\t" + image + "\n")
+            <a id="change">data</a><a id="change">.close()</a>
+            return image
+        else:
+            <a id="change">data = open(root + cachefile, "a")</a>
+            data.write(query + "\tNone\n")
+            <a id="change">data</a><a id="change">.close()</a>
+            return None
+</code></pre>

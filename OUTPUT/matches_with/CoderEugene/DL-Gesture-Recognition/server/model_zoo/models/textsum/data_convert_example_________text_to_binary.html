@@ -1,0 +1,75 @@
+<link rel="stylesheet" href="../../../../../..//default.css">
+<script src="../../../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/CoderEugene/DL-Gesture-Recognition/blob/master/server/model_zoo/models/textsum/data_convert_example.py#L41">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/DL-Gesture-Recognition/blob/master/server/model_zoo/models/textsum/data_convert_example.py#L41">GitMyHubLink</a>
+
+Example of Converting TextSum model data.
+Usage:
+python data_convert_example.py --command binary_to_text --in_file data/data --out_file data/text_data
+python data_convert_example.py --command text_to_binary --in_file data/text_data --out_file data/binary_data
+python data_convert_example.py --command binary_to_text --in_file data/binary_data --out_file data/text_data2
+diff data/text_data2 data/text_data
+
+
+import struct
+import sys
+
+import tensorflow as tf
+from tensorflow.core.example import example_pb2
+
+FLAGS = tf.app.flags.FLAGS
+tf.app.flags.DEFINE_string(&quotcommand&quot, &quotbinary_to_text&quot,
+                           &quotEither binary_to_text or text_to_binary.&quot
+                           &quotSpecify FLAGS.in_file accordingly.&quot)
+tf.app.flags.DEFINE_string(&quotin_file&quot, &quot&quot, &quotpath to file&quot)
+tf.app.flags.DEFINE_string(&quotout_file&quot, &quot&quot, &quotpath to file&quot)
+
+def _binary_to_text():
+  reader = open(FLAGS.in_file, &quotrb&quot)
+  writer = open(FLAGS.out_file, &quotw&quot)
+  while True:
+    len_bytes = reader.read(8)
+    if not len_bytes:
+      sys.stderr.write(&quotDone reading\n&quot)
+      return
+    str_len = struct.unpack(&quotq&quot, len_bytes)[0]
+    tf_example_str = struct.unpack(&quot%ds&quot % str_len, reader.read(str_len))[0]
+    tf_example = example_pb2.Example.FromString(tf_example_str)
+    examples = []
+    for key in tf_example.features.feature:
+      examples.append(&quot%s=%s&quot % (key, tf_example.features.feature[key].bytes_list.value[0]))
+    writer.write(&quot%s\n&quot % &quot\t&quot.join(examples))
+  reader.close()
+  writer.close()
+
+
+def _text_to_binary():
+  <a id="change">inputs</a> = open(FLAGS.in_file, &quotr&quot).readlines()
+  <a id="change">writer</a><a id="change"> = open(FLAGS.out_file, &quotwb&quot)</a>
+  for <a id="change">inp</a> in inputs:
+    <a id="change">tf_example</a> = example_pb2.Example()
+    for <a id="change">feature</a> in inp.strip().split(&quot\t&quot):
+      (k, v) = feature.split(&quot=&quot)
+      tf_example.features.feature[k].bytes_list.value.extend([v])
+    <a id="change">tf_example_str</a> = tf_example.SerializeToString()
+    <a id="change">str_len</a> = len(tf_example_str)
+    writer.write(struct.pack(&quotq&quot, str_len))
+    writer.write(struct.pack(&quot%ds&quot % str_len, tf_example_str))
+  <a id="change">writer</a><a id="change">.close()</a>
+
+
+def main(unused_argv):
+  assert FLAGS.command and FLAGS.in_file and FLAGS.out_file
+  if FLAGS.command == &quotbinary_to_text&quot:
+    _binary_to_text()
+  elif FLAGS.command == &quottext_to_binary&quot:
+    _text_to_binary()
+
+
+if __name__ == &quot__main__&quot:
+  tf.app.run()
+</code></pre>

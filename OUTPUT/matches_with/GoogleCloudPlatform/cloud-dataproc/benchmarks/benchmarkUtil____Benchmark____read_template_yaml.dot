@@ -1,0 +1,52 @@
+digraph G {
+1 [label="(57136732)Scenario(self)" shape=ellipse style=dashed]
+2 [label="(57136727)(null)" shape=ellipse style=dashed]
+3 [label="(57136744)return" shape=box style=dashed]
+4 [label="(57136741)TextIO(stream)" shape=ellipse style=dashed color=red fontcolor=red]
+5 [label="(57136742)close" shape=box style=dashed color=red fontcolor=red]
+6 [label="(57136733)Scenario.cluster_template_path(cluster_template_path)" shape=ellipse style=dashed]
+7 [label="(57136737)yaml(yaml)" shape=ellipse style=dashed]
+8 [label="(57136739)TextIO(stream)" shape=ellipse style=dashed]
+9 [label="(57136743)Any(template)" shape=ellipse style=dashed]
+10 [label="(57136740)=" shape=box style=dashed]
+11 [label="(57136731)open" shape=box style=dashed color=red fontcolor=red]
+12 [label="(57136735)=" shape=box style=dashed color=red fontcolor=red]
+13 [label="(57136738)safe_load" shape=box style=dashed]
+14 [label="(57136725)START" style=dashed]
+15 [label="(57136736)Any(template)" shape=ellipse style=dashed color=blue fontcolor=blue]
+16 [label="(57136730)TextIO(stream)" shape=ellipse style=dashed color=red fontcolor=red]
+17 [label="(57136728)=" shape=box style=dashed]
+18 [label="(57136726)Scenario(self)" shape=ellipse style=dashed]
+19 [label="(57136745)END" style=dashed]
+20 [label="(57136734)String(lit(r))" shape=ellipse style=dashed color=red fontcolor=red]
+14 -> 3 [label="" style=solid];
+9 -> 3 [label="para" style=dotted];
+5 -> 3 [label="dep" style=dotted];
+16 -> 4 [label="ref" style=dotted];
+14 -> 5 [label="" style=solid];
+4 -> 5 [label="recv" style=dotted];
+10 -> 5 [label="dep" style=dotted];
+1 -> 6 [label="qual" style=dotted];
+16 -> 8 [label="ref" style=dotted];
+15 -> 9 [label="ref" style=dotted];
+14 -> 10 [label="" style=solid];
+13 -> 10 [label="dep" style=dotted];
+13 -> 10 [label="para" style=dotted];
+14 -> 11 [label="" style=solid];
+6 -> 11 [label="para" style=dotted];
+20 -> 11 [label="para" style=dotted];
+17 -> 11 [label="dep" style=dotted];
+14 -> 12 [label="" style=solid];
+11 -> 12 [label="dep" style=dotted];
+11 -> 12 [label="para" style=dotted];
+14 -> 13 [label="" style=solid];
+7 -> 13 [label="recv" style=dotted];
+8 -> 13 [label="para" style=dotted];
+12 -> 13 [label="dep" style=dotted];
+10 -> 15 [label="def" style=dotted];
+12 -> 16 [label="def" style=dotted];
+14 -> 17 [label="" style=solid];
+2 -> 17 [label="para" style=dotted];
+17 -> 18 [label="def" style=dotted];
+3 -> 19 [label="dep" style=dotted];
+}

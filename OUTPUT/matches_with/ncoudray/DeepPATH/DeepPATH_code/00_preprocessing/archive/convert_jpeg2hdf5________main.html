@@ -1,0 +1,134 @@
+<link rel="stylesheet" href="../../../../..//default.css">
+<script src="../../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/ncoudray/DeepPATH/blob/master/DeepPATH_code/00_preprocessing/archive/convert_jpeg2hdf5.py#L38">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/DeepPATH/blob/master/DeepPATH_code/00_preprocessing/archive/convert_jpeg2hdf5.py#L38">GitMyHubLink</a>
+
+import h5py
+import glob
+import argparse
+import os
+import numpy as np
+import cv2
+
+
+def get_parser():
+    &#47&#47 parse parameters
+    parser = argparse.ArgumentParser(description="Unsupervised feature learning.")
+
+    parser.add_argument("--input", type=str, default=&quot&quot,
+                        help="input paths (comma separated) where jped are sorted per class (on subfolder per class)")
+    parser.add_argument("--output", type=str, default=&quothdf5_brain&quot,
+                        help="path and basename of output")
+    parser.add_argument("--labels", type=str, default=&quotlabels.txt&quot,
+                        help="label text file (1 label per line - must correspond to subfolder names in input directories)")
+    parser.add_argument("--subsets", type=str, default=&quottrain,valid,test&quot,
+                        help="comma separated list of subsets to convert)")
+    parser.add_argument("--wSize", type=int, default=224,
+                        help="output tile size (will be cropped if smaller than current size)")
+
+
+    return parser.parse_args()
+&quot&quot&quot
+    Will generate a h5 file for each subset with 2 fields:
+    subset_images
+    subset_images 
+ 
+    for the labels, they will numbered (from 0) and correspond to the line number in the labels input file
+
+    and an additional text file listing the images names for each entry
+
+&quot&quot&quot
+
+
+def main(args):
+  WIDTH = args.wSize
+  HEIGHT = args.wSize
+  &#47&#47 read list of possible labels (each image should be in a directory with the directory name being the label)
+  &#47&#47 image names should start with train, test or valid
+  <a id="change">file1 = open(args.labels, &quotr&quot)</a> 
+  LabelList = file1.read().splitlines() 
+  <a id="change">file1</a><a id="change">.close()</a>
+
+  &#47&#47 read all directories where such images could be found
+  indir_list = args.input.split(&quot,&quot)
+
+
+  hdf5_path = args.output
+  All_imgs = {}
+  All_labels = {}
+  Count = {}
+  &#47&#47 subsets = [&quottrain&quot,&quotvalid&quot,&quottest&quot]
+  subsets = args.subsets.split(&quot,&quot)
+  print("List images")
+  for subset in range(len(subsets)):
+  &#47&#47 with h5py.File(hdf5_path + "_" + subsets[subset] + ".h5",&quotw&quot) as hdf5_file: 
+    &#47&#47 list all images in each subset and their associated label 
+    &#47&#47for subset in range(len(subsets)):
+    All_imgs[subsets[subset]] = []
+    All_labels[subsets[subset]] = []
+    Count[subsets[subset]] = 0
+    for cur_dir in indir_list:
+      for nLab in range(len(LabelList)):
+        imgs = glob.glob(os.path.join(cur_dir, LabelList[nLab], subsets[subset] + &quot*jpeg&quot))
+        All_imgs[subsets[subset]].extend(imgs)
+        All_labels[subsets[subset]].extend(np.full((len(imgs),), nLab))
+        Count[subsets[subset]] = Count[subsets[subset]] + len(imgs)
+    &#47&#47 save images in h5 format
+  print("create h5")
+  for subset in range(len(subsets)):
+    <a id="change">img_list_file = open(hdf5_path + "_" + subsets[subset] + "_imgList.txt",&quotw&quot)</a>
+    with h5py.File(hdf5_path + "_" + subsets[subset] + ".h5",&quotw&quot) as hdf5_file:
+      print(subsets[subset])
+      img_db_shape = (Count[subsets[subset]], WIDTH, HEIGHT, 3)
+      hdf5_file.create_dataset(name=subsets[subset] + &quot_img&quot,maxshape=img_db_shape, dtype=np.uint8, shape=img_db_shape)
+      labels_db_shape = (Count[subsets[subset]],)
+      hdf5_file.create_dataset(name=subsets[subset]+&quot_labels&quot, maxshape=labels_db_shape, dtype=np.float32, shape=labels_db_shape)
+      &#47&#47 hdf5_file.create_dataset(name=subsets[subset]+&quot_name&quot, maxshape=labels_db_shape, dtype=np.int, shape=labels_db_shape)
+      IndX = 0
+      for img, lab in zip(All_imgs[subsets[subset]], All_labels[subsets[subset]]):
+        image = cv2.imread(img)
+        IndX
+        if image.shape[0] &gt;= WIDTH and image.shape[1] &gt;= HEIGHT:
+          hdf5_file[subsets[subset] + &quot_img&quot][IndX, ...] = image[:WIDTH,:HEIGHT,:]
+          hdf5_file[subsets[subset] + &quot_labels&quot][IndX, ...] = lab
+          &#47&#47 hdf5_file[subsets[subset] + &quot_name&quot][IndX, ...] = img
+          img_list_file.write(str(IndX) + "\t" + img + "\n")
+          IndX += 1
+        if IndX % 1000 == 0:
+          print(str(IndX)+ " imgs done")
+      print(str(IndX)+ " imgs done")
+      hdf5_file[subsets[subset] + &quot_img&quot].resize((IndX, WIDTH, HEIGHT, 3))
+      hdf5_file[subsets[subset] + &quot_labels&quot].resize((IndX, ))
+      &#47&#47hdf5_file[subsets[subset] + &quot_name&quot].resize((IndX, ))
+    <a id="change">img_list_file</a><a id="change">.close()</a>
+
+&quot&quot&quot
+    for subset in range(len(subsets)):
+      img_db_shape = (Count[subsets[subset]], WIDTH, HEIGHT, 3)
+      &#47&#47 img_storage[subset] =
+      hdf5_file.create_dataset(name=subsets[subset] + &quot_img&quot,shape=img_db_shape, dtype=np.uint8)
+      labels_db_shape = (Count[subsets[subset]],)
+      &#47&#47 label_storage[subset] =  
+      hdf5_file.create_dataset(name=subsets[subset]+&quot_labels&quot, shape=labels_db_shape, dtype=np.float32)
+      IndX = 0
+      for img, lab in zip(All_imgs[subsets[subset]], All_labels[subsets[subset]]):
+        image = cv2.imread(img)
+        if image.shape[0] &gt;= WIDTH and image.shape[1] &gt;= HEIGHT:
+          hdf5_file[subsets[subset] + &quot_img&quot][Indx, ...] = image[:WIDTH,:HEIGHT,:]
+          hdf5_file[subsets[subset] + &quot_labels&quot][Indx, ...] = lab
+          IndX += 1
+&quot&quot&quot
+
+if __name__ == &quot__main__&quot:
+
+    &#47&#47 generate parser / parse parameters
+    args = get_parser()
+
+    &#47&#47 run experiment
+    main(args)
+                      
+</code></pre>

@@ -1,0 +1,175 @@
+<link rel="stylesheet" href="../../../..//default.css">
+<script src="../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/haotianteng/Chiron/blob/master/chiron/utils/file_batch.py#L24">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/Chiron/blob/master/chiron/utils/file_batch.py#L24">GitMyHubLink</a>
+
+&#47&#47 Copyright 2017 The Chiron Authors. All Rights Reserved.
+&#47&#47
+&#47&#47This Source Code Form is subject to the terms of the Mozilla Public
+&#47&#47License, v. 2.0. If a copy of the MPL was not distributed with this
+&#47&#47file, You can obtain one at http://mozilla.org/MPL/2.0/.
+&#47&#47
+&#47&#47Created on Mon Apr 10 04:16:40 2017
+&#47&#47Transfer fast5 into data batch.
+&#47&#47Need Python&gt;3
+import argparse
+import os
+import struct
+import sys
+
+import numpy as np
+from statsmodels import robust
+
+import labelop
+
+DNA_BASE = {&quotA&quot: 0, &quotC&quot: 1, &quotG&quot: 2, &quotT&quot: 3, }
+DNA_IDX = [&quotA&quot, &quotC&quot, &quotG&quot, &quotT&quot]
+MINIMUM_LABEL_LEN_PER_100 = 1
+
+def extract():
+    if FLAGS.mode == &quotrna&quot:
+        MINIMUM_LABEL_LEN = int(MINIMUM_LABEL_LEN_PER_100 * FLAGS.length /100 * 2)
+        MINIMUM_SIGNAL_LEN = int(MINIMUM_LABEL_LEN*3)
+    elif FLAGS.mode == &quotdna&quot:
+        MINIMUM_LABEL_LEN = int(MINIMUM_LABEL_LEN_PER_100 * FLAGS.length /100 + 1)
+        MINIMUM_SIGNAL_LEN = int(MINIMUM_LABEL_LEN+1)
+    else:
+        raise ValueError("mode must be either dna or rna.")
+    root_folder = FLAGS.input + os.path.sep
+    output_folder = FLAGS.output + os.path.sep
+    if not os.path.isdir(root_folder):
+        raise IOError(&quotInput directory does not found.&quot)
+    if output_folder is None:
+        output_folder = os.path.abspath(os.path.join(root_folder, os.pardir)) + &quot/batch_/&quot + str(FLAGS.length)
+    if not os.path.isdir(output_folder):
+        os.mkdir(output_folder)
+    batch_idx = 1
+    <a id="change">output_file</a> = None
+    event = list()
+    event_length = list()
+    label = list()
+    label_length = list()
+    success_list = list()
+    fail_list = list()
+    format_string = &quot&lt;1H&quot + str(FLAGS.length) + &quotf1H&quot + str(FLAGS.length) + &quotb&quot
+
+    def extract_fast5(input_file_path, bin_h, mode=&quotDNA&quot):
+        
+        Extract the signal and label from a single fast5 file
+        Args:
+            input_file_path: path of a fast5 file.
+            bin_h: handle of the binary file.
+            mode: The signal type dealed with. Default to &quotDNA&quot.
+        
+        try:
+            (raw_data, raw_label, raw_start, raw_length) = labelop.get_label_raw(input_file_path, FLAGS.basecall_group,
+                                                                                 FLAGS.basecall_subgroup)
+        except IOError:
+            fail_list.append(input_file_path)
+            return False
+        except:
+            fail_list.append(input_file_path)
+            return False
+        if mode==&quotrna&quot:
+            raw_data = raw_data[::-1]
+        if FLAGS.normalization == &quotmean&quot:
+            raw_data = (raw_data - np.median(raw_data)) / np.float(np.std(raw_data))
+        elif FLAGS.normalization == &quotmedian&quot:
+            raw_data = (raw_data - np.median(raw_data)) / np.float(robust.mad(raw_data))
+        pre_start = raw_start[0]
+        pre_index = 0
+        for index, start in enumerate(raw_start):
+            while (start - pre_start &gt; FLAGS.length):
+                current_len = int(raw_start[index - 1] - pre_start)
+                if (index - 1 - MINIMUM_LABEL_LEN &lt;= pre_index) or (current_len &lt; MINIMUM_SIGNAL_LEN):
+                    &#47&#47 If a single segment is longer than the maximum singal length, skip it.
+                    pre_index +=1
+                    pre_start = raw_start[pre_index]
+                    continue
+                event.append(np.pad(raw_data[pre_start:raw_start[index - 1]],
+                                    (0, FLAGS.length + pre_start - raw_start[index - 1]), mode=&quotconstant&quot))
+                event_length.append(current_len)
+                label_ind = raw_label[&quotbase&quot][pre_index:(index - 1)]
+                temp_label = [DNA_BASE[x.decode(&quotUTF-8&quot)] for x in label_ind]
+                label.append(
+                    np.pad(temp_label, (0, FLAGS.length - index + 1 + pre_index), mode=&quotconstant&quot, constant_values=-1))
+                label_length.append(index - 1 - pre_index)
+                pre_index = index - 1
+                pre_start = raw_start[index - 1]
+            if raw_start[index] - pre_start &gt; FLAGS.length:
+                &#47&#47 Skip a single event segment longer than the required signal length
+                pre_index = index
+                pre_start = raw_start[index]
+        success_list.append(input_file_path)
+        while len(event) &gt; FLAGS.batch:
+            for index in range(0, FLAGS.batch):
+                bin_h.write(struct.pack(format_string,
+                                        *[event_length[index]] + event[index].tolist() + [label_length[index]] + label[
+                                            index].tolist()))
+            del event[:FLAGS.batch]
+            del event_length[:FLAGS.batch]
+            del label[:FLAGS.batch]
+            del label_length[:FLAGS.batch]
+            return True
+        return False
+
+    for base_dir, _ ,file_list in os.walk(root_folder):
+     for file_n in file_list:
+        if <a id="change">file_n</a>.endswith(&quotfast5&quot):
+            if output_file is None:
+                <a id="change">output_file</a><a id="change"> = open(os.path.join(output_folder,"data_batch_" + str(batch_idx) + &quot.bin&quot), &quotwb+&quot)</a>
+            output_state = extract_fast5(os.path.join(base_dir,file_n), output_file)
+            if output_state:
+                batch_idx += 1
+                <a id="change">output_file</a><a id="change">.close()</a>
+                if (FLAGS.max is not None) and (batch_idx &gt; FLAGS.max):
+                    sys.stdout.write("Reach the maximum %d batch number, finish read." % (FLAGS.max))
+                    break
+                <a id="change">output_file</a><a id="change"> = open(output_folder + os.path.sep + "data_batch_" + str(batch_idx) + &quot.bin&quot, &quotwb+&quot)</a>
+                sys.stdout.write("%d batch transferred completed.\n" % (batch_idx - 1))
+    sys.stdout.write("File batch transfer completed, %d batches have been processed\n" % (batch_idx - 1))
+    sys.stdout.write("%d files scussesfully read, %d files failed.\n" % (len(success_list), len(fail_list)))
+    if not output_state:
+        <a id="change">output_file</a><a id="change">.close()</a>
+        os.remove(output_folder + os.path.sep + "data_batch_" + str(batch_idx) + &quot.bin&quot)
+    with open(output_folder + os.path.sep + "data.meta", &quotw+&quot) as meta_file:
+        <a id="change">meta_file</a>.write("signal_length " + str(FLAGS.length) + "\n")
+        <a id="change">meta_file</a>.write("file_batch_size " + str(FLAGS.batch) + "\n")
+        <a id="change">meta_file</a>.write("normalization " + FLAGS.normalization + "\n")
+        <a id="change">meta_file</a>.write("basecall_group " + FLAGS.basecall_group + "\n")
+        <a id="change">meta_file</a>.write("basecall_subgroup" + FLAGS.basecall_subgroup + "\n")
+        <a id="change">meta_file</a>.write("DNA_base A-0 C-1 G-2 T-3" + "\n")
+        <a id="change">meta_file</a>.write("data_type " + FLAGS.mode + "\n")
+        <a id="change">meta_file</a>.write("format " + format_string + "\n")
+    return
+
+
+def run(args):
+    global FLAGS
+    FLAGS = args
+    extract()
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=&quotTransfer fast5 to file batch.&quot)
+    parser.add_argument(&quot-i&quot, &quot--input&quot, required = True,
+                        help="Directory that store the fast5 files.")
+    parser.add_argument(&quot-o&quot, &quot--output&quot, required = True,
+                        help="Output folder")
+    parser.add_argument(&quot--basecall_group&quot, default=&quotRawGenomeCorrected_000&quot,
+                        help=&quotBasecall group Nanoraw resquiggle into. Default is Basecall_1D_000&quot)
+    parser.add_argument(&quot--basecall_subgroup&quot, default=&quotBaseCalled_template&quot,
+                        help=&quotBasecall subgroup Nanoraw resquiggle into. Default is BaseCalled_template&quot)
+    parser.add_argument(&quot-l&quot, &quot--length&quot,type=int, default=512, help="Length of the signal segment")
+    parser.add_argument(&quot-b&quot, &quot--batch&quot,type=int, default=10000, help="Number of record in one file.")
+    parser.add_argument(&quot-n&quot, &quot--normalization&quot, default=&quotmedian&quot,
+                        help="The method of normalization applied to signal, Median(default):robust median normalization, &quotmean&quot: mean normalization, &quotNone&quot: no normalizaion")
+    parser.add_argument(&quot-m&quot, &quot--max&quot,type=int, default=10, help="Maximum number of batch files generated.")
+    parser.add_argument(&quot--mode&quot, default=&quotdna&quot, help="Sequecing data type. Default is DNA.Can be rna or dna")
+    args = parser.parse_args(sys.argv[1:])
+    run(args)
+</code></pre>

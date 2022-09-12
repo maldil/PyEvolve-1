@@ -1,0 +1,183 @@
+<link rel="stylesheet" href="../../..//default.css">
+<script src="../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/mynlp/ccg2lambda/blob/master/en/report_results.py#L34">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/ccg2lambda/blob/master/en/report_results.py#L34">GitMyHubLink</a>
+
+&#47&#47!/usr/bin/python3
+&#47&#47 -*- coding: utf-8 -*-
+&#47&#47
+&#47&#47  Copyright 2015 Pascual Martinez-Gomez
+&#47&#47
+&#47&#47  Licensed under the Apache License, Version 2.0 (the "License");
+&#47&#47  you may not use this file except in compliance with the License.
+&#47&#47  You may obtain a copy of the License at
+&#47&#47
+&#47&#47      http://www.apache.org/licenses/LICENSE-2.0
+&#47&#47
+&#47&#47  Unless required by applicable law or agreed to in writing, software
+&#47&#47  distributed under the License is distributed on an "AS IS" BASIS,
+&#47&#47  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+&#47&#47  See the License for the specific language governing permissions and
+&#47&#47  limitations under the License.
+
+import os
+import re
+import sys
+
+def get_fracas_info(problem_id):
+    
+    Given a problem ID, e.g. fracas_001_generalized_quantifiers,
+    it returns the fracas number "001" and the section name
+    "generalized_quantifiers".
+    
+    info = re.findall(r&quotfracas_(\d\d\d)_(.+)&quot, problem_id)
+    assert info, &quotCorrect Fracas ID information could not be retrieved for {0}&quot \
+      .format(problem_id)
+    fracas_num, section = info[0]
+    return int(fracas_num), section
+
+def load_answers(<a id="change">finput_filename</a>):
+    <a id="change">finput = open(finput_filename, &quotr&quot)</a>
+    <a id="change">answers = {}</a>
+    for line in finput:
+        <a id="change">line_splitted = line.strip().split()</a>
+        assert len(line_splitted) &gt;= 2, \
+          &quotLine should have more than 1 field: {0}&quot.format(line)
+        <a id="change">problem_id = line_splitted[0]</a> &#47&#47 E.g. fracas_001_quantifiers
+        <a id="change">premises = line_splitted[1]</a> &#47&#47 Either "single" or "multi"
+        answer = line_splitted[2] if len(line_splitted) &gt; 2 else &quotunknown&quot
+        <a id="change">fracas_num, section = get_fracas_info(problem_id)</a>
+        <a id="change">answers[fracas_num] = {}</a>
+        <a id="change">answers[fracas_num][&quotanswer&quot] = answer</a>
+        <a id="change">answers[fracas_num][&quotsection&quot] = section</a>
+        <a id="change">answers[fracas_num][&quotpremises&quot] = premises</a>
+    <a id="change">finput</a><a id="change">.close()</a>
+    return answers
+
+def accumulate(d, section, premises):
+    if section not in d:
+        d[section] = {&quotsingle&quot : 0.0,
+                      &quotmulti&quot  : 0.0}
+    d[section][premises] += 1
+    d[&quottotal&quot][premises] += 1
+
+def compare_answers(gold_answers, system_answers, sections):
+    
+    Compute accuracy of system&quots answers by section and by
+    number of premises (single vs. multiple).
+    
+    &#47&#47 Collect total and hits counters.
+    total = {&quottotal&quot : {&quotsingle&quot : 0.0, &quotmulti&quot : 0.0}}
+    hits  = {&quottotal&quot : {&quotsingle&quot : 0.0, &quotmulti&quot : 0.0}}
+    for fracas_num in gold_answers:
+        gold_data = gold_answers[fracas_num]
+        if fracas_num not in system_answers:
+            continue
+        system_data = system_answers[fracas_num]
+        assert gold_data[&quotsection&quot] == system_data[&quotsection&quot] \
+               and gold_data[&quotpremises&quot] == system_data[&quotpremises&quot], \
+          &quotFracas problem inconsistent: {0} vs {1}&quot.format(gold_data, system_data)
+        if gold_data[&quotsection&quot] not in sections:
+            continue
+        section = gold_data[&quotsection&quot]
+        premises = gold_data[&quotpremises&quot]
+        if gold_data[&quotanswer&quot] == &quotundef&quot:
+            continue
+        accumulate(total, section, premises)
+        if gold_data[&quotanswer&quot] == system_data[&quotanswer&quot]:
+            accumulate(hits, section, premises)
+    return hits, total
+
+def set_default_counts(system_accuracies, section_names):
+    for section_name in section_names:
+        if section_name not in system_accuracies:
+            system_accuracies[section_name] = {&quotsingle&quot : 0.0, &quotmulti&quot : 0.0}
+        if &quotsingle&quot not in system_accuracies[section_name]:
+            system_accuracies[section_name][&quotsingle&quot] = 0.0
+        if &quotmulti&quot not in system_accuracies[section_name]:
+            system_accuracies[section_name][&quotmulti&quot] = 0.0
+
+def print_plain_accuracies(system_accuracies, section_names):
+    print(&quot &quot * 30 + &quotall premi.&quot + &quot &quot * 10 + &quotsingle&quot + &quot &quot * 11 + &quotmulti&quot)
+    system_hits, system_total = system_accuracies
+    set_default_counts(system_hits, section_names)
+    set_default_counts(system_total, section_names)
+
+    for section in section_names:
+        row = &quot{0: &lt;25} | &quot.format(section)
+        &#47&#47 All premises:
+        if system_total[section][&quotsingle&quot] + system_total[section][&quotmulti&quot] &gt; 0:
+            row += &quot     {0:.2f}     &quot\
+                .format((system_hits[section][&quotsingle&quot] + system_hits[section][&quotmulti&quot]) \
+                        / (system_total[section][&quotsingle&quot] + system_total[section][&quotmulti&quot]))
+        else:
+            row += &quot     ----     &quot
+        row += &quot | &quot
+        &#47&#47 Single premises:
+        if system_total[section][&quotsingle&quot] &gt; 0:
+            row += &quot     {0:.2f}     &quot.format((system_hits[section][&quotsingle&quot]) \
+                                              / (system_total[section][&quotsingle&quot]))
+        else:
+            row += &quot     ----     &quot
+        row += &quot | &quot
+        &#47&#47 Multiple premises:
+        if system_total[section][&quotmulti&quot] &gt; 0:
+            row += &quot     {0:.2f}     &quot.format((system_hits[section][&quotmulti&quot]) \
+                               / (system_total[section][&quotmulti&quot]))
+        else:
+            row += &quot     ----     &quot
+        print(row)
+
+def main(args = None):
+    import textwrap
+    USAGE=textwrap.dedent(\
+        Usage:
+            python report_results.py &lt;gold.results&gt; &lt;system.results&gt;
+
+            It reports nicely the results of RTE in fracas. Files in parameters
+            contain one line per fracas problem, such as:
+            &lt;fracas_problem_id&gt; &lt;single|multi&gt; &lt;answer&gt;
+
+                 all premi.   single     multi
+   gen. quant.      .5      |   .5    |   .5
+   plurals          .5      |   .5    |   .5
+   adjectives       .5      |   .5    |   .5
+   comparatives     .5      |   .5    |   .5
+   attitudes        .5      |   .5    |   .5
+      )
+    if args is None:
+        args = sys.argv[1:]
+    if len(args) != 2:
+        print(&quotWrong number of arguments.&quot)
+        print(USAGE)
+        sys.exit(1)
+    if not os.path.exists(args[0]):
+        print(&quotFile does not exist: {0}&quot.format(args[0]))
+        sys.exit(1)
+    gold_filename = args[0]
+    if not os.path.exists(args[1]):
+        print(&quotFile does not exist: {0}&quot.format(args[1]))
+        sys.exit(1)
+    system_filename = args[1]
+
+    gold_answers = load_answers(gold_filename)
+    system_answers = load_answers(system_filename)
+
+    section_names = [&quotgeneralized_quantifiers&quot,
+                     &quotplurals&quot,
+                     &quotadjectives&quot,
+                     &quotcomparatives&quot,
+                     &quotattitudes&quot,
+                     &quotverbs&quot,
+                     &quottotal&quot]
+
+    system_accuracies = compare_answers(gold_answers, system_answers, section_names)
+    print_plain_accuracies(system_accuracies, section_names)
+
+if __name__ == &quot__main__&quot:
+    main()
+</code></pre>

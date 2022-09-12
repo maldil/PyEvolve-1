@@ -1,0 +1,264 @@
+<link rel="stylesheet" href="../../../..//default.css">
+<script src="../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/idaholab/raven/blob/devel/ravenframework/CustomModes/MPILegacySimulationMode.py#L96">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/raven/blob/devel/ravenframework/CustomModes/MPILegacySimulationMode.py#L96">GitMyHubLink</a>
+
+&#47&#47 Copyright 2017 Battelle Energy Alliance, LLC
+&#47&#47
+&#47&#47 Licensed under the Apache License, Version 2.0 (the "License");
+&#47&#47 you may not use this file except in compliance with the License.
+&#47&#47 You may obtain a copy of the License at
+&#47&#47
+&#47&#47 http://www.apache.org/licenses/LICENSE-2.0
+&#47&#47
+&#47&#47 Unless required by applicable law or agreed to in writing, software
+&#47&#47 distributed under the License is distributed on an "AS IS" BASIS,
+&#47&#47 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+&#47&#47 See the License for the specific language governing permissions and
+&#47&#47 limitations under the License.
+
+Module that contains a SimulationMode for PBSPro and mpiexec
+
+&#47&#47for future compatibility with Python 3--------------------------------------------------------------
+from __future__ import division, print_function, unicode_literals, absolute_import
+&#47&#47End compatibility block for Python 3----------------------------------------------------------------
+
+import os
+import math
+import string
+from ravenframework import Simulation
+
+from ravenframework.utils import utils
+
+&#47&#47For the mode information
+modeName = "mpilegacy"
+modeClassName = "MPILegacySimulationMode"
+
+
+def createAndRunQSUB(runInfoDict):
+  
+    Generates a PBS qsub command to run the simulation
+    @ In, runInfoDict, dict, dictionary of run info.
+    @ Out, remoteRunCommand, dict, dictionary of command.
+  
+  &#47&#47 Check if the simulation has been run in PBS mode and, in case, construct the proper command
+  &#47&#47while true, this is not the number that we want to select
+  coresNeeded = runInfoDict[&quotbatchSize&quot]*runInfoDict[&quotNumMPI&quot]
+  &#47&#47batchSize = runInfoDict[&quotbatchSize&quot]
+  frameworkDir = runInfoDict["FrameworkDir"]
+  ncpus = runInfoDict[&quotNumThreads&quot]
+  jobName = runInfoDict[&quotJobName&quot] if &quotJobName&quot in runInfoDict.keys() else &quotraven_qsub&quot
+  &#47&#47check invalid characters
+  validChars = set(string.ascii_letters).union(set(string.digits)).union(set(&quot-_&quot))
+  if any(char not in validChars for char in jobName):
+    raise IOError(&quotJobName can only contain alphanumeric and "_", "-" characters! Received&quot+jobName)
+  &#47&#47check jobName for length
+  if len(jobName) &gt; 15:
+    jobName = jobName[:10]+&quot-&quot+jobName[-4:]
+    print(&quotJobName is limited to 15 characters; truncating to &quot+jobName)
+  &#47&#47Generate the qsub command needed to run input
+  command = ["qsub","-N",jobName]+\
+            runInfoDict["clusterParameters"]+\
+            ["-l",
+             "select="+str(coresNeeded)+":ncpus="+str(ncpus)+":mpiprocs=1",
+             "-l","walltime="+runInfoDict["expectedTime"],
+             "-l","place=free","-v",
+             &quotCOMMAND="../raven_framework &quot+
+             " ".join(runInfoDict["SimulationFiles"])+&quot",&quot+
+             &quotRAVEN_FRAMEWORK_DIR="{}"&quot.format(frameworkDir),
+             runInfoDict[&quotRemoteRunCommand&quot]]
+  &#47&#47Change to frameworkDir so we find raven_qsub_command.sh
+  remoteRunCommand = {}
+  remoteRunCommand["cwd"] = frameworkDir
+  remoteRunCommand["args"] = command
+  print("remoteRunCommand",remoteRunCommand)
+  return remoteRunCommand
+
+class MPILegacySimulationMode(Simulation.SimulationMode):
+  
+    MPILegacySimulationMode is a specialized class of SimulationMode.
+    It is aimed to distribute the runs using the MPI protocol
+  
+  def __init__(self, *args):
+    
+      Constructor
+      @ In, args, list, unused positional arguments
+      @ Out, None
+    
+    super().__init__(*args)
+    &#47&#47Figure out if we are in PBS
+    self.__inPbs = "PBS_NODEFILE" in os.environ
+    self.__nodefile = False
+    self.__runQsub = False
+    self.__noSplitNode = False &#47&#47If true, don&quott split mpi processes across nodes
+    self.__limitNode = False &#47&#47If true, fiddle with max on Node
+    self.__maxOnNode = None &#47&#47Used with __noSplitNode and __limitNode to limit number on a node
+    self.__noOverlap = False &#47&#47Used with __limitNode to prevent multiple batches from being on one node
+    &#47&#47 If (__noSplitNode or __limitNode) and  __maxOnNode is not None,
+    &#47&#47 don&quott put more than that on on single shared memory node
+    self.printTag = &quotMPI SIMULATION MODE&quot
+
+  def modifyInfo(self, runInfoDict):
+    
+      This method is aimed to modify the Simulation instance in
+      order to distribute the jobs using the MPI protocol
+      @ In, runInfoDict, dict, the original runInfo
+      @ Out, newRunInfo, dict, of modified values
+    
+    newRunInfo = {}
+    newRunInfo[&quotbatchSize&quot] = runInfoDict[&quotbatchSize&quot]
+    if self.__nodefile or self.__inPbs:
+      if not self.__nodefile:
+        &#47&#47Figure out number of nodes and use for batchsize
+        nodefile = os.environ["PBS_NODEFILE"]
+      else:
+        nodefile = self.__nodefile
+      lines = open(nodefile,"r").readlines()
+      &#47&#47XXX This is an undocumented way to pass information back
+      newRunInfo[&quotNodes&quot] = list(lines)
+      numMPI = runInfoDict[&quotNumMPI&quot]
+      oldBatchsize = runInfoDict[&quotbatchSize&quot]
+      &#47&#47the batchsize is just the number of nodes of which there is one
+      &#47&#47 per line in the nodefile divided by the numMPI (which is per run)
+      &#47&#47 and the floor and int and max make sure that the numbers are reasonable
+      maxBatchsize = max(int(math.floor(len(lines)/numMPI)),1)
+      if maxBatchsize &lt; oldBatchsize:
+        newRunInfo[&quotbatchSize&quot] = maxBatchsize
+        self.raiseAWarning("changing batchsize from "+str(oldBatchsize)+" to "+str(maxBatchsize)+" to fit on "+str(len(lines))+" processors")
+      newBatchsize = newRunInfo[&quotbatchSize&quot]
+      if newBatchsize &gt; 1:
+        &#47&#47need to split node lines so that numMPI nodes are available per run
+        workingDir = runInfoDict[&quotWorkingDir&quot]
+        if not (self.__noSplitNode or self.__limitNode):
+          for i in range(newBatchsize):
+            <a id="change">nodeFile = open(os.path.join(workingDir,"node_"+str(i)),"w")</a>
+            for line in lines[i*numMPI:(i+1)*numMPI]:
+              nodeFile.write(line)
+            <a id="change">nodeFile</a><a id="change">.close()</a>
+        else:
+          &#47&#47self.__noSplitNode == True or self.__limitNode == True
+          nodes = []
+          for line in lines:
+            nodes.append(line.strip())
+
+          nodes.sort()
+
+          currentNode = ""
+          countOnNode = 0
+          nodeUsed = False
+
+          if self.__noSplitNode:
+            groups = []
+          else:
+            groups = [[]]
+
+          for i in range(len(nodes)):
+            node = nodes[i]
+            if node != currentNode:
+              currentNode = node
+              countOnNode = 0
+              nodeUsed = False
+              if self.__noSplitNode:
+                &#47&#47When switching node, make new group
+                groups.append([])
+            if self.__maxOnNode is None or countOnNode &lt; self.__maxOnNode:
+              countOnNode += 1
+              if len(groups[-1]) &gt;= numMPI:
+                groups.append([])
+                nodeUsed = True
+              if not self.__noOverlap or not nodeUsed:
+                groups[-1].append(node)
+
+          fullGroupCount = 0
+          for group in groups:
+            if len(group) &lt; numMPI:
+              self.raiseAWarning("not using part of node because of partial group: "+str(group))
+            else:
+              <a id="change">nodeFile = open(os.path.join(workingDir,"node_"+str(fullGroupCount)),"w")</a>
+              for node in group:
+                print(node,file=nodeFile)
+              <a id="change">nodeFile</a><a id="change">.close()</a>
+              fullGroupCount += 1
+          if fullGroupCount == 0:
+            self.raiseAnError(IOError, "Cannot run with given parameters because no nodes have numMPI "+str(numMPI)+" available and NoSplitNode is "+str(self.__noSplitNode)+" and LimitNode is "+str(self.__limitNode))
+          if fullGroupCount != newRunInfo[&quotbatchSize&quot]:
+            self.raiseAWarning("changing batchsize to "+str(fullGroupCount)+" because NoSplitNode is "+str(self.__noSplitNode)+" and LimitNode is "+str(self.__limitNode)+" and some nodes could not be used.")
+            newRunInfo[&quotbatchSize&quot] = fullGroupCount
+
+        &#47&#47then give each index a separate file.
+        nodeCommand = runInfoDict["NodeParameter"]+" %BASE_WORKING_DIR%/node_%INDEX% "
+      else:
+        &#47&#47If only one batch just use original node file
+        nodeCommand = runInfoDict["NodeParameter"]+" "+nodefile
+    else:
+      &#47&#47Not in PBS, so can&quott look at PBS_NODEFILE and none supplied in input
+      newBatchsize = newRunInfo[&quotbatchSize&quot]
+      numMPI = runInfoDict[&quotNumMPI&quot]
+      &#47&#47TODO, we don&quott have a way to know which machines it can run on
+      &#47&#47 when not in PBS so just distribute it over the local machine:
+      nodeCommand = " "
+
+    &#47&#47Disable MPI processor affinity, which causes multiple processes
+    &#47&#47 to be forced to the same thread.
+    os.environ["MV2_ENABLE_AFFINITY"] = "0"
+
+    &#47&#47 Create the mpiexec pre command
+    &#47&#47 Note, with defaults the precommand is "mpiexec -f nodeFile -n numMPI"
+    newRunInfo[&quotprecommand&quot] = runInfoDict["MPIExec"]+" "+nodeCommand+" -n "+str(numMPI)+" "+runInfoDict[&quotprecommand&quot]
+    if(runInfoDict[&quotNumThreads&quot] &gt; 1):
+      &#47&#47add number of threads to the post command.
+      newRunInfo[&quotthreadParameter&quot] = runInfoDict[&quotthreadParameter&quot]
+      newRunInfo[&quotpostcommand&quot] =" {} {}".format(newRunInfo[&quotthreadParameter&quot],runInfoDict[&quotpostcommand&quot])
+    self.raiseAMessage("precommand: "+newRunInfo[&quotprecommand&quot]+", postcommand: "+newRunInfo.get(&quotpostcommand&quot,runInfoDict[&quotpostcommand&quot]))
+    return newRunInfo
+
+  def remoteRunCommand(self, runInfoDict):
+    
+      If this returns None, don&quott do anything.  If it returns a
+      dictionary, then run the command in the dictionary.
+      @ In, runInfoDict, dict, the run info dictionary
+      @ Out, remoteRunCommand, dict, a dictionary with information for running.
+    
+    if not self.__runQsub or self.__inPbs:
+      return None
+    assert self.__runQsub and not self.__inPbs
+    return createAndRunQSUB(runInfoDict)
+
+  def XMLread(self, xmlNode):
+    
+      XMLread is called with the mode node, and is used here to
+      get extra parameters needed for the simulation mode MPI.
+      @ In, xmlNode, xml.etree.ElementTree.Element, the xml node that belongs to this class instance
+      @ Out, None
+    
+    for child in xmlNode:
+      child_tag = child.tag.lower()
+      if child.tag == "nodefileenv":
+        self.__nodefile = os.environ[child.text.strip()]
+      elif child.tag == "nodefile":
+        self.__nodefile = child.text.strip()
+      elif child_tag == "runqsub":
+        self.__runQsub = True
+      elif child_tag == "nosplitnode":
+        self.__noSplitNode = True
+        self.__maxOnNode = child.attrib.get("maxOnNode",None)
+        if self.__maxOnNode is not None:
+          self.__maxOnNode = int(self.__maxOnNode)
+        if "noOverlap" in child.attrib:
+          self.__noOverlap = True
+      elif child_tag == "limitnode":
+        self.__limitNode = True
+        self.__maxOnNode = child.attrib.get("maxOnNode",None)
+        if self.__maxOnNode is not None:
+          self.__maxOnNode = int(self.__maxOnNode)
+        else:
+          self.raiseAnError(IOError, "maxOnNode must be specified with LimitNode")
+        if utils.stringIsTrue(child.attrib.get("noOverlap", None)):
+          self.__noOverlap = True
+      else:
+        self.raiseADebug("We should do something with child "+str(child))
+</code></pre>

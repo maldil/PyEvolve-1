@@ -1,0 +1,288 @@
+<link rel="stylesheet" href="../../..//default.css">
+<script src="../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/DT42/BerryNet/blob/master/inference/classify_caffe_server.py#L184">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/BerryNet/blob/master/inference/classify_caffe_server.py#L184">GitMyHubLink</a>
+
+&#47&#47!/usr/bin/env python3
+&#47&#47
+&#47&#47 Copyright 2018 DT42
+&#47&#47
+&#47&#47 This file is part of BerryNet.
+&#47&#47
+&#47&#47 BerryNet is free software: you can redistribute it and/or modify
+&#47&#47 it under the terms of the GNU General Public License as published by
+&#47&#47 the Free Software Foundation, either version 3 of the License, or
+&#47&#47 (at your option) any later version.
+&#47&#47
+&#47&#47 BerryNet is distributed in the hope that it will be useful,
+&#47&#47 but WITHOUT ANY WARRANTY; without even the implied warranty of
+&#47&#47 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+&#47&#47 GNU General Public License for more details.
+&#47&#47
+&#47&#47 You should have received a copy of the GNU General Public License
+&#47&#47 along with BerryNet.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
+
+Simple image classification server with Inception.
+
+The server monitors image_dir and run inferences on new images added to the
+directory. Every image file should come with another empty file with &quot.done&quot
+suffix to signal readiness. Inference result of a image can be read from the
+&quot.txt&quot file of that image after &quot.txt.done&quot is spotted.
+
+This is an example the server expects clients to do. Note the order.
+
+&#47&#47 cp cat.jpg /run/image_dir
+&#47&#47 touch /run/image_dir/cat.jpg.done
+
+Clients should wait for appearance of &quotcat.jpg.txt.done&quot before getting
+result from &quotcat.jpg.txt&quot.
+
+
+
+from __future__ import print_function
+import os
+import sys
+import time
+import numpy as np
+import threading
+import multiprocessing
+import queue
+import signal
+from watchdog.observers import Observer
+from watchdog.events import PatternMatchingEventHandler
+import caffe
+import hashlib
+import urllib.request
+import tempfile
+import shutil
+
+image_queue = queue.Queue()
+sess = None
+threads = []
+image_dir = &quot/run/image_dir&quot
+caffe_classifier = None
+caffe_labels = []
+model_meta_file = &quot/usr/share/doc/caffe-doc/models/bvlc_reference_caffenet/readme.md&quot
+label_file = &quot/tmp/synset_words.txt&quot
+pretrained_model = None
+
+def logging(*args):
+    print("[%08.3f]" % time.time(), &quot &quot.join(args))
+
+def touch(fname, times=None):
+    with open(fname, &quota&quot):
+        os.utime(fname, times)
+
+def load_labels(filename):
+    Read in labels, one label per line.
+    return [line.rstrip() for line in open(filename)]
+
+def read_model_meta_file(meta_file):
+    Read model meta file. The meta file is inside caffe-doc package
+    &#47&#47 We believe we shouldn&quott read this file for downloading and checking
+    &#47&#47 model. Instead we should package some model if there is free one.
+    url = None
+    sha1sum = None
+    filename = None
+    for line in open(meta_file):
+        l1 = line.rstrip()
+        if (l1.startswith("sha1:")):
+            sha1sum = l1[len("sha1:"):].strip()
+        if (l1.startswith("caffemodel_url:")):
+            url = l1[len("caffemodel_url:"):].strip()
+        if (l1.startswith("caffemodel:")):
+            filename = l1[len("caffemodel:"):].strip()
+        if ((sha1sum != None) and (url != None) and (filename != None)):
+            break
+    if ((url != None) and (sha1sum != None) and (filename != None)):
+        return {&quoturl&quot: url, &quotsha1sum&quot: sha1sum, &quotfilename&quot: filename}
+    return None
+
+def sha1sum(filename):
+    calculate sha1sum
+    BUF_SIZE=1024
+    sha1 = hashlib.sha1()
+    with open(filename, &quotrb&quot) as f:
+        while True:
+            data = f.read(BUF_SIZE)
+            if not data:
+                break
+            sha1.update(data)
+    return sha1.hexdigest()
+
+def download_model():
+    Download pretrained model
+    &#47&#47 Downloading model from network isn&quott good for Debian. We need to package
+    &#47&#47 the model.
+    global pretrained_model
+    meta_data = read_model_meta_file(model_meta_file)
+    if (meta_data is None):
+        logging(&quotCannot load %s&quot%(meta_data))
+        return None
+    &#47&#47 FIXME: using /tmp/ will be in-secure.
+    pretrained_model = os.path.join(&quot/&quot,&quottmp&quot,meta_data[&quotfilename&quot])
+    if (os.path.isfile(pretrained_model)):
+        sha1 = sha1sum(pretrained_model)
+        if (sha1 != meta_data[&quotsha1sum&quot]):
+            logging(&quotModel %s SHA1 is not equal to %s&quot%(pretrained_model, meta_data[&quotsha1sum&quot]))
+            pretrained_model = None
+            return None
+        else:
+            logging(&quotModel already exists&quot)
+            pass
+    else:
+        logging(&quotDownloading model file from %s&quot%(meta_data[&quoturl&quot]))
+        urllib.request.urlretrieve(meta_data[&quoturl&quot], pretrained_model)
+        logging(&quotChecking SHA1...&quot)
+        sha1 = sha1sum(pretrained_model)
+        if (sha1 != meta_data[&quotsha1sum&quot]):
+            logging(&quotModel %s SHA1 is not equal to %s&quot%(pretrained_model, meta_data[&quotsha1sum&quot]))
+            pretrained_model = None
+            return None
+        else:
+            logging(&quotModel downloaded&quot)
+            pass
+    return None
+
+def download_label():
+    Download label file
+    &#47&#47 Using the scripts inside caffe Debian package to download label file.
+    &#47&#47 This could also be wrong. Why we don&quott package the label file?
+    global label_file
+    if (os.path.isfile(label_file)):
+        logging("Label file exists");
+        pass
+    else:
+        logging("Label file not exists. Downloading...");
+        tmpdir = tempfile.mkdtemp()
+        s1 = shutil.copy2(os.path.join(&quot/&quot, &quotusr&quot, &quotshare&quot, &quotdoc&quot, &quotcaffe-doc&quot,
+                                       &quotdata&quot, &quotilsvrc12&quot,
+                                       &quotget_ilsvrc_aux.sh&quot),
+                          tmpdir)
+        os.system(&quotsh \&quot%s\&quot&quot%(s1));
+        &#47&#47 FIXME: using /tmp/ will be in-secure.
+        shutil.copy2(os.path.join(tmpdir, &quotsynset_words.txt&quot), &quot/tmp&quot)
+
+def create_classifier(pretrained_model):
+    Creates a model from saved caffemodel file and returns a classifier.
+    &#47&#47 Creates model from saved .caffemodel.
+
+    &#47&#47 The following file are shipped inside caffe-doc Debian package
+    model_def = os.path.join("/", "usr", "share", "doc", "caffe-doc",
+                             "models","bvlc_reference_caffenet",
+                             "deploy.prototxt")
+    image_dims = [ 256, 256 ]
+    &#47&#47 The following file are shipped inside python3-caffe-cpu Debian package
+    mean = np.load(os.path.join(&quot/&quot, &quotusr&quot, &quotlib&quot, &quotpython3&quot,
+                                &quotdist-packages&quot, &quotcaffe&quot, &quotimagenet&quot,
+                                &quotilsvrc_2012_mean.npy&quot))
+    channel_swap = [2, 1, 0]
+    raw_scale = 255.0
+
+    caffe.set_mode_cpu()
+    classifier = caffe.Classifier(model_def, pretrained_model,
+                                  image_dims=image_dims, mean=mean,
+                                  raw_scale=raw_scale,
+                                  channel_swap=channel_swap)
+    return classifier
+
+def server(labels):
+    Infinite loop serving inference requests
+    global image_queue, sess
+
+    logging(threading.current_thread().getName(), "is running")
+
+    while True:
+        input_name = image_queue.get()
+        if (input_name.endswith(&quotnpy&quot)):
+            inputs = np.load(input_name)
+        else:
+            inputs = [caffe.io.load_image(input_name)]
+
+        predictions = caffe_classifier.predict(inputs, False)
+        &#47&#47 make tuples
+        predictions_list = predictions[0].tolist()
+        data = zip(predictions_list, caffe_labels)
+        output_name = input_name+&quot.txt&quot
+        output_done_name = output_name+&quot.done&quot
+        <a id="change">output = open(output_name, &quotwt&quot)</a>
+        for d in sorted(data, reverse=True):
+            human_string = d[1]
+            score = d[0]
+            print("%s (score = %.5f)" % (human_string, score), file=output)
+            if (score &lt; 0.00001):
+                break
+        <a id="change">output</a><a id="change">.close()</a>
+        touch(output_done_name)
+        logging(input_name, " classified!")
+
+class EventHandler(PatternMatchingEventHandler):
+    def process(self, event):
+        
+        event.event_type
+            &quotmodified&quot | &quotcreated&quot | &quotmoved&quot | &quotdeleted&quot
+        event.is_directory
+            True | False
+        event.src_path
+            path/to/observed/file
+        
+        &#47&#47 the file will be processed there
+        global image_queue
+
+        _msg = event.src_path
+        image_queue.put(_msg.rstrip(&quot.done&quot))
+        os.remove(_msg)
+        logging(_msg, event.event_type)
+
+    &#47&#47 ignore all other types of events except &quotmodified&quot
+    def on_created(self, event):
+        self.process(event)
+
+if __name__ == &quot__main__&quot:
+
+    pid = str(os.getpid())
+    pidfile = "/tmp/classify_server.pid"
+
+    if os.path.isfile(pidfile):
+        logging("%s already exists, exiting" % pidfile)
+        sys.exit(1)
+
+    with open(pidfile, &quotw&quot) as f:
+        f.write(pid)
+
+    &#47&#47 Please read /usr/share/doc/caffe-doc/models/bvlc_reference_caffenet/readme.md
+    download_model()
+    download_label()
+    caffe_labels = load_labels(label_file)
+    caffe_classifier = create_classifier(pretrained_model)
+
+    &#47&#47 workaround the issue that SIGINT cannot be received (fork a child to
+    &#47&#47 avoid blocking the main process in Thread.join()
+    child_pid = os.fork()
+    if child_pid == 0:
+        &#47&#47 child
+        &#47&#47 observer handles event in a different thread
+        observer = Observer()
+        observer.schedule(EventHandler([&quot*.jpg.done&quot]), path=image_dir)
+        observer.start()
+
+        &#47&#47 Create a server thread for each CPU core
+        cpu_count = multiprocessing.cpu_count()
+        for i in range(1):
+            threads.append(threading.Thread(target=server,
+                                            name=&quotServer thread %d&quot % i,
+                                            args=({},)))
+        for t in threads: t.start()
+        for t in threads: t.join()
+    else:
+        &#47&#47 parent
+        try:
+            os.wait()
+        except KeyboardInterrupt:
+            os.kill(child_pid, signal.SIGKILL)
+            os.unlink(pidfile)
+</code></pre>

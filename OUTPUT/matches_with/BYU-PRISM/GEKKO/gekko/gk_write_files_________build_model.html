@@ -1,0 +1,436 @@
+<link rel="stylesheet" href="../../..//default.css">
+<script src="../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/BYU-PRISM/GEKKO/blob/master/gekko/gk_write_files.py#L11">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/GEKKO/blob/master/gekko/gk_write_files.py#L11">GitMyHubLink</a>
+
+&#47&#47 -*- coding: utf-8 -*-
+
+import numpy as np
+import os
+
+from .properties import global_options, parameter_options, variable_options
+from .gk_operators import GK_Operators
+
+&#47&#47%% Write files
+
+def _build_model(<a id="change">self</a>):
+    &quot&quot&quot Write model to apm file.
+
+    Also does some minimal model validation
+
+    Returns:
+        Does not return
+    &quot&quot&quot
+    <a id="change">model = &quot&quot</a>
+
+    if self._constants:
+        model += &quotConstants\n&quot
+        for const in self._constants:
+            model += &quot\t%s = %s\n&quot % (const, const.value)
+        model += &quotEnd Constants\n&quot
+
+    if self._parameters:
+        model += &quotParameters\n&quot
+        for parameter in self._parameters:
+            <a id="change">i = 0</a>
+            model += &quot\t%s&quot % parameter
+            if not isinstance(parameter.VALUE.value, (list,np.ndarray)):
+                if not (parameter.VALUE==None):
+                    <a id="change">i = 1</a>
+                    model += &quot = %s&quot % parameter.VALUE
+            if parameter.UPPER is not None:
+                if i == 1:
+                    model += &quot, &quot
+                <a id="change">i = 1</a>
+                model += &quot&lt;= %s&quot % parameter.UPPER
+            if parameter.LOWER is not None:
+                if i == 1:
+                    model += &quot, &quot
+                <a id="change">i = 1</a>
+                model += &quot&gt;= %s&quot % parameter.LOWER
+            model += &quot\n&quot
+        model += &quotEnd Parameters\n&quot
+
+    if self._variables:
+        model += &quotVariables\n&quot
+        for variable in self._variables:
+            <a id="change">i = 0</a>
+            model += &quot\t%s&quot % variable
+            if not isinstance(variable.VALUE.value, (list,np.ndarray)):
+                if not (variable.VALUE==None):
+                    <a id="change">i = 1</a>
+                    model += &quot = %s&quot % variable.VALUE
+            if variable.UPPER is not None:
+                if i == 1:
+                    model += &quot, &quot
+                <a id="change">i = 1</a>
+                model += &quot&lt;= %s&quot % variable.UPPER
+            if variable.LOWER is not None:
+                if i == 1:
+                    model += &quot, &quot
+                <a id="change">i = 1</a>
+                model += &quot&gt;= %s&quot % variable.LOWER
+            model += &quot\n&quot
+        model += &quotEnd Variables\n&quot
+
+    if self._intermediates:
+        model += &quotIntermediates\n&quot
+        for i in range(len(self._inter_equations)):
+            model += &quot\t%s=%s\n&quot % (str(self._intermediates[i]), str(self._inter_equations[i]))
+        model += &quotEnd Intermediates\n&quot
+
+    if self._equations or self._objectives:
+        model += &quotEquations\n&quot
+        if self._equations:
+            for equation in self._equations:
+                model += &quot\t%s\n&quot % equation
+        if self._objectives:
+            for o in self._objectives:
+                model += &quot\t%s\n&quot % o
+        model += &quotEnd Equations\n&quot
+
+    if self._connections:
+        model += &quotConnections\n&quot
+        for connection in self._connections:
+            model += &quot\t%s\n&quot % connection
+        model += &quotEnd Connections\n&quot
+
+    if self._objects:
+        model += &quotObjects\n&quot
+        for obj_str in self._objects:
+            model += &quot\t%s\n&quot % obj_str
+        model += &quotEnd Objects\n&quot
+
+    if self._compounds:
+        model += &quotCompounds\n&quot
+        for compound in self._compounds:
+            model += &quot  %s\n&quot % (compound,)
+        model += &quotEnd Compounds\n&quot
+
+    &#47&#47print(model) &#47&#47for debugging
+
+    &#47&#47replace multiple operators resulting from signs
+    <a id="change">model = model.replace(&quot++&quot,&quot+&quot).replace(&quot--&quot,&quot+&quot).replace(&quot+-&quot,&quot-&quot).replace(&quot-+&quot,&quot-&quot)</a>
+
+    &#47&#47 Create .apm file
+    if(self._model_name == None):
+        <a id="change">self._model_name = "default_model_name"</a>
+    <a id="change">filename = self._model_name + &quot.apm&quot</a>
+
+    &#47&#47 Create file in writable format always overrite previous model file
+    <a id="change">f = open(os.path.join(self._path,filename), &quotw&quot)</a>
+    f.write(&quotModel\n&quot)
+    f.write(model)
+    f.write(&quot\nEnd Model&quot)
+    if self._raw:
+        f.write(&quot\n&quot)
+        for r in self._raw:
+            f.write(&quot%s\n&quot%r)
+    <a id="change">f</a><a id="change">.close()</a>
+
+    <a id="change">self._model = &quotauto-generated&quot</a> &#47&#47what does this do?
+
+    <a id="change">self._model_initialized = True</a>
+
+
+
+def _write_csv(self):
+    Write csv file and validate data.
+    If the problem is dynamic, the time discretization is provided in the
+    first column of this csv. All params/variables that are initialized
+    with an array are loaded as well and must be the same length. 
+
+    file_name = self._model_name + &quot.csv&quot
+
+    &#47&#47&#47&#47 Dynamic data csv
+    if self.options.IMODE &gt; 3:
+        &#47&#47Start with time
+        length = np.size(self.time)
+        csv_data = np.hstack((&quottime&quot,np.array(self.time).flatten().astype(object)))
+        first_array = True
+    &#47&#47&#47&#47 SS data
+    else:
+        first_array = False
+        if self.time is not None:
+            print("Warning: model time only used for dynamic modes (IMODE&gt;3)")
+
+    &#47&#47check all parameters and arrays
+    for vp in self._variables+self._parameters:
+        &#47&#47Only save csv data if the user changed the value (changes registered in vp.value.change)
+        if vp.value.change is False:
+            continue
+        else:
+            if first_array == False:
+                length = np.size(np.array(vp.value).flatten())
+                if self.options.IMODE in (1,3) and length &gt; 1:
+                    raise Exception(&quotThis steady-state IMODE only allows scalar values.&quot)
+                elif self.options.IMODE == 2 and length == 1:
+                    &#47&#47in MPU, the first vp checked could be a scalar value (FV, param, var initial guess)
+                    &#47&#47but the CV is likely longer so skip scalar values (they will be set in the APM file)
+                    continue
+
+
+            if vp.value.change is True: &#47&#47Save the entire array of values
+                &#47&#47skip variable if its value is a string (ie symbolic initialization)
+                if isinstance(vp.VALUE.value,GK_Operators):
+                    &#47&#47reset change indicator
+                    vp.value.change = False
+                    &#47&#47do nothing else, go to next variable
+                    continue
+
+                &#47&#47discretize all values to arrays
+                if not isinstance(vp.VALUE.value, (list,np.ndarray)):
+                    vp.VALUE = np.ones(length)*vp.VALUE
+                elif len(vp.VALUE) == 1:
+                    vp.VALUE = np.ones(length)*vp.VALUE[0]
+                &#47&#47confirm that previously discretized values are the right length
+                elif np.size(vp.VALUE.value) != length:
+                    raise Exception(&quotData arrays must have the same length, and match time discretization in dynamic problems&quot)
+                &#47&#47group data with column header
+                t = np.hstack((vp.name,np.array(vp.VALUE.value).flatten().astype(object)))
+
+            elif isinstance(vp.value.change,list): &#47&#47only certain elements should be saved
+                if not isinstance(vp.VALUE.value, (list,np.ndarray)):
+                    vp.VALUE.value = np.ones(length)*vp.VALUE.value
+                elif len(vp.VALUE) == 1:
+                    vp.VALUE = np.ones(length)*vp.VALUE[0]
+                t = np.array(vp.VALUE).astype(object)
+                t[:] = &quot &quot
+                t[vp.value.change] = np.array(vp.value)[vp.value.change]
+                t = np.hstack((str(vp),t.flatten().astype(object)))
+
+            else: &#47&#47somebody broke value.change
+                raise Exception(&quotVariable value modification monitor malfunction.&quot)
+
+            &#47&#47reset change indicator
+            vp.value.change = False
+
+            &#47&#47if a measurement exists, save a nonnumeric in
+            &#47&#47value array to allow measurement to be read in
+            if hasattr(vp,&quotMEAS&quot):
+                if vp.MEAS != None:
+                    &#47&#47vp.VALUE = np.array(vp.VALUE).astype(object)
+                    if self.options.IMODE in [5,8] and vp.type==&quotCV&quot:
+                        &#47&#47measurements in estimation go at the end of the horizon
+                        &#47&#47FDELAY shifts the location of the measurement
+                        t[-1-vp.FDELAY] = &quotmeasurement&quot
+                    else:
+                        t[1] = "measurement"
+
+                    &#47&#47reset MEAS so it doesn&quott get repeated on next solve
+                    vp.MEAS = None
+
+            &#47&#47If a value was specified through a connection, ensure consistency in the
+            &#47&#47csv file, otherwise the requested specified value will be overridden by
+            &#47&#47whatever initialization value is in the csv
+            if hasattr(vp,&quot_override_csv&quot):
+                for i in vp._override_csv: &#47&#47for each tuple of (position,value)
+                    &#47&#47set value in t array
+                    t[i[0]+1] = i[1] &#47&#47index is +1 because of prepended header
+
+            if first_array == False:
+                csv_data = t
+                first_array = True
+            else:
+                try:
+                    csv_data = np.vstack((csv_data,t))
+                except ValueError:
+                    raise Exception(&quotAll variable value arrays must be the same length (and match the length of model time in dynamic problems).&quot)
+
+    &#47&#47save array to csv
+    if first_array == False: &#47&#47no data
+        self.csv_status = &quotnone&quot
+    else:
+        &#47&#47 create header separately for potential long variable names &gt;=25 in length
+        if csv_data.ndim==1:
+            &#47&#47 with only one variable
+            hdr = csv_data[0]
+            np.savetxt(os.path.join(self._path,file_name), csv_data[1:],\
+                       delimiter=",",comments=&quot&quot,header=hdr,fmt=&quot%1.25s&quot)
+        else:
+            &#47&#47 with multiple variables
+            hdr = csv_data[0,0]
+            for i in range(1,np.size(csv_data,0)):
+                hdr += &quot,&quot+csv_data[i,0]
+            np.savetxt(os.path.join(self._path,file_name), csv_data[:,1:].T,\
+                       delimiter=",",comments=&quot&quot,header=hdr,fmt=&quot%1.25s&quot)
+        self.csv_status = &quotgenerated&quot
+
+
+def _write_info(self):
+    &#47&#47since there is currently no way to change variable classification after
+    &#47&#47declaration, rewriting the info file is redundant and makes the server info
+    &#47&#47file on remote solves large
+    &#47&#47avoid this problem by only writing the info file for the first successful solve
+    if self.options.CYCLECOUNT &lt; 1:
+        &#47&#47Classify variable in .info file
+        filename = self._model_name+&quot.info&quot
+
+        &#47&#47Create and open configuration files
+        with open(os.path.join(self._path,filename), &quotw+&quot) as f:
+            &#47&#47check each Var and Param for FV/MV/SV/CV
+            for vp in self._variables+self._parameters:
+                if vp.type is not None:
+                    f.write(vp.type+&quot, &quot+vp.name+&quot\n&quot)
+
+
+def _generate_dbs_file(self):
+    &quot&quot&quotWrite options to measurements.dbs file so it gets automatically deleted
+    to prevent file build-up on the server
+
+    Returns:
+        Does not return
+    &quot&quot&quot
+    &#47&#47set filename
+    filename = &quotmeasurements.dbs&quot
+    &#47&#47print all global options
+    file_content = self.options.getOverridesString()
+    &#47&#47cycle through all Params and Vars to find set options
+    with open(os.path.join(self._path,filename), &quotw+&quot) as f:
+        f.write(file_content)
+        &#47&#47check for set options of each Var and Param
+        for vp in self._parameters:
+            for o in parameter_options[vp.type][&quotinputs&quot]+parameter_options[vp.type][&quotinout&quot]:
+                if o == &quotVALUE&quot:
+                    continue
+                else: &#47&#47everything else is an option
+                    if vp.__dict__[o] is not None:
+                        f.write(vp.name+&quot.&quot+o+&quot = &quot+str(vp.__dict__[o])+&quot\n&quot)
+
+        for vp in self._variables:
+            for o in variable_options[vp.type][&quotinputs&quot]+variable_options[vp.type][&quotinout&quot]:
+                if o == &quotVALUE&quot:
+                    continue
+                else: &#47&#47everything else is an option
+                    if vp.__dict__[o] is not None:
+                        f.write(vp.name+&quot.&quot+o+&quot = &quot+str(vp.__dict__[o])+&quot\n&quot)
+
+
+def _write_solver_options(self):
+    opt_file = &quot&quot
+    if self.solver_options:
+        &#47&#47determine filename from solver number
+        if self.options.SOLVER == 1:
+            filename = &quotapopt.opt&quot
+        elif self.options.SOLVER == 3:
+            filename = &quotipopt.opt&quot
+        else:
+            raise TypeError("Solver options only available for APOPT(1) and IPOPT(3)")
+
+        &#47&#47write each option to a line
+        for option in self.solver_options:
+            opt_file += option + &quot\n&quot
+
+        &#47&#47If remote solve, pass string to append to .apm file
+        if self._remote is True:
+            return &quotFile &quot + filename + &quot\n&quot + opt_file + &quotEnd File\n&quot
+        &#47&#47write file for local solve
+        else:
+            with open(os.path.join(self._path,filename), &quotw+&quot) as f:
+                f.write(opt_file)
+
+    &#47&#47do nothing if no options were added
+    else:
+        return opt_file
+
+    opt_file += &quotEnd File\n&quot
+    return opt_file
+
+
+&#47&#47%% Not currently used
+
+
+def _jsonify(self,data): &#47&#47This function was mostly copied from SO
+    if type(data).__module__==&quotnumpy&quot: &#47&#47 if value is numpy.*: &gt; to python list
+        json_data = data.tolist()
+    elif isinstance(data, dict): &#47&#47 for nested lists
+        json_data = dict()
+        for key, value in data.iteritems():
+            if isinstance(value, list): &#47&#47 for lists
+                value = [ self.jsonify(item) if isinstance(item, dict) else item for item in value ]
+            if isinstance(value, dict): &#47&#47 for nested lists
+                value = self.jsonify(value)
+            if isinstance(key, int): &#47&#47 if key is integer: &gt; to string
+                key = str(key)
+            if type(value).__module__==&quotnumpy&quot: &#47&#47 if value is numpy.*: &gt; to python list
+                value = value.tolist()
+            json_data[key] = value
+    else:
+        json_data = data
+    return json_data
+
+
+def _to_JSON(self): &#47&#47JSON input to APM not currently supported -- this function isn&quott tested
+    
+    include in JSON:
+    global options
+    variables (const,param,inter,var)
+        name
+        value
+        type
+        option_list
+    
+    json_data = dict()
+    &#47&#47global options
+    o_dict = dict()
+    for o in global_options[&quotinputs&quot]+global_options[&quotinout&quot]:
+        o_dict[o] = getattr(self.options,o)
+    json_data[&quotglobal options&quot] = o_dict
+
+    if self.time is not None:
+        json_data[&quottime&quot] = self.jsonify(self.time)
+    &#47&#47Constants can&quott and won&quott change so there&quots no reason to pass them in the JSON
+    &#47&#47constant values must be given in the model file. Changing constant values requires recompiling the model.
+&#47&#47        &#47&#47constants
+&#47&#47        if self._constants:
+&#47&#47            const_dict = dict()
+&#47&#47            for const in self._constants:
+&#47&#47                const_dict[&quotvalue&quot] = self.jsonify(const.value)
+&#47&#47            const_dict[const.name] = const_dict
+
+    if self._parameters:
+        p_dict = dict()
+        for parameter in self._parameters:
+            o_dict = dict()
+            for o in parameter_options[parameter.type][&quotinputs&quot]+parameter_options[parameter.type][&quotinout&quot]:
+                if o == &quotVALUE&quot:
+                    o_dict[&quotVALUE&quot] = self.jsonify(parameter.value)
+                else:
+                    o_dict[o] = getattr(parameter,o)
+            o_dict[&quottype&quot] = parameter.type
+            p_dict[parameter.name] = o_dict
+        json_data[&quotparameters&quot] = p_dict
+
+    if self._variables:
+        p_dict = dict()
+        for parameter in self._variables:
+            o_dict = dict()
+            for o in variable_options[parameter.type][&quotinputs&quot]+variable_options[parameter.type][&quotinout&quot]:
+                if o == &quotVALUE&quot:
+                    o_dict[&quotVALUE&quot] = self.jsonify(parameter.value)
+                else:
+                    o_dict[o] = getattr(parameter,o)
+            o_dict[&quottype&quot] = parameter.type
+            p_dict[parameter.name] = o_dict
+        json_data[&quotvariables&quot] = p_dict
+
+    
+    if self._intermediates:
+        temp_dict = dict()
+        for intermediate in self._intermediates:
+            temp_dict[&quotname&quot] = {&quotvalue&quot:self.jsonify(intermediate.value)}
+        json_data[&quotintermediates&quot] = temp_dict
+    
+    f = open(os.path.join(self._path,&quotjsontest.json&quot), &quotw&quot)
+    &#47&#47f.write(json.dumps(self, default=lambda o: _try(o), sort_keys=True, indent=2, separators=(&quot,&quot,&quot:&quot)).replace(&quot\n&quot, &quot&quot))
+    json.dump(json_data,f, indent=2,separators=(&quot,&quot, &quot:&quot))
+    f.close()
+    &#47&#47return json.dumps(self, default=lambda o: _try(o), sort_keys=True, indent=0, separators=(&quot,&quot,&quot:&quot)).replace(&quot\n&quot, &quot&quot)
+    &#47&#47load JSON to dictionary:
+    &#47&#47with open(os.path.join(self._path,&quotjsontest.json&quot)) as json_file:
+    &#47&#47   data = json.load(json_file)
+</code></pre>

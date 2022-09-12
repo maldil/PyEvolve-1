@@ -1,0 +1,673 @@
+<link rel="stylesheet" href="../../../..//default.css">
+<script src="../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/hls-fpga-machine-learning/hls4ml/blob/master/hls4ml/writer/vivado_writer.py#L251">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/hls4ml/blob/master/hls4ml/writer/vivado_writer.py#L251">GitMyHubLink</a>
+
+from __future__ import print_function
+import tarfile
+import yaml
+from shutil import copyfile, copytree, rmtree
+import numpy as np
+import os
+import re
+import glob
+from collections import OrderedDict
+
+from hls4ml.writer.writers import Writer
+from hls4ml.backends import get_backend
+
+config_filename = &quothls4ml_config.yml&quot
+
+class VivadoWriter(Writer):
+
+    def print_array_to_cpp(self, var, odir, write_txt_file=True):
+        &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+        &#47&#47&#47&#47 Print weight array to C++
+        &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+
+        h_file = open("{}/firmware/weights/{}.h".format(odir,var.name),"w")
+        if write_txt_file:
+            txt_file = open("{}/firmware/weights/{}.txt".format(odir,var.name),"w")
+
+        &#47&#47meta data
+        h_file.write("//Numpy array shape {}\n".format(var.shape))
+        h_file.write("//Min {:.12f}\n".format(np.min(var.min)))
+        h_file.write("//Max {:.12f}\n".format(np.max(var.max)))
+        h_file.write("//Number of zeros {}\n".format(var.nzeros))
+        h_file.write("\n")
+
+        h_file.write("&#47&#47ifndef {}_H_\n".format(var.name.upper()))
+        h_file.write("&#47&#47define {}_H_\n".format(var.name.upper()))
+        h_file.write("\n")
+
+        if write_txt_file:
+            h_file.write("&#47&#47ifndef __SYNTHESIS__\n")
+            h_file.write(var.definition_cpp() + ";\n")
+            h_file.write("&#47&#47else\n")
+
+        h_file.write(var.definition_cpp() + " = {")
+
+        &#47&#47fill c++ array.
+        &#47&#47not including internal brackets for multidimensional case
+        sep = &quot&quot
+        for x in var:
+            h_file.write(sep + x)
+            if write_txt_file:
+                txt_file.write(sep + x)
+            sep = ", "
+        h_file.write("};\n")
+        if write_txt_file:
+            h_file.write("&#47&#47endif\n")
+            txt_file.close()
+        h_file.write("\n&#47&#47endif\n")
+        h_file.close()
+
+    def write_project_dir(self, model):
+        if not os.path.isdir("{}/firmware/weights".format(model.config.get_output_dir())):
+            os.makedirs("{}/firmware/weights".format(model.config.get_output_dir()))
+
+    @staticmethod
+    def _make_array_pragma(variable):
+        
+        Layers in hls_model.py can specify output array partitioning through the `pragma` attribute.
+        If `pragma` is a string: options are &quotpartition&quot, &quotreshape&quot, or &quotstream&quot.
+        If `pragma` is a tuple: (mode, type, factor) where mode is &quotpartition&quot or &quotreshape&quot, type is
+        &quotcomplete&quot, &quotcyclic&quot, or &quotblock&quot, and factor is an integer only used when the type is not &quotcomplete&quot.
+        
+
+        config = variable.pragma
+        if type(config) is tuple:
+            mode = config[0]
+            if mode in [&quotpartition&quot, &quotreshape&quot]:
+                typ = config[1]
+                if typ != &quotcomplete&quot:
+                    factor = config[2]
+            elif mode == &quotstream&quot:
+                depth = config[1]
+        else:
+            mode = config
+            typ = &quotcomplete&quot
+            factor = 0
+
+        if mode in [&quotpartition&quot, &quotreshape&quot]:
+            if typ == &quotcomplete&quot:
+                template = &quot&#47&#47pragma HLS ARRAY_{mode} variable={name} {type} dim={dim}&quot
+            else:
+                template = &quot&#47&#47pragma HLS ARRAY_{mode} variable={name} {type} factor={factor} dim={dim}&quot
+
+            return template.format(mode=mode.upper(), name=variable.name, type=typ, factor=factor, dim=0)
+
+        elif mode == &quotstream&quot:
+            return &quot&#47&#47pragma HLS STREAM variable={name} depth={depth}&quot.format(name=variable.name, depth=depth)
+
+    def write_project_cpp(self, model):
+        &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+        &#47&#47&#47&#47 myproject.cpp
+        &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+
+        filedir = os.path.dirname(os.path.abspath(__file__))
+        f = open(os.path.join(filedir,&quot../templates/vivado/firmware/myproject.cpp&quot),&quotr&quot)
+        fout = open(&quot{}/firmware/{}.cpp&quot.format(model.config.get_output_dir(), model.config.get_project_name()),&quotw&quot)
+
+        model_inputs = model.get_input_variables()
+        model_outputs = model.get_output_variables()
+        model_brams = [var for var in model.get_weight_variables() if var.storage.lower() == &quotbram&quot]
+
+        indent = &quot    &quot
+
+        for line in f.readlines():
+            &#47&#47Add headers to weights and biases
+            if &quotmyproject&quot in line:
+                newline = line.replace(&quotmyproject&quot, model.config.get_project_name())
+            elif &quot//hls-fpga-machine-learning insert header&quot in line:
+                inputs_str = &quot, &quot.join([i.definition_cpp(as_reference=True) for i in model_inputs])
+                outputs_str = &quot, &quot.join([o.definition_cpp(as_reference=True) for o in model_outputs])
+                brams_str  = &quot, \n&quot.join([indent + b.definition_cpp(as_reference=False) for b in model_brams])
+                insize_str = &quot, &quot.join([&quotunsigned short &const_size_in_{}&quot.format(i) for i in range(1, len(model_inputs) + 1)])
+                outsize_str = &quot, &quot.join([&quotunsigned short &const_size_out_{}&quot.format(i) for i in range(1, len(model_outputs) + 1)])
+
+                newline = &quot&quot
+                newline += indent + inputs_str + &quot,\n&quot
+                newline += indent + outputs_str + &quot,\n&quot
+                if len(model_brams) &gt; 0:
+                    newline += brams_str + &quot,\n&quot
+                newline += indent + insize_str + &quot,\n&quot
+                newline += indent + outsize_str + &quot\n&quot
+
+            elif &quot//hls-fpga-machine-learning insert load weights&quot in line:
+                newline = line
+                for layer in model.get_layers():
+                    for w in layer.get_weights():
+                        if w.weight_class == &quotCompressedWeightVariable&quot:
+                            newline += indent + &quot    nnet::load_compressed_weights_from_txt&lt;{}, {}&gt;({}, "{}.txt");\n&quot.format(w.type.name, w.nonzeros, w.name, w.name)
+                        elif w.weight_class == &quotExponentWeightVariable&quot:
+                            newline += indent + &quot    nnet::load_exponent_weights_from_txt&lt;{}, {}&gt;({}, "{}.txt");\n&quot.format(w.type.name, w.data_length, w.name, w.name)
+                        else:
+                            newline += indent + &quot    nnet::load_weights_from_txt&lt;{}, {}&gt;({}, "{}.txt");\n&quot.format(w.type.name, w.data_length, w.name, w.name)
+
+            &#47&#47Add input/output type
+            elif &quot//hls-fpga-machine-learning insert IO&quot in line:
+                newline = line
+                all_inputs = [i.cppname for i in model_inputs]
+                all_outputs = [o.cppname for o in model_outputs]
+                all_brams = [b.cppname for b in model_brams]
+                io_type = model.config.get_config_value("IOType")
+
+                if io_type == &quotio_parallel&quot:
+                    for i in model_inputs: newline += indent + self._make_array_pragma(i) + &quot\n&quot
+                    for o in model_outputs: newline += indent + self._make_array_pragma(o) + &quot\n&quot
+                    &#47&#47 TODO discussed adding a handle for setting the interface mode for individual input and output arrays (16.03.2020)
+                    &#47&#47 Probably the handle doesn&quott need to be exposed to the user but should be just set in hls_model.py
+                    newline += indent + &quot&#47&#47pragma HLS INTERFACE ap_vld port={},{} \n&quot.format(&quot,&quot.join(all_inputs), &quot,&quot.join(all_outputs))
+                    if model.config.model_strategy.lower() == &quotresource&quot:
+                        newline += indent + &quot&#47&#47pragma HLS DATAFLOW \n&quot
+                    else:
+                        newline += indent + &quot&#47&#47pragma HLS PIPELINE \n&quot
+                if io_type == &quotio_serial&quot or io_type == &quotio_stream&quot:
+                    newline += indent + &quot&#47&#47pragma HLS INTERFACE axis port={},{} \n&quot.format(&quot,&quot.join(all_inputs), &quot,&quot.join(all_outputs))
+                    if all_brams:
+                        newline += indent + &quot&#47&#47pragma HLS INTERFACE bram port={} \n&quot.format(&quot,&quot.join(all_brams))
+                    newline += indent + &quot&#47&#47pragma HLS DATAFLOW \n&quot
+
+                inval_str = &quot\n    &quot.join([&quotconst_size_in_{} = {};&quot.format(i, inp.size_cpp()) for i, inp in enumerate(model_inputs, 1)])
+                outval_str = &quot\n    &quot.join([&quotconst_size_out_{} = {};&quot.format(i, out.size_cpp()) for i, out in enumerate(model_outputs, 1)])
+                newline += &quot\n&quot + indent + inval_str
+                newline += &quot\n&quot + indent + outval_str
+                newline += &quot\n&quot
+
+            elif &quot//hls-fpga-machine-learning insert layers&quot in line:
+                newline = line + &quot\n&quot
+                for layer in model.get_layers():
+                    vars = layer.get_variables()
+                    for var in vars:
+                        if var not in model_inputs and var not in model_outputs:
+                            def_cpp = var.definition_cpp()
+                            if def_cpp is not None:
+                                newline += &quot    &quot + def_cpp + &quot;\n&quot
+                                if var.pragma:
+                                    newline += &quot    &quot + self._make_array_pragma(var) + &quot\n&quot
+                    func = layer.get_attr(&quotfunction_cpp&quot, None)
+                    if func:
+                        func = [func]
+                        if len(func) == 1:
+                            newline += &quot    &quot + func[0] + &quot // &quot + layer.name + &quot\n&quot
+                        else:
+                            newline += &quot// &quot + layer.name + &quot\n&quot
+                            for line in func:
+                                newline += &quot    &quot + line + &quot\n&quot
+                        if model.config.trace_output and layer.get_attr(&quotTrace&quot, False):
+                            newline += &quot&#47&#47ifndef __SYNTHESIS__\n&quot
+                            for var in vars:
+                                newline += &quot    nnet::save_layer_output&lt;{}&gt;({}, "{}", {});\n&quot.format(var.type.name, var.name, layer.name, var.size_cpp())
+                            newline += &quot&#47&#47endif\n&quot
+                        newline += &quot\n&quot
+
+            &#47&#47Just copy line
+            else:
+                newline = line
+
+            fout.write(newline)
+
+        f.close()
+        fout.close()
+
+    def write_project_header(self, model):
+        &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+        &#47&#47&#47&#47 myproject.h
+        &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+
+        filedir = os.path.dirname(os.path.abspath(__file__))
+        f = open(os.path.join(filedir,&quot../templates/vivado/firmware/myproject.h&quot),&quotr&quot)
+        fout = open(&quot{}/firmware/{}.h&quot.format(model.config.get_output_dir(), model.config.get_project_name()),&quotw&quot)
+
+        model_inputs = model.get_input_variables()
+        model_outputs = model.get_output_variables()
+        model_brams = [var for var in model.get_weight_variables() if var.storage.lower() == &quotbram&quot]
+
+        indent = &quot    &quot
+
+        for line in f.readlines():
+
+            if &quotMYPROJECT&quot in line:
+                newline = line.replace(&quotMYPROJECT&quot,format(model.config.get_project_name().upper()))
+            elif &quotvoid myproject(&quot in line:
+                newline = &quotvoid {}(\n&quot.format(model.config.get_project_name())
+            elif &quot//hls-fpga-machine-learning insert header&quot in line:
+                inputs_str = &quot, &quot.join([i.definition_cpp(as_reference=True) for i in model_inputs])
+                outputs_str = &quot, &quot.join([o.definition_cpp(as_reference=True) for o in model_outputs])
+                brams_str  = &quot, \n&quot.join([indent + b.definition_cpp(as_reference=False) for b in model_brams])
+                insize_str = &quot, &quot.join([&quotunsigned short &const_size_in_{}&quot.format(i) for i in range(1, len(model_inputs) + 1)])
+                outsize_str = &quot, &quot.join([&quotunsigned short &const_size_out_{}&quot.format(o) for o in range(1, len(model_outputs) + 1)])
+
+                newline = &quot&quot
+                newline += indent + inputs_str + &quot,\n&quot
+                newline += indent + outputs_str + &quot,\n&quot
+                if len(model_brams) &gt; 0:
+                    newline += brams_str + &quot,\n&quot
+                newline += indent + insize_str + &quot,\n&quot
+                newline += indent + outsize_str + &quot\n&quot
+            else:
+                newline = line
+            fout.write(newline)
+
+        f.close()
+        fout.close()
+
+    def write_defines(self, model):
+        filedir = os.path.dirname(os.path.abspath(__file__))
+        <a id="change">f = open(os.path.join(filedir,&quot../templates/vivado/firmware/defines.h&quot),&quotr&quot)</a>
+        <a id="change">fout = open(&quot{}/firmware/defines.h&quot.format(model.config.get_output_dir()),&quotw&quot)</a>
+
+        for line in f.readlines():
+
+            &#47&#47Insert numbers
+            if &quot//hls-fpga-machine-learning insert numbers&quot in line:
+                newline = line
+                numbers = OrderedDict.fromkeys([layer.get_numbers_cpp() for layer in model.get_layers()])
+                newline += &quot&quot.join(numbers)
+
+            elif &quot//hls-fpga-machine-learning insert layer-precision&quot in line:
+                newline = line
+                all_precision = OrderedDict()
+                for layer in model.get_layers():
+                    layer_precision = layer.get_layer_precision()
+                    for type_name, type_var in layer_precision.items():
+                        &#47&#47 Ensure that layer&quots types doesn&quott override existing types
+                        &#47&#47 This can happen in case of InplaceVariable types
+                        if type_name not in all_precision:
+                            all_precision[type_name] = type_var
+                for used_type in all_precision.values():
+                    newline += used_type.definition_cpp()
+
+            else:
+                newline = line
+            fout.write(newline)
+        <a id="change">f</a><a id="change">.close()</a>
+        <a id="change">fout</a><a id="change">.close()</a>
+
+    def write_parameters(self, model):
+        filedir = os.path.dirname(os.path.abspath(__file__))
+        f = open(os.path.join(filedir,&quot../templates/vivado/firmware/parameters.h&quot),&quotr&quot)
+        fout = open(&quot{}/firmware/parameters.h&quot.format(model.config.get_output_dir()),&quotw&quot)
+
+        for line in f.readlines():
+
+            if &quot//hls-fpga-machine-learning insert includes&quot in line:
+                newline = line
+                for include in sorted(set(sum((layer.get_attr(&quotinclude_header&quot, []) for layer in model.get_layers()), []))):
+                    newline += &quot&#47&#47include "%s"\n&quot % include
+
+            elif &quot//hls-fpga-machine-learning insert weights&quot in line:
+                newline = line
+                for layer in model.get_layers():
+                    for w in layer.get_weights():
+                        if w.storage.lower() != &quotbram&quot:
+                            newline += &quot&#47&#47include "weights/{}.h"\n&quot.format(w.name)
+
+            elif "//hls-fpga-machine-learning insert layer-config" in line:
+                newline = line
+                for layer in model.get_layers():
+                    config = layer.get_attr(&quotconfig_cpp&quot, None)
+                    if config:
+                        newline += &quot// &quot + layer.name + &quot\n&quot
+                        newline += config + &quot\n&quot
+            else:
+                newline = line
+            fout.write(newline)
+        f.close()
+        fout.close()
+
+    def write_weights(self, model):
+        for layer in model.get_layers():
+            for weights in layer.get_weights():
+                self.print_array_to_cpp(weights, model.config.get_output_dir())
+
+    def __make_dat_file(self, original_path, project_path):
+        
+        Convert other input/output data types into a dat file, which is
+        a text file with the falttened matrix printed out. Note that &quot &quot is
+        assumed to be the delimiter.
+        
+
+        &#47&#47Take in data from current supported data files
+        if original_path[-3:] == "npy":
+            data = np.load(original_path)
+        else:
+            raise Exception("Unsupported input/output data files.")
+
+        &#47&#47Faltten data, just keep first dimension
+        data = data.reshape(data.shape[0], -1)
+
+        def print_data(f):
+            for i in range(data.shape[0]):
+                for j in range(data.shape[1]):
+                    f.write(str(data[i][j]) + " ")
+                f.write("\n")
+
+        &#47&#47Print out in dat file
+        with open(project_path, "w" ) as f:
+            print_data(f)
+
+    def write_test_bench(self, model):
+        &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+        &#47&#47&#47&#47 test bench
+        &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+
+        filedir = os.path.dirname(os.path.abspath(__file__))
+
+        if not os.path.exists(&quot{}/tb_data/&quot.format(model.config.get_output_dir())):
+            os.mkdir(&quot{}/tb_data/&quot.format(model.config.get_output_dir()))
+
+        input_data = model.config.get_config_value(&quotInputData&quot)
+        output_predictions = model.config.get_config_value(&quotOutputPredictions&quot)
+
+        if input_data:
+            if input_data[-3:] == "dat":
+                copyfile(input_data, &quot{}/tb_data/tb_input_features.dat&quot.format(model.config.get_output_dir()))
+            else:
+                self.__make_dat_file(input_data,&quot{}/tb_data/tb_input_features.dat&quot.format(model.config.get_output_dir()))
+
+        if output_predictions:
+            if output_predictions[-3:] == "dat":
+                copyfile(output_predictions, &quot{}/tb_data/tb_output_predictions.dat&quot.format(model.config.get_output_dir()))
+            else:
+                self.__make_dat_file(output_predictions,&quot{}/tb_data/tb_output_predictions.dat&quot.format(model.config.get_output_dir()))
+
+        f = open(os.path.join(filedir,&quot../templates/vivado/myproject_test.cpp&quot),&quotr&quot)
+        fout = open(&quot{}/{}_test.cpp&quot.format(model.config.get_output_dir(), model.config.get_project_name()),&quotw&quot)
+
+        model_inputs = model.get_input_variables()
+        model_outputs = model.get_output_variables()
+        model_brams = [var for var in model.get_weight_variables() if var.storage.lower() == &quotbram&quot]
+
+        for line in f.readlines():
+            indent = &quot &quot * (len(line) - len(line.lstrip(&quot &quot)))
+
+            &#47&#47Insert numbers
+            if &quotmyproject&quot in line:
+                newline = line.replace(&quotmyproject&quot, model.config.get_project_name())
+            elif &quot//hls-fpga-machine-learning insert bram&quot in line:
+                newline = line
+                for bram in model_brams:
+                    newline += &quot&#47&#47include \"firmware/weights/{}.h\"\n&quot.format(bram.cppname)
+            elif &quot//hls-fpga-machine-learning insert data&quot in line:
+                newline = line
+                offset = 0
+                for inp in model_inputs:
+                    newline += &quot      &quot + inp.definition_cpp() + &quot;\n&quot
+                    newline += &quot      nnet::copy_data&lt;float, {}, {}, {}&gt;(in, {});\n&quot.format(inp.type.name, offset, inp.size_cpp(), inp.cppname)
+                    offset += inp.size()
+                for out in model_outputs:
+                    newline += &quot      &quot + out.definition_cpp() + &quot;\n&quot
+            elif &quot//hls-fpga-machine-learning insert zero&quot in line:
+                newline = line
+                for inp in model_inputs:
+                    newline += &quot    &quot + inp.definition_cpp() + &quot;\n&quot
+                    newline += &quot    nnet::fill_zero&lt;{}, {}&gt;({});\n&quot.format(inp.type.name, inp.size_cpp(), inp.cppname)
+                for out in model_outputs:
+                    newline += &quot    &quot + out.definition_cpp() + &quot;\n&quot
+            elif &quot//hls-fpga-machine-learning insert top-level-function&quot in line:
+                newline = line
+
+                size_str = indent + &quotunsigned short {},{};\n&quot
+                input_size_vars = &quot,&quot.join([&quotsize_in{}&quot.format(i) for i in range(1, len(model_inputs) + 1)])
+                output_size_vars = &quot,&quot.join([&quotsize_out{}&quot.format(o) for o in range(1, len(model_outputs) + 1)])
+                newline += size_str.format(input_size_vars, output_size_vars)
+
+                input_vars = &quot,&quot.join([i.cppname for i in model_inputs])
+                output_vars = &quot,&quot.join([o.cppname for o in model_outputs])
+                bram_vars   =&quot,&quot.join([b.cppname for b in model_brams])
+
+                &#47&#47 Concatenate the input, output, and bram variables. Filter out empty/null values
+                all_vars = &quot,&quot.join(filter(None, [input_vars, output_vars, bram_vars]))
+
+                top_level = indent + &quot{}({},{},{});\n&quot.format(model.config.get_project_name(), all_vars, input_size_vars, output_size_vars)
+
+                newline += top_level
+            elif &quot//hls-fpga-machine-learning insert predictions&quot in line:
+                newline = line
+                for out in model_outputs:
+                    newline += indent + &quotfor(int i = 0; i &lt; {}; i++) {{\n&quot.format(out.size_cpp())
+                    newline += indent + &quot  std::cout &lt;&lt; pr[i] &lt;&lt; " ";\n&quot
+                    newline += indent + &quot}\n&quot
+                    newline += indent + &quotstd::cout &lt;&lt; std::endl;\n&quot
+            elif &quot//hls-fpga-machine-learning insert tb-output&quot in line:
+                newline = line
+                for out in model_outputs:
+                    newline += indent + &quotnnet::print_result&lt;{}, {}&gt;({}, fout);\n&quot.format(out.type.name, out.size_cpp(), out.cppname) &#47&#47TODO enable this
+            elif &quot//hls-fpga-machine-learning insert output&quot in line or &quot//hls-fpga-machine-learning insert quantized&quot in line:
+                newline = line
+                for out in model_outputs:
+                    newline += indent + &quotnnet::print_result&lt;{}, {}&gt;({}, std::cout, true);\n&quot.format(out.type.name, out.size_cpp(), out.cppname)
+            else:
+                newline = line
+            fout.write(newline)
+        f.close()
+        fout.close()
+
+    def write_bridge(self, model):
+        &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+        &#47&#47 c++-python bridge
+        &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+
+        filedir = os.path.dirname(os.path.abspath(__file__))
+        f = open(os.path.join(filedir,&quot../templates/vivado/myproject_bridge.cpp&quot),&quotr&quot)
+        fout = open(&quot{}/{}_bridge.cpp&quot.format(model.config.get_output_dir(), model.config.get_project_name()),&quotw&quot)
+
+        model_inputs = model.get_input_variables()
+        model_outputs = model.get_output_variables()
+        model_brams = [var for var in model.get_weight_variables() if var.storage.lower() == &quotbram&quot]
+
+        indent = &quot    &quot
+
+        for line in f.readlines():
+
+            if &quotMYPROJECT&quot in line:
+                newline = line.replace(&quotMYPROJECT&quot, format(model.config.get_project_name().upper()))
+            elif &quotmyproject&quot in line:
+                newline = line.replace(&quotmyproject&quot, format(model.config.get_project_name()))
+            elif &quot//hls-fpga-machine-learning insert bram&quot in line:
+                newline = line
+                for bram in model_brams:
+                    newline += &quot&#47&#47include \"firmware/weights/{}.h\"\n&quot.format(bram.cppname)
+            elif &quot//hls-fpga-machine-learning insert header&quot in line:
+                dtype = line.split(&quot&#47&#47&quot, 1)[1].strip()
+                inputs_str = &quot, &quot.join([&quot{type} {name}[{shape}]&quot.format(type=dtype, name=i.cppname, shape=i.size_cpp()) for i in model_inputs])
+                outputs_str = &quot, &quot.join([&quot{type} {name}[{shape}]&quot.format(type=dtype, name=o.cppname, shape=o.size_cpp()) for o in model_outputs])
+                insize_str = &quot, &quot.join([&quotunsigned short &const_size_in_{}&quot.format(i) for i in range(1, len(model_inputs) + 1)])
+                outsize_str = &quot, &quot.join([&quotunsigned short &const_size_out_{}&quot.format(o) for o in range(1, len(model_outputs) + 1)])
+
+                newline = &quot&quot
+                newline += indent + inputs_str + &quot,\n&quot
+                newline += indent + outputs_str + &quot,\n&quot
+                newline += indent + insize_str + &quot,\n&quot
+                newline += indent + outsize_str + &quot\n&quot
+            elif &quot//hls-fpga-machine-learning insert wrapper&quot in line:
+                dtype = line.split(&quot&#47&#47&quot, 1)[1].strip()
+                newline = &quot&quot
+                for i in model_inputs:
+                    newline += indent + &quot{var};\n&quot.format(var=i.definition_cpp(name_suffix=&quot_ap&quot))
+                    newline += indent + &quotnnet::convert_data&lt;{}, {}, {}&gt;({}, {}_ap);\n&quot.format(dtype, i.type.name, i.size_cpp(), i.cppname, i.cppname)
+                newline += &quot\n&quot
+
+                for o in model_outputs:
+                    newline += indent + &quot{var};\n&quot.format(var=o.definition_cpp(name_suffix=&quot_ap&quot))
+
+                newline += &quot\n&quot
+
+                input_size_vars = &quot,&quot.join([&quotconst_size_in_{}&quot.format(i) for i in range(1, len(model_inputs) + 1)])
+                output_size_vars = &quot,&quot.join([&quotconst_size_out_{}&quot.format(o) for o in range(1, len(model_outputs) + 1)])
+                input_vars = &quot,&quot.join([i.cppname + &quot_ap&quot for i in model_inputs])
+                bram_vars   =&quot,&quot.join([b.cppname for b in model_brams])
+                output_vars = &quot,&quot.join([o.cppname + &quot_ap&quot for o in model_outputs])
+
+                &#47&#47 Concatenate the input, output, and bram variables. Filter out empty/null values
+                all_vars = &quot,&quot.join(filter(None, [input_vars, output_vars, bram_vars]))
+
+                top_level = indent + &quot{}({},{},{});\n&quot.format(model.config.get_project_name(), all_vars, input_size_vars, output_size_vars)
+                newline += top_level
+
+                newline += &quot\n&quot
+
+                for o in model_outputs:
+                    newline += indent + &quotnnet::convert_data&lt;{}, {}, {}&gt;({}_ap, {});\n&quot.format(o.type.name, dtype, o.size_cpp(), o.cppname, o.cppname)
+            elif &quot//hls-fpga-machine-learning insert trace_outputs&quot in line:
+                newline = &quot&quot
+                for layer in model.get_layers():
+                    func = layer.get_attr(&quotfunction_cpp&quot, None)
+                    if func and model.config.trace_output and layer.get_attr(&quotTrace&quot, False):
+                            vars = layer.get_variables()
+                            for var in vars:
+                                newline += indent + &quotnnet::trace_outputs-&gt;insert(std::pair&lt;std::string, void *&gt;("{}", (void *) malloc({} * element_size)));\n&quot.format(layer.name, var.size_cpp())
+
+            else:
+                newline = line
+            fout.write(newline)
+
+        f.close()
+        fout.close()
+
+    def write_build_script(self, model):
+        &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+        &#47&#47 build_prj.tcl
+        &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+
+        filedir = os.path.dirname(os.path.abspath(__file__))
+
+        f = open(os.path.join(filedir,&quot../templates/vivado/build_prj.tcl&quot),&quotr&quot)
+        fout = open(&quot{}/build_prj.tcl&quot.format(model.config.get_output_dir()),&quotw&quot)
+
+        for line in f.readlines():
+
+            line = line.replace(&quotmyproject&quot,model.config.get_project_name())
+
+            if &quotset_part {xcku115-flvb2104-2-i}&quot in line:
+                line = &quotset_part {{{}}}\n&quot.format(model.config.get_config_value(&quotPart&quot))
+            elif &quotcreate_clock -period 5 -name default&quot in line:
+                line = &quotcreate_clock -period {} -name default\n&quot.format(model.config.get_config_value(&quotClockPeriod&quot))
+
+            fout.write(line)
+        f.close()
+        fout.close()
+
+
+        &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+        &#47&#47 vivado_synth.tcl
+        &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+
+        f = open(os.path.join(filedir,&quot../templates/vivado/vivado_synth.tcl&quot),&quotr&quot)
+        fout = open(&quot{}/vivado_synth.tcl&quot.format(model.config.get_output_dir()),&quotw&quot)
+        for line in f.readlines():
+            line = line.replace(&quotmyproject&quot, model.config.get_project_name())
+            if &quot-part&quot in line:
+                line = &quotsynth_design -top {} -part {}\n&quot.format(model.config.get_project_name(), model.config.get_config_value(&quotPart&quot))
+
+            fout.write(line)
+        f.close()
+        fout.close()
+
+        &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+        &#47&#47 build_lib.sh
+        &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+
+        f = open(os.path.join(filedir,&quot../templates/vivado/build_lib.sh&quot),&quotr&quot)
+        fout = open(&quot{}/build_lib.sh&quot.format(model.config.get_output_dir()),&quotw&quot)
+
+        for line in f.readlines():
+            line = line.replace(&quotmyproject&quot, model.config.get_project_name())
+            line = line.replace(&quotmystamp&quot, model.config.get_config_value(&quotStamp&quot))
+
+            fout.write(line)
+        f.close()
+        fout.close()
+
+    def write_nnet_utils(self, model):
+        &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+        &#47&#47&#47&#47 nnet_utils
+        &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+
+        filedir = os.path.dirname(os.path.abspath(__file__))
+
+        srcpath = os.path.join(filedir,&quot../templates/vivado/nnet_utils/&quot)
+        dstpath = &quot{}/firmware/nnet_utils/&quot.format(model.config.get_output_dir())
+
+        if not os.path.exists(dstpath):
+            os.mkdir(dstpath)
+
+        headers = [os.path.basename(h) for h in glob.glob(srcpath + &quot*.h&quot)]
+
+        for h in headers:
+            copyfile(srcpath + h, dstpath + h)
+
+        &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+        &#47&#47&#47&#47 ap_types
+        &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+
+        filedir = os.path.dirname(os.path.abspath(__file__))
+
+        srcpath = os.path.join(filedir,&quot../templates/vivado/ap_types/&quot)
+        dstpath = &quot{}/firmware/ap_types/&quot.format(model.config.get_output_dir())
+
+        if os.path.exists(dstpath):
+            rmtree(dstpath)
+
+        copytree(srcpath, dstpath)
+
+        &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+        &#47&#47&#47&#47 custom source
+        &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+
+        filedir = os.path.dirname(os.path.abspath(__file__))
+
+        custom_source = get_backend(&quotVivado&quot).get_custom_source()
+        for dst, srcpath in custom_source.items():
+            dstpath = &quot{}/firmware/{}&quot.format(model.config.get_output_dir(), dst)
+            copyfile(srcpath, dstpath)
+
+    def write_yml(self, model):
+        &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+        &#47&#47 YAML config file
+        &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+
+        def keras_model_representer(dumper, keras_model):
+            model_path = model.config.get_output_dir() + &quot/keras_model.h5&quot
+            keras_model.save(model_path)
+            return dumper.represent_scalar(u&quot!keras_model&quot, model_path)
+
+        try:
+            from tensorflow.keras import Model as KerasModel
+            yaml.add_multi_representer(KerasModel, keras_model_representer)
+        except:
+            pass
+
+        with open(model.config.get_output_dir() + &quot/&quot + config_filename, &quotw&quot) as file:
+            yaml.dump(model.config.config, file)
+
+    def write_tar(self, model):
+        &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+        &#47&#47 Tarball output
+        &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+
+        with tarfile.open(model.config.get_output_dir() + &quot.tar.gz&quot, mode=&quotw:gz&quot) as archive:
+            archive.add(model.config.get_output_dir(), recursive=True)
+
+    def write_hls(self, model):
+        print(&quotWriting HLS project&quot)
+        self.write_project_dir(model)
+        self.write_project_cpp(model)
+        self.write_project_header(model)
+        self.write_weights(model)
+        self.write_defines(model)
+        self.write_parameters(model)
+        self.write_test_bench(model)
+        self.write_bridge(model)
+        self.write_build_script(model)
+        self.write_nnet_utils(model)
+        self.write_yml(model)
+        self.write_tar(model)
+        print(&quotDone&quot)
+</code></pre>

@@ -1,0 +1,75 @@
+digraph G {
+1 [label="(50570222)=" shape=box style=dashed color=blue fontcolor=blue]
+2 [label="(50570232)dict_values[Any](concepts)" shape=ellipse style=dashed]
+3 [label="(50570237)Any(db)" shape=ellipse style=dashed]
+4 [label="(50570240)shelve.DbfilenameShelf(db_out)" shape=ellipse style=dashed]
+5 [label="(50570229)=" shape=box style=dashed color=red fontcolor=red]
+6 [label="(50570242)nltk.sem.evaluate.Valuation(valuation)" shape=ellipse style=dashed]
+7 [label="(50570217)(null)" shape=ellipse style=dashed]
+8 [label="(50570218)=" shape=box style=dashed color=red fontcolor=red]
+9 [label="(50570215)START" style=dashed]
+10 [label="(50570225)dict_values[Any](concepts)" shape=ellipse style=dashed]
+11 [label="(50570231)make_valuation" shape=box style=dashed]
+12 [label="(50570220)Any(db)" shape=ellipse style=dashed]
+13 [label="(50570227)Union[dict_values[Dict[str, Union[str, List[str], List[nothing]]]], dict_values[Dict[str, Union[str, List[str]]]]](rels)" shape=ellipse style=dashed]
+14 [label="(50570216)Union[dict_values[Dict[str, Union[str, List[str], List[nothing]]]], dict_values[Dict[str, Union[str, List[str]]]]](rels)" shape=ellipse style=dashed]
+15 [label="(50570221)(null)" shape=ellipse style=dashed]
+16 [label="(50570241)update" shape=box style=dashed]
+17 [label="(50570226)process_bundle" shape=box style=dashed]
+18 [label="(50570244)close" shape=box style=dashed color=black fontcolor=black]
+19 [label="(50570239)=" shape=box style=dashed color=black fontcolor=black]
+20 [label="(50570235)shelve(shelve)" shape=ellipse style=dashed]
+21 [label="(50570243)shelve.DbfilenameShelf(db_out)" shape=ellipse style=dashed color=black fontcolor=black]
+22 [label="(50570245)END" style=dashed]
+23 [label="(50570228)values" shape=box style=dashed]
+24 [label="(50570236)open" shape=box style=dashed color=black fontcolor=black]
+25 [label="(50570230)nltk.sem.evaluate.Valuation(valuation)" shape=ellipse style=dashed]
+26 [label="(50570238)String(lit(n))" shape=ellipse style=dashed color=black fontcolor=black]
+27 [label="(50570234)shelve.DbfilenameShelf(db_out)" shape=ellipse style=dashed color=black fontcolor=black]
+28 [label="(50570233)=" shape=box style=dashed color=yellow fontcolor=yellow]
+9 -> 1 [label="" style=solid];
+15 -> 1 [label="para" style=dotted];
+8 -> 1 [label="dep" style=dotted];
+10 -> 2 [label="ref" style=dotted];
+27 -> 4 [label="ref" style=dotted];
+9 -> 5 [label="" style=solid];
+23 -> 5 [label="dep" style=dotted];
+23 -> 5 [label="para" style=dotted];
+25 -> 6 [label="ref" style=dotted];
+9 -> 8 [label="" style=solid];
+7 -> 8 [label="para" style=dotted];
+5 -> 10 [label="def" style=dotted];
+9 -> 11 [label="" style=solid];
+2 -> 11 [label="para" style=dotted];
+5 -> 11 [label="dep" style=dotted];
+1 -> 12 [label="def" style=dotted];
+8 -> 14 [label="def" style=dotted];
+9 -> 16 [label="" style=solid];
+4 -> 16 [label="recv" style=dotted];
+6 -> 16 [label="para" style=dotted];
+19 -> 16 [label="dep" style=dotted];
+9 -> 17 [label="" style=solid];
+13 -> 17 [label="para" style=dotted];
+1 -> 17 [label="dep" style=dotted];
+9 -> 18 [label="" style=solid];
+21 -> 18 [label="recv" style=dotted];
+16 -> 18 [label="dep" style=dotted];
+9 -> 19 [label="" style=solid];
+24 -> 19 [label="dep" style=dotted];
+24 -> 19 [label="para" style=dotted];
+27 -> 21 [label="ref" style=dotted];
+18 -> 22 [label="dep" style=dotted];
+9 -> 23 [label="" style=solid];
+17 -> 23 [label="dep" style=dotted];
+17 -> 23 [label="recv" style=dotted];
+9 -> 24 [label="" style=solid];
+20 -> 24 [label="recv" style=dotted];
+3 -> 24 [label="para" style=dotted];
+26 -> 24 [label="para" style=dotted];
+28 -> 24 [label="dep" style=dotted];
+28 -> 25 [label="def" style=dotted];
+19 -> 27 [label="def" style=dotted];
+9 -> 28 [label="" style=solid];
+11 -> 28 [label="dep" style=dotted];
+11 -> 28 [label="para" style=dotted];
+}

@@ -1,0 +1,1193 @@
+digraph G {
+1 [label="(216150089)Any(x_train)" shape=ellipse style=dashed]
+2 [label="(216149923)START" style=dashed]
+3 [label="(216150108)GAN.x(x)" shape=ellipse style=dashed]
+4 [label="(216150099)range" shape=box style=dashed]
+5 [label="(216149942)=" shape=box style=dashed color=blue fontcolor=blue]
+6 [label="(216150320)empty" shape=box style=dashed]
+7 [label="(216150110)Any[.](Subscript)" shape=ellipse style=dashed]
+8 [label="(216150181)GAN.g_step(g_step)" shape=ellipse style=dashed]
+9 [label="(216150280)If" shape=diamond style=dashed]
+10 [label="(216150013)String(lit(epoch.log))" shape=ellipse style=dashed]
+11 [label="(216150015)=" shape=box style=dashed color=red fontcolor=red]
+12 [label="(216149924)GAN(self)" shape=ellipse style=dashed]
+13 [label="(216149966)GAN.z(z)" shape=ellipse style=dashed]
+14 [label="(216149975)GAN(self)" shape=ellipse style=dashed]
+15 [label="(216150238)Any[.](Subscript)" shape=ellipse style=dashed]
+16 [label="(216149940)numpy.random(random)" shape=ellipse style=dashed]
+17 [label="(216149994)module(os)" shape=ellipse style=dashed]
+18 [label="(216150218)format" shape=box style=dashed]
+19 [label="(216150311)If" shape=diamond style=dashed]
+20 [label="(216150246)number(0)" shape=ellipse style=dashed]
+21 [label="(216150023)write" shape=box style=dashed]
+22 [label="(216150264)Dict[Any, Any](feed_dict_sample)" shape=ellipse style=dashed]
+23 [label="(216150278)Any[.](Subscript)" shape=ellipse style=dashed]
+24 [label="(216150319)String(lit(epoch |   time   |    - D_loss    |     G_loss))" shape=ellipse style=dashed]
+25 [label="(216149973)String(lit(x_train))" shape=ellipse style=dashed]
+26 [label="(216150341)Any(train_config)" shape=ellipse style=dashed]
+27 [label="(216150340)save" shape=box style=dashed]
+28 [label="(216150159)GAN(self)" shape=ellipse style=dashed]
+29 [label="(216150156)run" shape=box style=dashed]
+30 [label="(216150131)If" shape=diamond style=dashed]
+31 [label="(216150154)GAN(self)" shape=ellipse style=dashed]
+32 [label="(216150263)GAN.G.tensor_out(tensor_out)" shape=ellipse style=dashed]
+33 [label="(216150330)TextIO(log_epoch)" shape=ellipse style=dashed]
+34 [label="(216149954)GAN.config[.](Subscript)" shape=ellipse style=dashed]
+35 [label="(216150220)int(batch)" shape=ellipse style=dashed]
+36 [label="(216150203)Any(train_config)" shape=ellipse style=dashed]
+37 [label="(216150288)empty" shape=box style=dashed]
+38 [label="(216150363)END" style=dashed]
+39 [label="(216150316)If" shape=diamond style=dashed]
+40 [label="(216149998)GAN.config(config)" shape=ellipse style=dashed]
+41 [label="(216150216)print" shape=box style=dashed]
+42 [label="(216150010)GAN.config(config)" shape=ellipse style=dashed]
+43 [label="(216150065)int(epoch)" shape=ellipse style=dashed]
+44 [label="(216150227)TextIO(log_batch)" shape=ellipse style=dashed]
+45 [label="(216150150)boolean(dummy_)" shape=ellipse style=dashed]
+46 [label="(216150232)int(batch)" shape=ellipse style=dashed]
+47 [label="(216150331)write" shape=box style=dashed]
+48 [label="(216150085)numpy(np)" shape=ellipse style=dashed]
+49 [label="(216150019)TextIO(log_batch)" shape=ellipse style=dashed]
+50 [label="(216150028)number(1.0)" shape=ellipse style=dashed]
+51 [label="(216150323)format" shape=box style=dashed]
+52 [label="(216150136)empty" shape=box style=dashed]
+53 [label="(216150194)get_global_step_str" shape=box style=dashed]
+54 [label="(216150245)Mod" shape=box style=dashed]
+55 [label="(216150115)GAN(self)" shape=ellipse style=dashed]
+56 [label="(216150166)String(lit({}, {:14.6f}
+))" shape=ellipse style=dashed]
+57 [label="(216150170)Any(d_loss)" shape=ellipse style=dashed]
+58 [label="(216150296)empty" shape=box style=dashed]
+59 [label="(216150122)Or" shape=box style=dashed]
+60 [label="(216150350)run" shape=box style=dashed]
+61 [label="(216149964)key:End2EndGAN,value:End2EndGAN(key:Attribute,value:Attribute)" shape=ellipse style=dashed]
+62 [label="(216149950)len" shape=box style=dashed]
+63 [label="(216150201)Sub" shape=box style=dashed]
+64 [label="(216150242)Or" shape=box style=dashed]
+65 [label="(216150219)int(epoch)" shape=ellipse style=dashed]
+66 [label="(216150157)GAN(self)" shape=ellipse style=dashed]
+67 [label="(216150279)String(lit(evaluate_along_training))" shape=ellipse style=dashed]
+68 [label="(216150337)USub" shape=box style=dashed]
+69 [label="(216149929)(null)" shape=ellipse style=dashed]
+70 [label="(216150265)int(counter)" shape=ellipse style=dashed]
+71 [label="(216150328)Any(g_loss)" shape=ellipse style=dashed]
+72 [label="(216149947)numpy(np)" shape=ellipse style=dashed]
+73 [label="(216150304)float(epoch_start_time)" shape=ellipse style=dashed]
+74 [label="(216150195)Any(d_loss)" shape=ellipse style=dashed]
+75 [label="(216150343)String(lit(slope_annealing_rate))" shape=ellipse style=dashed]
+76 [label="(216150098)=" shape=box style=dashed color=red fontcolor=red]
+77 [label="(216150299)=Add" shape=box style=dashed]
+78 [label="(216150354)String(lit({:=^80}))" shape=ellipse style=dashed]
+79 [label="(216150209)number(1)" shape=ellipse style=dashed]
+80 [label="(216149988)String(lit(log_dir))" shape=ellipse style=dashed]
+81 [label="(216149986)GAN.config(config)" shape=ellipse style=dashed]
+82 [label="(216150168)GAN(self)" shape=ellipse style=dashed]
+83 [label="(216149989)String(lit(step.log))" shape=ellipse style=dashed]
+84 [label="(216150164)TextIO(log_step)" shape=ellipse style=dashed]
+85 [label="(216150224)USub" shape=box style=dashed]
+86 [label="(216150106)key:End2EndGAN,value:End2EndGAN(key:Attribute,value:Subscript)" shape=ellipse style=dashed]
+87 [label="(216150037)GAN(self)" shape=ellipse style=dashed]
+88 [label="(216150313)int(epoch)" shape=ellipse style=dashed]
+89 [label="(216150061)range" shape=box style=dashed]
+90 [label="(216150268)GAN(self)" shape=ellipse style=dashed]
+91 [label="(216150149)empty" shape=box style=dashed]
+92 [label="(216150271)GAN.G(G)" shape=ellipse style=dashed]
+93 [label="(216150361)TextIO(log_epoch)" shape=ellipse style=dashed color=red fontcolor=red]
+94 [label="(216150355)format" shape=box style=dashed]
+95 [label="(216150047)=" shape=box style=dashed color=black fontcolor=black]
+96 [label="(216150152)Any(d_loss)" shape=ellipse style=dashed]
+97 [label="(216150256)Eq" shape=box style=dashed]
+98 [label="(216150172)boolean(dummy_)" shape=ellipse style=dashed]
+99 [label="(216150038)GAN.slope_tensor(slope_tensor)" shape=ellipse style=dashed]
+100 [label="(216150300)=" shape=box style=dashed]
+101 [label="(216150105)Dict[Any, Any](feed_dict_batch)" shape=ellipse style=dashed]
+102 [label="(216150162)Dict[Any, Any](feed_dict_batch)" shape=ellipse style=dashed]
+103 [label="(216150285)number(0)" shape=ellipse style=dashed]
+104 [label="(216150068)empty" shape=box style=dashed]
+105 [label="(216150362)close" shape=box style=dashed color=red fontcolor=red]
+106 [label="(216149943)GAN(self)" shape=ellipse style=dashed]
+107 [label="(216150321)print" shape=box style=dashed]
+108 [label="(216150202)=" shape=box style=dashed color=yellow fontcolor=yellow]
+109 [label="(216150208)int(batch)" shape=ellipse style=dashed]
+110 [label="(216150266)number(500)" shape=ellipse style=dashed]
+111 [label="(216150282)int(counter)" shape=ellipse style=dashed]
+112 [label="(216150071)format" shape=box style=dashed]
+113 [label="(216150228)write" shape=box style=dashed]
+114 [label="(216150058)String(lit({:=^80}))" shape=ellipse style=dashed]
+115 [label="(216150205)String(lit(verbose))" shape=ellipse style=dashed]
+116 [label="(216150284)Mod" shape=box style=dashed]
+117 [label="(216149984)join" shape=box style=dashed]
+118 [label="(216149987)GAN.config[.](Subscript)" shape=ellipse style=dashed]
+119 [label="(216150092)GAN(self)" shape=ellipse style=dashed]
+120 [label="(216150141)time(time)" shape=ellipse style=dashed]
+121 [label="(216149925)(null)" shape=ellipse style=dashed]
+122 [label="(216150292)GAN.G(G)" shape=ellipse style=dashed]
+123 [label="(216150206)If" shape=diamond style=dashed]
+124 [label="(216150119)int(batch)" shape=ellipse style=dashed]
+125 [label="(216150084)Any(x_random_batch)" shape=ellipse style=dashed]
+126 [label="(216150223)Any(d_loss)" shape=ellipse style=dashed]
+127 [label="(216149992)TextIO(log_batch)" shape=ellipse style=dashed color=blue fontcolor=blue]
+128 [label="(216150250)number(300)" shape=ellipse style=dashed]
+129 [label="(216150200)float(batch_start_time)" shape=ellipse style=dashed]
+130 [label="(216150067)For" shape=diamond style=dashed]
+131 [label="(216149968)GAN.z_sample(z_sample)" shape=ellipse style=dashed]
+132 [label="(216150104)empty" shape=box style=dashed]
+133 [label="(216150171)USub" shape=box style=dashed]
+134 [label="(216149982)module(os)" shape=ellipse style=dashed]
+135 [label="(216150107)GAN(self)" shape=ellipse style=dashed]
+136 [label="(216150277)Any(train_config)" shape=ellipse style=dashed]
+137 [label="(216150070)String(lit({:-^80}))" shape=ellipse style=dashed]
+138 [label="(216150175)Any(g_loss)" shape=ellipse style=dashed]
+139 [label="(216150144)range" shape=box style=dashed]
+140 [label="(216150309)String(lit(verbose))" shape=ellipse style=dashed]
+141 [label="(216150352)empty" shape=box style=dashed]
+142 [label="(216150287)If" shape=diamond style=dashed]
+143 [label="(216150137)int(num_critics)" shape=ellipse style=dashed]
+144 [label="(216150275)empty" shape=box style=dashed]
+145 [label="(216150073)format" shape=box style=dashed]
+146 [label="(216149958)Dict[Any, Any](feed_dict_sample)" shape=ellipse style=dashed]
+147 [label="(216150086)numpy.random(random)" shape=ellipse style=dashed]
+148 [label="(216150054)String(lit(batch_size))" shape=ellipse style=dashed]
+149 [label="(216150126)int(counter)" shape=ellipse style=dashed]
+150 [label="(216150267)Gt" shape=box style=dashed]
+151 [label="(216150308)Any[.](Subscript)" shape=ellipse style=dashed]
+152 [label="(216150353)print" shape=box style=dashed]
+153 [label="(216150077)time" shape=box style=dashed]
+154 [label="(216150178)GAN.sess(sess)" shape=ellipse style=dashed]
+155 [label="(216150190)write" shape=box style=dashed]
+156 [label="(216150111)Any(x_random_batch)" shape=ellipse style=dashed]
+157 [label="(216150176)()" shape=box style=dashed]
+158 [label="(216150000)String(lit(log_dir))" shape=ellipse style=dashed]
+159 [label="(216150011)GAN.config[.](Subscript)" shape=ellipse style=dashed]
+160 [label="(216150307)Any(train_config)" shape=ellipse style=dashed]
+161 [label="(216150147)int(_)" shape=ellipse style=dashed]
+162 [label="(216150252)int(counter)" shape=ellipse style=dashed]
+163 [label="(216150346)If" shape=diamond style=dashed]
+164 [label="(216149955)String(lit(batch_size))" shape=ellipse style=dashed]
+165 [label="(216150116)GAN.z(z)" shape=ellipse style=dashed]
+166 [label="(216150003)=" shape=box style=dashed color=blue fontcolor=blue]
+167 [label="(216150199)time" shape=box style=dashed]
+168 [label="(216150197)float(time_batch)" shape=ellipse style=dashed]
+169 [label="(216150325)float(time_epoch)" shape=ellipse style=dashed]
+170 [label="(216150326)Any(d_loss)" shape=ellipse style=dashed]
+171 [label="(216150298)number(1)" shape=ellipse style=dashed]
+172 [label="(216149945)Any(x_train)" shape=ellipse style=dashed]
+173 [label="(216150041)String(lit(slope_annealing_rate))" shape=ellipse style=dashed]
+174 [label="(216149976)save_samples" shape=box style=dashed]
+175 [label="(216150142)time" shape=box style=dashed]
+176 [label="(216149949)choice" shape=box style=dashed]
+177 [label="(216150302)time(time)" shape=ellipse style=dashed]
+178 [label="(216150305)Sub" shape=box style=dashed]
+179 [label="(216150095)String(lit(batch_size))" shape=ellipse style=dashed]
+180 [label="(216150312)empty" shape=box style=dashed]
+181 [label="(216150064)String(lit(num_epoch))" shape=ellipse style=dashed]
+182 [label="(216149963)GAN.x_sample(x_sample)" shape=ellipse style=dashed]
+183 [label="(216150261)GAN(self)" shape=ellipse style=dashed]
+184 [label="(216150315)Lt" shape=box style=dashed]
+185 [label="(216150222)float(time_batch)" shape=ellipse style=dashed]
+186 [label="(216150051)GAN(self)" shape=ellipse style=dashed]
+187 [label="(216149932)Any(train_config)" shape=ellipse style=dashed]
+188 [label="(216150078)=" shape=box style=dashed color=red fontcolor=red]
+189 [label="(216150117)Any(z_random_batch)" shape=ellipse style=dashed]
+190 [label="(216150039)Any(train_config)" shape=ellipse style=dashed]
+191 [label="(216150248)And" shape=box style=dashed]
+192 [label="(216150230)format" shape=box style=dashed]
+193 [label="(216150269)run_sampler" shape=box style=dashed]
+194 [label="(216150349)GAN.sess(sess)" shape=ellipse style=dashed]
+195 [label="(216149977)String(lit(x_sample))" shape=ellipse style=dashed]
+196 [label="(216150241)empty" shape=box style=dashed]
+197 [label="(216150040)Any[.](Subscript)" shape=ellipse style=dashed]
+198 [label="(216150004)TextIO(log_epoch)" shape=ellipse style=dashed color=red fontcolor=red]
+199 [label="(216149997)GAN(self)" shape=ellipse style=dashed]
+200 [label="(216149971)GAN(self)" shape=ellipse style=dashed]
+201 [label="(216150276)empty" shape=box style=dashed]
+202 [label="(216149990)String(lit(w))" shape=ellipse style=dashed color=red fontcolor=red]
+203 [label="(216150029)NotEq" shape=box style=dashed]
+204 [label="(216149941)normal" shape=box style=dashed]
+205 [label="(216149993)open" shape=box style=dashed color=blue fontcolor=blue]
+206 [label="(216150155)GAN.sess(sess)" shape=ellipse style=dashed]
+207 [label="(216150025)Any(train_config)" shape=ellipse style=dashed]
+208 [label="(216150120){new}" shape=box style=dashed]
+209 [label="(216150182)GAN(self)" shape=ellipse style=dashed]
+210 [label="(216149974)Any(x_train)" shape=ellipse style=dashed]
+211 [label="(216150103)For" shape=diamond style=dashed]
+212 [label="(216150022)TextIO(log_epoch)" shape=ellipse style=dashed]
+213 [label="(216150087)choice" shape=box style=dashed]
+214 [label="(216149999)GAN.config[.](Subscript)" shape=ellipse style=dashed]
+215 [label="(216149952)GAN(self)" shape=ellipse style=dashed]
+216 [label="(216150186)[list]" shape=box style=dashed]
+217 [label="(216150240)If" shape=diamond style=dashed]
+218 [label="(216150002)String(lit(w))" shape=ellipse style=dashed color=blue fontcolor=blue]
+219 [label="(216150236)Any(g_loss)" shape=ellipse style=dashed]
+220 [label="(216150259)GAN(self)" shape=ellipse style=dashed]
+221 [label="(216150210)Lt" shape=box style=dashed]
+222 [label="(216150329)empty" shape=box style=dashed]
+223 [label="(216150165)write" shape=box style=dashed]
+224 [label="(216150286)Eq" shape=box style=dashed]
+225 [label="(216150005)open" shape=box style=dashed color=red fontcolor=red]
+226 [label="(216149962)GAN(self)" shape=ellipse style=dashed]
+227 [label="(216150247)Eq" shape=box style=dashed]
+228 [label="(216150100)Any(num_batch)" shape=ellipse style=dashed]
+229 [label="(216150132)empty" shape=box style=dashed]
+230 [label="(216149944)GAN.x_sample(x_sample)" shape=ellipse style=dashed]
+231 [label="(216150008)join" shape=box style=dashed]
+232 [label="(216150031)empty" shape=box style=dashed]
+233 [label="(216150044)empty" shape=box style=dashed]
+234 [label="(216150272)GAN.G.preactivated(preactivated)" shape=ellipse style=dashed]
+235 [label="(216150133)int(num_critics)" shape=ellipse style=dashed]
+236 [label="(216149991)=" shape=box style=dashed color=red fontcolor=red]
+237 [label="(216150014)String(lit(w))" shape=ellipse style=dashed color=red fontcolor=red]
+238 [label="(216149961)GAN.x(x)" shape=ellipse style=dashed]
+239 [label="(216150048)Any(num_batch)" shape=ellipse style=dashed]
+240 [label="(216149959)key:End2EndGAN,value:End2EndGAN(key:Attribute,value:Attribute)" shape=ellipse style=dashed]
+241 [label="(216150007)module.path(path)" shape=ellipse style=dashed]
+242 [label="(216150243)int(counter)" shape=ellipse style=dashed]
+243 [label="(216150033)tensorflow(tf)" shape=ellipse style=dashed]
+244 [label="(216150217)String(lit(  {:2d}  | {:4d}/{:4d} | {:6.2f} | {:14.6f} | {:14.6f}))" shape=ellipse style=dashed]
+245 [label="(216149957)=" shape=box style=dashed color=black fontcolor=black]
+246 [label="(216150069)print" shape=box style=dashed]
+247 [label="(216150125)Lt" shape=box style=dashed]
+248 [label="(216150063)Any[.](Subscript)" shape=ellipse style=dashed]
+249 [label="(216150096)()" shape=box style=dashed]
+250 [label="(216150318)print" shape=box style=dashed]
+251 [label="(216150233)float(time_batch)" shape=ellipse style=dashed]
+252 [label="(216150160)GAN.d_loss(d_loss)" shape=ellipse style=dashed]
+253 [label="(216149926)=" shape=box style=dashed color=yellow fontcolor=yellow]
+254 [label="(216150179)run" shape=box style=dashed]
+255 [label="(216150344)number(1.0)" shape=ellipse style=dashed]
+256 [label="(216150026)Any[.](Subscript)" shape=ellipse style=dashed]
+257 [label="(216150191)String(lit({}, {:14.6f}
+))" shape=ellipse style=dashed]
+258 [label="(216150024)String(lit(# epoch, time, negative_critic_loss, g_loss
+))" shape=ellipse style=dashed]
+259 [label="(216150080)numpy(np)" shape=ellipse style=dashed]
+260 [label="(216149946)Any[.](Subscript)" shape=ellipse style=dashed]
+261 [label="(216150109)Any(x_train)" shape=ellipse style=dashed]
+262 [label="(216150185)GAN.g_loss(g_loss)" shape=ellipse style=dashed]
+263 [label="(216150310)Not" shape=box style=dashed]
+264 [label="(216150055)FloorDiv" shape=box style=dashed]
+265 [label="(216150187)Dict[Any, Any](feed_dict_batch)" shape=ellipse style=dashed]
+266 [label="(216150094)GAN.config[.](Subscript)" shape=ellipse style=dashed]
+267 [label="(216150135)=" shape=box style=dashed color=blue fontcolor=blue]
+268 [label="(216150214)String(lit(epoch |   batch   |  time  |    - D_loss    |     G_loss))" shape=ellipse style=dashed]
+269 [label="(216150052)GAN.config(config)" shape=ellipse style=dashed]
+270 [label="(216150333)format" shape=box style=dashed]
+271 [label="(216150139)=" shape=box style=dashed color=red fontcolor=red]
+272 [label="(216150027)String(lit(slope_annealing_rate))" shape=ellipse style=dashed]
+273 [label="(216150034)assign" shape=box style=dashed]
+274 [label="(216150130)Eq" shape=box style=dashed]
+275 [label="(216150339)GAN(self)" shape=ellipse style=dashed]
+276 [label="(216150072)String(lit( Epoch {} Start ))" shape=ellipse style=dashed]
+277 [label="(216150294)Dict[Any, Any](feed_dict_sample)" shape=ellipse style=dashed]
+278 [label="(216150066)int(epoch)" shape=ellipse style=dashed]
+279 [label="(216149978)GAN(self)" shape=ellipse style=dashed]
+280 [label="(216149983)module.path(path)" shape=ellipse style=dashed]
+281 [label="(216149981)open" shape=box style=dashed color=red fontcolor=red]
+282 [label="(216150211)If" shape=diamond style=dashed]
+283 [label="(216150128)Mod" shape=box style=dashed]
+284 [label="(216150196)USub" shape=box style=dashed]
+285 [label="(216150254)Mod" shape=box style=dashed]
+286 [label="(216149933)(null)" shape=ellipse style=dashed]
+287 [label="(216150229)String(lit({:d}, {:d}, {:f}, {:f}, {:f}
+))" shape=ellipse style=dashed]
+288 [label="(216150357)TextIO(log_step)" shape=ellipse style=dashed color=red fontcolor=red]
+289 [label="(216150091)Any(num_batch)" shape=ellipse style=dashed]
+290 [label="(216149996)join" shape=box style=dashed]
+291 [label="(216150036)GAN.slope_tensor(slope_tensor)" shape=ellipse style=dashed]
+292 [label="(216150101)int(batch)" shape=ellipse style=dashed]
+293 [label="(216150161)[list]" shape=box style=dashed]
+294 [label="(216150253)number(20)" shape=ellipse style=dashed]
+295 [label="(216149938)GAN.z_sample(z_sample)" shape=ellipse style=dashed]
+296 [label="(216150262)GAN.G(G)" shape=ellipse style=dashed]
+297 [label="(216149972)save_samples" shape=box style=dashed]
+298 [label="(216150255)number(0)" shape=ellipse style=dashed]
+299 [label="(216150235)USub" shape=box style=dashed]
+300 [label="(216150359)TextIO(log_batch)" shape=ellipse style=dashed color=blue fontcolor=blue]
+301 [label="(216150118)Any[.](Subscript)" shape=ellipse style=dashed]
+302 [label="(216150183)GAN.d_loss(d_loss)" shape=ellipse style=dashed]
+303 [label="(216150113)int(batch)" shape=ellipse style=dashed]
+304 [label="(216150124)number(25)" shape=ellipse style=dashed]
+305 [label="(216150177)GAN(self)" shape=ellipse style=dashed]
+306 [label="(216150030)If" shape=diamond style=dashed]
+307 [label="(216150237)Any(train_config)" shape=ellipse style=dashed]
+308 [label="(216150335)float(time_epoch)" shape=ellipse style=dashed]
+309 [label="(216150042)Mult" shape=box style=dashed]
+310 [label="(216150270)GAN(self)" shape=ellipse style=dashed]
+311 [label="(216150075)float(epoch_start_time)" shape=ellipse style=dashed]
+312 [label="(216150059)format" shape=box style=dashed]
+313 [label="(216150358)close" shape=box style=dashed color=red fontcolor=red]
+314 [label="(216150322)String(lit(  {:2d}  | {:8.2f} | {:14.6f} | {:14.6f}))" shape=ellipse style=dashed]
+315 [label="(216150083)=" shape=box style=dashed color=red fontcolor=red]
+316 [label="(216150169)get_global_step_str" shape=box style=dashed]
+317 [label="(216150184)GAN(self)" shape=ellipse style=dashed]
+318 [label="(216150215)empty" shape=box style=dashed]
+319 [label="(216149939)numpy(np)" shape=ellipse style=dashed]
+320 [label="(216149953)GAN.config(config)" shape=ellipse style=dashed]
+321 [label="(216150257)If" shape=diamond style=dashed]
+322 [label="(216150102)int(batch)" shape=ellipse style=dashed]
+323 [label="(216150193)GAN(self)" shape=ellipse style=dashed]
+324 [label="(216149979)GAN.x_sample(x_sample)" shape=ellipse style=dashed]
+325 [label="(216150009)GAN(self)" shape=ellipse style=dashed]
+326 [label="(216150079)Any(z_random_batch)" shape=ellipse style=dashed]
+327 [label="(216150180)GAN(self)" shape=ellipse style=dashed]
+328 [label="(216150258)empty" shape=box style=dashed]
+329 [label="(216149930)=" shape=box style=dashed color=black fontcolor=black]
+330 [label="(216150225)Any(g_loss)" shape=ellipse style=dashed]
+331 [label="(216150274)False(False)" shape=ellipse style=dashed]
+332 [label="(216149967)GAN(self)" shape=ellipse style=dashed]
+333 [label="(216150295)empty" shape=box style=dashed]
+334 [label="(216150273)Dict[Any, Any](feed_dict_sample)" shape=ellipse style=dashed]
+335 [label="(216150046)number(0)" shape=ellipse style=dashed]
+336 [label="(216150297)int(counter)" shape=ellipse style=dashed]
+337 [label="(216150012)String(lit(log_dir))" shape=ellipse style=dashed]
+338 [label="(216149980)TextIO(log_step)" shape=ellipse style=dashed color=red fontcolor=red]
+339 [label="(216150174)Any(d_loss)" shape=ellipse style=dashed]
+340 [label="(216150336)Any(d_loss)" shape=ellipse style=dashed]
+341 [label="(216150327)USub" shape=box style=dashed]
+342 [label="(216149937)GAN(self)" shape=ellipse style=dashed]
+343 [label="(216150081)numpy.random(random)" shape=ellipse style=dashed]
+344 [label="(216150140)float(batch_start_time)" shape=ellipse style=dashed]
+345 [label="(216149951)Any(x_train)" shape=ellipse style=dashed]
+346 [label="(216150127)number(500)" shape=ellipse style=dashed]
+347 [label="(216150207)empty" shape=box style=dashed]
+348 [label="(216150234)Any(d_loss)" shape=ellipse style=dashed]
+349 [label="(216150143)=" shape=box style=dashed color=yellow fontcolor=yellow]
+350 [label="(216150303)time" shape=box style=dashed]
+351 [label="(216150018)String(lit(# epoch, step, negative_critic_loss
+))" shape=ellipse style=dashed]
+352 [label="(216150148)For" shape=diamond style=dashed]
+353 [label="(216150226)empty" shape=box style=dashed]
+354 [label="(216150049)len" shape=box style=dashed]
+355 [label="(216150317)empty" shape=box style=dashed]
+356 [label="(216150213)print" shape=box style=dashed]
+357 [label="(216150114)key:End2EndGAN,value:End2EndGAN(key:Attribute,value:Subscript)" shape=ellipse style=dashed]
+358 [label="(216150112)Any[.](Subscript)" shape=ellipse style=dashed]
+359 [label="(216150062)Any(train_config)" shape=ellipse style=dashed]
+360 [label="(216150281)empty" shape=box style=dashed]
+361 [label="(216149928)Any(x_train)" shape=ellipse style=dashed]
+362 [label="(216150239)String(lit(sample_along_training))" shape=ellipse style=dashed]
+363 [label="(216150082)normal" shape=box style=dashed]
+364 [label="(216150192)format" shape=box style=dashed]
+365 [label="(216150088)len" shape=box style=dashed]
+366 [label="(216150020)write" shape=box style=dashed]
+367 [label="(216150097)False(False)" shape=ellipse style=dashed]
+368 [label="(216150290)run_eval" shape=box style=dashed]
+369 [label="(216150153)()" shape=box style=dashed]
+370 [label="(216150301)float(time_epoch)" shape=ellipse style=dashed]
+371 [label="(216150167)format" shape=box style=dashed]
+372 [label="(216150138)number(5)" shape=ellipse style=dashed]
+373 [label="(216150050)Any(x_train)" shape=ellipse style=dashed]
+374 [label="(216150198)time(time)" shape=ellipse style=dashed]
+375 [label="(216150146)int(_)" shape=ellipse style=dashed]
+376 [label="(216150251)Lt" shape=box style=dashed]
+377 [label="(216150076)time(time)" shape=ellipse style=dashed]
+378 [label="(216150334)int(epoch)" shape=ellipse style=dashed]
+379 [label="(216149970)=" shape=box style=dashed color=blue fontcolor=blue]
+380 [label="(216150231)int(epoch)" shape=ellipse style=dashed]
+381 [label="(216150134)number(100)" shape=ellipse style=dashed]
+382 [label="(216150212)empty" shape=box style=dashed]
+383 [label="(216150347)empty" shape=box style=dashed]
+384 [label="(216150324)int(epoch)" shape=ellipse style=dashed]
+385 [label="(216150360)close" shape=box style=dashed color=blue fontcolor=blue]
+386 [label="(216150306)=" shape=box style=dashed color=red fontcolor=red]
+387 [label="(216150093)GAN.config(config)" shape=ellipse style=dashed]
+388 [label="(216150173)Any(_)" shape=ellipse style=dashed]
+389 [label="(216150035)GAN(self)" shape=ellipse style=dashed]
+390 [label="(216150260)run_sampler" shape=box style=dashed]
+391 [label="(216150244)number(100)" shape=ellipse style=dashed]
+392 [label="(216150016)TextIO(log_step)" shape=ellipse style=dashed]
+393 [label="(216150291)GAN(self)" shape=ellipse style=dashed]
+394 [label="(216150043)=" shape=box style=dashed color=red fontcolor=red]
+395 [label="(216150057)print" shape=box style=dashed]
+396 [label="(216149965)GAN(self)" shape=ellipse style=dashed]
+397 [label="(216150056)=" shape=box style=dashed color=black fontcolor=black]
+398 [label="(216150189)TextIO(log_step)" shape=ellipse style=dashed]
+399 [label="(216150283)number(10)" shape=ellipse style=dashed]
+400 [label="(216150332)String(lit({:d}, {:f}, {:f}, {:f}
+))" shape=ellipse style=dashed]
+401 [label="(216150204)Any[.](Subscript)" shape=ellipse style=dashed]
+402 [label="(216150074)int(epoch)" shape=ellipse style=dashed]
+403 [label="(216150006)module(os)" shape=ellipse style=dashed]
+404 [label="(216150123)int(counter)" shape=ellipse style=dashed]
+405 [label="(216150151)int(_)" shape=ellipse style=dashed]
+406 [label="(216150017)write" shape=box style=dashed]
+407 [label="(216150348)GAN(self)" shape=ellipse style=dashed]
+408 [label="(216149985)GAN(self)" shape=ellipse style=dashed]
+409 [label="(216150289)GAN(self)" shape=ellipse style=dashed]
+410 [label="(216150032)Any(slope_annealing_op)" shape=ellipse style=dashed]
+411 [label="(216149995)module.path(path)" shape=ellipse style=dashed]
+412 [label="(216149960)GAN(self)" shape=ellipse style=dashed]
+413 [label="(216149948)numpy.random(random)" shape=ellipse style=dashed]
+414 [label="(216150021)String(lit(# epoch, batch, time, negative_critic_loss, g_loss
+))" shape=ellipse style=dashed]
+415 [label="(216150145)int(num_critics)" shape=ellipse style=dashed]
+416 [label="(216150338)Any(g_loss)" shape=ellipse style=dashed]
+417 [label="(216150158)GAN.d_step(d_step)" shape=ellipse style=dashed]
+418 [label="(216149956)False(False)" shape=ellipse style=dashed]
+419 [label="(216150129)number(0)" shape=ellipse style=dashed]
+420 [label="(216150356)String(lit( Training End ))" shape=ellipse style=dashed]
+421 [label="(216150314)number(1)" shape=ellipse style=dashed]
+422 [label="(216149969){new}" shape=box style=dashed]
+423 [label="(216150121)=" shape=box style=dashed color=yellow fontcolor=yellow]
+424 [label="(216150351)Any(slope_annealing_op)" shape=ellipse style=dashed]
+425 [label="(216150293)GAN.G.tensor_out(tensor_out)" shape=ellipse style=dashed]
+426 [label="(216150053)GAN.config[.](Subscript)" shape=ellipse style=dashed]
+427 [label="(216150163)=" shape=box style=dashed color=blue fontcolor=blue]
+428 [label="(216150188)=" shape=box style=dashed color=red fontcolor=red]
+429 [label="(216150221)Any(num_batch)" shape=ellipse style=dashed]
+430 [label="(216150045)int(counter)" shape=ellipse style=dashed]
+431 [label="(216150060)String(lit( Training Start ))" shape=ellipse style=dashed]
+432 [label="(216149934)=" shape=box style=dashed color=red fontcolor=red]
+433 [label="(216150249)int(counter)" shape=ellipse style=dashed]
+434 [label="(216150342)Any[.](Subscript)" shape=ellipse style=dashed]
+435 [label="(216150001)String(lit(batch.log))" shape=ellipse style=dashed]
+436 [label="(216150345)NotEq" shape=box style=dashed]
+135 -> 3 [label="qual" style=dotted];
+130 -> 4 [label="" style=solid];
+228 -> 4 [label="para" style=dotted];
+76 -> 4 [label="dep" style=dotted];
+2 -> 5 [label="" style=solid];
+204 -> 5 [label="dep" style=dotted];
+204 -> 5 [label="para" style=dotted];
+39 -> 6 [label="F"];
+261 -> 7 [label="qual" style=dotted];
+358 -> 7 [label="para" style=dotted];
+327 -> 8 [label="qual" style=dotted];
+211 -> 9 [label="" style=solid];
+23 -> 9 [label="cond" style=dotted];
+193 -> 9 [label="dep" style=dotted];
+201 -> 9 [label="dep" style=dotted];
+144 -> 9 [label="dep" style=dotted];
+2 -> 11 [label="" style=solid];
+225 -> 11 [label="dep" style=dotted];
+225 -> 11 [label="para" style=dotted];
+253 -> 12 [label="def" style=dotted];
+396 -> 13 [label="qual" style=dotted];
+307 -> 15 [label="qual" style=dotted];
+362 -> 15 [label="para" style=dotted];
+319 -> 16 [label="qual" style=dotted];
+123 -> 18 [label="T"];
+244 -> 18 [label="recv" style=dotted];
+65 -> 18 [label="para" style=dotted];
+35 -> 18 [label="para" style=dotted];
+429 -> 18 [label="para" style=dotted];
+185 -> 18 [label="para" style=dotted];
+85 -> 18 [label="dep" style=dotted];
+85 -> 18 [label="para" style=dotted];
+330 -> 18 [label="para" style=dotted];
+318 -> 18 [label="dep" style=dotted];
+356 -> 18 [label="dep" style=dotted];
+130 -> 19 [label="" style=solid];
+263 -> 19 [label="dep" style=dotted];
+263 -> 19 [label="cond" style=dotted];
+2 -> 21 [label="" style=solid];
+212 -> 21 [label="recv" style=dotted];
+258 -> 21 [label="para" style=dotted];
+366 -> 21 [label="dep" style=dotted];
+146 -> 22 [label="ref" style=dotted];
+136 -> 23 [label="qual" style=dotted];
+67 -> 23 [label="para" style=dotted];
+130 -> 27 [label="" style=solid];
+275 -> 27 [label="recv" style=dotted];
+47 -> 27 [label="dep" style=dotted];
+352 -> 29 [label="" style=solid];
+206 -> 29 [label="recv" style=dotted];
+293 -> 29 [label="dep" style=dotted];
+293 -> 29 [label="para" style=dotted];
+102 -> 29 [label="para" style=dotted];
+91 -> 29 [label="dep" style=dotted];
+211 -> 30 [label="" style=solid];
+59 -> 30 [label="dep" style=dotted];
+59 -> 30 [label="cond" style=dotted];
+296 -> 32 [label="qual" style=dotted];
+198 -> 33 [label="ref" style=dotted];
+320 -> 34 [label="qual" style=dotted];
+164 -> 34 [label="para" style=dotted];
+292 -> 35 [label="ref" style=dotted];
+142 -> 37 [label="T"];
+105 -> 38 [label="dep" style=dotted];
+19 -> 39 [label="T"];
+184 -> 39 [label="dep" style=dotted];
+184 -> 39 [label="cond" style=dotted];
+199 -> 40 [label="qual" style=dotted];
+123 -> 41 [label="T"];
+18 -> 41 [label="dep" style=dotted];
+18 -> 41 [label="para" style=dotted];
+318 -> 41 [label="dep" style=dotted];
+356 -> 41 [label="dep" style=dotted];
+325 -> 42 [label="qual" style=dotted];
+89 -> 43 [label="def" style=dotted];
+127 -> 44 [label="ref" style=dotted];
+369 -> 45 [label="def" style=dotted];
+427 -> 45 [label="def" style=dotted];
+292 -> 46 [label="ref" style=dotted];
+130 -> 47 [label="" style=solid];
+33 -> 47 [label="recv" style=dotted];
+270 -> 47 [label="dep" style=dotted];
+270 -> 47 [label="para" style=dotted];
+107 -> 47 [label="dep" style=dotted];
+222 -> 47 [label="dep" style=dotted];
+127 -> 49 [label="ref" style=dotted];
+19 -> 51 [label="T"];
+314 -> 51 [label="recv" style=dotted];
+384 -> 51 [label="para" style=dotted];
+169 -> 51 [label="para" style=dotted];
+341 -> 51 [label="dep" style=dotted];
+341 -> 51 [label="para" style=dotted];
+71 -> 51 [label="para" style=dotted];
+6 -> 51 [label="dep" style=dotted];
+250 -> 51 [label="dep" style=dotted];
+30 -> 52 [label="F"];
+211 -> 53 [label="" style=solid];
+323 -> 53 [label="recv" style=dotted];
+428 -> 53 [label="dep" style=dotted];
+217 -> 54 [label="T"];
+242 -> 54 [label="para" style=dotted];
+391 -> 54 [label="para" style=dotted];
+196 -> 54 [label="dep" style=dotted];
+9 -> 58 [label="F"];
+211 -> 59 [label="" style=solid];
+247 -> 59 [label="dep" style=dotted];
+247 -> 59 [label="para" style=dotted];
+274 -> 59 [label="dep" style=dotted];
+274 -> 59 [label="para" style=dotted];
+163 -> 60 [label="T"];
+194 -> 60 [label="recv" style=dotted];
+424 -> 60 [label="para" style=dotted];
+383 -> 60 [label="dep" style=dotted];
+13 -> 61 [label="para" style=dotted];
+131 -> 61 [label="para" style=dotted];
+2 -> 62 [label="" style=solid];
+345 -> 62 [label="para" style=dotted];
+211 -> 63 [label="" style=solid];
+167 -> 63 [label="dep" style=dotted];
+167 -> 63 [label="para" style=dotted];
+129 -> 63 [label="para" style=dotted];
+155 -> 63 [label="dep" style=dotted];
+217 -> 64 [label="T"];
+227 -> 64 [label="dep" style=dotted];
+227 -> 64 [label="para" style=dotted];
+191 -> 64 [label="dep" style=dotted];
+191 -> 64 [label="para" style=dotted];
+43 -> 65 [label="ref" style=dotted];
+130 -> 68 [label="" style=solid];
+340 -> 68 [label="para" style=dotted];
+107 -> 68 [label="dep" style=dotted];
+222 -> 68 [label="dep" style=dotted];
+430 -> 70 [label="ref" style=dotted];
+311 -> 73 [label="ref" style=dotted];
+130 -> 76 [label="" style=solid];
+213 -> 76 [label="dep" style=dotted];
+213 -> 76 [label="para" style=dotted];
+211 -> 77 [label="" style=solid];
+336 -> 77 [label="para" style=dotted];
+171 -> 77 [label="para" style=dotted];
+333 -> 77 [label="dep" style=dotted];
+58 -> 77 [label="dep" style=dotted];
+368 -> 77 [label="dep" style=dotted];
+408 -> 81 [label="qual" style=dotted];
+338 -> 84 [label="ref" style=dotted];
+123 -> 85 [label="T"];
+126 -> 85 [label="para" style=dotted];
+318 -> 85 [label="dep" style=dotted];
+356 -> 85 [label="dep" style=dotted];
+3 -> 86 [label="para" style=dotted];
+7 -> 86 [label="para" style=dotted];
+43 -> 88 [label="ref" style=dotted];
+2 -> 89 [label="" style=solid];
+248 -> 89 [label="para" style=dotted];
+395 -> 89 [label="dep" style=dotted];
+352 -> 91 [label="" style=solid];
+310 -> 92 [label="qual" style=dotted];
+198 -> 93 [label="ref" style=dotted];
+2 -> 94 [label="" style=solid];
+78 -> 94 [label="recv" style=dotted];
+420 -> 94 [label="para" style=dotted];
+60 -> 94 [label="dep" style=dotted];
+141 -> 94 [label="dep" style=dotted];
+2 -> 95 [label="" style=solid];
+335 -> 95 [label="para" style=dotted];
+394 -> 95 [label="dep" style=dotted];
+233 -> 95 [label="dep" style=dotted];
+217 -> 97 [label="T"];
+285 -> 97 [label="dep" style=dotted];
+285 -> 97 [label="para" style=dotted];
+298 -> 97 [label="para" style=dotted];
+196 -> 97 [label="dep" style=dotted];
+157 -> 98 [label="def" style=dotted];
+428 -> 98 [label="def" style=dotted];
+87 -> 99 [label="qual" style=dotted];
+211 -> 100 [label="" style=solid];
+77 -> 100 [label="dep" style=dotted];
+77 -> 100 [label="para" style=dotted];
+423 -> 101 [label="def" style=dotted];
+101 -> 102 [label="ref" style=dotted];
+130 -> 104 [label="" style=solid];
+2 -> 105 [label="" style=solid];
+93 -> 105 [label="recv" style=dotted];
+385 -> 105 [label="dep" style=dotted];
+19 -> 107 [label="T"];
+51 -> 107 [label="dep" style=dotted];
+51 -> 107 [label="para" style=dotted];
+6 -> 107 [label="dep" style=dotted];
+250 -> 107 [label="dep" style=dotted];
+211 -> 108 [label="" style=solid];
+63 -> 108 [label="dep" style=dotted];
+63 -> 108 [label="para" style=dotted];
+292 -> 109 [label="ref" style=dotted];
+430 -> 111 [label="ref" style=dotted];
+130 -> 112 [label="" style=solid];
+137 -> 112 [label="recv" style=dotted];
+145 -> 112 [label="dep" style=dotted];
+145 -> 112 [label="para" style=dotted];
+104 -> 112 [label="dep" style=dotted];
+211 -> 113 [label="" style=solid];
+44 -> 113 [label="recv" style=dotted];
+192 -> 113 [label="dep" style=dotted];
+192 -> 113 [label="para" style=dotted];
+41 -> 113 [label="dep" style=dotted];
+353 -> 113 [label="dep" style=dotted];
+9 -> 116 [label="T"];
+111 -> 116 [label="para" style=dotted];
+399 -> 116 [label="para" style=dotted];
+360 -> 116 [label="dep" style=dotted];
+2 -> 117 [label="" style=solid];
+280 -> 117 [label="recv" style=dotted];
+118 -> 117 [label="para" style=dotted];
+83 -> 117 [label="para" style=dotted];
+174 -> 117 [label="dep" style=dotted];
+81 -> 118 [label="qual" style=dotted];
+80 -> 118 [label="para" style=dotted];
+393 -> 122 [label="qual" style=dotted];
+211 -> 123 [label="" style=solid];
+401 -> 123 [label="cond" style=dotted];
+108 -> 123 [label="dep" style=dotted];
+292 -> 124 [label="ref" style=dotted];
+76 -> 125 [label="def" style=dotted];
+166 -> 127 [label="def" style=dotted];
+344 -> 129 [label="ref" style=dotted];
+2 -> 130 [label="" style=solid];
+89 -> 130 [label="dep" style=dotted];
+278 -> 130 [label="cond" style=dotted];
+332 -> 131 [label="qual" style=dotted];
+295 -> 131 [label="ref" style=dotted];
+211 -> 132 [label="" style=solid];
+352 -> 133 [label="" style=solid];
+57 -> 133 [label="para" style=dotted];
+427 -> 133 [label="dep" style=dotted];
+211 -> 139 [label="" style=solid];
+415 -> 139 [label="para" style=dotted];
+349 -> 139 [label="dep" style=dotted];
+163 -> 141 [label="F"];
+9 -> 142 [label="T"];
+224 -> 142 [label="dep" style=dotted];
+224 -> 142 [label="cond" style=dotted];
+271 -> 143 [label="def" style=dotted];
+321 -> 144 [label="F"];
+130 -> 145 [label="" style=solid];
+276 -> 145 [label="recv" style=dotted];
+402 -> 145 [label="para" style=dotted];
+104 -> 145 [label="dep" style=dotted];
+379 -> 146 [label="def" style=dotted];
+48 -> 147 [label="qual" style=dotted];
+430 -> 149 [label="ref" style=dotted];
+321 -> 150 [label="T"];
+70 -> 150 [label="para" style=dotted];
+110 -> 150 [label="para" style=dotted];
+328 -> 150 [label="dep" style=dotted];
+160 -> 151 [label="qual" style=dotted];
+140 -> 151 [label="para" style=dotted];
+2 -> 152 [label="" style=solid];
+94 -> 152 [label="dep" style=dotted];
+94 -> 152 [label="para" style=dotted];
+60 -> 152 [label="dep" style=dotted];
+141 -> 152 [label="dep" style=dotted];
+130 -> 153 [label="" style=solid];
+377 -> 153 [label="recv" style=dotted];
+246 -> 153 [label="dep" style=dotted];
+305 -> 154 [label="qual" style=dotted];
+211 -> 155 [label="" style=solid];
+398 -> 155 [label="recv" style=dotted];
+364 -> 155 [label="dep" style=dotted];
+364 -> 155 [label="para" style=dotted];
+428 -> 155 [label="dep" style=dotted];
+125 -> 156 [label="ref" style=dotted];
+211 -> 157 [label="" style=solid];
+388 -> 157 [label="para" style=dotted];
+339 -> 157 [label="para" style=dotted];
+138 -> 157 [label="para" style=dotted];
+223 -> 157 [label="dep" style=dotted];
+42 -> 159 [label="qual" style=dotted];
+337 -> 159 [label="para" style=dotted];
+375 -> 161 [label="ref" style=dotted];
+430 -> 162 [label="ref" style=dotted];
+130 -> 163 [label="" style=solid];
+436 -> 163 [label="dep" style=dotted];
+436 -> 163 [label="cond" style=dotted];
+55 -> 165 [label="qual" style=dotted];
+2 -> 166 [label="" style=solid];
+205 -> 166 [label="dep" style=dotted];
+205 -> 166 [label="para" style=dotted];
+211 -> 167 [label="" style=solid];
+374 -> 167 [label="recv" style=dotted];
+155 -> 167 [label="dep" style=dotted];
+108 -> 168 [label="def" style=dotted];
+370 -> 169 [label="ref" style=dotted];
+2 -> 174 [label="" style=solid];
+14 -> 174 [label="recv" style=dotted];
+195 -> 174 [label="para" style=dotted];
+324 -> 174 [label="para" style=dotted];
+297 -> 174 [label="dep" style=dotted];
+211 -> 175 [label="" style=solid];
+120 -> 175 [label="recv" style=dotted];
+267 -> 175 [label="dep" style=dotted];
+271 -> 175 [label="dep" style=dotted];
+2 -> 176 [label="" style=solid];
+413 -> 176 [label="recv" style=dotted];
+62 -> 176 [label="dep" style=dotted];
+62 -> 176 [label="para" style=dotted];
+34 -> 176 [label="para" style=dotted];
+418 -> 176 [label="para" style=dotted];
+130 -> 178 [label="" style=solid];
+350 -> 178 [label="dep" style=dotted];
+350 -> 178 [label="para" style=dotted];
+73 -> 178 [label="para" style=dotted];
+100 -> 178 [label="dep" style=dotted];
+19 -> 180 [label="T"];
+226 -> 182 [label="qual" style=dotted];
+230 -> 182 [label="ref" style=dotted];
+19 -> 184 [label="T"];
+88 -> 184 [label="para" style=dotted];
+421 -> 184 [label="para" style=dotted];
+180 -> 184 [label="dep" style=dotted];
+168 -> 185 [label="ref" style=dotted];
+432 -> 187 [label="def" style=dotted];
+130 -> 188 [label="" style=solid];
+153 -> 188 [label="dep" style=dotted];
+153 -> 188 [label="para" style=dotted];
+326 -> 189 [label="ref" style=dotted];
+217 -> 191 [label="T"];
+376 -> 191 [label="dep" style=dotted];
+376 -> 191 [label="para" style=dotted];
+97 -> 191 [label="dep" style=dotted];
+97 -> 191 [label="para" style=dotted];
+211 -> 192 [label="" style=solid];
+287 -> 192 [label="recv" style=dotted];
+380 -> 192 [label="para" style=dotted];
+46 -> 192 [label="para" style=dotted];
+251 -> 192 [label="para" style=dotted];
+299 -> 192 [label="dep" style=dotted];
+299 -> 192 [label="para" style=dotted];
+219 -> 192 [label="para" style=dotted];
+41 -> 192 [label="dep" style=dotted];
+353 -> 192 [label="dep" style=dotted];
+321 -> 193 [label="T"];
+90 -> 193 [label="recv" style=dotted];
+234 -> 193 [label="para" style=dotted];
+334 -> 193 [label="para" style=dotted];
+331 -> 193 [label="para" style=dotted];
+390 -> 193 [label="dep" style=dotted];
+407 -> 194 [label="qual" style=dotted];
+217 -> 196 [label="T"];
+190 -> 197 [label="qual" style=dotted];
+173 -> 197 [label="para" style=dotted];
+11 -> 198 [label="def" style=dotted];
+217 -> 201 [label="F"];
+2 -> 203 [label="" style=solid];
+256 -> 203 [label="para" style=dotted];
+50 -> 203 [label="para" style=dotted];
+21 -> 203 [label="dep" style=dotted];
+2 -> 204 [label="" style=solid];
+16 -> 204 [label="recv" style=dotted];
+432 -> 204 [label="dep" style=dotted];
+2 -> 205 [label="" style=solid];
+290 -> 205 [label="dep" style=dotted];
+290 -> 205 [label="para" style=dotted];
+218 -> 205 [label="para" style=dotted];
+236 -> 205 [label="dep" style=dotted];
+31 -> 206 [label="qual" style=dotted];
+211 -> 208 [label="" style=solid];
+86 -> 208 [label="para" style=dotted];
+357 -> 208 [label="para" style=dotted];
+132 -> 208 [label="dep" style=dotted];
+130 -> 211 [label="" style=solid];
+4 -> 211 [label="dep" style=dotted];
+322 -> 211 [label="cond" style=dotted];
+198 -> 212 [label="ref" style=dotted];
+130 -> 213 [label="" style=solid];
+147 -> 213 [label="recv" style=dotted];
+365 -> 213 [label="dep" style=dotted];
+365 -> 213 [label="para" style=dotted];
+249 -> 213 [label="dep" style=dotted];
+249 -> 213 [label="para" style=dotted];
+367 -> 213 [label="para" style=dotted];
+315 -> 213 [label="dep" style=dotted];
+40 -> 214 [label="qual" style=dotted];
+158 -> 214 [label="para" style=dotted];
+211 -> 216 [label="" style=solid];
+8 -> 216 [label="para" style=dotted];
+302 -> 216 [label="para" style=dotted];
+262 -> 216 [label="para" style=dotted];
+223 -> 216 [label="dep" style=dotted];
+211 -> 217 [label="" style=solid];
+15 -> 217 [label="cond" style=dotted];
+113 -> 217 [label="dep" style=dotted];
+123 -> 221 [label="T"];
+109 -> 221 [label="para" style=dotted];
+79 -> 221 [label="para" style=dotted];
+347 -> 221 [label="dep" style=dotted];
+19 -> 222 [label="F"];
+352 -> 223 [label="" style=solid];
+84 -> 223 [label="recv" style=dotted];
+371 -> 223 [label="dep" style=dotted];
+371 -> 223 [label="para" style=dotted];
+427 -> 223 [label="dep" style=dotted];
+9 -> 224 [label="T"];
+116 -> 224 [label="dep" style=dotted];
+116 -> 224 [label="para" style=dotted];
+103 -> 224 [label="para" style=dotted];
+360 -> 224 [label="dep" style=dotted];
+2 -> 225 [label="" style=solid];
+231 -> 225 [label="dep" style=dotted];
+231 -> 225 [label="para" style=dotted];
+237 -> 225 [label="para" style=dotted];
+166 -> 225 [label="dep" style=dotted];
+217 -> 227 [label="T"];
+54 -> 227 [label="dep" style=dotted];
+54 -> 227 [label="para" style=dotted];
+20 -> 227 [label="para" style=dotted];
+196 -> 227 [label="dep" style=dotted];
+239 -> 228 [label="ref" style=dotted];
+30 -> 229 [label="T"];
+106 -> 230 [label="qual" style=dotted];
+245 -> 230 [label="def" style=dotted];
+2 -> 231 [label="" style=solid];
+241 -> 231 [label="recv" style=dotted];
+159 -> 231 [label="para" style=dotted];
+10 -> 231 [label="para" style=dotted];
+166 -> 231 [label="dep" style=dotted];
+306 -> 232 [label="T"];
+306 -> 233 [label="F"];
+92 -> 234 [label="qual" style=dotted];
+267 -> 235 [label="def" style=dotted];
+2 -> 236 [label="" style=solid];
+281 -> 236 [label="dep" style=dotted];
+281 -> 236 [label="para" style=dotted];
+412 -> 238 [label="qual" style=dotted];
+397 -> 239 [label="def" style=dotted];
+238 -> 240 [label="para" style=dotted];
+182 -> 240 [label="para" style=dotted];
+403 -> 241 [label="qual" style=dotted];
+430 -> 242 [label="ref" style=dotted];
+2 -> 245 [label="" style=solid];
+176 -> 245 [label="dep" style=dotted];
+260 -> 245 [label="para" style=dotted];
+5 -> 245 [label="dep" style=dotted];
+130 -> 246 [label="" style=solid];
+112 -> 246 [label="dep" style=dotted];
+112 -> 246 [label="para" style=dotted];
+104 -> 246 [label="dep" style=dotted];
+211 -> 247 [label="" style=solid];
+404 -> 247 [label="para" style=dotted];
+304 -> 247 [label="para" style=dotted];
+423 -> 247 [label="dep" style=dotted];
+359 -> 248 [label="qual" style=dotted];
+181 -> 248 [label="para" style=dotted];
+130 -> 249 [label="" style=solid];
+289 -> 249 [label="para" style=dotted];
+266 -> 249 [label="para" style=dotted];
+315 -> 249 [label="dep" style=dotted];
+39 -> 250 [label="T"];
+24 -> 250 [label="para" style=dotted];
+355 -> 250 [label="dep" style=dotted];
+168 -> 251 [label="ref" style=dotted];
+28 -> 252 [label="qual" style=dotted];
+2 -> 253 [label="" style=solid];
+121 -> 253 [label="para" style=dotted];
+211 -> 254 [label="" style=solid];
+154 -> 254 [label="recv" style=dotted];
+216 -> 254 [label="dep" style=dotted];
+216 -> 254 [label="para" style=dotted];
+265 -> 254 [label="para" style=dotted];
+223 -> 254 [label="dep" style=dotted];
+207 -> 256 [label="qual" style=dotted];
+272 -> 256 [label="para" style=dotted];
+172 -> 260 [label="qual" style=dotted];
+176 -> 260 [label="para" style=dotted];
+317 -> 262 [label="qual" style=dotted];
+130 -> 263 [label="" style=solid];
+151 -> 263 [label="para" style=dotted];
+386 -> 263 [label="dep" style=dotted];
+2 -> 264 [label="" style=solid];
+354 -> 264 [label="dep" style=dotted];
+354 -> 264 [label="para" style=dotted];
+426 -> 264 [label="para" style=dotted];
+95 -> 264 [label="dep" style=dotted];
+101 -> 265 [label="ref" style=dotted];
+387 -> 266 [label="qual" style=dotted];
+179 -> 266 [label="para" style=dotted];
+30 -> 267 [label="T"];
+381 -> 267 [label="para" style=dotted];
+229 -> 267 [label="dep" style=dotted];
+186 -> 269 [label="qual" style=dotted];
+130 -> 270 [label="" style=solid];
+400 -> 270 [label="recv" style=dotted];
+378 -> 270 [label="para" style=dotted];
+308 -> 270 [label="para" style=dotted];
+68 -> 270 [label="dep" style=dotted];
+68 -> 270 [label="para" style=dotted];
+416 -> 270 [label="para" style=dotted];
+107 -> 270 [label="dep" style=dotted];
+222 -> 270 [label="dep" style=dotted];
+30 -> 271 [label="F"];
+372 -> 271 [label="para" style=dotted];
+52 -> 271 [label="dep" style=dotted];
+306 -> 273 [label="T"];
+243 -> 273 [label="recv" style=dotted];
+291 -> 273 [label="para" style=dotted];
+309 -> 273 [label="dep" style=dotted];
+309 -> 273 [label="para" style=dotted];
+232 -> 273 [label="dep" style=dotted];
+211 -> 274 [label="" style=solid];
+283 -> 274 [label="dep" style=dotted];
+283 -> 274 [label="para" style=dotted];
+419 -> 274 [label="para" style=dotted];
+423 -> 274 [label="dep" style=dotted];
+146 -> 277 [label="ref" style=dotted];
+43 -> 278 [label="ref" style=dotted];
+134 -> 280 [label="qual" style=dotted];
+2 -> 281 [label="" style=solid];
+117 -> 281 [label="dep" style=dotted];
+117 -> 281 [label="para" style=dotted];
+202 -> 281 [label="para" style=dotted];
+174 -> 281 [label="dep" style=dotted];
+123 -> 282 [label="T"];
+221 -> 282 [label="dep" style=dotted];
+221 -> 282 [label="cond" style=dotted];
+211 -> 283 [label="" style=solid];
+149 -> 283 [label="para" style=dotted];
+346 -> 283 [label="para" style=dotted];
+423 -> 283 [label="dep" style=dotted];
+211 -> 284 [label="" style=solid];
+74 -> 284 [label="para" style=dotted];
+428 -> 284 [label="dep" style=dotted];
+217 -> 285 [label="T"];
+162 -> 285 [label="para" style=dotted];
+294 -> 285 [label="para" style=dotted];
+196 -> 285 [label="dep" style=dotted];
+338 -> 288 [label="ref" style=dotted];
+239 -> 289 [label="ref" style=dotted];
+2 -> 290 [label="" style=solid];
+411 -> 290 [label="recv" style=dotted];
+214 -> 290 [label="para" style=dotted];
+435 -> 290 [label="para" style=dotted];
+236 -> 290 [label="dep" style=dotted];
+389 -> 291 [label="qual" style=dotted];
+4 -> 292 [label="def" style=dotted];
+352 -> 293 [label="" style=solid];
+417 -> 293 [label="para" style=dotted];
+252 -> 293 [label="para" style=dotted];
+91 -> 293 [label="dep" style=dotted];
+342 -> 295 [label="qual" style=dotted];
+5 -> 295 [label="def" style=dotted];
+183 -> 296 [label="qual" style=dotted];
+2 -> 297 [label="" style=solid];
+200 -> 297 [label="recv" style=dotted];
+25 -> 297 [label="para" style=dotted];
+210 -> 297 [label="para" style=dotted];
+379 -> 297 [label="dep" style=dotted];
+211 -> 299 [label="" style=solid];
+348 -> 299 [label="para" style=dotted];
+41 -> 299 [label="dep" style=dotted];
+353 -> 299 [label="dep" style=dotted];
+127 -> 300 [label="ref" style=dotted];
+189 -> 301 [label="qual" style=dotted];
+124 -> 301 [label="para" style=dotted];
+326 -> 301 [label="ref" style=dotted];
+209 -> 302 [label="qual" style=dotted];
+292 -> 303 [label="ref" style=dotted];
+2 -> 306 [label="" style=solid];
+203 -> 306 [label="dep" style=dotted];
+203 -> 306 [label="cond" style=dotted];
+370 -> 308 [label="ref" style=dotted];
+306 -> 309 [label="T"];
+99 -> 309 [label="para" style=dotted];
+197 -> 309 [label="para" style=dotted];
+232 -> 309 [label="dep" style=dotted];
+188 -> 311 [label="def" style=dotted];
+2 -> 312 [label="" style=solid];
+114 -> 312 [label="recv" style=dotted];
+431 -> 312 [label="para" style=dotted];
+397 -> 312 [label="dep" style=dotted];
+2 -> 313 [label="" style=solid];
+288 -> 313 [label="recv" style=dotted];
+152 -> 313 [label="dep" style=dotted];
+130 -> 315 [label="" style=solid];
+363 -> 315 [label="dep" style=dotted];
+363 -> 315 [label="para" style=dotted];
+352 -> 316 [label="" style=solid];
+82 -> 316 [label="recv" style=dotted];
+427 -> 316 [label="dep" style=dotted];
+282 -> 318 [label="F"];
+215 -> 320 [label="qual" style=dotted];
+217 -> 321 [label="T"];
+64 -> 321 [label="dep" style=dotted];
+64 -> 321 [label="cond" style=dotted];
+292 -> 322 [label="ref" style=dotted];
+279 -> 324 [label="qual" style=dotted];
+230 -> 324 [label="ref" style=dotted];
+315 -> 326 [label="def" style=dotted];
+321 -> 328 [label="T"];
+2 -> 329 [label="" style=solid];
+69 -> 329 [label="para" style=dotted];
+253 -> 329 [label="dep" style=dotted];
+142 -> 333 [label="F"];
+146 -> 334 [label="ref" style=dotted];
+430 -> 336 [label="ref" style=dotted];
+236 -> 338 [label="def" style=dotted];
+19 -> 341 [label="T"];
+170 -> 341 [label="para" style=dotted];
+6 -> 341 [label="dep" style=dotted];
+250 -> 341 [label="dep" style=dotted];
+259 -> 343 [label="qual" style=dotted];
+349 -> 344 [label="def" style=dotted];
+123 -> 347 [label="T"];
+211 -> 349 [label="" style=solid];
+175 -> 349 [label="dep" style=dotted];
+175 -> 349 [label="para" style=dotted];
+130 -> 350 [label="" style=solid];
+177 -> 350 [label="recv" style=dotted];
+100 -> 350 [label="dep" style=dotted];
+211 -> 352 [label="" style=solid];
+139 -> 352 [label="dep" style=dotted];
+161 -> 352 [label="cond" style=dotted];
+123 -> 353 [label="F"];
+2 -> 354 [label="" style=solid];
+373 -> 354 [label="para" style=dotted];
+95 -> 354 [label="dep" style=dotted];
+39 -> 355 [label="T"];
+282 -> 356 [label="T"];
+268 -> 356 [label="para" style=dotted];
+382 -> 356 [label="dep" style=dotted];
+165 -> 357 [label="para" style=dotted];
+301 -> 357 [label="para" style=dotted];
+156 -> 358 [label="qual" style=dotted];
+303 -> 358 [label="para" style=dotted];
+125 -> 358 [label="ref" style=dotted];
+9 -> 360 [label="T"];
+329 -> 361 [label="def" style=dotted];
+130 -> 363 [label="" style=solid];
+343 -> 363 [label="recv" style=dotted];
+188 -> 363 [label="dep" style=dotted];
+211 -> 364 [label="" style=solid];
+257 -> 364 [label="recv" style=dotted];
+53 -> 364 [label="dep" style=dotted];
+53 -> 364 [label="para" style=dotted];
+284 -> 364 [label="dep" style=dotted];
+284 -> 364 [label="para" style=dotted];
+428 -> 364 [label="dep" style=dotted];
+130 -> 365 [label="" style=solid];
+1 -> 365 [label="para" style=dotted];
+315 -> 365 [label="dep" style=dotted];
+2 -> 366 [label="" style=solid];
+49 -> 366 [label="recv" style=dotted];
+414 -> 366 [label="para" style=dotted];
+406 -> 366 [label="dep" style=dotted];
+142 -> 368 [label="T"];
+409 -> 368 [label="recv" style=dotted];
+425 -> 368 [label="para" style=dotted];
+277 -> 368 [label="para" style=dotted];
+37 -> 368 [label="dep" style=dotted];
+352 -> 369 [label="" style=solid];
+405 -> 369 [label="para" style=dotted];
+96 -> 369 [label="para" style=dotted];
+91 -> 369 [label="dep" style=dotted];
+386 -> 370 [label="def" style=dotted];
+352 -> 371 [label="" style=solid];
+56 -> 371 [label="recv" style=dotted];
+316 -> 371 [label="dep" style=dotted];
+316 -> 371 [label="para" style=dotted];
+133 -> 371 [label="dep" style=dotted];
+133 -> 371 [label="para" style=dotted];
+427 -> 371 [label="dep" style=dotted];
+139 -> 375 [label="def" style=dotted];
+217 -> 376 [label="T"];
+433 -> 376 [label="para" style=dotted];
+128 -> 376 [label="para" style=dotted];
+196 -> 376 [label="dep" style=dotted];
+43 -> 378 [label="ref" style=dotted];
+2 -> 379 [label="" style=solid];
+422 -> 379 [label="dep" style=dotted];
+422 -> 379 [label="para" style=dotted];
+43 -> 380 [label="ref" style=dotted];
+282 -> 382 [label="T"];
+163 -> 383 [label="T"];
+43 -> 384 [label="ref" style=dotted];
+2 -> 385 [label="" style=solid];
+300 -> 385 [label="recv" style=dotted];
+313 -> 385 [label="dep" style=dotted];
+130 -> 386 [label="" style=solid];
+178 -> 386 [label="dep" style=dotted];
+178 -> 386 [label="para" style=dotted];
+119 -> 387 [label="qual" style=dotted];
+321 -> 390 [label="T"];
+220 -> 390 [label="recv" style=dotted];
+32 -> 390 [label="para" style=dotted];
+22 -> 390 [label="para" style=dotted];
+150 -> 390 [label="dep" style=dotted];
+150 -> 390 [label="para" style=dotted];
+328 -> 390 [label="dep" style=dotted];
+338 -> 392 [label="ref" style=dotted];
+306 -> 394 [label="T"];
+273 -> 394 [label="dep" style=dotted];
+273 -> 394 [label="para" style=dotted];
+2 -> 395 [label="" style=solid];
+312 -> 395 [label="dep" style=dotted];
+312 -> 395 [label="para" style=dotted];
+397 -> 395 [label="dep" style=dotted];
+2 -> 397 [label="" style=solid];
+264 -> 397 [label="dep" style=dotted];
+264 -> 397 [label="para" style=dotted];
+338 -> 398 [label="ref" style=dotted];
+36 -> 401 [label="qual" style=dotted];
+115 -> 401 [label="para" style=dotted];
+43 -> 402 [label="ref" style=dotted];
+430 -> 404 [label="ref" style=dotted];
+375 -> 405 [label="ref" style=dotted];
+2 -> 406 [label="" style=solid];
+392 -> 406 [label="recv" style=dotted];
+351 -> 406 [label="para" style=dotted];
+11 -> 406 [label="dep" style=dotted];
+394 -> 410 [label="def" style=dotted];
+17 -> 411 [label="qual" style=dotted];
+72 -> 413 [label="qual" style=dotted];
+66 -> 417 [label="qual" style=dotted];
+2 -> 422 [label="" style=solid];
+240 -> 422 [label="para" style=dotted];
+61 -> 422 [label="para" style=dotted];
+245 -> 422 [label="dep" style=dotted];
+211 -> 423 [label="" style=solid];
+208 -> 423 [label="dep" style=dotted];
+208 -> 423 [label="para" style=dotted];
+122 -> 425 [label="qual" style=dotted];
+269 -> 426 [label="qual" style=dotted];
+148 -> 426 [label="para" style=dotted];
+352 -> 427 [label="" style=solid];
+29 -> 427 [label="dep" style=dotted];
+29 -> 427 [label="para" style=dotted];
+211 -> 428 [label="" style=solid];
+254 -> 428 [label="dep" style=dotted];
+254 -> 428 [label="para" style=dotted];
+239 -> 429 [label="ref" style=dotted];
+95 -> 430 [label="def" style=dotted];
+2 -> 432 [label="" style=solid];
+286 -> 432 [label="para" style=dotted];
+329 -> 432 [label="dep" style=dotted];
+430 -> 433 [label="ref" style=dotted];
+26 -> 434 [label="qual" style=dotted];
+75 -> 434 [label="para" style=dotted];
+130 -> 436 [label="" style=solid];
+434 -> 436 [label="para" style=dotted];
+255 -> 436 [label="para" style=dotted];
+27 -> 436 [label="dep" style=dotted];
+}

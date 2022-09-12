@@ -1,0 +1,131 @@
+digraph G {
+1 [label="(59719214)=" shape=box style=dashed]
+2 [label="(59719201)nothing(temp_dir)" shape=ellipse style=dashed color=blue fontcolor=blue]
+3 [label="(59719235)=" shape=box style=dashed]
+4 [label="(59719233)stanza.models.common.utils(utils)" shape=ellipse style=dashed]
+5 [label="(59719198)START" style=dashed]
+6 [label="(59719207)Any(google_dir)" shape=ellipse style=dashed color=red fontcolor=red]
+7 [label="(59719202)tempfile(tempfile)" shape=ellipse style=dashed]
+8 [label="(59719208)module(os)" shape=ellipse style=dashed]
+9 [label="(59719223)String(lit(en.vectors.txt))" shape=ellipse style=dashed]
+10 [label="(59719203)TemporaryDirectory" shape=box style=dashed]
+11 [label="(59719221)join" shape=box style=dashed]
+12 [label="(59719205)nothing(temp_dir)" shape=ellipse style=dashed]
+13 [label="(59719209)module.path(path)" shape=ellipse style=dashed]
+14 [label="(59719211)nothing(temp_dir)" shape=ellipse style=dashed]
+15 [label="(59719228)String(lit(w))" shape=ellipse style=dashed color=red fontcolor=red]
+16 [label="(59719213)String(lit(English))" shape=ellipse style=dashed]
+17 [label="(59719216)makedirs" shape=box style=dashed]
+18 [label="(59719210)join" shape=box style=dashed]
+19 [label="(59719232)Any(filename)" shape=ellipse style=dashed]
+20 [label="(59719238)pytest(pytest)" shape=ellipse style=dashed]
+21 [label="(59719243)stanza.models.common.utils(utils)" shape=ellipse style=dashed]
+22 [label="(59719217)Any(google_dir)" shape=ellipse style=dashed]
+23 [label="(59719241)AS" shape=box style=dashed]
+24 [label="(59719225)TextIO(fout)" shape=ellipse style=dashed color=red fontcolor=red]
+25 [label="(59719227)Any(fake_file)" shape=ellipse style=dashed]
+26 [label="(59719231)close" shape=box style=dashed color=red fontcolor=red]
+27 [label="(59719222)Any(google_dir)" shape=ellipse style=dashed]
+28 [label="(59719245)empty" shape=box style=dashed]
+29 [label="(59719240)Type[FileNotFoundError](FileNotFoundError)" shape=ellipse style=dashed]
+30 [label="(59719239)raises" shape=box style=dashed]
+31 [label="(59719220)module.path(path)" shape=ellipse style=dashed]
+32 [label="(59719206)empty" shape=box style=dashed]
+33 [label="(59719247)END" style=dashed]
+34 [label="(59719212)String(lit(google))" shape=ellipse style=dashed]
+35 [label="(59719200)With" shape=diamond style=dashed]
+36 [label="(59719218)Any(fake_file)" shape=ellipse style=dashed color=black fontcolor=black]
+37 [label="(59719236)assert" shape=box style=dashed]
+38 [label="(59719204)AS" shape=box style=dashed]
+39 [label="(59719242)empty" shape=box style=dashed]
+40 [label="(59719229)=" shape=box style=dashed color=red fontcolor=red]
+41 [label="(59719230)TextIO(fout)" shape=ellipse style=dashed color=red fontcolor=red]
+42 [label="(59719226)open" shape=box style=dashed color=red fontcolor=red]
+43 [label="(59719246)empty" shape=box style=dashed]
+44 [label="(59719234)get_wordvec_file" shape=box style=dashed]
+45 [label="(59719244)get_wordvec_file" shape=box style=dashed]
+46 [label="(59719224)=" shape=box style=dashed]
+47 [label="(59719215)module(os)" shape=ellipse style=dashed]
+48 [label="(59719237)With" shape=diamond style=dashed]
+49 [label="(59719219)module(os)" shape=ellipse style=dashed]
+35 -> 1 [label="T"];
+18 -> 1 [label="dep" style=dotted];
+18 -> 1 [label="para" style=dotted];
+38 -> 2 [label="def" style=dotted];
+35 -> 3 [label="T"];
+44 -> 3 [label="dep" style=dotted];
+44 -> 3 [label="para" style=dotted];
+1 -> 6 [label="def" style=dotted];
+5 -> 10 [label="" style=solid];
+7 -> 10 [label="recv" style=dotted];
+35 -> 11 [label="T"];
+31 -> 11 [label="recv" style=dotted];
+27 -> 11 [label="para" style=dotted];
+9 -> 11 [label="para" style=dotted];
+17 -> 11 [label="dep" style=dotted];
+2 -> 12 [label="ref" style=dotted];
+8 -> 13 [label="qual" style=dotted];
+2 -> 14 [label="ref" style=dotted];
+35 -> 17 [label="T"];
+47 -> 17 [label="recv" style=dotted];
+22 -> 17 [label="para" style=dotted];
+1 -> 17 [label="dep" style=dotted];
+35 -> 18 [label="T"];
+13 -> 18 [label="recv" style=dotted];
+14 -> 18 [label="para" style=dotted];
+34 -> 18 [label="para" style=dotted];
+16 -> 18 [label="para" style=dotted];
+32 -> 18 [label="dep" style=dotted];
+3 -> 19 [label="def" style=dotted];
+6 -> 22 [label="ref" style=dotted];
+35 -> 23 [label="T"];
+30 -> 23 [label="dep" style=dotted];
+30 -> 23 [label="para" style=dotted];
+40 -> 24 [label="def" style=dotted];
+36 -> 25 [label="ref" style=dotted];
+35 -> 26 [label="T"];
+41 -> 26 [label="recv" style=dotted];
+40 -> 26 [label="dep" style=dotted];
+6 -> 27 [label="ref" style=dotted];
+48 -> 28 [label="F"];
+35 -> 30 [label="T"];
+20 -> 30 [label="recv" style=dotted];
+29 -> 30 [label="para" style=dotted];
+37 -> 30 [label="dep" style=dotted];
+49 -> 31 [label="qual" style=dotted];
+35 -> 32 [label="T"];
+43 -> 33 [label="dep" style=dotted];
+45 -> 33 [label="dep" style=dotted];
+28 -> 33 [label="dep" style=dotted];
+5 -> 35 [label="" style=solid];
+38 -> 35 [label="dep" style=dotted];
+12 -> 35 [label="para" style=dotted];
+46 -> 36 [label="def" style=dotted];
+35 -> 37 [label="T"];
+3 -> 37 [label="dep" style=dotted];
+5 -> 38 [label="" style=solid];
+10 -> 38 [label="dep" style=dotted];
+10 -> 38 [label="para" style=dotted];
+48 -> 39 [label="T"];
+35 -> 40 [label="T"];
+42 -> 40 [label="dep" style=dotted];
+42 -> 40 [label="para" style=dotted];
+24 -> 41 [label="ref" style=dotted];
+35 -> 42 [label="T"];
+25 -> 42 [label="para" style=dotted];
+15 -> 42 [label="para" style=dotted];
+46 -> 42 [label="dep" style=dotted];
+35 -> 43 [label="F"];
+35 -> 44 [label="T"];
+4 -> 44 [label="recv" style=dotted];
+26 -> 44 [label="dep" style=dotted];
+48 -> 45 [label="T"];
+21 -> 45 [label="recv" style=dotted];
+39 -> 45 [label="dep" style=dotted];
+35 -> 46 [label="T"];
+11 -> 46 [label="dep" style=dotted];
+11 -> 46 [label="para" style=dotted];
+35 -> 48 [label="T"];
+23 -> 48 [label="dep" style=dotted];
+23 -> 48 [label="para" style=dotted];
+}

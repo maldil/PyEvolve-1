@@ -1,0 +1,241 @@
+<link rel="stylesheet" href="../../..//default.css">
+<script src="../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/calico/basenji/blob/master/bin/basenji_sat_bed_multi.py#L41">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/basenji/blob/master/bin/basenji_sat_bed_multi.py#L41">GitMyHubLink</a>
+
+&#47&#47!/usr/bin/env python
+&#47&#47 Copyright 2017 Calico LLC
+
+&#47&#47 Licensed under the Apache License, Version 2.0 (the "License");
+&#47&#47 you may not use this file except in compliance with the License.
+&#47&#47 You may obtain a copy of the License at
+
+&#47&#47     https://www.apache.org/licenses/LICENSE-2.0
+
+&#47&#47 Unless required by applicable law or agreed to in writing, software
+&#47&#47 distributed under the License is distributed on an "AS IS" BASIS,
+&#47&#47 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+&#47&#47 See the License for the specific language governing permissions and
+&#47&#47 limitations under the License.
+&#47&#47 =========================================================================
+
+from optparse import OptionParser
+
+import glob
+import os
+import pickle
+import shutil
+import subprocess
+import sys
+
+import h5py
+import numpy as np
+
+import slurm
+
+
+basenji_sat_bed_multi.py
+
+Perform an in silico saturation mutagenesis of sequences in a BED file,
+using multiple processes.
+
+
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+&#47&#47 main
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+def main():
+  <a id="change">usage = &quotusage: %prog [options] &lt;params_file&gt; &lt;model_file&gt; &lt;bed_file&gt;&quot</a>
+  <a id="change">parser = OptionParser(usage)</a>
+
+  &#47&#47 basenji_sat_bed.py options
+  parser.add_option(&quot-d&quot, dest=&quotmut_down&quot,
+      default=0, type=&quotint&quot,
+      help=&quotNucleotides downstream of center sequence to mutate [Default: %default]&quot)
+  parser.add_option(&quot-f&quot, dest=&quotgenome_fasta&quot,
+      default=None,
+      help=&quotGenome FASTA for sequences [Default: %default]&quot)
+  parser.add_option(&quot-l&quot, dest=&quotmut_len&quot,
+      default=200, type=&quotint&quot,
+      help=&quotLength of center sequence to mutate [Default: %default]&quot)
+  parser.add_option(&quot-o&quot, dest=&quotout_dir&quot,
+      default=&quotsat_mut&quot, help=&quotOutput directory [Default: %default]&quot)
+  parser.add_option(&quot--plots&quot, dest=&quotplots&quot,
+      default=False, action=&quotstore_true&quot,
+      help=&quotMake heatmap plots [Default: %default]&quot)
+  parser.add_option(&quot--rc&quot, dest=&quotrc&quot,
+      default=False, action=&quotstore_true&quot,
+      help=&quotEnsemble forward and reverse complement predictions [Default: %default]&quot)
+  parser.add_option(&quot--shifts&quot, dest=&quotshifts&quot,
+      default=&quot0&quot,
+      help=&quotEnsemble prediction shifts [Default: %default]&quot)
+  parser.add_option(&quot--stats&quot, dest=&quotsad_stats&quot,
+      default=&quotsum&quot,
+      help=&quotComma-separated list of stats to save. [Default: %default]&quot)
+  parser.add_option(&quot-t&quot, dest=&quottargets_file&quot,
+      default=None, type=&quotstr&quot,
+      help=&quotFile specifying target indexes and labels in table format&quot)
+  parser.add_option(&quot-u&quot, dest=&quotmut_up&quot,
+      default=0, type=&quotint&quot,
+      help=&quotNucleotides upstream of center sequence to mutate [Default: %default]&quot)
+
+  &#47&#47 _multi.py options
+  parser.add_option(&quot-e&quot, dest=&quotconda_env&quot,
+      default=&quottf2.6&quot,
+      help=&quotAnaconda environment [Default: %default]&quot)
+  parser.add_option(&quot--max_proc&quot, dest=&quotmax_proc&quot,
+      default=None, type=&quotint&quot,
+      help=&quotMaximum concurrent processes [Default: %default]&quot)
+  parser.add_option(&quot-n&quot, dest=&quotname&quot,
+      default=&quotsat&quot,
+      help=&quotSLURM job name prefix [Default: %default]&quot)
+  parser.add_option(&quot-p&quot, dest=&quotprocesses&quot,
+      default=None, type=&quotint&quot,
+      help=&quotNumber of processes, passed by multi script&quot)
+  parser.add_option(&quot-q&quot, dest=&quotqueue&quot,
+      default=&quotgeforce&quot,
+      help=&quotSLURM queue on which to run the jobs [Default: %default]&quot)
+  parser.add_option(&quot-r&quot, &quot--restart&quot, dest=&quotrestart&quot,
+      default=False, action=&quotstore_true&quot,
+      help=&quotRestart a partially completed job [Default: %default]&quot)
+  <a id="change">(options, args) = parser.parse_args()</a>
+
+  if len(args) != 3:
+    print(args)
+    parser.error(&quotMust provide parameters and model files and BED file&quot)
+  else:
+    <a id="change">params_file = args[0]</a>
+    <a id="change">model_file = args[1]</a>
+    <a id="change">bed_file = args[2]</a>
+
+  &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+  &#47&#47 prep work
+
+  &#47&#47 output directory
+  if not options.restart:
+    if os.path.isdir(options.out_dir):
+      print(&quotPlease remove %s&quot % options.out_dir, file=sys.stderr)
+      exit(1)
+    os.mkdir(options.out_dir)
+
+  &#47&#47 pickle options
+  <a id="change">options_pkl_file = &quot%s/options.pkl&quot % options.out_dir</a>
+  <a id="change">options_pkl = open(options_pkl_file, &quotwb&quot)</a>
+  pickle.dump(options, options_pkl)
+  <a id="change">options_pkl</a><a id="change">.close()</a>
+
+  &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+  &#47&#47 launch worker threads
+  <a id="change">jobs = []</a>
+  for pi in range(options.processes):
+    if not options.restart or not job_completed(options, pi):
+      <a id="change">cmd = &quot. /home/drk/anaconda3/etc/profile.d/conda.sh;&quot</a>
+      cmd += &quot conda activate %s;&quot % options.conda_env
+
+      cmd += &quot basenji_sat_bed.py %s %s %d&quot % (
+          options_pkl_file, &quot &quot.join(args), pi)
+      <a id="change">name = &quot%s_p%d&quot % (options.name, pi)</a>
+      <a id="change">outf = &quot%s/job%d.out&quot % (options.out_dir, pi)</a>
+      <a id="change">errf = &quot%s/job%d.err&quot % (options.out_dir, pi)</a>
+      <a id="change">j = slurm.Job(cmd, name,
+          outf, errf,
+          queue=options.queue,
+          cpu=2, gpu=1,
+          mem=30000, time=&quot14-0:0:0&quot)</a>
+      jobs.append(j)
+
+  slurm.multi_run(jobs, max_proc=options.max_proc, verbose=True,
+                  launch_sleep=10, update_sleep=60)
+
+  &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+  &#47&#47 collect output
+
+  <a id="change">sad_stat = options.sad_stats.split(&quot,&quot)[0]</a>
+  collect_h5(options.out_dir, options.processes, sad_stat)
+
+  &#47&#47 for pi in range(options.processes):
+  &#47&#47     shutil.rmtree(&quot%s/job%d&quot % (options.out_dir,pi))
+
+
+def collect_h5(out_dir, num_procs, sad_stat):
+  h5_file = &quotscores.h5&quot
+
+  &#47&#47 count sequences
+  num_seqs = 0
+  for pi in range(num_procs):
+    &#47&#47 open job
+    job_h5_file = &quot%s/job%d/%s&quot % (out_dir, pi, h5_file)
+    job_h5_open = h5py.File(job_h5_file, &quotr&quot)
+    num_seqs += job_h5_open[sad_stat].shape[0]
+    seq_len = job_h5_open[sad_stat].shape[1]
+    num_targets = job_h5_open[sad_stat].shape[-1]
+    job_h5_open.close()
+
+  &#47&#47 initialize final h5
+  final_h5_file = &quot%s/%s&quot % (out_dir, h5_file)
+  final_h5_open = h5py.File(final_h5_file, &quotw&quot)
+
+  &#47&#47 keep dict for string values
+  final_strings = {}
+
+  job0_h5_file = &quot%s/job0/%s&quot % (out_dir, h5_file)
+  job0_h5_open = h5py.File(job0_h5_file, &quotr&quot)
+  for key in job0_h5_open.keys():
+    key_shape = list(job0_h5_open[key].shape)
+    key_shape[0] = num_seqs
+    key_shape = tuple(key_shape)
+    if job0_h5_open[key].dtype.char == &quotS&quot:
+      final_strings[key] = []
+    else:
+      final_h5_open.create_dataset(key, shape=key_shape, dtype=job0_h5_open[key].dtype)
+
+  &#47&#47 set values
+  si = 0
+  for pi in range(num_procs):
+    &#47&#47 open job
+    job_h5_file = &quot%s/job%d/%s&quot % (out_dir, pi, h5_file)
+    job_h5_open = h5py.File(job_h5_file, &quotr&quot)
+
+    &#47&#47 append to final
+    for key in job_h5_open.keys():
+        job_seqs = job_h5_open[key].shape[0]
+        if job_h5_open[key].dtype.char == &quotS&quot:
+          final_strings[key] += list(job_h5_open[key])
+        else:
+          final_h5_open[key][si:si+job_seqs] = job_h5_open[key]
+
+    job_h5_open.close()
+    si += job_seqs
+
+  &#47&#47 create final string datasets
+  for key in final_strings:
+    final_h5_open.create_dataset(key,
+      data=np.array(final_strings[key], dtype=&quotS&quot))
+
+  final_h5_open.close()
+
+
+def job_completed(options, pi):
+  Check whether a specific job has generated its
+     output file.
+  out_file = &quot%s/job%d/scores.h5&quot % (options.out_dir, pi)
+  valid_file = True
+  if not os.path.isfile(out_file):
+    valid_file = False
+  else:
+    try:
+      out_open = h5py.File(out_file, &quotr&quot)
+    except OSError:
+      valid_file = False
+  return valid_file
+
+
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+&#47&#47 __main__
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+if __name__ == &quot__main__&quot:
+  main()
+</code></pre>

@@ -1,0 +1,133 @@
+<link rel="stylesheet" href="../../../..//default.css">
+<script src="../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/qq547276542/Agriculture_KnowledgeGraph/blob/master/demo/demo/tagging_data_view.py#L12">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/Agriculture_KnowledgeGraph/blob/master/demo/demo/tagging_data_view.py#L12">GitMyHubLink</a>
+
+&#47&#47 -*- coding: utf-8 -*-
+from django.shortcuts import render
+from django.views.decorators import csrf
+import thulac
+ 
+import sys
+sys.path.append("..")
+from toolkit.pre_load import neo_con
+
+&#47&#47 数据标注页面的view
+&#47&#47 接收GET请求数据
+def showtagging_data(<a id="change">request</a>):
+	<a id="change">ctx = {}</a>
+	if &quottitle&quot in request.GET:
+		&#47&#47 连接数据库
+		<a id="change">db = neo_con</a>
+		<a id="change">title = request.GET[&quottitle&quot]</a>
+		<a id="change">answer = db.matchHudongItembyTitle(title)</a>
+		if answer == None:
+			<a id="change">ctx[&quottitle&quot] = &quot&lt;h1&gt; 该url不存在，别乱搞！ &lt;/h1&gt;&quot</a>
+			return render(request, "tagging_data.html", ctx)
+		<a id="change">ctx[&quotdetail&quot] = answer[&quotdetail&quot]</a>
+		<a id="change">ctx[&quottitle&quot] = answer[&quottitle&quot]</a>
+		<a id="change">image = answer[&quotimage&quot]</a>
+		
+		<a id="change">ctx[&quotimage&quot] = &quot&lt;img class="rounded card-img-top img-fluid" src="&quot + str(image) + &quot" alt="该条目无图片" style="width:30%" &gt;&quot</a>
+		
+		<a id="change">ctx[&quotbaseInfoKeyList&quot] = []</a>
+		<a id="change">List = answer[&quotbaseInfoKeyList&quot].split(&quot&#47&#47&#47&#47&quot)</a>
+		for p in List:
+			ctx[&quotbaseInfoKeyList&quot].append(p)
+			
+		<a id="change">ctx[&quotbaseInfoValueList&quot] = []</a>
+		<a id="change">List = answer[&quotbaseInfoValueList&quot].split(&quot&#47&#47&#47&#47&quot)</a>
+		for p in List:
+			ctx[&quotbaseInfoValueList&quot].append(p)
+			
+		<a id="change">text = ""</a>
+		<a id="change">List = answer[&quotopenTypeList&quot].split(&quot&#47&#47&#47&#47&quot)</a>
+		for p in List:
+			text += &quot&lt;span class="badge badge-success"&gt;&quot + str(p) + &quot&lt;/span&gt; &quot
+		<a id="change">ctx[&quotopenTypeList&quot] = text</a>
+		
+		<a id="change">text = ""</a>
+		<a id="change">keyList = answer[&quotbaseInfoKeyList&quot].split(&quot&#47&#47&#47&#47&quot)</a>
+		<a id="change">valueList = answer[&quotbaseInfoValueList&quot].split(&quot&#47&#47&#47&#47&quot)</a>
+		<a id="change">i = 0</a>
+		while i &lt; len(keyList) :
+			<a id="change">value = " "</a>
+			if i &lt; len(valueList):
+				<a id="change">value = valueList[i]</a>
+			text += "&lt;tr&gt;"
+			text += &quot&lt;td class="font-weight-bold"&gt;&quot + keyList[i] + &quot&lt;/td&gt;&quot
+			text += &quot&lt;td&gt;&quot + value + &quot&lt;/td&gt;&quot
+			i += 1
+			
+			if i &lt; len(valueList):
+				<a id="change">value = valueList[i]</a>
+			if i &lt; len(keyList) :
+				text += &quot&lt;td class="font-weight-bold"&gt;&quot + keyList[i] + &quot&lt;/td&gt;&quot
+				text += &quot&lt;td&gt;&quot + value + &quot&lt;/td&gt;&quot
+			else :
+				text += &quot&lt;td class="font-weight-bold"&gt;&quot + &quot&lt;/td&gt;&quot
+				text += &quot&lt;td&gt;&quot + &quot&lt;/td&gt;&quot
+			i += 1
+			text += "&lt;/tr&gt;"
+		<a id="change">ctx[&quotbaseInfoTable&quot] = text</a>
+		
+		&#47&#47&#47&#47 动态生成check控件----------------------------------
+		
+		<a id="change">text = ""</a>
+		<a id="change">tag_name_list = []</a>
+		tag_name_list.append(&quotInvalid（不合法，不是具体的实体，或一些脏数据，或与农业毫无关系）&quot)
+		tag_name_list.append(&quotPerson（人物，职位）&quot)
+		tag_name_list.append(&quotLocation（地点，区域）&quot)
+		tag_name_list.append(&quotOrganization（机构，会议）&quot)
+		tag_name_list.append(&quotPolitical economy（政治经济名词）&quot)
+		tag_name_list.append(&quotAnimal（动物学名词，包括畜牧类，爬行类，鸟类，鱼类，等）&quot)
+		tag_name_list.append(&quotPlant（植物学名词，包括了植物及相关名词，水果，蔬菜，谷物，草药，菌类，植物器官，其他植物）&quot)
+		tag_name_list.append(&quot化学名词，包括肥料，农药，杀菌剂，其它化学品，术语等&quot)
+		tag_name_list.append(&quotClimate（气候，季节）&quot)
+		tag_name_list.append(&quotFood items（动植物产品）&quot)
+		tag_name_list.append(&quotDiseases（动植物疾病）&quot)
+		tag_name_list.append(&quotNatural Disaster（自然灾害）&quot)
+		tag_name_list.append(&quotNutrients（营养素，包括脂肪，矿物质，维生素，碳水化合物等）&quot)
+		tag_name_list.append(&quotBiochemistry（生物学名词，包括基因相关，人体部位，组织器官，细胞，细菌，术语）&quot)
+		tag_name_list.append(&quotAgricultural implements（农机具，一般指机械或物理设施）&quot)
+		tag_name_list.append(&quotTechnology(农业相关术语，技术和措施)&quot)
+		tag_name_list.append(&quotother（除上面类别之外的其它名词实体，可以与农业无关但必须是实体）&quot)
+		
+		<a id="change">count = 0</a>
+		for i in range(len(tag_name_list)):
+			text += &quot&lt;div class="radio"&gt; &lt;label class="form-check-label"&gt;&quot
+			text += &quot&lt;input type="radio" name="label" value="&quot + str(i) + &quot"&gt;&quot
+			text +=  str(count) + &quot. &quot + tag_name_list[i]
+			text += &quot&lt;/label&gt;  &lt;/div&gt;&quot
+			count += 1
+			
+		&#47&#47 放置一个隐藏的输入框，传递title的值到缓冲页面
+		text += &quot&lt;input name="title" value="&quot + str(answer[&quottitle&quot]) + &quot"  style="display:none;" &gt;&lt;/input&gt;&quot
+		<a id="change">ctx[&quottaggingCheck&quot] = text</a>
+		
+		
+		&#47&#47 统计当前标注情况
+		<a id="change">file_object = open(&quotlabel_data/labels.txt&quot,&quotr&quot)</a>
+		<a id="change">s = []</a>
+		<a id="change">sum = 0</a>
+		for i in range(17):
+			s.append(set())
+		for f in file_object:
+			<a id="change">pair = f.split()</a>
+			s[int(pair[1].strip())].add(pair[0].strip())
+		for i in range(17):	
+			sum += len(s[i])
+		<a id="change">file_object</a><a id="change">.close()</a>
+		<a id="change">text = ""</a> &#47&#47&#47&#47用于记录已标注样本个数
+		for i in range(17):
+			text += &quot&lt;p&gt;&quot + str(i) + &quot类: &quot + str(len(s[i])) + &quot个&lt;/p&gt;&quot
+		text += &quot&lt;p&gt;总计: &quot + str(sum) + &quot个&lt;/p&gt;&quot
+		<a id="change">ctx[&quotalready&quot] = text</a>
+
+				
+	return render(request, "tagging_data.html", ctx)
+	</code></pre>

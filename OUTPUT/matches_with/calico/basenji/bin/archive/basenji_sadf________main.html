@@ -1,0 +1,490 @@
+<link rel="stylesheet" href="../../../..//default.css">
+<script src="../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/calico/basenji/blob/master/bin/archive/basenji_sadf.py#L51">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/basenji/blob/master/bin/archive/basenji_sadf.py#L51">GitMyHubLink</a>
+
+&#47&#47!/usr/bin/env python
+&#47&#47 Copyright 2017 Calico LLC
+&#47&#47
+&#47&#47 Licensed under the Apache License, Version 2.0 (the "License");
+&#47&#47 you may not use this file except in compliance with the License.
+&#47&#47 You may obtain a copy of the License at
+&#47&#47
+&#47&#47     https://www.apache.org/licenses/LICENSE-2.0
+&#47&#47
+&#47&#47 Unless required by applicable law or agreed to in writing, software
+&#47&#47 distributed under the License is distributed on an "AS IS" BASIS,
+&#47&#47 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+&#47&#47 See the License for the specific language governing permissions and
+&#47&#47 limitations under the License.
+&#47&#47 =========================================================================
+from __future__ import print_function
+
+from optparse import OptionParser
+import pickle
+import os
+import sys
+import time
+
+import h5py
+import numpy as np
+import pandas as pd
+import pysam
+import tensorflow as tf
+try:
+  import zarr
+except ImportError:
+  pass
+
+from basenji import batcher
+from basenji import dna_io
+from basenji import params
+from basenji import seqnn
+from basenji import vcf as bvcf
+from basenji_test import bigwig_open
+
+&quot&quot&quot
+basenji_sadf.py
+
+Compute SNP Activity Difference (SAD) scores for SNPs in a VCF file,
+using the feed dict.
+&quot&quot&quot
+
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+&#47&#47 main
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+def main():
+  <a id="change">usage = &quotusage: %prog [options] &lt;params_file&gt; &lt;model_file&gt; &lt;vcf_file&gt;&quot</a>
+  <a id="change">parser = OptionParser(usage)</a>
+  parser.add_option(&quot-b&quot,dest=&quotbatch_size&quot,
+      default=256, type=&quotint&quot,
+      help=&quotBatch size [Default: %default]&quot)
+  parser.add_option(&quot-c&quot, dest=&quotcsv&quot,
+      default=False, action=&quotstore_true&quot,
+      help=&quotPrint table as CSV [Default: %default]&quot)
+  parser.add_option(&quot-f&quot, dest=&quotgenome_fasta&quot,
+      default=&quot%s/data/hg19.fa&quot % os.environ[&quotBASENJIDIR&quot],
+      help=&quotGenome FASTA for sequences [Default: %default]&quot)
+  parser.add_option(&quot-g&quot, dest=&quotgenome_file&quot,
+      default=&quot%s/data/human.hg19.genome&quot % os.environ[&quotBASENJIDIR&quot],
+      help=&quotChromosome lengths file [Default: %default]&quot)
+  parser.add_option(&quot--h5&quot, dest=&quotout_h5&quot,
+      default=False, action=&quotstore_true&quot,
+      help=&quotOutput stats to sad.h5 [Default: %default]&quot)
+  parser.add_option(&quot--local&quot,dest=&quotlocal&quot,
+      default=1024, type=&quotint&quot,
+      help=&quotLocal SAD score [Default: %default]&quot)
+  parser.add_option(&quot-n&quot, dest=&quotnorm_file&quot,
+      default=None,
+      help=&quotNormalize SAD scores&quot)
+  parser.add_option(&quot-o&quot,dest=&quotout_dir&quot,
+      default=&quotsad&quot,
+      help=&quotOutput directory for tables and plots [Default: %default]&quot)
+  parser.add_option(&quot-p&quot, dest=&quotprocesses&quot,
+      default=None, type=&quotint&quot,
+      help=&quotNumber of processes, passed by multi script&quot)
+  parser.add_option(&quot--pseudo&quot, dest=&quotlog_pseudo&quot,
+      default=1, type=&quotfloat&quot,
+      help=&quotLog2 pseudocount [Default: %default]&quot)
+  parser.add_option(&quot--rc&quot, dest=&quotrc&quot,
+      default=False, action=&quotstore_true&quot,
+      help=&quotAverage forward and reverse complement predictions [Default: %default]&quot)
+  parser.add_option(&quot--shifts&quot, dest=&quotshifts&quot,
+      default=&quot0&quot, type=&quotstr&quot,
+      help=&quotEnsemble prediction shifts [Default: %default]&quot)
+  parser.add_option(&quot--stats&quot, dest=&quotsad_stats&quot,
+      default=&quotSAD,xSAR&quot,
+      help=&quotComma-separated list of stats to save. [Default: %default]&quot)
+  parser.add_option(&quot-t&quot, dest=&quottargets_file&quot,
+      default=None, type=&quotstr&quot,
+      help=&quotFile specifying target indexes and labels in table format&quot)
+  parser.add_option(&quot--ti&quot, dest=&quottrack_indexes&quot,
+      default=None, type=&quotstr&quot,
+      help=&quotComma-separated list of target indexes to output BigWig tracks&quot)
+  parser.add_option(&quot-u&quot, dest=&quotpenultimate&quot,
+      default=False, action=&quotstore_true&quot,
+      help=&quotCompute SED in the penultimate layer [Default: %default]&quot)
+  parser.add_option(&quot-z&quot, dest=&quotout_zarr&quot,
+      default=False, action=&quotstore_true&quot,
+      help=&quotOutput stats to sad.zarr [Default: %default]&quot)
+  <a id="change">(options, args) = parser.parse_args()</a>
+
+  if len(args) == 3:
+    &#47&#47 single worker
+    <a id="change">params_file = args[0]</a>
+    <a id="change">model_file = args[1]</a>
+    <a id="change">vcf_file = args[2]</a>
+
+  elif len(args) == 5:
+    &#47&#47 multi worker
+    <a id="change">options_pkl_file = args[0]</a>
+    <a id="change">params_file = args[1]</a>
+    <a id="change">model_file = args[2]</a>
+    <a id="change">vcf_file = args[3]</a>
+    <a id="change">worker_index = int(args[4])</a>
+
+    &#47&#47 load options
+    <a id="change">options_pkl = open(options_pkl_file, &quotrb&quot)</a>
+    <a id="change">options = pickle.load(options_pkl)</a>
+    <a id="change">options_pkl</a><a id="change">.close()</a>
+
+    &#47&#47 update output directory
+    <a id="change">options.out_dir = &quot%s/job%d&quot % (options.out_dir, worker_index)</a>
+
+  else:
+    parser.error(&quotMust provide parameters and model files and QTL VCF file&quot)
+
+  if not os.path.isdir(options.out_dir):
+    os.mkdir(options.out_dir)
+
+  if options.track_indexes is None:
+    <a id="change">options.track_indexes = []</a>
+  else:
+    <a id="change">options.track_indexes = [int(ti) for ti in options.track_indexes.split(&quot,&quot)]</a>
+    if not os.path.isdir(&quot%s/tracks&quot % options.out_dir):
+      os.mkdir(&quot%s/tracks&quot % options.out_dir)
+
+  <a id="change">options.shifts = [int(shift) for shift in options.shifts.split(&quot,&quot)]</a>
+  <a id="change">options.sad_stats = options.sad_stats.split(&quot,&quot)</a>
+
+  &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+  &#47&#47 setup model
+
+  <a id="change">job = params.read_job_params(params_file,
+          require=[&quotseq_length&quot,&quotnum_targets&quot,&quottarget_pool&quot])</a>
+
+  if options.targets_file is None:
+    <a id="change">target_ids = [&quott%d&quot % ti for ti in range(job[&quotnum_targets&quot])]</a>
+    <a id="change">target_labels = [&quot&quot]*len(target_ids)</a>
+    <a id="change">target_subset = None</a>
+
+  else:
+    <a id="change">targets_df = pd.read_table(options.targets_file, index_col=0)</a>
+    <a id="change">target_ids = targets_df.identifier</a>
+    <a id="change">target_labels = targets_df.description</a>
+    <a id="change">target_subset = targets_df.index</a>
+    if len(target_subset) == job[&quotnum_targets&quot]:
+        <a id="change">target_subset = None</a>
+
+  &#47&#47 build model
+  <a id="change">t0 = time.time()</a>
+  <a id="change">model = seqnn.SeqNN()</a>
+  model.build_feed(job, ensemble_rc=options.rc, ensemble_shifts=options.shifts,
+      embed_penultimate=options.penultimate, target_subset=target_subset)
+  print(&quotModel building time %f&quot % (time.time() - t0), flush=True)
+
+  if options.penultimate:
+    &#47&#47 labels become inappropriate
+    <a id="change">target_ids = [&quot&quot]*model.hp.cnn_filters[-1]</a>
+    <a id="change">target_labels = target_ids</a>
+
+  &#47&#47 read target normalization factors
+  <a id="change">target_norms = np.ones(len(target_labels))</a>
+  if options.norm_file is not None:
+    <a id="change">ti = 0</a>
+    for line in open(options.norm_file):
+      <a id="change">target_norms[ti] = float(line.strip())</a>
+      ti += 1
+
+  <a id="change">num_targets = len(target_ids)</a>
+
+
+  &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+  &#47&#47 load SNPs
+
+  <a id="change">snps = bvcf.vcf_snps(vcf_file)</a>
+
+  &#47&#47 filter for worker SNPs
+  if options.processes is not None:
+    <a id="change">worker_bounds = np.linspace(0, len(snps), options.processes+1, dtype=&quotint&quot)</a>
+    <a id="change">snps = snps[worker_bounds[worker_index]:worker_bounds[worker_index+1]]</a>
+
+  <a id="change">num_snps = len(snps)</a>
+
+  &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+  &#47&#47 setup output
+
+  header_cols = (&quotrsid&quot, &quotref&quot, &quotalt&quot,
+                  &quotref_pred&quot, &quotalt_pred&quot, &quotsad&quot, &quotsar&quot, &quotgeo_sad&quot,
+                  &quotref_lpred&quot, &quotalt_lpred&quot, &quotlsad&quot, &quotlsar&quot,
+                  &quotref_xpred&quot, &quotalt_xpred&quot, &quotxsad&quot, &quotxsar&quot,
+                  &quottarget_index&quot, &quottarget_id&quot, &quottarget_label&quot)
+
+  if options.out_h5:
+    <a id="change">sad_out = initialize_output_h5(options.out_dir, options.sad_stats,
+                                   snps, target_ids, target_labels)</a>
+
+  elif options.out_zarr:
+    <a id="change">sad_out = initialize_output_zarr(options.out_dir, options.sad_stats,
+                                     snps, target_ids, target_labels)</a>
+
+  else:
+    if options.csv:
+      <a id="change">sad_out = open(&quot%s/sad_table.csv&quot % options.out_dir, &quotw&quot)</a>
+      print(&quot,&quot.join(header_cols), file=sad_out)
+    else:
+      <a id="change">sad_out = open(&quot%s/sad_table.txt&quot % options.out_dir, &quotw&quot)</a>
+      print(&quot &quot.join(header_cols), file=sad_out)
+
+
+  &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+  &#47&#47 process
+
+  &#47&#47 open genome FASTA
+  <a id="change">genome_open = pysam.Fastafile(options.genome_fasta)</a>
+
+  &#47&#47 determine local start and end
+  <a id="change">loc_mid = model.target_length // 2</a>
+  <a id="change">loc_start = loc_mid - (options.local//2) // model.hp.target_pool</a>
+  <a id="change">loc_end = loc_start + options.local // model.hp.target_pool</a>
+
+  <a id="change">snp_i = 0</a>
+  <a id="change">szi = 0</a>
+
+  &#47&#47 initialize saver
+  <a id="change">saver = tf.train.Saver()</a>
+  with tf.Session() as sess:
+    &#47&#47 load variables into session
+    saver.restore(sess, model_file)
+
+    &#47&#47 construct first batch
+    <a id="change">batch_1hot, batch_snps, snp_i = snps_next_batch(
+        snps, snp_i, options.batch_size, job[&quotseq_length&quot], genome_open)</a>
+
+    while len(batch_snps) &gt; 0:
+      &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+      &#47&#47 predict
+
+      &#47&#47 initialize batcher
+      <a id="change">batcher = batcher.Batcher(batch_1hot, batch_size=model.hp.batch_size)</a>
+
+      &#47&#47 predict
+      &#47&#47 batch_preds = model.predict(sess, batcher,
+      &#47&#47                 rc=options.rc, shifts=options.shifts,
+      &#47&#47                 penultimate=options.penultimate)
+      <a id="change">batch_preds = model.predict_h5(sess, batcher)</a>
+
+      &#47&#47 normalize
+      batch_preds /= target_norms
+
+
+      &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+      &#47&#47 collect and print SADs
+
+      <a id="change">pi = 0</a>
+      for snp in batch_snps:
+        &#47&#47 get reference prediction (LxT)
+        <a id="change">ref_preds = batch_preds[pi]</a>
+        pi += 1
+
+        &#47&#47 sum across length
+        <a id="change">ref_preds_sum = ref_preds.sum(axis=0, dtype=&quotfloat64&quot)</a>
+
+        &#47&#47 print tracks
+        for ti in options.track_indexes:
+          <a id="change">ref_bw_file = &quot%s/tracks/%s_t%d_ref.bw&quot % (options.out_dir, snp.rsid,
+                                                     ti)</a>
+          bigwig_write(snp, job[&quotseq_length&quot], ref_preds[:, ti], model,
+                       ref_bw_file, options.genome_file)
+
+        for alt_al in snp.alt_alleles:
+          &#47&#47 get alternate prediction (LxT)
+          <a id="change">alt_preds = batch_preds[pi]</a>
+          pi += 1
+
+          &#47&#47 sum across length
+          <a id="change">alt_preds_sum = alt_preds.sum(axis=0, dtype=&quotfloat64&quot)</a>
+
+          &#47&#47 compare reference to alternative via mean subtraction
+          <a id="change">sad_vec = alt_preds - ref_preds</a>
+          <a id="change">sad = alt_preds_sum - ref_preds_sum</a>
+
+          &#47&#47 compare reference to alternative via mean log division
+          <a id="change">sar = np.log2(alt_preds_sum + options.log_pseudo) \
+                  - np.log2(ref_preds_sum + options.log_pseudo)</a>
+
+          &#47&#47 compare geometric means
+          <a id="change">sar_vec = np.log2(alt_preds.astype(&quotfloat64&quot) + options.log_pseudo) \
+                      - np.log2(ref_preds.astype(&quotfloat64&quot) + options.log_pseudo)</a>
+          <a id="change">geo_sad = sar_vec.sum(axis=0)</a>
+
+          &#47&#47 sum locally
+          <a id="change">ref_preds_loc = ref_preds[loc_start:loc_end,:].sum(axis=0, dtype=&quotfloat64&quot)</a>
+          <a id="change">alt_preds_loc = alt_preds[loc_start:loc_end,:].sum(axis=0, dtype=&quotfloat64&quot)</a>
+
+          &#47&#47 compute SAD locally
+          <a id="change">sad_loc = alt_preds_loc - ref_preds_loc</a>
+          <a id="change">sar_loc = np.log2(alt_preds_loc + options.log_pseudo) \
+                      - np.log2(ref_preds_loc + options.log_pseudo)</a>
+
+          &#47&#47 compute max difference position
+          <a id="change">max_li = np.argmax(np.abs(sar_vec), axis=0)</a>
+
+          if options.out_h5 or options.out_zarr:
+            <a id="change">sad_out[&quotSAD&quot][szi,:] = sad.astype(&quotfloat16&quot)</a>
+            <a id="change">sad_out[&quotxSAR&quot][szi,:] = np.array([sar_vec[max_li[ti],ti] for ti in range(num_targets)], dtype=&quotfloat16&quot)</a>
+            szi += 1
+
+          else:
+            &#47&#47 print table lines
+            for ti in range(len(sad)):
+              &#47&#47 print line
+              cols = (snp.rsid, bvcf.cap_allele(snp.ref_allele), bvcf.cap_allele(alt_al),
+                      ref_preds_sum[ti], alt_preds_sum[ti], sad[ti], sar[ti], geo_sad[ti],
+                      ref_preds_loc[ti], alt_preds_loc[ti], sad_loc[ti], sar_loc[ti],
+                      ref_preds[max_li[ti], ti], alt_preds[max_li[ti], ti], sad_vec[max_li[ti],ti], sar_vec[max_li[ti],ti],
+                      ti, target_ids[ti], target_labels[ti])
+              if options.csv:
+                print(&quot,&quot.join([str(c) for c in cols]), file=sad_out)
+              else:
+                print(
+                    &quot%-13s %6s %6s | %8.2f %8.2f %8.3f %7.4f %7.3f | %7.3f %7.3f %7.3f %7.4f | %7.3f %7.3f %7.3f %7.4f | %4d %12s %s&quot
+                    % cols,
+                    file=sad_out)
+
+          &#47&#47 print tracks
+          for ti in options.track_indexes:
+            <a id="change">alt_bw_file = &quot%s/tracks/%s_t%d_alt.bw&quot % (options.out_dir,
+                                                       snp.rsid, ti)</a>
+            bigwig_write(snp, job[&quotseq_length&quot], alt_preds[:, ti], model,
+                         alt_bw_file, options.genome_file)
+
+      &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+      &#47&#47 construct next batch
+
+      <a id="change">batch_1hot, batch_snps, snp_i = snps_next_batch(
+          snps, snp_i, options.batch_size, job[&quotseq_length&quot], genome_open)</a>
+
+  &#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+  &#47&#47 compute SAD distributions across variants
+
+  if options.out_h5 or options.out_zarr:
+    &#47&#47 define percentiles
+    <a id="change">d_fine = 0.001</a>
+    <a id="change">d_coarse = 0.01</a>
+    <a id="change">percentiles_neg = np.arange(d_fine, 0.1, d_fine)</a>
+    <a id="change">percentiles_base = np.arange(0.1, 0.9, d_coarse)</a>
+    <a id="change">percentiles_pos = np.arange(0.9, 1, d_fine)</a>
+
+    <a id="change">percentiles = np.concatenate([percentiles_neg, percentiles_base, percentiles_pos])</a>
+    sad_out.create_dataset(&quotpercentiles&quot, data=percentiles)
+    <a id="change">pct_len = len(percentiles)</a>
+
+    for sad_stat in options.sad_stats:
+      <a id="change">sad_stat_pct = &quot%s_pct&quot % sad_stat</a>
+
+      &#47&#47 compute
+      <a id="change">sad_pct = np.percentile(sad_out[sad_stat], 100*percentiles, axis=0).T</a>
+      <a id="change">sad_pct = sad_pct.astype(&quotfloat16&quot)</a>
+
+      &#47&#47 save
+      sad_out.create_dataset(sad_stat_pct, data=sad_pct, dtype=&quotfloat16&quot)
+
+  if not options.out_zarr:
+    sad_out.close()
+
+
+def bigwig_write(snp, seq_len, preds, model, bw_file, genome_file):
+  bw_open = bigwig_open(bw_file, genome_file)
+
+  seq_chrom = snp.chr
+  seq_start = snp.pos - seq_len // 2
+
+  bw_chroms = [seq_chrom] * len(preds)
+  bw_starts = [
+      int(seq_start + model.hp.batch_buffer + bi * model.hp.target_pool)
+      for bi in range(len(preds))
+  ]
+  bw_ends = [int(bws + model.hp.target_pool) for bws in bw_starts]
+
+  preds_list = [float(p) for p in preds]
+  bw_open.addEntries(bw_chroms, bw_starts, ends=bw_ends, values=preds_list)
+
+  bw_open.close()
+
+
+def initialize_output_h5(out_dir, sad_stats, snps, target_ids, target_labels):
+  Initialize an output HDF5 file for SAD stats.
+
+  num_targets = len(target_ids)
+  num_snps = len(snps)
+
+  sad_out = h5py.File(&quot%s/sad.h5&quot % out_dir, &quotw&quot)
+
+  &#47&#47 write SNPs
+  snp_ids = np.array([snp.rsid for snp in snps], &quotS&quot)
+  sad_out.create_dataset(&quotsnp&quot, data=snp_ids)
+
+  &#47&#47 write targets
+  sad_out.create_dataset(&quottarget_ids&quot, data=np.array(target_ids, &quotS&quot))
+  sad_out.create_dataset(&quottarget_labels&quot, data=np.array(target_labels, &quotS&quot))
+
+  &#47&#47 initialize SAD stats
+  for sad_stat in sad_stats:
+    sad_out.create_dataset(sad_stat,
+        shape=(num_snps, num_targets),
+        dtype=&quotfloat16&quot,
+        compression=None)
+
+  return sad_out
+
+
+def initialize_output_zarr(out_dir, sad_stats, snps, target_ids, target_labels):
+  Initialize an output Zarr file for SAD stats.
+
+  num_targets = len(target_ids)
+  num_snps = len(snps)
+
+  sad_out = zarr.open_group(&quot%s/sad.zarr&quot % out_dir, &quotw&quot)
+
+  &#47&#47 write SNPs
+  sad_out.create_dataset(&quotsnp&quot, data=[snp.rsid for snp in snps], chunks=(32768,))
+
+  &#47&#47 write targets
+  sad_out.create_dataset(&quottarget_ids&quot, data=target_ids, compressor=None)
+  sad_out.create_dataset(&quottarget_labels&quot, data=target_labels, compressor=None)
+
+  &#47&#47 initialize SAD stats
+  for sad_stat in sad_stats:
+    sad_out.create_dataset(sad_stat,
+        shape=(num_snps, num_targets),
+        chunks=(128, num_targets),
+        dtype=&quotfloat16&quot)
+
+  return sad_out
+
+
+def snps_next_batch(snps, snp_i, batch_size, seq_len, genome_open):
+   Load the next batch of SNP sequence 1-hot. 
+
+  batch_1hot = []
+  batch_snps = []
+
+  while len(batch_1hot) &lt; batch_size and snp_i &lt; len(snps):
+    &#47&#47 get SNP sequences
+    snp_1hot = bvcf.snp_seq1(snps[snp_i], seq_len, genome_open)
+
+    &#47&#47 if it was valid
+    if len(snp_1hot) &gt; 0:
+      &#47&#47 accumulate
+      batch_1hot += snp_1hot
+      batch_snps.append(snps[snp_i])
+
+    &#47&#47 advance SNP index
+    snp_i += 1
+
+  &#47&#47 convert to array
+  batch_1hot = np.array(batch_1hot)
+
+  return batch_1hot, batch_snps, snp_i
+
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+&#47&#47 __main__
+&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47&#47
+if __name__ == &quot__main__&quot:
+  main()
+</code></pre>

@@ -1,0 +1,82 @@
+<link rel="stylesheet" href="../../../../..//default.css">
+<script src="../../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/onnx/onnxmltools/blob/main/onnxmltools/convert/h2o/convert.py#L18">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/onnxmltools/blob/main/onnxmltools/convert/h2o/convert.py#L18">GitMyHubLink</a>
+
+&#47&#47 SPDX-License-Identifier: Apache-2.0
+
+from uuid import uuid4
+import json
+import tempfile
+import h2o
+
+import onnx
+from ..common.onnx_ex import get_maximum_opset_supported
+from ..common._topology import convert_topology
+from ..common.data_types import FloatTensorType
+from ._parse import parse_h2o
+
+&#47&#47 Invoke the registration of all our converters and shape calculators
+from . import operator_converters, shape_calculators  &#47&#47 noqa
+
+
+def convert(<a id="change">model</a>, <a id="change">name</a>=None, <a id="change">initial_types</a>=None, <a id="change">doc_string</a>=&quot&quot, <a id="change">target_opset</a>=None,
+            <a id="change">targeted_onnx</a>=onnx.__version__, <a id="change">custom_conversion_functions</a>=None,
+            <a id="change">custom_shape_calculators</a>=None):
+    &quot&quot&quot
+    This function produces an equivalent ONNX model of the given H2O MOJO model.
+    Supported model types:
+    - GBM, with limitations:
+        - poisson, gamma, tweedie distributions not supported
+        - multinomial distribution supported with 3 or more classes (use binomial otherwise)
+    Ohter limitations:
+    - modes with categorical splits not supported
+
+
+    :param model: H2O MOJO model loaded into memory (see below for example)
+    :param name: The name of the graph (type: GraphProto) in the produced ONNX model (type: ModelProto)
+    :param initial_types: a python list. Each element is a tuple of a variable name and a type defined in data_types.py
+    :param doc_string: A string attached onto the produced ONNX model
+    :param target_opset: number, for example, 7 for ONNX 1.2, and 8 for ONNX 1.3.
+    :param targeted_onnx: A string (for example, &quot1.1.2&quot and &quot1.2&quot) used to specify the targeted ONNX version of the
+        produced model. If ONNXMLTools cannot find a compatible ONNX python package, an error may be thrown.
+    :param custom_conversion_functions: a dictionary for specifying the user customized conversion function
+    :param custom_shape_calculators: a dictionary for specifying the user customized shape calculator
+    :return: An ONNX model (type: ModelProto) which is equivalent to the input xgboost model
+
+    :examples:
+
+    &gt;&gt;&gt; from onnxmltools.convert import convert_h2o
+    &gt;&gt;&gt; file = open("/path/to/h2o_mojo.zip", "rb")
+    &gt;&gt;&gt; mojo_content = file.read()
+    &gt;&gt;&gt; file.close()
+    &gt;&gt;&gt; h2o_onnx_model = convert_h2o(mojo_content)
+    &quot&quot&quot
+    if name is None:
+        <a id="change">name = str(uuid4().hex)</a>
+    if initial_types is None:
+        <a id="change">initial_types = [(&quotinput&quot, FloatTensorType(shape=[&quotNone&quot, &quotNone&quot]))]</a>
+
+    if isinstance(model, str):
+        <a id="change">model_path = model</a>
+    else:
+        <a id="change">_, model_path = tempfile.mkstemp()</a>
+        <a id="change">f = open(model_path, "wb")</a>
+        f.write(model)
+        <a id="change">f</a><a id="change">.close()</a>
+    <a id="change">mojo_str = h2o.print_mojo(model_path, format="json")</a>
+    <a id="change">mojo_model = json.loads(mojo_str)</a>
+    if mojo_model["params"]["algo"] != "gbm":
+        raise ValueError(
+            "Model type not supported (algo=%s). Only GBM Mojo supported for now." % mojo_model["params"]["algo"])
+
+    target_opset = target_opset if target_opset else get_maximum_opset_supported()
+    <a id="change">topology = parse_h2o(mojo_model, initial_types, target_opset, custom_conversion_functions, custom_shape_calculators)</a>
+    topology.compile()
+    <a id="change">onnx_model = convert_topology(topology, name, doc_string, target_opset, targeted_onnx)</a>
+    return onnx_model
+</code></pre>

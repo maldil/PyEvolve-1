@@ -1,0 +1,62 @@
+<link rel="stylesheet" href="../../../../..//default.css">
+<script src="../../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/ActiveState/code/blob/master/recipes/Python/577533_Axis_POJO_stripper/recipe-577533.py#L17">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/code/blob/master/recipes/Python/577533_Axis_POJO_stripper/recipe-577533.py#L17">GitMyHubLink</a>
+
+import os, sys, shutil, tempfile, string
+from os.path import join
+
+This utility lets us use the &quotwsdl2java&quot utility from Axis-1 to 
+generate POJOs from the schema embedded in a WSDL.  If we just want
+POJOs without the Axis marshalling/unmarshalling code, then this
+script will strip out the Axis code, leaving just the POJOs.
+
+As of Axis-1.x, fortunately, all the Axis marshall/unmarshall code
+is at the last part of the generated class files, so we can get away
+with just truncating the file rather then truly parsing and performing 
+an AST transformation. (i.e. don&quott need a real java parser)
+
+Author: Chris Wolf cw10025 gmail com
+
+
+def stripAxisCode(<a id="change">fileName</a>):
+  copy lines from in file to out file up to first occurance
+     of the string &quotorg.apache.axis&quot, then just write closing brace.
+     hasAxisCode detects of the file was already processed such that
+     this is an idempotent operation.
+   
+  <a id="change">hasAxisCode = False</a>
+  <a id="change">fin = open(fileName, &quotr&quot)</a>
+  <a id="change">outName = &quot&quot.join([fileName, &quot.tmp&quot])</a>
+  <a id="change">fout = open(outName, &quotwr&quot)</a>
+  for line in fin:
+    if (string.find(line, &quotorg.apache.axis&quot) != -1 and
+        string.find(line, &quotextends&quot) == -1 and
+        string.find(line, &quotimplements&quot) == -1):
+      <a id="change">hasAxisCode = True</a>
+      break
+    else:
+      fout.write(line)
+
+  <a id="change">fin</a><a id="change">.close()</a> 
+  if hasAxisCode:
+    fout.write("}\n")
+  fout.close
+  shutil.move(outName, fileName)
+
+def processDirTree(tld):
+  From the top level package dir of Axis-generated POJOs, 
+     strip out Axis code to make just plain, old java objects 
+     (real POJOs - without binding-specific marshalling guts)
+  
+  for root, dirs, files in os.walk(tld):
+    for name in files:
+      stripAxisCode(join(root, name))
+
+
+processDirTree(sys.argv[1])
+</code></pre>

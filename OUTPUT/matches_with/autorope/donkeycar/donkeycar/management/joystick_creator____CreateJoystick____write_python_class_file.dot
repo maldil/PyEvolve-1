@@ -1,0 +1,663 @@
+digraph G {
+1 [label="(42682301)If" shape=diamond style=dashed]
+2 [label="(42682330)String(lit(
+from donkeycar.parts.controller import Joystick, JoystickController
+
+
+class %s(Joystick):
+    #An interface to a physical joystick available at /dev/input/js0
+    def __init__(self, *args, **kwargs):
+        super(%s, self).__init__(*args, **kwargs)
+
+            
+))" shape=ellipse style=dashed]
+3 [label="(42682451)TextIO(outfile)" shape=ellipse style=dashed]
+4 [label="(42682450)Mod" shape=box style=dashed]
+5 [label="(42682375)Any(key)" shape=ellipse style=dashed]
+6 [label="(42682437)Union[str, Any](control)" shape=ellipse style=dashed color=blue fontcolor=blue]
+7 [label="(42682264)While" shape=diamond style=dashed]
+8 [label="(42682337)TextIO(outfile)" shape=ellipse style=dashed]
+9 [label="(42682431)write" shape=box style=dashed]
+10 [label="(42682409)CreateJoystick(self)" shape=ellipse style=dashed]
+11 [label="(42682290)String(lit(wt))" shape=ellipse style=dashed color=yellow fontcolor=yellow]
+12 [label="(42682311)None(None)" shape=ellipse style=dashed]
+13 [label="(42682389)()" shape=box style=dashed]
+14 [label="(42682405)str(js_controller)" shape=ellipse style=dashed]
+15 [label="(42682361)Any(value)" shape=ellipse style=dashed]
+16 [label="(42682374)Any(key)" shape=ellipse style=dashed color=red fontcolor=red]
+17 [label="(42682394)str(js_controller)" shape=ellipse style=dashed color=red fontcolor=red]
+18 [label="(42682406)TextIO(outfile)" shape=ellipse style=dashed]
+19 [label="(42682352)empty" shape=box style=dashed]
+20 [label="(42682388)Any(value)" shape=ellipse style=dashed]
+21 [label="(42682453)String(lit(        }
+
+
+))" shape=ellipse style=dashed]
+22 [label="(42682252)(null)" shape=ellipse style=dashed]
+23 [label="(42682332)str(classname)" shape=ellipse style=dashed]
+24 [label="(42682351)For" shape=diamond style=dashed]
+25 [label="(42682442)write" shape=box style=dashed]
+26 [label="(42682412)nothing(button)" shape=ellipse style=dashed]
+27 [label="(42682326)String(lit(MyJoystick))" shape=ellipse style=dashed]
+28 [label="(42682298)str(ret)" shape=ellipse style=dashed]
+29 [label="(42682421)str" shape=box style=dashed]
+30 [label="(42682289)str(pyth_filename)" shape=ellipse style=dashed]
+31 [label="(42682371)CreateJoystick.js(js)" shape=ellipse style=dashed]
+32 [label="(42682253)=" shape=box style=dashed]
+33 [label="(42682385)hex" shape=box style=dashed]
+34 [label="(42682310)TextIO(outfile)" shape=ellipse style=dashed]
+35 [label="(42682317)String(lit(What is the name of joystick class? [default: MyJoystick] ))" shape=ellipse style=dashed]
+36 [label="(42682316)input" shape=box style=dashed]
+37 [label="(42682263)Is" shape=box style=dashed]
+38 [label="(42682312)IsNot" shape=box style=dashed]
+39 [label="(42682455)close" shape=box style=dashed color=yellow fontcolor=yellow]
+40 [label="(42682294)str(ret)" shape=ellipse style=dashed color=black fontcolor=black]
+41 [label="(42682309)empty" shape=box style=dashed]
+42 [label="(42682363)Mod" shape=box style=dashed]
+43 [label="(42682260)=" shape=box style=dashed]
+44 [label="(42682261)None(pyth_filename)" shape=ellipse style=dashed]
+45 [label="(42682282)print" shape=box style=dashed]
+46 [label="(42682353)TextIO(outfile)" shape=ellipse style=dashed]
+47 [label="(42682285)print" shape=box style=dashed]
+48 [label="(42682291)=" shape=box style=dashed color=yellow fontcolor=yellow]
+49 [label="(42682265)empty" shape=box style=dashed]
+50 [label="(42682328)empty" shape=box style=dashed]
+51 [label="(42682333)str(classname)" shape=ellipse style=dashed]
+52 [label="(42682259)None(None)" shape=ellipse style=dashed]
+53 [label="(42682358)hex" shape=box style=dashed]
+54 [label="(42682417)TextIO(outfile)" shape=ellipse style=dashed]
+55 [label="(42682287)TextIO(outfile)" shape=ellipse style=dashed color=yellow fontcolor=yellow]
+56 [label="(42682304)empty" shape=box style=dashed]
+57 [label="(42682428)write" shape=box style=dashed]
+58 [label="(42682381)write" shape=box style=dashed]
+59 [label="(42682339)str(file_header)" shape=ellipse style=dashed]
+60 [label="(42682448)Union[str, Any](control)" shape=ellipse style=dashed]
+61 [label="(42682315)str(classname)" shape=ellipse style=dashed color=blue fontcolor=blue]
+62 [label="(42682367)TextIO(outfile)" shape=ellipse style=dashed]
+63 [label="(42682360)str" shape=box style=dashed]
+64 [label="(42682393)String(lit(        }
+
+
+))" shape=ellipse style=dashed]
+65 [label="(42682398)str(classname)" shape=ellipse style=dashed]
+66 [label="(42682347)Any(key)" shape=ellipse style=dashed color=red fontcolor=red]
+67 [label="(42682411)nothing(button)" shape=ellipse style=dashed color=red fontcolor=red]
+68 [label="(42682416)empty" shape=box style=dashed]
+69 [label="(42682280)=" shape=box style=dashed]
+70 [label="(42682433)CreateJoystick(self)" shape=ellipse style=dashed]
+71 [label="(42682404)write" shape=box style=dashed]
+72 [label="(42682449)()" shape=box style=dashed]
+73 [label="(42682307)=" shape=box style=dashed]
+74 [label="(42682403)TextIO(outfile)" shape=ellipse style=dashed]
+75 [label="(42682459)empty" shape=box style=dashed]
+76 [label="(42682275)Eq" shape=box style=dashed]
+77 [label="(42682340)TextIO(outfile)" shape=ellipse style=dashed]
+78 [label="(42682424)nothing(control)" shape=ellipse style=dashed]
+79 [label="(42682300)Eq" shape=box style=dashed]
+80 [label="(42682372)CreateJoystick.js.axis_names(axis_names)" shape=ellipse style=dashed]
+81 [label="(42682392)write" shape=box style=dashed]
+82 [label="(42682454)TextIO(outfile)" shape=ellipse style=dashed color=yellow fontcolor=yellow]
+83 [label="(42682270)String(lit(What is the name of python file to create joystick code? [default: my_joystick.py]))" shape=ellipse style=dashed]
+84 [label="(42682365)write" shape=box style=dashed]
+85 [label="(42682329)str(file_header)" shape=ellipse style=dashed color=black fontcolor=black]
+86 [label="(42682278)str(pyth_filename)" shape=ellipse style=dashed color=yellow fontcolor=yellow]
+87 [label="(42682344)CreateJoystick.js(js)" shape=ellipse style=dashed]
+88 [label="(42682429)String(lit(        }
+
+
+))" shape=ellipse style=dashed]
+89 [label="(42682297)=" shape=box style=dashed]
+90 [label="(42682438)Union[str, Any](control)" shape=ellipse style=dashed]
+91 [label="(42682439)For" shape=diamond style=dashed]
+92 [label="(42682441)TextIO(outfile)" shape=ellipse style=dashed]
+93 [label="(42682458)String(lit(written.))" shape=ellipse style=dashed]
+94 [label="(42682357)str" shape=box style=dashed]
+95 [label="(42682276)If" shape=diamond style=dashed]
+96 [label="(42682366)String(lit(        }
+
+
+))" shape=ellipse style=dashed]
+97 [label="(42682302)empty" shape=box style=dashed]
+98 [label="(42682370)CreateJoystick(self)" shape=ellipse style=dashed]
+99 [label="(42682306)None(None)" shape=ellipse style=dashed]
+100 [label="(42682423)str" shape=box style=dashed]
+101 [label="(42682314)empty" shape=box style=dashed]
+102 [label="(42682426)Mod" shape=box style=dashed]
+103 [label="(42682279)String(lit(my_joystick.py))" shape=ellipse style=dashed]
+104 [label="(42682257)=" shape=box style=dashed]
+105 [label="(42682272)len" shape=box style=dashed]
+106 [label="(42682390)Mod" shape=box style=dashed]
+107 [label="(42682440)empty" shape=box style=dashed]
+108 [label="(42682319)len" shape=box style=dashed]
+109 [label="(42682327)=" shape=box style=dashed]
+110 [label="(42682401)Mod" shape=box style=dashed]
+111 [label="(42682292)AST" shape=diamond style=dashed]
+112 [label="(42682268)str(pyth_filename)" shape=ellipse style=dashed color=blue fontcolor=blue]
+113 [label="(42682400)()" shape=box style=dashed]
+114 [label="(42682324)empty" shape=box style=dashed]
+115 [label="(42682362)()" shape=box style=dashed]
+116 [label="(42682457)None(pyth_filename)" shape=ellipse style=dashed]
+117 [label="(42682251)CreateJoystick(self)" shape=ellipse style=dashed]
+118 [label="(42682262)None(None)" shape=ellipse style=dashed]
+119 [label="(42682318)=" shape=box style=dashed]
+120 [label="(42682415)For" shape=diamond style=dashed]
+121 [label="(42682359)Any(key)" shape=ellipse style=dashed]
+122 [label="(42682267)String(lit(Now we will write these values to a new python file.))" shape=ellipse style=dashed]
+123 [label="(42682380)TextIO(outfile)" shape=ellipse style=dashed]
+124 [label="(42682266)print" shape=box style=dashed]
+125 [label="(42682382)String(lit(            %s : '%s',
+))" shape=ellipse style=dashed]
+126 [label="(42682422)nothing(button)" shape=ellipse style=dashed]
+127 [label="(42682299)String(lit(n))" shape=ellipse style=dashed]
+128 [label="(42682288)open" shape=box style=dashed color=yellow fontcolor=yellow]
+129 [label="(42682296)String(lit(failed to open filename. Enter another filename? [Y,n]))" shape=ellipse style=dashed]
+130 [label="(42682391)TextIO(outfile)" shape=ellipse style=dashed]
+131 [label="(42682334)()" shape=box style=dashed]
+132 [label="(42682399)str(classname)" shape=ellipse style=dashed]
+133 [label="(42682305)None(pyth_filename)" shape=ellipse style=dashed]
+134 [label="(42682373)items" shape=box style=dashed]
+135 [label="(42682313)If" shape=diamond style=dashed]
+136 [label="(42682322)Eq" shape=box style=dashed]
+137 [label="(42682345)CreateJoystick.js.button_names(button_names)" shape=ellipse style=dashed]
+138 [label="(42682295)input" shape=box style=dashed]
+139 [label="(42682355)String(lit(            %s : '%s',
+))" shape=ellipse style=dashed]
+140 [label="(42682271)=" shape=box style=dashed]
+141 [label="(42682250)START" style=dashed]
+142 [label="(42682395)String(lit(
+class %sController(JoystickController):
+    #A Controller object that maps inputs to actions
+    def __init__(self, *args, **kwargs):
+        super(%sController, self).__init__(*args, **kwargs)
+
+
+    def init_js(self):
+        #attempt to init joystick
+        try:
+            self.js = %s(self.dev_fn)
+            self.js.init()
+        except FileNotFoundError:
+            print(self.dev_fn, "not found.")
+            self.js = None
+        return self.js is not None
+
+
+    def init_trigger_maps(self):
+        #init set of mapping from buttons to function calls
+            
+))" shape=ellipse style=dashed]
+143 [label="(42682413)nothing(control)" shape=ellipse style=dashed color=red fontcolor=red]
+144 [label="(42682460)END" style=dashed]
+145 [label="(42682368)write" shape=box style=dashed]
+146 [label="(42682256)None(None)" shape=ellipse style=dashed]
+147 [label="(42682408)String(lit(        self.button_down_trigger_map = {
+))" shape=ellipse style=dashed]
+148 [label="(42682407)write" shape=box style=dashed]
+149 [label="(42682342)String(lit(        self.button_names = {
+))" shape=ellipse style=dashed]
+150 [label="(42682376)Any(value)" shape=ellipse style=dashed color=red fontcolor=red]
+151 [label="(42682323)If" shape=diamond style=dashed]
+152 [label="(42682273)str(pyth_filename)" shape=ellipse style=dashed]
+153 [label="(42682277)empty" shape=box style=dashed]
+154 [label="(42682255)None(pyth_filename)" shape=ellipse style=dashed color=black fontcolor=black]
+155 [label="(42682343)CreateJoystick(self)" shape=ellipse style=dashed]
+156 [label="(42682348)Any(key)" shape=ellipse style=dashed]
+157 [label="(42682387)str" shape=box style=dashed]
+158 [label="(42682402)=" shape=box style=dashed]
+159 [label="(42682425)()" shape=box style=dashed]
+160 [label="(42682286)TryExcept" shape=diamond style=dashed]
+161 [label="(42682269)input" shape=box style=dashed]
+162 [label="(42682364)TextIO(outfile)" shape=ellipse style=dashed]
+163 [label="(42682432)String(lit(        self.axis_trigger_map = {
+))" shape=ellipse style=dashed]
+164 [label="(42682284)str(pyth_filename)" shape=ellipse style=dashed]
+165 [label="(42682320)str(classname)" shape=ellipse style=dashed]
+166 [label="(42682397)str(classname)" shape=ellipse style=dashed]
+167 [label="(42682283)String(lit(using filename:))" shape=ellipse style=dashed]
+168 [label="(42682350)Any(value)" shape=ellipse style=dashed]
+169 [label="(42682274)number(0)" shape=ellipse style=dashed]
+170 [label="(42682419)String(lit(            '%s' : self.%s,
+))" shape=ellipse style=dashed]
+171 [label="(42682377)Any(value)" shape=ellipse style=dashed]
+172 [label="(42682427)TextIO(outfile)" shape=ellipse style=dashed]
+173 [label="(42682308)print" shape=box style=dashed]
+174 [label="(42682321)number(0)" shape=ellipse style=dashed]
+175 [label="(42682354)write" shape=box style=dashed]
+176 [label="(42682452)write" shape=box style=dashed]
+177 [label="(42682335)Mod" shape=box style=dashed]
+178 [label="(42682436)Any(axis)" shape=ellipse style=dashed]
+179 [label="(42682349)Any(value)" shape=ellipse style=dashed color=yellow fontcolor=yellow]
+180 [label="(42682325)str(classname)" shape=ellipse style=dashed color=blue fontcolor=blue]
+181 [label="(42682430)TextIO(outfile)" shape=ellipse style=dashed]
+182 [label="(42682456)print" shape=box style=dashed]
+183 [label="(42682281)empty" shape=box style=dashed]
+184 [label="(42682384)str" shape=box style=dashed]
+185 [label="(42682435)Any(axis)" shape=ellipse style=dashed color=red fontcolor=red]
+186 [label="(42682445)str" shape=box style=dashed]
+187 [label="(42682369)String(lit(        self.axis_names = {
+))" shape=ellipse style=dashed]
+188 [label="(42682418)write" shape=box style=dashed]
+189 [label="(42682336)=" shape=box style=dashed]
+190 [label="(42682379)empty" shape=box style=dashed]
+191 [label="(42682446)Any(axis)" shape=ellipse style=dashed]
+192 [label="(42682410)CreateJoystick.mapped_controls(mapped_controls)" shape=ellipse style=dashed]
+193 [label="(42682303)break" shape=box style=dashed]
+194 [label="(42682341)write" shape=box style=dashed]
+195 [label="(42682447)str" shape=box style=dashed]
+196 [label="(42682443)String(lit(            '%s' : self.%s,
+))" shape=ellipse style=dashed]
+197 [label="(42682338)write" shape=box style=dashed]
+198 [label="(42682258)None(outfile)" shape=ellipse style=dashed color=red fontcolor=red]
+199 [label="(42682414)nothing(control)" shape=ellipse style=dashed]
+200 [label="(42682346)items" shape=box style=dashed]
+201 [label="(42682434)CreateJoystick.axis_map(axis_map)" shape=ellipse style=dashed]
+202 [label="(42682386)Any(key)" shape=ellipse style=dashed]
+203 [label="(42682293)empty" shape=box style=dashed]
+204 [label="(42682378)For" shape=diamond style=dashed]
+111 -> 1 [label="" style=solid];
+79 -> 1 [label="dep" style=dotted];
+79 -> 1 [label="cond" style=dotted];
+198 -> 3 [label="ref" style=dotted];
+55 -> 3 [label="ref" style=dotted];
+91 -> 4 [label="" style=solid];
+196 -> 4 [label="para" style=dotted];
+72 -> 4 [label="dep" style=dotted];
+72 -> 4 [label="para" style=dotted];
+107 -> 4 [label="dep" style=dotted];
+16 -> 5 [label="ref" style=dotted];
+178 -> 6 [label="def" style=dotted];
+141 -> 7 [label="" style=solid];
+37 -> 7 [label="dep" style=dotted];
+37 -> 7 [label="cond" style=dotted];
+198 -> 8 [label="ref" style=dotted];
+55 -> 8 [label="ref" style=dotted];
+135 -> 9 [label="T"];
+181 -> 9 [label="recv" style=dotted];
+163 -> 9 [label="para" style=dotted];
+57 -> 9 [label="dep" style=dotted];
+204 -> 13 [label="" style=solid];
+184 -> 13 [label="dep" style=dotted];
+184 -> 13 [label="para" style=dotted];
+157 -> 13 [label="dep" style=dotted];
+157 -> 13 [label="para" style=dotted];
+17 -> 14 [label="ref" style=dotted];
+179 -> 15 [label="ref" style=dotted];
+134 -> 16 [label="def" style=dotted];
+158 -> 17 [label="def" style=dotted];
+198 -> 18 [label="ref" style=dotted];
+55 -> 18 [label="ref" style=dotted];
+24 -> 19 [label="" style=solid];
+150 -> 20 [label="ref" style=dotted];
+61 -> 23 [label="ref" style=dotted];
+180 -> 23 [label="ref" style=dotted];
+135 -> 24 [label="T"];
+200 -> 24 [label="dep" style=dotted];
+168 -> 24 [label="cond" style=dotted];
+91 -> 25 [label="" style=solid];
+92 -> 25 [label="recv" style=dotted];
+4 -> 25 [label="dep" style=dotted];
+4 -> 25 [label="para" style=dotted];
+107 -> 25 [label="dep" style=dotted];
+67 -> 26 [label="ref" style=dotted];
+40 -> 28 [label="ref" style=dotted];
+120 -> 29 [label="" style=solid];
+126 -> 29 [label="para" style=dotted];
+68 -> 29 [label="dep" style=dotted];
+86 -> 30 [label="ref" style=dotted];
+112 -> 30 [label="ref" style=dotted];
+98 -> 31 [label="qual" style=dotted];
+141 -> 32 [label="" style=solid];
+22 -> 32 [label="para" style=dotted];
+204 -> 33 [label="" style=solid];
+202 -> 33 [label="para" style=dotted];
+190 -> 33 [label="dep" style=dotted];
+198 -> 34 [label="ref" style=dotted];
+55 -> 34 [label="ref" style=dotted];
+135 -> 36 [label="T"];
+35 -> 36 [label="para" style=dotted];
+101 -> 36 [label="dep" style=dotted];
+141 -> 37 [label="" style=solid];
+44 -> 37 [label="para" style=dotted];
+118 -> 37 [label="para" style=dotted];
+43 -> 37 [label="dep" style=dotted];
+141 -> 38 [label="" style=solid];
+34 -> 38 [label="para" style=dotted];
+12 -> 38 [label="para" style=dotted];
+41 -> 38 [label="dep" style=dotted];
+173 -> 38 [label="dep" style=dotted];
+135 -> 39 [label="T"];
+82 -> 39 [label="recv" style=dotted];
+176 -> 39 [label="dep" style=dotted];
+89 -> 40 [label="def" style=dotted];
+7 -> 41 [label="F"];
+24 -> 42 [label="" style=solid];
+139 -> 42 [label="para" style=dotted];
+115 -> 42 [label="dep" style=dotted];
+115 -> 42 [label="para" style=dotted];
+19 -> 42 [label="dep" style=dotted];
+141 -> 43 [label="" style=solid];
+52 -> 43 [label="para" style=dotted];
+104 -> 43 [label="dep" style=dotted];
+154 -> 44 [label="ref" style=dotted];
+7 -> 45 [label="T"];
+167 -> 45 [label="para" style=dotted];
+164 -> 45 [label="para" style=dotted];
+69 -> 45 [label="dep" style=dotted];
+183 -> 45 [label="dep" style=dotted];
+198 -> 46 [label="ref" style=dotted];
+55 -> 46 [label="ref" style=dotted];
+7 -> 47 [label="T"];
+45 -> 47 [label="dep" style=dotted];
+160 -> 48 [label="T"];
+128 -> 48 [label="dep" style=dotted];
+128 -> 48 [label="para" style=dotted];
+7 -> 49 [label="T"];
+151 -> 50 [label="F"];
+61 -> 51 [label="ref" style=dotted];
+180 -> 51 [label="ref" style=dotted];
+24 -> 53 [label="" style=solid];
+121 -> 53 [label="para" style=dotted];
+19 -> 53 [label="dep" style=dotted];
+198 -> 54 [label="ref" style=dotted];
+55 -> 54 [label="ref" style=dotted];
+48 -> 55 [label="def" style=dotted];
+198 -> 55 [label="re_def" style=dotted color=red];
+1 -> 56 [label="F"];
+135 -> 57 [label="T"];
+172 -> 57 [label="recv" style=dotted];
+88 -> 57 [label="para" style=dotted];
+188 -> 57 [label="dep" style=dotted];
+204 -> 58 [label="" style=solid];
+123 -> 58 [label="recv" style=dotted];
+106 -> 58 [label="dep" style=dotted];
+106 -> 58 [label="para" style=dotted];
+190 -> 58 [label="dep" style=dotted];
+85 -> 59 [label="ref" style=dotted];
+6 -> 60 [label="ref" style=dotted];
+119 -> 61 [label="def" style=dotted];
+198 -> 62 [label="ref" style=dotted];
+55 -> 62 [label="ref" style=dotted];
+24 -> 63 [label="" style=solid];
+15 -> 63 [label="para" style=dotted];
+19 -> 63 [label="dep" style=dotted];
+61 -> 65 [label="ref" style=dotted];
+180 -> 65 [label="ref" style=dotted];
+200 -> 66 [label="def" style=dotted];
+192 -> 67 [label="def" style=dotted];
+120 -> 68 [label="" style=solid];
+95 -> 69 [label="T"];
+103 -> 69 [label="para" style=dotted];
+153 -> 69 [label="dep" style=dotted];
+135 -> 71 [label="T"];
+74 -> 71 [label="recv" style=dotted];
+14 -> 71 [label="para" style=dotted];
+158 -> 71 [label="dep" style=dotted];
+91 -> 72 [label="" style=solid];
+186 -> 72 [label="dep" style=dotted];
+186 -> 72 [label="para" style=dotted];
+195 -> 72 [label="dep" style=dotted];
+195 -> 72 [label="para" style=dotted];
+1 -> 73 [label="F"];
+99 -> 73 [label="para" style=dotted];
+56 -> 73 [label="dep" style=dotted];
+198 -> 74 [label="ref" style=dotted];
+55 -> 74 [label="ref" style=dotted];
+135 -> 75 [label="F"];
+7 -> 76 [label="T"];
+105 -> 76 [label="dep" style=dotted];
+105 -> 76 [label="para" style=dotted];
+169 -> 76 [label="para" style=dotted];
+140 -> 76 [label="dep" style=dotted];
+198 -> 77 [label="ref" style=dotted];
+55 -> 77 [label="ref" style=dotted];
+143 -> 78 [label="ref" style=dotted];
+111 -> 79 [label="" style=solid];
+28 -> 79 [label="para" style=dotted];
+127 -> 79 [label="para" style=dotted];
+89 -> 79 [label="dep" style=dotted];
+31 -> 80 [label="qual" style=dotted];
+135 -> 81 [label="T"];
+130 -> 81 [label="recv" style=dotted];
+64 -> 81 [label="para" style=dotted];
+58 -> 81 [label="dep" style=dotted];
+198 -> 82 [label="ref" style=dotted];
+55 -> 82 [label="ref" style=dotted];
+135 -> 84 [label="T"];
+162 -> 84 [label="recv" style=dotted];
+96 -> 84 [label="para" style=dotted];
+175 -> 84 [label="dep" style=dotted];
+189 -> 85 [label="def" style=dotted];
+69 -> 86 [label="def" style=dotted];
+112 -> 86 [label="re_def" style=dotted color=red];
+154 -> 86 [label="re_def" style=dotted color=red];
+155 -> 87 [label="qual" style=dotted];
+111 -> 89 [label="" style=solid];
+138 -> 89 [label="dep" style=dotted];
+138 -> 89 [label="para" style=dotted];
+6 -> 90 [label="ref" style=dotted];
+135 -> 91 [label="T"];
+90 -> 91 [label="cond" style=dotted];
+9 -> 91 [label="dep" style=dotted];
+198 -> 92 [label="ref" style=dotted];
+55 -> 92 [label="ref" style=dotted];
+24 -> 94 [label="" style=solid];
+53 -> 94 [label="dep" style=dotted];
+53 -> 94 [label="para" style=dotted];
+19 -> 94 [label="dep" style=dotted];
+7 -> 95 [label="T"];
+76 -> 95 [label="dep" style=dotted];
+76 -> 95 [label="cond" style=dotted];
+1 -> 97 [label="T"];
+120 -> 100 [label="" style=solid];
+78 -> 100 [label="para" style=dotted];
+68 -> 100 [label="dep" style=dotted];
+135 -> 101 [label="T"];
+120 -> 102 [label="" style=solid];
+170 -> 102 [label="para" style=dotted];
+159 -> 102 [label="dep" style=dotted];
+159 -> 102 [label="para" style=dotted];
+68 -> 102 [label="dep" style=dotted];
+141 -> 104 [label="" style=solid];
+146 -> 104 [label="para" style=dotted];
+32 -> 104 [label="dep" style=dotted];
+7 -> 105 [label="T"];
+152 -> 105 [label="para" style=dotted];
+140 -> 105 [label="dep" style=dotted];
+204 -> 106 [label="" style=solid];
+125 -> 106 [label="para" style=dotted];
+13 -> 106 [label="dep" style=dotted];
+13 -> 106 [label="para" style=dotted];
+190 -> 106 [label="dep" style=dotted];
+91 -> 107 [label="" style=solid];
+135 -> 108 [label="T"];
+165 -> 108 [label="para" style=dotted];
+119 -> 108 [label="dep" style=dotted];
+151 -> 109 [label="T"];
+27 -> 109 [label="para" style=dotted];
+114 -> 109 [label="dep" style=dotted];
+135 -> 110 [label="T"];
+142 -> 110 [label="para" style=dotted];
+113 -> 110 [label="dep" style=dotted];
+113 -> 110 [label="para" style=dotted];
+81 -> 110 [label="dep" style=dotted];
+160 -> 111 [label="F"];
+140 -> 112 [label="def" style=dotted];
+154 -> 112 [label="re_def" style=dotted color=red];
+135 -> 113 [label="T"];
+166 -> 113 [label="para" style=dotted];
+65 -> 113 [label="para" style=dotted];
+132 -> 113 [label="para" style=dotted];
+81 -> 113 [label="dep" style=dotted];
+151 -> 114 [label="T"];
+24 -> 115 [label="" style=solid];
+94 -> 115 [label="dep" style=dotted];
+94 -> 115 [label="para" style=dotted];
+63 -> 115 [label="dep" style=dotted];
+63 -> 115 [label="para" style=dotted];
+154 -> 116 [label="ref" style=dotted];
+86 -> 116 [label="ref" style=dotted];
+112 -> 116 [label="ref" style=dotted];
+32 -> 117 [label="def" style=dotted];
+135 -> 119 [label="T"];
+36 -> 119 [label="dep" style=dotted];
+36 -> 119 [label="para" style=dotted];
+135 -> 120 [label="T"];
+199 -> 120 [label="cond" style=dotted];
+148 -> 120 [label="dep" style=dotted];
+66 -> 121 [label="ref" style=dotted];
+198 -> 123 [label="ref" style=dotted];
+55 -> 123 [label="ref" style=dotted];
+7 -> 124 [label="T"];
+122 -> 124 [label="para" style=dotted];
+49 -> 124 [label="dep" style=dotted];
+67 -> 126 [label="ref" style=dotted];
+160 -> 128 [label="T"];
+30 -> 128 [label="para" style=dotted];
+11 -> 128 [label="para" style=dotted];
+198 -> 130 [label="ref" style=dotted];
+55 -> 130 [label="ref" style=dotted];
+135 -> 131 [label="T"];
+23 -> 131 [label="para" style=dotted];
+51 -> 131 [label="para" style=dotted];
+109 -> 131 [label="dep" style=dotted];
+50 -> 131 [label="dep" style=dotted];
+61 -> 132 [label="ref" style=dotted];
+180 -> 132 [label="ref" style=dotted];
+73 -> 133 [label="def" style=dotted];
+135 -> 134 [label="T"];
+80 -> 134 [label="recv" style=dotted];
+145 -> 134 [label="dep" style=dotted];
+141 -> 135 [label="" style=solid];
+38 -> 135 [label="dep" style=dotted];
+38 -> 135 [label="cond" style=dotted];
+135 -> 136 [label="T"];
+108 -> 136 [label="dep" style=dotted];
+108 -> 136 [label="para" style=dotted];
+174 -> 136 [label="para" style=dotted];
+119 -> 136 [label="dep" style=dotted];
+87 -> 137 [label="qual" style=dotted];
+111 -> 138 [label="" style=solid];
+129 -> 138 [label="para" style=dotted];
+203 -> 138 [label="dep" style=dotted];
+7 -> 140 [label="T"];
+161 -> 140 [label="dep" style=dotted];
+161 -> 140 [label="para" style=dotted];
+26 -> 143 [label="def" style=dotted];
+75 -> 144 [label="dep" style=dotted];
+182 -> 144 [label="dep" style=dotted];
+135 -> 145 [label="T"];
+62 -> 145 [label="recv" style=dotted];
+187 -> 145 [label="para" style=dotted];
+84 -> 145 [label="dep" style=dotted];
+135 -> 148 [label="T"];
+18 -> 148 [label="recv" style=dotted];
+147 -> 148 [label="para" style=dotted];
+71 -> 148 [label="dep" style=dotted];
+5 -> 150 [label="def" style=dotted];
+135 -> 151 [label="T"];
+136 -> 151 [label="dep" style=dotted];
+136 -> 151 [label="cond" style=dotted];
+112 -> 152 [label="ref" style=dotted];
+95 -> 153 [label="T"];
+104 -> 154 [label="def" style=dotted];
+66 -> 156 [label="ref" style=dotted];
+204 -> 157 [label="" style=solid];
+20 -> 157 [label="para" style=dotted];
+190 -> 157 [label="dep" style=dotted];
+135 -> 158 [label="T"];
+110 -> 158 [label="dep" style=dotted];
+110 -> 158 [label="para" style=dotted];
+120 -> 159 [label="" style=solid];
+29 -> 159 [label="dep" style=dotted];
+29 -> 159 [label="para" style=dotted];
+100 -> 159 [label="dep" style=dotted];
+100 -> 159 [label="para" style=dotted];
+7 -> 160 [label="T"];
+47 -> 160 [label="dep" style=dotted];
+7 -> 161 [label="T"];
+83 -> 161 [label="para" style=dotted];
+124 -> 161 [label="dep" style=dotted];
+198 -> 162 [label="ref" style=dotted];
+55 -> 162 [label="ref" style=dotted];
+86 -> 164 [label="ref" style=dotted];
+112 -> 164 [label="ref" style=dotted];
+61 -> 165 [label="ref" style=dotted];
+61 -> 166 [label="ref" style=dotted];
+180 -> 166 [label="ref" style=dotted];
+179 -> 168 [label="ref" style=dotted];
+150 -> 171 [label="ref" style=dotted];
+198 -> 172 [label="ref" style=dotted];
+55 -> 172 [label="ref" style=dotted];
+7 -> 173 [label="T"];
+73 -> 173 [label="dep" style=dotted];
+48 -> 173 [label="dep" style=dotted];
+24 -> 175 [label="" style=solid];
+46 -> 175 [label="recv" style=dotted];
+42 -> 175 [label="dep" style=dotted];
+42 -> 175 [label="para" style=dotted];
+19 -> 175 [label="dep" style=dotted];
+135 -> 176 [label="T"];
+3 -> 176 [label="recv" style=dotted];
+21 -> 176 [label="para" style=dotted];
+25 -> 176 [label="dep" style=dotted];
+135 -> 177 [label="T"];
+2 -> 177 [label="para" style=dotted];
+131 -> 177 [label="dep" style=dotted];
+131 -> 177 [label="para" style=dotted];
+109 -> 177 [label="dep" style=dotted];
+50 -> 177 [label="dep" style=dotted];
+185 -> 178 [label="ref" style=dotted];
+156 -> 179 [label="def" style=dotted];
+109 -> 180 [label="def" style=dotted];
+61 -> 180 [label="re_def" style=dotted color=red];
+198 -> 181 [label="ref" style=dotted];
+55 -> 181 [label="ref" style=dotted];
+135 -> 182 [label="T"];
+116 -> 182 [label="para" style=dotted];
+93 -> 182 [label="para" style=dotted];
+39 -> 182 [label="dep" style=dotted];
+95 -> 183 [label="F"];
+204 -> 184 [label="" style=solid];
+33 -> 184 [label="dep" style=dotted];
+33 -> 184 [label="para" style=dotted];
+190 -> 184 [label="dep" style=dotted];
+201 -> 185 [label="def" style=dotted];
+91 -> 186 [label="" style=solid];
+191 -> 186 [label="para" style=dotted];
+107 -> 186 [label="dep" style=dotted];
+120 -> 188 [label="" style=solid];
+54 -> 188 [label="recv" style=dotted];
+102 -> 188 [label="dep" style=dotted];
+102 -> 188 [label="para" style=dotted];
+68 -> 188 [label="dep" style=dotted];
+135 -> 189 [label="T"];
+177 -> 189 [label="dep" style=dotted];
+177 -> 189 [label="para" style=dotted];
+204 -> 190 [label="" style=solid];
+185 -> 191 [label="ref" style=dotted];
+10 -> 192 [label="qual" style=dotted];
+1 -> 193 [label="T"];
+97 -> 193 [label="dep" style=dotted];
+135 -> 194 [label="T"];
+77 -> 194 [label="recv" style=dotted];
+149 -> 194 [label="para" style=dotted];
+197 -> 194 [label="dep" style=dotted];
+91 -> 195 [label="" style=solid];
+60 -> 195 [label="para" style=dotted];
+107 -> 195 [label="dep" style=dotted];
+135 -> 197 [label="T"];
+8 -> 197 [label="recv" style=dotted];
+59 -> 197 [label="para" style=dotted];
+189 -> 197 [label="dep" style=dotted];
+43 -> 198 [label="def" style=dotted];
+143 -> 199 [label="ref" style=dotted];
+135 -> 200 [label="T"];
+137 -> 200 [label="recv" style=dotted];
+194 -> 200 [label="dep" style=dotted];
+70 -> 201 [label="qual" style=dotted];
+16 -> 202 [label="ref" style=dotted];
+111 -> 203 [label="" style=solid];
+135 -> 204 [label="T"];
+134 -> 204 [label="dep" style=dotted];
+171 -> 204 [label="cond" style=dotted];
+}

@@ -1,0 +1,99 @@
+digraph G {
+1 [label="(208134189)(null)" shape=ellipse style=dashed]
+2 [label="(208134197)(null)" shape=ellipse style=dashed]
+3 [label="(208134215)Any(data)" shape=ellipse style=dashed color=blue fontcolor=blue]
+4 [label="(208134220)=" shape=box style=dashed]
+5 [label="(208134208)Any(sample_rate)" shape=ellipse style=dashed]
+6 [label="(208134225)Any(wv)" shape=ellipse style=dashed color=red fontcolor=red]
+7 [label="(208134198)=" shape=box style=dashed]
+8 [label="(208134223)Any(data)" shape=ellipse style=dashed]
+9 [label="(208134212)Any(wv)" shape=ellipse style=dashed]
+10 [label="(208134201)wave(wave)" shape=ellipse style=dashed]
+11 [label="(208134224)tostring" shape=box style=dashed]
+12 [label="(208134218)numpy(np)" shape=ellipse style=dashed]
+13 [label="(208134216)Any(data)" shape=ellipse style=dashed]
+14 [label="(208134221)Any(wv)" shape=ellipse style=dashed]
+15 [label="(208134188)Any(data)" shape=ellipse style=dashed]
+16 [label="(208134209)Any(wv)" shape=ellipse style=dashed]
+17 [label="(208134202)open" shape=box style=dashed color=red fontcolor=red]
+18 [label="(208134207)setframerate" shape=box style=dashed]
+19 [label="(208134217)astype" shape=box style=dashed]
+20 [label="(208134192)Any(file_name)" shape=ellipse style=dashed]
+21 [label="(208134211)number(1)" shape=ellipse style=dashed]
+22 [label="(208134196)Any(sample_rate)" shape=ellipse style=dashed]
+23 [label="(208134193)(null)" shape=ellipse style=dashed]
+24 [label="(208134222)writeframes" shape=box style=dashed]
+25 [label="(208134214)number(2)" shape=ellipse style=dashed]
+26 [label="(208134227)END" style=dashed]
+27 [label="(208134187)START" style=dashed]
+28 [label="(208134219)numpy.int16(int16)" shape=ellipse style=dashed]
+29 [label="(208134206)Any(wv)" shape=ellipse style=dashed]
+30 [label="(208134226)close" shape=box style=dashed color=red fontcolor=red]
+31 [label="(208134194)=" shape=box style=dashed]
+32 [label="(208134190)=" shape=box style=dashed]
+33 [label="(208134203)Any(file_name)" shape=ellipse style=dashed]
+34 [label="(208134213)setsampwidth" shape=box style=dashed]
+35 [label="(208134204)String(lit(w))" shape=ellipse style=dashed color=red fontcolor=red]
+36 [label="(208134205)=" shape=box style=dashed color=red fontcolor=red]
+37 [label="(208134210)setnchannels" shape=box style=dashed]
+38 [label="(208134200)Any(wv)" shape=ellipse style=dashed color=red fontcolor=red]
+4 -> 3 [label="def" style=dotted];
+27 -> 4 [label="" style=solid];
+19 -> 4 [label="dep" style=dotted];
+19 -> 4 [label="para" style=dotted];
+38 -> 6 [label="ref" style=dotted];
+27 -> 7 [label="" style=solid];
+2 -> 7 [label="para" style=dotted];
+31 -> 7 [label="dep" style=dotted];
+3 -> 8 [label="ref" style=dotted];
+38 -> 9 [label="ref" style=dotted];
+27 -> 11 [label="" style=solid];
+8 -> 11 [label="recv" style=dotted];
+4 -> 11 [label="dep" style=dotted];
+38 -> 14 [label="ref" style=dotted];
+32 -> 15 [label="def" style=dotted];
+38 -> 16 [label="ref" style=dotted];
+27 -> 17 [label="" style=solid];
+10 -> 17 [label="recv" style=dotted];
+33 -> 17 [label="para" style=dotted];
+35 -> 17 [label="para" style=dotted];
+7 -> 17 [label="dep" style=dotted];
+27 -> 18 [label="" style=solid];
+29 -> 18 [label="recv" style=dotted];
+5 -> 18 [label="para" style=dotted];
+36 -> 18 [label="dep" style=dotted];
+27 -> 19 [label="" style=solid];
+13 -> 19 [label="recv" style=dotted];
+28 -> 19 [label="para" style=dotted];
+34 -> 19 [label="dep" style=dotted];
+31 -> 20 [label="def" style=dotted];
+7 -> 22 [label="def" style=dotted];
+27 -> 24 [label="" style=solid];
+14 -> 24 [label="recv" style=dotted];
+11 -> 24 [label="dep" style=dotted];
+11 -> 24 [label="para" style=dotted];
+4 -> 24 [label="dep" style=dotted];
+30 -> 26 [label="dep" style=dotted];
+12 -> 28 [label="qual" style=dotted];
+38 -> 29 [label="ref" style=dotted];
+27 -> 30 [label="" style=solid];
+6 -> 30 [label="recv" style=dotted];
+24 -> 30 [label="dep" style=dotted];
+27 -> 31 [label="" style=solid];
+23 -> 31 [label="para" style=dotted];
+32 -> 31 [label="dep" style=dotted];
+27 -> 32 [label="" style=solid];
+1 -> 32 [label="para" style=dotted];
+27 -> 34 [label="" style=solid];
+9 -> 34 [label="recv" style=dotted];
+25 -> 34 [label="para" style=dotted];
+37 -> 34 [label="dep" style=dotted];
+27 -> 36 [label="" style=solid];
+17 -> 36 [label="dep" style=dotted];
+17 -> 36 [label="para" style=dotted];
+27 -> 37 [label="" style=solid];
+16 -> 37 [label="recv" style=dotted];
+21 -> 37 [label="para" style=dotted];
+18 -> 37 [label="dep" style=dotted];
+36 -> 38 [label="def" style=dotted];
+}

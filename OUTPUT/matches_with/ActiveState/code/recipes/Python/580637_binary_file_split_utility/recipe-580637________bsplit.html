@@ -1,0 +1,99 @@
+<link rel="stylesheet" href="../../../../..//default.css">
+<script src="../../../../..//highlight.pack.js"></script> 
+<script>hljs.initHighlightingOnLoad();</script>
+<html><pre><code class='java'>
+<a href="https://github.com/ActiveState/code/blob/master/recipes/Python/580637_binary_file_split_utility/recipe-580637.py#L17">GitHubLink</a>
+
+
+<a href="https://github.com/maldil/code/blob/master/recipes/Python/580637_binary_file_split_utility/recipe-580637.py#L17">GitMyHubLink</a>
+
+import sys
+import os
+
+OUTFIL_PREFIX = "out_"
+
+def error_exit(message, code=1):
+    sys.stderr.write("Error:\n{}".format(str(message)))
+    sys.exit(code)
+
+def err_write(message):
+    sys.stderr.write(message)
+
+def make_out_filename(prefix, idx):
+    &quot&quot&quotMake a filename with a serial number suffix.&quot&quot&quot
+    return prefix + str(idx).zfill(4)
+
+def bsplit(<a id="change">in_filename</a>, <a id="change">bytes_per_file</a>):
+    &quot&quot&quotSplit the input file in_filename into output files of 
+    bytes_per_file bytes each. Last file may have less bytes.&quot&quot&quot
+
+    <a id="change">in_fil = open(in_filename, "rb")</a>
+    <a id="change">outfil_idx = 1</a>
+    <a id="change">out_filename = make_out_filename(OUTFIL_PREFIX, outfil_idx)</a>
+    <a id="change">out_fil = open(out_filename, "wb")</a>
+
+    <a id="change">byte_count = tot_byte_count = file_count = 0</a>
+    <a id="change">c = in_fil.read(1)</a>
+
+    &#47&#47 Loop over the input and split it into multiple files 
+    &#47&#47 of bytes_per_file bytes each (except possibly for the 
+    &#47&#47 last file, which may have less bytes.
+    while c != &quot&quot:
+        byte_count += 1
+        out_fil.write(c)
+        &#47&#47 Bump vars; change to next output file.
+        if byte_count &gt;= bytes_per_file:
+            tot_byte_count += byte_count
+            <a id="change">byte_count = 0</a>
+            file_count += 1
+            <a id="change">out_fil</a><a id="change">.close()</a>
+            outfil_idx += 1
+            <a id="change">out_filename = make_out_filename(OUTFIL_PREFIX, outfil_idx)</a>
+            <a id="change">out_fil</a><a id="change"> = open(out_filename, "wb")</a>
+        <a id="change">c = in_fil.read(1)</a>
+    &#47&#47 Clean up.
+    <a id="change">in_fil</a><a id="change">.close()</a>
+    if not out_fil.closed:
+        <a id="change">out_fil</a><a id="change">.close()</a>
+    if byte_count == 0:
+        os.remove(out_filename)
+        
+def usage():
+    err_write(
+    "Usage: [ python ] {} in_filename bytes_per_file\n".format(
+        sys.argv[0]))
+    err_write(
+    "splits in_filename into files with bytes_per_file bytes\n".format(
+        sys.argv[0]))
+
+def main():
+
+    if len(sys.argv) != 3:
+        usage()
+        sys.exit(1)
+
+    try:
+        &#47&#47 Do some checks on arguments.
+        in_filename = sys.argv[1]
+        if not os.path.exists(in_filename):
+            error_exit(
+            "Input file &quot{}&quot not found.\n".format(in_filename))
+        if os.path.getsize(in_filename) == 0:
+            error_exit(
+            "Input file &quot{}&quot has no data.\n".format(in_filename))
+        bytes_per_file = int(sys.argv[2])
+        if bytes_per_file &lt;= 0:
+            error_exit(
+            "bytes_per_file cannot be less than or equal to 0.\n")
+        &#47&#47 If all checks pass, split the file.
+        bsplit(in_filename, bytes_per_file) 
+    except ValueError as ve:
+        error_exit(str(ve))
+    except IOError as ioe:
+        error_exit(str(ioe))
+    except Exception as e:
+        error_exit(str(e))
+
+if __name__ == &quot__main__&quot:
+    main()
+</code></pre>
