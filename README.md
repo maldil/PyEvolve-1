@@ -34,7 +34,7 @@ After completing the above steps, run `./gradlew` build from the root directory 
 
 # API usage guidelines
 ## Using PyEvolve to identify code usages
-We use the [PatternTest](https://github.com/pythonInfer/PatternTest) to identify two different usages of the following pattern
+In this example, we identify two usages of the following pattern in the project [PatternTest](https://github.com/pythonInfer/PatternTest)
 
 Pattern : 
 ```python
