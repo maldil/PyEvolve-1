@@ -45,14 +45,14 @@ Pattern :
 for :[[l2]] in :[l3]: 
    :[[l1]]=:[[l1]]+:[[l2]]
 ```   
-
-1. Execute the script [type_infer.py](https://github.com/pythonInfer/PyEvolve/blob/master/type_infer.py) to infer type information of the project [PatternTest](https://github.com/pythonInfer/PatternTest)
-2. Execute the following code to get all the usages of the Pattern
+1. Clone the project [PatternTest](https://github.com/pythonInfer/PatternTest) to the directory "pythonInfer"
+2. Execute the script [type_infer.py](https://github.com/pythonInfer/PyEvolve/blob/master/type_infer.py) to infer type information of the project [PatternTest](https://github.com/pythonInfer/PatternTest)
+3. Execute the following code to get all the usages of the Pattern
 ```java
 import com.utils.Utils;
 import org.junit.jupiter.api.Test;
 
-import static com.matching.fgpdg.Configurations.PROJECT_REPOSITORY;
+import static com.matching.fgpdg.Configurations.PROJECT_REPOSITORY;  // This must be set to root directory of the folder pythonInfer
 
 
 public class DetectPattern {
