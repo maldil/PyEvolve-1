@@ -66,7 +66,7 @@ public class DetectPattern {
                 ":[[l1]] = 0\n" +
                 "for :[[l2]] in :[l3]:\n" +
                 "   :[[l1]]=:[[l1]]+:[[l2]]";
-        String outPath = "./OUTPUT/"; //https://github.com/maldil/MLEditsTest.git
+        String outPath = "./OUTPUT/"; 
         String projectPath =  PROJECT_REPOSITORY +"pythonInfer/PatternTest";
         System.out.println(pattern);
         Utils.processProjectForPattern(projectPath,pattern,outPath);
