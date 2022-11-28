@@ -52,7 +52,7 @@ for :[[l2]] in :[l3]:
 import com.utils.Utils;
 import org.junit.jupiter.api.Test;
 
-import static com.matching.fgpdg.Configurations.PROJECT_REPOSITORY;  // This must be set to root directory of the folder pythonInfer
+import static com.matching.fgpdg.Configurations.PROJECT_REPOSITORY;  // This must be set to root directory of the folder "pythonInfer"
 
 
 public class DetectPattern {
