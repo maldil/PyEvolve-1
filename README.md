@@ -33,6 +33,51 @@ To have a fully built PyEvolve, you have to install the following components.
 After completing the above steps, run `./gradlew` build from the root directory to build the project. This will build the project and execute the test cases. If you want to build the project without running the tests, use the command `./gradlew build -x test`.
 
 # API usage guidelines
+## Using PyEvolve to identify code usages
+We use the [PatternTest](https://github.com/pythonInfer/PatternTest) to identify two different usages of the following pattern
+
+Pattern : 
+```python
+# type :[l3] : List[int]\n" 
+# type :[[l1]] : int" 
+# type :[[l2]] : int" 
+:[[l1]] = 0" 
+for :[[l2]] in :[l3]: 
+   :[[l1]]=:[[l1]]+:[[l2]]
+```   
+
+1. Execute the script [type_infer.py](https://github.com/pythonInfer/PyEvolve/blob/master/type_infer.py) to infer type information of the project [PatternTest](https://github.com/pythonInfer/PatternTest)
+2. Execute the following code to get all the usages of the Pattern
+```java
+import com.utils.Utils;
+import org.junit.jupiter.api.Test;
+
+import static com.matching.fgpdg.Configurations.PROJECT_REPOSITORY;
+
+
+public class DetectPattern {
+
+    @Test
+    void testPattern() throws Exception {
+        String pattern = "# type number : Any\n" +
+                "# type :[l3] : List[int]\n" +
+                "# type :[[l1]] : int\n" +
+                "# type :[[l2]] : int\n" +
+                ":[[l1]] = 0\n" +
+                "for :[[l2]] in :[l3]:\n" +
+                "   :[[l1]]=:[[l1]]+:[[l2]]";
+        String outPath = "./OUTPUT/"; //https://github.com/maldil/MLEditsTest.git
+        String projectPath =  PROJECT_REPOSITORY +"pythonInfer/PatternTest";
+        System.out.println(pattern);
+        Utils.processProjectForPattern(projectPath,pattern,outPath);
+    }
+}
+```
+
+
+
+
+## Using PyEvolve for automation
 We will discuss the APIs that can be used for code automation, using the following code example.
 
 The following is a best code evolution practice discovered by [R-CPATMiner](https://github.com/maldil/R-CPATMiner).
