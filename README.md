@@ -29,6 +29,7 @@ PyEvolve automates the frequently repeated code changes in Python systems. This 
 To have a fully built PyEvolve, you have to install the following components.
 - We use [RulePharser](https://github.com/maldil/RulePharser) to generate an AST for Comby templates that includes both Python and Comby syntaxes. Follow the steps in [RulePharser](https://github.com/maldil/RulePharser) to build it locally and add it to your local maven repository.  
 - We use [ComBy](https://comby.dev/docs/get-started#install) as a backend tool to rewrite code. Please follow the steps in their [documentation](https://comby.dev/docs/get-started#install) to install it on your PC.
+- We use [wala.ml](https://github.com/wala/ML). To install it, follow the instructions on [wala.ml](https://github.com/wala/ML). 
 
 After completing the above steps, run `./gradlew` build from the root directory to build the project. This will build the project and execute the test cases. If you want to build the project without running the tests, use the command `./gradlew build -x test`.
 
