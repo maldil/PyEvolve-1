@@ -45,10 +45,14 @@ Pattern :
 :[[l1]] = 0" 
 for :[[l2]] in :[l3]: 
    :[[l1]]=:[[l1]]+:[[l2]]
-```   
-1. Clone the project [PatternTest](https://github.com/pythonInfer/PatternTest) to the directory "pythonInfer"
-2. Execute the script [type_infer.py](https://github.com/pythonInfer/PyEvolve/blob/master/type_infer.py) to infer type information of the project [PatternTest](https://github.com/pythonInfer/PatternTest)
-3. Execute the following code to get all the usages of the Pattern
+```  
+1. Clone the project [PyEvolve](https://github.com/pythonInfer/PyEvolve.git)
+1. Update `Configurations.PROJECT_REPOSITORY` and `Configurations.TYPE_REPOSITORY` configurations with valid paths. 
+2. Clone the project [PatternTest](https://github.com/pythonInfer/PatternTest) to the directory `Configurations.PROJECT_REPOSITORY + "/pythonInfer/"`
+3. Execute the script [type_infer.py](https://github.com/pythonInfer/PyEvolve/blob/master/type_infer.py) to infer type information of the project [PatternTest](https://github.com/pythonInfer/PatternTest)
+4. Copy the generated `json` files into the folder `Configurations.TYPE_REPOSITORY + "/pythonInfer/PatternTest/"`
+5. Execute the following code to get all the usages of the Pattern
+
 ```java
 import com.utils.Utils;
 import org.junit.jupiter.api.Test;
@@ -61,7 +65,7 @@ public class DetectPattern {
     @Test
     void testPattern() throws Exception {
         String pattern = "# type number : Any\n" +
-                "# type :[l3] : List[int]\n" +
+                "# type :[l3] : List[int]" +
                 "# type :[[l1]] : int\n" +
                 "# type :[[l2]] : int\n" +
                 ":[[l1]] = 0\n" +
