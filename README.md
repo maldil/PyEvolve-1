@@ -39,7 +39,7 @@ In this example, we identify two usages of the following pattern in the project 
 
 Pattern : 
 ```python
-# type :[l3] : List[int]\n" 
+# type :[l3] : List[int]" 
 # type :[[l1]] : int" 
 # type :[[l2]] : int" 
 :[[l1]] = 0" 
@@ -65,7 +65,7 @@ public class DetectPattern {
     @Test
     void testPattern() throws Exception {
         String pattern = "# type number : Any\n" +
-                "# type :[l3] : List[int]" +
+                "# type :[l3] : List[int]\n" +
                 "# type :[[l1]] : int\n" +
                 "# type :[[l2]] : int\n" +
                 ":[[l1]] = 0\n" +
