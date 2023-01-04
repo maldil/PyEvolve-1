@@ -79,6 +79,21 @@ public class DetectPattern {
 }
 ```
 
+## Using PyEvolve for transplanting a rule
+PyEvolve can assist you if you have a rule encoded in ComBy syntax and want to  transplant it to a Python file.
+
+```java
+void transplantPatternToFile() {
+     Configurations.TYPE_REPOSITORY = ""; // this should the path to your type repository 
+     Configurations.PROJECT_REPOSITORY = "" // this should be the path to your projects repository 
+     String projectFile = ""; // this should be the path to your file, this path should be the relative path to Configurations.PROJECT_REPOSITORY
+     String LHS = ""; // path to the LHS of the rule file
+     String RHS = "";  // path to the RHS of the rule file
+     String adaptedFile = MainAdaptor.transplantPatternToFile(projectFile, LHS, RHS);   // adaptedFile is the adapted file
+}
+```
+
+
 
 
 
