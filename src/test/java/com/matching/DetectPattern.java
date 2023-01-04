@@ -9,16 +9,17 @@ public class DetectPattern {
 
     @Test
     void testPattern() throws Exception {
-        String pattern = "# type number : Any\n" +
-                "# type :[l3] : List[int]\n" +
-                "# type :[[l1]] : int\n" +
-                "# type :[[l2]] : int\n" +
-                ":[[l1]] = 0\n" +
+        String pattern = "# import numpy as np\n" +
+                "# type :[[l2]] : Any\n" +
+                "# type :[[l1]] : Any\n" +
+                "# type :[l3] : Any\n" +
+                "# type :[l4] : Any\n" +
                 "for :[[l2]] in :[l3]:\n" +
-                "   :[[l1]]=:[[l1]]+:[[l2]]";
+                "    for :[[l1]] in :[l4]:\n" +
+                "        break\n";
         String outPath = "./OUTPUT/"; //https://github.com/maldil/MLEditsTest.git
         String projectPath =  PROJECT_REPOSITORY +"pythonInfer/PatternTest";
         System.out.println(pattern);
-        Utils.processProjectForPattern(projectPath,pattern,outPath);
+        Utils.searchProjectForPatterns(projectPath,pattern,outPath);
     }
 }

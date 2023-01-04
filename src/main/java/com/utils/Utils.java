@@ -7,12 +7,14 @@ import com.matching.fgpdg.nodes.PDGActionNode;
 import com.matching.fgpdg.nodes.PDGDataNode;
 import com.matching.fgpdg.nodes.PDGNode;
 import com.matching.fgpdg.nodes.TypeInfo.TypeWrapper;
+import io.vavr.control.Try;
 import org.apache.commons.io.IOUtils;
 import org.python.antlr.Visitor;
 import org.python.antlr.ast.*;
 import org.python.antlr.ast.Module;
 import org.python.antlr.base.expr;
 import org.python.antlr.base.stmt;
+import org.w3c.dom.ls.LSOutput;
 
 import java.io.*;
 import java.util.*;
@@ -20,9 +22,6 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 public class Utils {
-
-
-
     static class Interval
     {
         int start;
@@ -82,10 +81,11 @@ public class Utils {
 //
 //    }
 
-    public static void markNodesInCode(String code, List<MatchedNode> pdgs,String fileName, String stylefile,String link) throws IOException {
+    public static void markNodesInCode(String code, List<MatchedNode> pdgs,String fileName, String stylefile,String link) {
         if(new File(code).exists())
         {
-            code = getFileContent(code);
+            String finalCode = code;
+            code = Try.of(() -> getFileContent(finalCode)).onFailure(System.err::println).get();
         }
 
         List<Interval> duration = new ArrayList<>();
@@ -313,7 +313,7 @@ public class Utils {
         }
     }
 
-    public static void processProjectForPattern(String projectPath, String pattern, String outputPath) throws Exception {
+    public static void searchProjectForPatterns(String projectPath, String pattern, String outputPath) throws Exception {
         File dir = new File(projectPath);
         if (dir.listFiles()==null){
             System.out.println("empty directory");
@@ -394,6 +394,11 @@ public class Utils {
                 }
             }
         }
+    }
+
+    public static Try<Module> getPythonModuleForTemplate(String fileName) {
+        ConcreatePythonParser parser = new ConcreatePythonParser();
+        return Try.of(()->parser.parseTemplates(FileIO.readStringFromFile(fileName)));
     }
 
 }
