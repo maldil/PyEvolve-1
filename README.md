@@ -93,10 +93,6 @@ void transplantPatternToFile() {
 }
 ```
 
-
-
-
-
 ## Using PyEvolve for automation
 We will discuss the APIs that can be used for code automation, using the following code example.
 
