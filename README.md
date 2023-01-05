@@ -80,6 +80,7 @@ public class DetectPattern {
 ```
 
 ## Using PyEvolve for transplanting a rule
+### To a file
 PyEvolve can assist you if you have a rule encoded in ComBy syntax and want to  transplant it to a Python file.
 
 ```java
@@ -92,6 +93,24 @@ void transplantPatternToFile() {
      String adaptedFile = MainAdaptor.transplantPatternToFile(projectFile, LHS, RHS);   // adaptedFile is the adapted file
 }
 ```
+### To a function
+PyEvolve can assist you if you have a rule encoded in ComBy syntax and want to  transplant it to a perticular Python function.
+```java
+    void transplantPatternToFunction() {
+        Configurations.TYPE_REPOSITORY = ""; // this should the path to your type repository 
+        Configurations.PROJECT_REPOSITORY = "" // this should be the path to your projects repository 
+        String projectFile = " "; // this should be the path to your file, this path should be the relative path to Configurations.PROJECT_REPOSITOR
+        String LHS = ""; // path to the LHS of the rule file
+        String RHS = "";  // path to the RHS of the rule file
+        Module codeModule = com.utils.Utils.getPythonModule(projectFile);
+        stmt stmt = codeModule.getInternalBody().get(i); // i must be the statment number of the function.   
+        List<org.python.antlr.base.stmt> imports = codeModule.getInternalBody().stream().filter(x -> x instanceof Import
+                || x instanceof ImportFrom).collect(Collectors.toList());
+        String adaptedFunction = MainAdaptor.transplantPatternToFunction(projectFile, (FunctionDef) stmt,imports,LHS, RHS);
+    }
+```
+
+
 
 ## Using PyEvolve for automation
 We will discuss the APIs that can be used for code automation, using the following code example.
